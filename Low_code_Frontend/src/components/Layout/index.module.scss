@@ -1,0 +1,52 @@
+// 使用 CSS 变量，不需要导入 SCSS 变量
+
+.layout {
+  min-height: 100vh;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-primary) !important;
+  padding: 0 24px;
+  height: 64px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px var(--shadow-sm);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  border-bottom: 1px solid var(--border-secondary);
+  
+  :global(.ant-dropdown-menu) {
+    background: var(--bg-primary);
+    border-color: var(--border-secondary);
+    
+    :global(.ant-dropdown-menu-item) {
+      color: var(--text-primary);
+      
+      &:hover {
+        background: var(--bg-secondary);
+      }
+    }
+  }
+}
+
+.logo {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--primary);
+}
+
+.username {
+  color: var(--text-secondary);
+}
+
+.content {
+  padding: 0;
+  background: var(--bg-tertiary);
+  transition: background-color 0.3s ease;
+  height: calc(100vh - 64px); // 减去 Header 高度
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+

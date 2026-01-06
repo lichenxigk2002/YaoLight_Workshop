@@ -1,0 +1,54 @@
+// 使用 CSS 变量，不需要导入 SCSS 变量
+
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  
+  [data-theme='dark'] & {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  }
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 10px 40px var(--shadow-lg);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  
+  :global(.ant-card-head) {
+    text-align: center;
+    border-bottom: 1px solid var(--border-secondary);
+  }
+  
+  :global(.ant-card-head-title) {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--primary);
+  }
+  
+  :global(.ant-tabs) {
+    margin-top: 20px;
+  }
+  
+  :global(.ant-form-item) {
+    margin-bottom: 20px;
+  }
+  
+  :global(.ant-input-affix-wrapper),
+  :global(.ant-input-password) {
+    border-radius: 4px;
+  }
+  
+  :global(.ant-btn) {
+    border-radius: 4px;
+    height: 40px;
+    font-size: 16px;
+  }
+}
+

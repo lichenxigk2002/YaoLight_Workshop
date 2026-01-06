@@ -1,0 +1,104 @@
+// 主题变量定义
+
+// 亮色主题
+$light-theme: (
+  // 背景色
+  'bg-primary': #ffffff,
+  'bg-secondary': #f5f5f5,
+  'bg-tertiary': #f0f2f5,
+
+  // 文字颜色
+  'text-primary': #000000,
+  'text-secondary': #333333,
+  'text-tertiary': #666666,
+  'text-disabled': #999999,
+
+  // 边框颜色
+  'border-primary': #d9d9d9,
+  'border-secondary': #e8e8e8,
+
+  // 阴影
+  'shadow-sm': rgba(0, 0, 0, 0.1),
+  'shadow-md': rgba(0, 0, 0, 0.15),
+  'shadow-lg': rgba(0, 0, 0, 0.2),
+
+  // 主色调
+  'primary': #1890ff,
+  'primary-hover': #40a9ff,
+  'primary-active': #096dd9,
+
+  // 成功/警告/错误
+  'success': #52c41a,
+  'warning': #faad14,
+  'error': #ff4d4f,
+
+  // 节点颜色
+  'node-bg': #ffffff,
+  'node-border': #d9d9d9,
+  'node-selected': #1890ff,
+);
+
+// 暗色主题
+$dark-theme: (
+  // 背景色
+  'bg-primary': #141414,
+  'bg-secondary': #1f1f1f,
+  'bg-tertiary': #262626,
+
+  // 文字颜色
+  'text-primary': #ffffff,
+  'text-secondary': #d9d9d9,
+  'text-tertiary': #bfbfbf,
+  'text-disabled': #8c8c8c,
+
+  // 边框颜色
+  'border-primary': #434343,
+  'border-secondary': #303030,
+
+  // 阴影
+  'shadow-sm': rgba(0, 0, 0, 0.3),
+  'shadow-md': rgba(0, 0, 0, 0.4),
+  'shadow-lg': rgba(0, 0, 0, 0.5),
+
+  // 主色调
+  'primary': #1890ff,
+  'primary-hover': #40a9ff,
+  'primary-active': #096dd9,
+
+  // 成功/警告/错误
+  'success': #52c41a,
+  'warning': #faad14,
+  'error': #ff4d4f,
+
+  // 节点颜色
+  'node-bg': #1f1f1f,
+  'node-border': #434343,
+  'node-selected': #1890ff,
+);
+
+// 主题映射
+$themes: (
+  'light': $light-theme,
+  'dark': $dark-theme,
+);
+
+// 获取主题颜色函数
+@function theme-color($key) {
+  $theme-map: map-get($themes, 'light');
+
+  @if (str-index($key, 'dark-')==1) {
+    $theme-map: map-get($themes, 'dark');
+    $key: str-slice($key, 6);
+  }
+
+  @return map-get($theme-map, $key);
+}
+
+// Mixin: 应用主题
+@mixin theme($theme-name: 'light') {
+  $theme-map: map-get($themes, $theme-name);
+
+  @each $key, $value in $theme-map {
+    --#{$key}: #{$value};
+  }
+}

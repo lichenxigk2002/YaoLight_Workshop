@@ -1,0 +1,173 @@
+// 主题入口文件
+@import './_variables';
+
+// 默认应用亮色主题
+:root {
+  @include theme('light');
+}
+
+// 暗色主题类
+[data-theme='dark'] {
+  @include theme('dark');
+}
+
+// 全局样式重置
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+// Ant Design 组件主题适配
+.ant-card {
+  background: var(--bg-primary);
+  border-color: var(--border-secondary);
+  color: var(--text-primary);
+
+  .ant-card-head {
+    background: var(--bg-primary);
+    border-bottom-color: var(--border-secondary);
+
+    .ant-card-head-title {
+      color: var(--text-primary);
+    }
+  }
+
+  .ant-card-body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+}
+
+.ant-table {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  .ant-table-thead>tr>th {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-bottom-color: var(--border-primary);
+  }
+
+  .ant-table-tbody>tr>td {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-bottom-color: var(--border-secondary);
+  }
+
+  .ant-table-tbody>tr:hover>td {
+    background: var(--bg-secondary);
+  }
+}
+
+.ant-modal {
+  .ant-modal-content {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  .ant-modal-header {
+    background: var(--bg-primary);
+    border-bottom-color: var(--border-secondary);
+
+    .ant-modal-title {
+      color: var(--text-primary);
+    }
+  }
+
+  .ant-modal-body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  .ant-modal-footer {
+    background: var(--bg-primary);
+    border-top-color: var(--border-secondary);
+  }
+}
+
+.ant-breadcrumb {
+  .ant-breadcrumb-link {
+    color: var(--text-secondary);
+
+    a {
+      color: var(--primary);
+
+      &:hover {
+        color: var(--primary-hover);
+      }
+    }
+  }
+
+  .ant-breadcrumb-separator {
+    color: var(--text-tertiary);
+  }
+}
+
+.ant-dropdown-menu {
+  background: var(--bg-primary);
+  border-color: var(--border-secondary);
+
+  .ant-dropdown-menu-item {
+    color: var(--text-primary);
+
+    &:hover {
+      background: var(--bg-secondary);
+    }
+  }
+}
+
+.ant-pagination {
+  .ant-pagination-item {
+    background: var(--bg-primary);
+    border-color: var(--border-primary);
+
+    a {
+      color: var(--text-primary);
+    }
+
+    &:hover {
+      border-color: var(--primary);
+
+      a {
+        color: var(--primary);
+      }
+    }
+  }
+
+  .ant-pagination-item-active {
+    background: var(--primary);
+    border-color: var(--primary);
+
+    a {
+      color: #ffffff;
+    }
+  }
+
+  .ant-pagination-prev,
+  .ant-pagination-next {
+    .anticon {
+      color: var(--text-primary);
+    }
+
+    &:hover .anticon {
+      color: var(--primary);
+    }
+  }
+}

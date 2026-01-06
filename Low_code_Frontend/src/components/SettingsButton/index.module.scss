@@ -1,0 +1,103 @@
+.settingsButton {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.button {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px var(--shadow-md);
+  transition: all 0.3s ease;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  
+  .anticon {
+    font-size: 20px;
+    color: var(--text-primary);
+  }
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-lg);
+    border-color: var(--primary);
+    
+    .anticon {
+      animation: rotate 1s linear infinite;
+      color: var(--primary);
+    }
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.popover {
+  .ant-popover-inner {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-secondary);
+  }
+  
+  .ant-popover-title {
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-secondary);
+    color: var(--text-primary);
+  }
+  
+  .ant-popover-inner-content {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+}
+
+.popoverContent {
+  min-width: 220px;
+}
+
+.menuItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+  
+  &:not(:last-child) {
+    border-bottom: 1px solid var(--border-secondary);
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+  }
+  
+  &:hover {
+    padding-left: 4px;
+  }
+  
+  span {
+    color: var(--text-primary);
+    font-size: 14px;
+  }
+  
+  .anticon {
+    color: var(--primary);
+    font-size: 16px;
+  }
+}
+

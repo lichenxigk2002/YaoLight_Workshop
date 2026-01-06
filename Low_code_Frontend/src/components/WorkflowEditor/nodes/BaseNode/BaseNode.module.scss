@@ -1,0 +1,81 @@
+.baseNode {
+  position: relative;
+  border: none !important;
+  outline: none !important;
+
+  &.selected {
+    z-index: 10;
+  }
+}
+
+.nodeCard {
+  min-width: 150px;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  background: var(--bg-primary) !important;
+
+  :global(.ant-card-head) {
+    display: none !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    border-bottom: none !important;
+  }
+
+  :global(.ant-card-body) {
+    border-radius: 8px !important;
+    padding: 12px !important;
+  }
+
+  // 确保所有圆角统一
+  &,
+  :global(.ant-card-body) {
+    border-top-left-radius: 8px !important;
+    border-top-right-radius: 8px !important;
+    border-bottom-left-radius: 8px !important;
+    border-bottom-right-radius: 8px !important;
+  }
+}
+
+.nodeHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.nodeIcon {
+  font-size: 20px;
+}
+
+.nodeContent {
+  margin-top: 8px;
+}
+
+.nodeTitle {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  transition: color 0.3s ease;
+}
+
+.handle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+  background: var(--primary);
+}
+
+.nodeInfo {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  transition: color 0.3s ease;
+}
+
+.nodeInfoItem {
+  margin-top: 4px;
+  word-break: break-all;
+}

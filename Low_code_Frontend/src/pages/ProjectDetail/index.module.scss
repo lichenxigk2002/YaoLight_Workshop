@@ -1,0 +1,125 @@
+.container {
+  padding: 0;
+
+  // Card 样式
+  :global(.ant-card) {
+    box-shadow: 0 2px 8px var(--shadow-sm);
+    background: var(--bg-primary);
+    border-color: var(--border-secondary);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+
+    :global(.ant-card-head) {
+      background: var(--bg-primary);
+      border-bottom-color: var(--border-secondary);
+    }
+
+    :global(.ant-card-head-title) {
+      color: var(--text-primary);
+    }
+
+    :global(.ant-card-body) {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+    }
+  }
+
+  // Table 样式
+  :global(.ant-table) {
+    margin-top: 16px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+
+    :global(.ant-table-thead > tr > th) {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border-bottom-color: var(--border-primary);
+    }
+
+    :global(.ant-table-tbody > tr > td) {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border-bottom-color: var(--border-secondary);
+    }
+
+    :global(.ant-table-tbody > tr:hover > td) {
+      background: var(--bg-secondary);
+    }
+
+    :global(.ant-table-tbody > tr.ant-table-row-selected > td) {
+      background: var(--bg-secondary);
+    }
+  }
+
+  // Breadcrumb 样式
+  :global(.ant-breadcrumb) {
+    :global(.ant-breadcrumb-link) {
+      color: var(--text-secondary);
+
+      a {
+        color: var(--primary);
+
+        &:hover {
+          color: var(--primary-hover);
+        }
+      }
+    }
+
+    :global(.ant-breadcrumb-separator) {
+      color: var(--text-tertiary);
+    }
+  }
+
+  // Button 链接样式
+  :global(.ant-btn-link) {
+    color: var(--primary);
+
+    &:hover {
+      color: var(--primary-hover);
+    }
+  }
+
+  // Tag 样式
+  :global(.ant-tag) {
+    border-color: var(--border-primary);
+  }
+
+  // Pagination 样式
+  :global(.ant-pagination) {
+    :global(.ant-pagination-item) {
+      background: var(--bg-primary);
+      border-color: var(--border-primary);
+
+      a {
+        color: var(--text-primary);
+      }
+
+      &:hover {
+        border-color: var(--primary);
+
+        a {
+          color: var(--primary);
+        }
+      }
+    }
+
+    :global(.ant-pagination-item-active) {
+      background: var(--primary);
+      border-color: var(--primary);
+
+      a {
+        color: #ffffff;
+      }
+    }
+
+    :global(.ant-pagination-prev),
+    :global(.ant-pagination-next) {
+      .anticon {
+        color: var(--text-primary);
+      }
+
+      &:hover .anticon {
+        color: var(--primary);
+      }
+    }
+  }
+}
