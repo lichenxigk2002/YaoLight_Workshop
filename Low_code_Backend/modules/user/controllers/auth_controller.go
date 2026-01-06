@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"workflow-management-system/backend/infrastructure/database"
-	"workflow-management-system/backend/modules/user/repositories"
-	"workflow-management-system/backend/modules/user/services"
+	"yaolight-workshop/backend/infrastructure/database"
+	"yaolight-workshop/backend/modules/user/repositories"
+	"yaolight-workshop/backend/modules/user/services"
 )
 
 // AuthController 认证控制器
@@ -164,5 +164,243 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 		"code":    200,
 		"message": "获取成功",
 		"data":    user,
+	})
+}
+
+// SendVerificationCode 发送邮箱验证码
+// @Summary 发送邮箱验证码
+// @Description 向指定邮箱发送登录验证码
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body services.SendCodeRequest true "邮箱"
+// @Success 200 {object} map[string]interface{} "发送成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 429 {object} map[string]interface{} "发送太频繁"
+// @Router /api/auth/send-code [post]
+func (c *AuthController) SendVerificationCode(ctx *gin.Context) {
+	var req services.SendCodeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "请求参数错误: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	err := c.authService.SendVerificationCode(&req)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		code := 500
+		message := err.Error()
+
+		// 根据错误类型返回不同状态码
+		if err == services.ErrSendTooFrequent {
+			statusCode = http.StatusTooManyRequests
+			code = 429
+		}
+
+		ctx.JSON(statusCode, gin.H{
+			"code":    code,
+			"message": message,
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "验证码已发送，请查收邮件",
+		"data":    nil,
+	})
+}
+
+// EmailLogin 邮箱验证码登录
+// @Summary 邮箱验证码登录
+// @Description 使用邮箱和验证码登录
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body services.EmailLoginRequest true "邮箱和验证码"
+// @Success 200 {object} map[string]interface{} "登录成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 401 {object} map[string]interface{} "验证码错误"
+// @Router /api/auth/email-login [post]
+func (c *AuthController) EmailLogin(ctx *gin.Context) {
+	var req services.EmailLoginRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "请求参数错误: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	response, err := c.authService.EmailLogin(&req)
+	if err != nil {
+		statusCode := http.StatusUnauthorized
+		code := 401
+		message := "验证码错误或已过期"
+
+		if err == services.ErrUserNotFound {
+			message = "该邮箱未注册"
+		} else if err == services.ErrInvalidCode {
+			message = "验证码错误或已过期"
+		}
+
+		ctx.JSON(statusCode, gin.H{
+			"code":    code,
+			"message": message,
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "登录成功",
+		"data":    response,
+	})
+}
+
+// SendRegisterCode 发送注册验证码
+// @Summary 发送注册验证码
+// @Description 向指定邮箱发送注册验证码
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body services.SendCodeRequest true "邮箱"
+// @Success 200 {object} map[string]interface{} "发送成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Router /api/auth/send-register-code [post]
+func (c *AuthController) SendRegisterCode(ctx *gin.Context) {
+	var req services.SendCodeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "请求参数错误: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	err := c.authService.SendRegisterCode(&req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "验证码已发送，请查收邮件",
+		"data":    nil,
+	})
+}
+
+// EmailRegister 邮箱验证码注册
+// @Summary 邮箱验证码注册
+// @Description 使用邮箱和验证码注册并自动登录
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body services.EmailLoginRequest true "邮箱和验证码"
+// @Success 200 {object} map[string]interface{} "注册成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Router /api/auth/email-register [post]
+func (c *AuthController) EmailRegister(ctx *gin.Context) {
+	var req services.EmailLoginRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "请求参数错误: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	response, err := c.authService.EmailRegister(&req)
+	if err != nil {
+		statusCode := http.StatusBadRequest
+		code := 400
+		message := err.Error()
+
+		if err == services.ErrUserExists {
+			message = "该邮箱已注册"
+		} else if err == services.ErrInvalidCode {
+			statusCode = http.StatusUnauthorized
+			code = 401
+			message = "验证码错误或已过期"
+		}
+
+		ctx.JSON(statusCode, gin.H{
+			"code":    code,
+			"message": message,
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "注册成功",
+		"data":    response,
+	})
+}
+
+// UpdateUsername 修改用户名
+// @Summary 修改用户名
+// @Description 修改当前登录用户的用户名
+// @Tags 用户
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body map[string]string true "新用户名"
+// @Success 200 {object} map[string]interface{} "修改成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Router /api/users/username [put]
+func (c *AuthController) UpdateUsername(ctx *gin.Context) {
+	// 从中间件获取用户ID
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未授权",
+			"data":    nil,
+		})
+		return
+	}
+
+	var req struct {
+		Username string `json:"username" binding:"required,min=3,max=50"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "请求参数错误: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	err := c.authService.UpdateUsername(userID.(uint), req.Username)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "用户名修改成功",
+		"data":    nil,
 	})
 }

@@ -47,7 +47,9 @@ type CrawlerConfig struct {
 	SmartMode       bool              `json:"smartMode"`       // 智能模式：自动检测主要内容
 	ExtractMode     string            `json:"extractMode"`     // 提取模式：smart(智能), article(文章), list(列表), links(链接), images(图片)
 	JavaScriptWait  int               `json:"javascriptWait"`  // JavaScript等待时间（秒），用于等待动态内容加载
-	WaitForSelector string            `json:"waitForSelector"` // 等待选择器出现（需要无头浏览器，暂未实现）
+	WaitForSelector string            `json:"waitForSelector"` // 等待选择器出现（无头浏览器模式）
+	UseHeadless     bool              `json:"useHeadless"`     // 是否使用无头浏览器（用于SPA应用）
+	DisableImages   bool              `json:"disableImages"`   // 禁用图片加载（提升速度，仅无头浏览器模式）
 }
 
 // PaginationConfig 分页配置
@@ -124,6 +126,12 @@ func (s *CrawlerService) Execute(config CrawlerConfig) (*CrawlerResult, error) {
 		config.Encoding = "auto"
 	}
 
+	// 如果启用无头浏览器模式，使用chromedp
+	if config.UseHeadless {
+		log.Printf("使用无头浏览器模式爬取SPA应用: %s", config.URL)
+		return s.executeWithHeadless(config)
+	}
+
 	// 如果有分页配置，执行分页爬取
 	if config.Pagination != nil && config.Pagination.Enabled {
 		return s.executeWithPagination(config)
@@ -162,6 +170,66 @@ func (s *CrawlerService) Execute(config CrawlerConfig) (*CrawlerResult, error) {
 	}
 
 	return result, nil
+}
+
+// executeWithHeadless 使用无头浏览器执行爬取
+func (s *CrawlerService) executeWithHeadless(config CrawlerConfig) (*CrawlerResult, error) {
+	startTime := time.Now()
+
+	// 创建无头浏览器爬虫
+	headless := NewHeadlessCrawler()
+
+	// 构建无头浏览器配置
+	headlessConfig := HeadlessConfig{
+		URL:             config.URL,
+		WaitForSelector: config.WaitForSelector,
+		WaitTime:        time.Duration(config.JavaScriptWait) * time.Second,
+		Timeout:         time.Duration(config.Timeout) * time.Second,
+		UserAgent:       config.UserAgent,
+		DisableImages:   config.DisableImages,
+	}
+
+	// 使用无头浏览器获取页面内容
+	rawHTML, err := headless.FetchWithHeadless(headlessConfig)
+	if err != nil {
+		return &CrawlerResult{
+			Success: false,
+			Error:   fmt.Sprintf("无头浏览器获取页面失败: %v", err),
+		}, err
+	}
+
+	log.Printf("无头浏览器成功获取页面，HTML长度: %d", len(rawHTML))
+
+	// 使用goquery解析HTML
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHTML))
+	if err != nil {
+		return &CrawlerResult{
+			Success: false,
+			Error:   fmt.Sprintf("解析HTML失败: %v", err),
+			RawHTML: rawHTML,
+		}, err
+	}
+
+	// 智能模式或选择器为空时，自动检测并提取内容
+	var extracted map[string]interface{}
+	if config.SmartMode || config.Selector == "" {
+		extracted = s.smartExtract(doc, config)
+	} else {
+		extracted = s.extractData(doc, config)
+	}
+
+	// 添加无头浏览器标记
+	extracted["headless_mode"] = true
+	extracted["javascript_executed"] = true
+
+	return &CrawlerResult{
+		Success:      true,
+		Data:         extracted,
+		Extracted:    extracted,
+		RawHTML:      rawHTML,
+		URL:          config.URL,
+		ResponseTime: time.Since(startTime).Milliseconds(),
+	}, nil
 }
 
 // executeSinglePage 执行单页爬取

@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"workflow-management-system/backend/infrastructure/database"
-	workflowModels "workflow-management-system/backend/modules/workflow/models"
-	workflowRepos "workflow-management-system/backend/modules/workflow/repositories"
-	workflowService "workflow-management-system/backend/modules/workflow/services"
+	"yaolight-workshop/backend/infrastructure/database"
+	workflowModels "yaolight-workshop/backend/modules/workflow/models"
+	workflowRepos "yaolight-workshop/backend/modules/workflow/repositories"
+	workflowService "yaolight-workshop/backend/modules/workflow/services"
 )
 
 // WorkflowController 工作流控制器

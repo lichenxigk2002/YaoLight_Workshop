@@ -24,6 +24,7 @@ import {
   DeleteOutlined,
   SettingOutlined,
   CloudDownloadOutlined,
+  ClearOutlined,
   RobotOutlined,
   BranchesOutlined,
   SwapOutlined,
@@ -37,11 +38,14 @@ import {
 } from '@ant-design/icons';
 import NodePanel from './NodePanel';
 import NodeConfigPanel from './NodeConfigPanel';
+import ExecutionResultPanel from './ExecutionResultPanel';
+import { validateNodeConnection } from './nodeFormats';
 import styles from './index.module.scss';
 
 // 导入各个节点组件
 import StartNode from './nodes/StartNode/StartNode';
 import CrawlerNode from './nodes/CrawlerNode/CrawlerNode';
+import DataCleanNode from './nodes/DataCleanNode/DataCleanNode';
 import AINode from './nodes/AINode/AINode';
 import ConditionNode from './nodes/ConditionNode/ConditionNode';
 import TransformNode from './nodes/TransformNode/TransformNode';
@@ -55,6 +59,7 @@ import EndNode from './nodes/EndNode/EndNode';
 const nodeTypes: NodeTypes = {
   start: StartNode,
   crawler: CrawlerNode,
+  dataclean: DataCleanNode,
   ai: AINode,
   condition: ConditionNode,
   transform: TransformNode,
@@ -78,6 +83,8 @@ const WorkflowEditor: React.FC = () => {
   const [nodeIdCounter, setNodeIdCounter] = useState(1);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [configPanelVisible, setConfigPanelVisible] = useState(false);
+  const [resultPanelVisible, setResultPanelVisible] = useState(false);
+  const [executionResult, setExecutionResult] = useState<any>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; nodeId?: string } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -113,6 +120,7 @@ const WorkflowEditor: React.FC = () => {
     const labels: Record<string, string> = {
       start: '开始',
       crawler: '爬虫节点',
+      dataclean: '数据清洗',
       ai: 'AI处理节点',
       condition: '条件判断',
       transform: '数据转换',
@@ -137,6 +145,13 @@ const WorkflowEditor: React.FC = () => {
           url: '',
           selector: '',
           method: 'GET',
+        };
+      case 'dataclean':
+        return {
+          cleanType: 'html', // html, text, email, url, phone, number, date, custom
+          removeHTML: true,
+          trim: true,
+          removeSpaces: false,
         };
       case 'ai':
         return {
@@ -188,10 +203,32 @@ const WorkflowEditor: React.FC = () => {
   // 连接节点
   const onConnect = useCallback(
     (params: Connection) => {
+      // 找到源节点和目标节点
+      const sourceNode = nodes.find((n) => n.id === params.source);
+      const targetNode = nodes.find((n) => n.id === params.target);
+
+      if (!sourceNode || !targetNode) {
+        message.error('无法找到节点');
+        return;
+      }
+
+      // 获取节点类型
+      const sourceType = sourceNode.type || sourceNode.data.type;
+      const targetType = targetNode.type || targetNode.data.type;
+
+      // 验证格式兼容性
+      const validation = validateNodeConnection(sourceType, targetType);
+
+      if (!validation.compatible) {
+        message.warning(validation.message || '节点格式不兼容，无法连接');
+        return;
+      }
+
+      // 格式兼容，允许连接
       setEdges((eds) => addEdge(params, eds));
       message.success('节点已连接');
     },
-    [setEdges]
+    [setEdges, nodes]
   );
 
   // 加载工作流节点和边
@@ -442,6 +479,25 @@ const WorkflowEditor: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // 如果配置面板打开，不处理删除操作
+      if (configPanelVisible) {
+        return;
+      }
+
+      // 如果焦点在输入框、文本域等可编辑元素内，不处理删除操作
+      const target = event.target as HTMLElement;
+      const isEditableElement = 
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable ||
+        target.closest('input') ||
+        target.closest('textarea') ||
+        target.closest('[contenteditable="true"]');
+
+      if (isEditableElement) {
+        return;
+      }
+
       if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNode) {
         event.preventDefault();
         deleteNode(selectedNode.id);
@@ -453,7 +509,7 @@ const WorkflowEditor: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedNode, deleteNode]);
+  }, [selectedNode, deleteNode, configPanelVisible]);
 
   // 执行工作流
   const handleRun = async () => {
@@ -492,11 +548,18 @@ const WorkflowEditor: React.FC = () => {
 
       console.log('执行结果:', result);
 
+      // 保存执行结果
+      setExecutionResult(result);
+
       // result 是 ExecutionResult 类型，包含 success 和 results
       if (result.success) {
         message.success(`工作流执行完成！共执行 ${result.results.length} 个节点`);
+        // 自动打开结果面板
+        setResultPanelVisible(true);
       } else {
         message.warning('工作流执行完成，但有部分节点失败');
+        // 也打开结果面板，让用户查看错误
+        setResultPanelVisible(true);
       }
     } catch (error: any) {
       message.error(`工作流执行失败: ${error.message || '未知错误'}`);
@@ -636,7 +699,7 @@ const WorkflowEditor: React.FC = () => {
             }}
             nodeTypes={nodeTypes}
             attributionPosition="bottom-left"
-            deleteKeyCode={['Delete', 'Backspace']}
+            deleteKeyCode={configPanelVisible ? null : ['Delete', 'Backspace']}
           >
             <Controls />
             <MiniMap />
@@ -663,6 +726,13 @@ const WorkflowEditor: React.FC = () => {
           setSelectedNode(null);
         }}
         onSave={handleNodeConfigSave}
+      />
+
+      <ExecutionResultPanel
+        visible={resultPanelVisible}
+        onClose={() => setResultPanelVisible(false)}
+        result={executionResult}
+        nodes={nodes}
       />
 
       {/* 右键菜单 */}
@@ -727,6 +797,11 @@ const WorkflowEditor: React.FC = () => {
                     key: 'crawler',
                     label: '爬虫节点',
                     icon: <CloudDownloadOutlined />,
+                  },
+                  {
+                    key: 'dataclean',
+                    label: '数据清洗',
+                    icon: <ClearOutlined />,
                   },
                   {
                     key: 'ai',

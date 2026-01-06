@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"workflow-management-system/backend/modules/workflow/models"
+	"yaolight-workshop/backend/modules/workflow/models"
 
 	"gorm.io/gorm"
 )

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"workflow-management-system/backend/infrastructure/shared"
+	"yaolight-workshop/backend/infrastructure/shared"
 )
 
 // CrawlerRule 爬虫规则持久化实体

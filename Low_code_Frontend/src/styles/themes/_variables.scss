@@ -22,10 +22,10 @@ $light-theme: (
   'shadow-md': rgba(0, 0, 0, 0.15),
   'shadow-lg': rgba(0, 0, 0, 0.2),
 
-  // 主色调
-  'primary': #1890ff,
-  'primary-hover': #40a9ff,
-  'primary-active': #096dd9,
+  // 主色调（黑白风格）
+  'primary': #000000,
+  'primary-hover': #333333,
+  'primary-active': #000000,
 
   // 成功/警告/错误
   'success': #52c41a,
@@ -35,7 +35,7 @@ $light-theme: (
   // 节点颜色
   'node-bg': #ffffff,
   'node-border': #d9d9d9,
-  'node-selected': #1890ff,
+  'node-selected': #000000,
 );
 
 // 暗色主题
@@ -60,10 +60,10 @@ $dark-theme: (
   'shadow-md': rgba(0, 0, 0, 0.4),
   'shadow-lg': rgba(0, 0, 0, 0.5),
 
-  // 主色调
-  'primary': #1890ff,
-  'primary-hover': #40a9ff,
-  'primary-active': #096dd9,
+  // 主色调（黑白风格）
+  'primary': #ffffff,
+  'primary-hover': #e0e0e0,
+  'primary-active': #ffffff,
 
   // 成功/警告/错误
   'success': #52c41a,
@@ -73,7 +73,7 @@ $dark-theme: (
   // 节点颜色
   'node-bg': #1f1f1f,
   'node-border': #434343,
-  'node-selected': #1890ff,
+  'node-selected': #ffffff,
 );
 
 // 主题映射

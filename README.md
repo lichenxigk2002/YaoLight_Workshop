@@ -1,10 +1,10 @@
-# 工作流管理系统
+# 瑶光工坊 (YaoLight Workshop)
 
-基于 Go + React 的前后端分离工作流管理平台，支持可视化编辑、爬虫采集、AI处理等功能。
+基于 Go + React 的前后端分离智能工作流平台，支持可视化编辑、爬虫采集、AI处理等功能。
 
 ## 项目简介
 
-本系统是一个低代码工作流管理平台，允许用户通过拖拽方式配置内容采集与处理流程。系统分为管理员端和用户端，支持工作流的创建、执行、监控和管理。
+瑶光工坊是一个低代码智能工作流平台，允许用户通过拖拽方式配置内容采集与处理流程。系统分为管理员端和用户端，支持工作流的创建、执行、监控和管理。
 
 ## 技术栈
 
@@ -58,7 +58,7 @@
 1. 克隆项目
 ```bash
 git clone <repository-url>
-cd workflow-management-system
+cd yaolight-workshop
 ```
 
 2. 安装依赖
@@ -106,19 +106,19 @@ npm run dev:client  # 前端服务 http://localhost:3000
 ## 项目结构
 
 ```
-workflow-management-system/
-├── server/              # 后端服务
+yaolight-workshop/
+├── Low_code_Backend/    # 后端服务
 │   ├── cmd/            # 命令行工具
-│   ├── internal/       # 内部代码
-│   ├── config/         # 配置
+│   ├── modules/        # 业务模块
+│   ├── domain/         # 领域层
+│   ├── infrastructure/ # 基础设施层
 │   └── migrations/     # 数据库迁移
-├── client/             # 前端应用
+├── Low_code_Frontend/  # 前端应用
 │   ├── src/
 │   │   ├── pages/      # 页面
 │   │   ├── components/ # 组件
-│   │   └── services/   # API服务
-├── docs/               # 文档
-└── docker/            # Docker配置
+│   │   └── api/        # API服务
+└── docs/               # 文档
 ```
 
 ## API文档

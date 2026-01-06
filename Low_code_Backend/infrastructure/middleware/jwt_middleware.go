@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"workflow-management-system/backend/infrastructure/jwt"
+	"yaolight-workshop/backend/infrastructure/jwt"
 )
 
 // JWTAuthMiddleware JWT 认证中间件

@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"workflow-management-system/backend/domain/entity"
+	"yaolight-workshop/backend/domain/entity"
 )
 
 // WorkflowRepository 工作流仓储接口

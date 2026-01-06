@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"workflow-management-system/backend/infrastructure/shared"
+	"yaolight-workshop/backend/infrastructure/shared"
 )
 
 // File 文件存储持久化实体

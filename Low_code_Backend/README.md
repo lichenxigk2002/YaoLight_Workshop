@@ -1,8 +1,8 @@
-# 工作流管理系统 - 后端服务（模块化DDD架构）
+# 瑶光工坊 (YaoLight Workshop) - 后端服务
 
 ## 架构说明
 
-本项目采用**模块化领域驱动设计（Modular DDD）**架构，结合微服务风格的模块组织。
+瑶光工坊后端采用**模块化领域驱动设计（Modular DDD）**架构，结合微服务风格的模块组织。
 
 ### 目录结构
 
@@ -68,7 +68,7 @@ go mod tidy
 ### 3. 创建数据库
 ```bash
 psql -U postgres
-CREATE DATABASE workflow_db;
+CREATE DATABASE yaolight_workshop_db;
 \q
 ```
 

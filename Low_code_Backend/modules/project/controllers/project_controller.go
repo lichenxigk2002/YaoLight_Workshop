@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"workflow-management-system/backend/infrastructure/database"
-	"workflow-management-system/backend/modules/project/repositories"
-	"workflow-management-system/backend/modules/project/services"
+	"yaolight-workshop/backend/infrastructure/database"
+	"yaolight-workshop/backend/modules/project/repositories"
+	"yaolight-workshop/backend/modules/project/services"
 )
 
 // ProjectController 项目控制器

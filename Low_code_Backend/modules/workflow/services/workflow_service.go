@@ -2,11 +2,11 @@ package services
 
 import (
 	"errors"
-	"workflow-management-system/backend/domain/entity"
-	"workflow-management-system/backend/domain/repository"
-	"workflow-management-system/backend/infrastructure/shared"
-	"workflow-management-system/backend/modules/workflow/models"
-	workflowRepos "workflow-management-system/backend/modules/workflow/repositories"
+	"yaolight-workshop/backend/domain/entity"
+	"yaolight-workshop/backend/domain/repository"
+	"yaolight-workshop/backend/infrastructure/shared"
+	"yaolight-workshop/backend/modules/workflow/models"
+	workflowRepos "yaolight-workshop/backend/modules/workflow/repositories"
 )
 
 var (

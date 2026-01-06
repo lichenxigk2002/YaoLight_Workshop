@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"workflow-management-system/backend/infrastructure/shared"
+	"yaolight-workshop/backend/infrastructure/shared"
 )
 
 // SystemConfig 系统配置持久化实体

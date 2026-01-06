@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"workflow-management-system/backend/infrastructure/config"
+	"yaolight-workshop/backend/infrastructure/config"
 )
 
 var (
@@ -34,7 +34,7 @@ func GenerateToken(userID uint, username, role string) (string, error) {
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    "workflow-management-system",
+			Issuer:    "yaolight-workshop",
 		},
 	}
 

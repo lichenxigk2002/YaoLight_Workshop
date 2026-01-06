@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"workflow-management-system/backend/infrastructure/shared"
+	"yaolight-workshop/backend/infrastructure/shared"
 )
 
 // Notification 通知持久化实体

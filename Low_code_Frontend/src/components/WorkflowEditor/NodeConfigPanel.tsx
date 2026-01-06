@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { Drawer, Form, Input, Button, Select, Switch, message } from 'antd';
+import { Drawer, Form, Input, Button, Select, Switch, message, Tag, Space } from 'antd';
 import { Node } from 'reactflow';
+import { getNodeInputFormats, getNodeOutputFormat, nodeFormats } from './nodeFormats';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -178,93 +179,141 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     </>
   );
 
-  const renderCrawlerConfig = () => (
+  const renderDataCleanConfig = () => (
     <>
       <Form.Item
-        label="URL"
-        name="url"
-        rules={[{ required: true, message: '请输入URL' }]}
-        tooltip="要爬取的网页地址"
-      >
-        <Input placeholder="https://example.com" />
-      </Form.Item>
-      <Form.Item
-        label="提取模式"
-        name="extractMode"
-        initialValue="smart"
-        tooltip="选择提取模式，智能模式会自动检测页面主要内容，无需填写选择器"
+        label="清洗类型"
+        name="cleanType"
+        initialValue="html"
+        tooltip="选择预设的清洗类型，或选择自定义"
       >
         <Select>
-          <Option value="smart">智能模式（自动检测）</Option>
-          <Option value="article">文章内容</Option>
-          <Option value="list">列表项</Option>
-          <Option value="links">所有链接</Option>
-          <Option value="images">所有图片</Option>
-          <Option value="custom">自定义选择器（高级）</Option>
+          <Option value="html">清洗HTML（移除标签）</Option>
+          <Option value="text">清洗文本（去空格换行）</Option>
+          <Option value="email">提取邮箱地址</Option>
+          <Option value="url">提取URL链接</Option>
+          <Option value="phone">提取电话号码</Option>
+          <Option value="number">提取数字</Option>
+          <Option value="date">提取日期</Option>
+          <Option value="custom">自定义清洗</Option>
         </Select>
       </Form.Item>
+
       <Form.Item
         noStyle
-        shouldUpdate={(prevValues, currentValues) => prevValues?.extractMode !== currentValues?.extractMode}
+        shouldUpdate={(prevValues, currentValues) => prevValues?.cleanType !== currentValues?.cleanType}
       >
         {({ getFieldValue }) => {
-          const extractMode = getFieldValue('extractMode');
-          if (extractMode === 'custom') {
+          const cleanType = getFieldValue('cleanType');
+          if (cleanType === 'custom') {
             return (
-              <Form.Item
-                label="选择器（高级）"
-                name="selector"
-                tooltip="CSS选择器，用于精确提取数据。示例：.title（类名）、#content（ID）、h1（标签）"
-              >
-                <Input placeholder=".content 或 #main 或 h1.title" />
-              </Form.Item>
+              <>
+                <Form.Item
+                  label="移除HTML标签"
+                  name="removeHTML"
+                  initialValue={false}
+                  valuePropName="checked"
+                  tooltip="移除所有HTML标签，保留纯文本"
+                >
+                  <Switch />
+                </Form.Item>
+                <Form.Item
+                  label="去除首尾空白"
+                  name="trim"
+                  initialValue={true}
+                  valuePropName="checked"
+                  tooltip="移除文本开头和结尾的空格、换行等空白字符"
+                >
+                  <Switch />
+                </Form.Item>
+                <Form.Item
+                  label="移除多余空格"
+                  name="removeSpaces"
+                  initialValue={false}
+                  valuePropName="checked"
+                  tooltip="将连续的多个空格替换为单个空格"
+                >
+                  <Switch />
+                </Form.Item>
+                <Form.Item
+                  label="转小写"
+                  name="toLowerCase"
+                  initialValue={false}
+                  valuePropName="checked"
+                >
+                  <Switch />
+                </Form.Item>
+                <Form.Item
+                  label="转大写"
+                  name="toUpperCase"
+                  initialValue={false}
+                  valuePropName="checked"
+                >
+                  <Switch />
+                </Form.Item>
+                <Form.Item
+                  label="去重"
+                  name="deduplicate"
+                  initialValue={false}
+                  valuePropName="checked"
+                  tooltip="如果输入是数组，移除重复项"
+                >
+                  <Switch />
+                </Form.Item>
+              </>
             );
           }
           return null;
         }}
       </Form.Item>
+    </>
+  );
+
+  const renderCrawlerConfig = () => (
+    <>
       <Form.Item
-        label="请求方法"
-        name="method"
-        initialValue="GET"
+        label="网页地址"
+        name="url"
+        rules={[{ required: true, message: '请输入网页地址' }]}
+        tooltip="要爬取的网页地址，例如：https://www.example.com"
       >
-        <Select>
-          <Option value="GET">GET</Option>
-          <Option value="POST">POST</Option>
-          <Option value="PUT">PUT</Option>
-          <Option value="DELETE">DELETE</Option>
-        </Select>
+        <Input placeholder="https://www.example.com" />
+      </Form.Item>
+      <Form.Item
+        label="网页类型"
+        name="useHeadless"
+        initialValue={false}
+        valuePropName="checked"
+        tooltip="如果是SPA单页应用（如React/Vue/Angular），请开启"
+      >
+        <Switch
+          checkedChildren="SPA应用"
+          unCheckedChildren="普通网页"
+        />
       </Form.Item>
       <Form.Item
         noStyle
-        shouldUpdate={(prevValues, currentValues) => prevValues?.extractMode !== currentValues?.extractMode}
+        shouldUpdate={(prevValues, currentValues) => prevValues?.useHeadless !== currentValues?.useHeadless}
       >
         {({ getFieldValue }) => {
-          const extractMode = getFieldValue('extractMode');
-          if (extractMode === 'custom') {
+          const useHeadless = getFieldValue('useHeadless');
+          if (useHeadless) {
             return (
               <>
                 <Form.Item
-                  label="提取类型"
-                  name="extractType"
-                  initialValue="text"
-                  tooltip="选择要提取的内容类型（仅自定义模式）"
+                  label="等待时间（秒）"
+                  name="javascriptWait"
+                  initialValue={3}
+                  tooltip="等待JavaScript执行的时间，建议3-10秒"
                 >
-                  <Select>
-                    <Option value="text">文本内容</Option>
-                    <Option value="html">HTML内容</Option>
-                    <Option value="attr">属性值</Option>
-                    <Option value="link">链接（href）</Option>
-                    <Option value="image">图片（src）</Option>
-                    <Option value="all">全部信息</Option>
-                  </Select>
+                  <Input type="number" min={1} max={30} />
                 </Form.Item>
                 <Form.Item
-                  label="属性名（提取类型为属性时）"
-                  name="extractAttr"
-                  tooltip="当提取类型选择'属性值'时，指定要提取的属性名，如：href、src、data-id"
+                  label="等待元素出现"
+                  name="waitForSelector"
+                  tooltip="选填：等待特定元素加载完成，例如：.content 或 #app"
                 >
-                  <Input placeholder="href 或 src 或 data-id" />
+                  <Input placeholder="例如: .content 或 #app" />
                 </Form.Item>
               </>
             );
@@ -273,109 +322,18 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
         }}
       </Form.Item>
       <Form.Item
-        label="User-Agent"
-        name="userAgent"
-        tooltip="浏览器标识，留空则使用随机User-Agent"
-      >
-        <Input placeholder="留空使用随机User-Agent" />
-      </Form.Item>
-      <Form.Item
-        label="超时时间（秒）"
-        name="timeout"
-        initialValue={30}
-        tooltip="请求超时时间，建议30-60秒"
-      >
-        <Input type="number" min={1} max={300} />
-      </Form.Item>
-      <Form.Item
-        label="请求体（POST/PUT时）"
-        name="body"
-        tooltip="POST或PUT请求时的请求体内容，JSON格式"
-      >
-        <TextArea rows={3} placeholder='{"key": "value"}' />
-      </Form.Item>
-      <Form.Item
-        label="请求体类型"
-        name="bodyType"
-        initialValue="json"
-        tooltip="请求体的内容类型"
+        label="提取模式"
+        name="extractMode"
+        initialValue="smart"
+        tooltip="推荐使用智能模式，系统会自动提取页面主要内容"
       >
         <Select>
-          <Option value="json">JSON</Option>
-          <Option value="form">Form表单</Option>
-          <Option value="xml">XML</Option>
-          <Option value="text">文本</Option>
+          <Option value="smart">🤖 智能提取（推荐）</Option>
+          <Option value="article">📄 文章内容</Option>
+          <Option value="list">📋 列表项</Option>
+          <Option value="links">🔗 所有链接</Option>
+          <Option value="images">🖼️ 所有图片</Option>
         </Select>
-      </Form.Item>
-      <Form.Item
-        label="页面编码"
-        name="encoding"
-        initialValue="auto"
-        tooltip="页面编码，auto为自动检测"
-      >
-        <Select>
-          <Option value="auto">自动检测</Option>
-          <Option value="utf-8">UTF-8</Option>
-          <Option value="gbk">GBK</Option>
-          <Option value="gb2312">GB2312</Option>
-        </Select>
-      </Form.Item>
-      <Form.Item
-        label="重试次数"
-        name="retryCount"
-        initialValue={3}
-        tooltip="请求失败时的重试次数"
-      >
-        <Input type="number" min={0} max={10} />
-      </Form.Item>
-      <Form.Item
-        label="重试延迟（秒）"
-        name="retryDelay"
-        initialValue={1}
-        tooltip="重试前等待的时间"
-      >
-        <Input type="number" min={0} max={60} />
-      </Form.Item>
-      <Form.Item
-        label="JavaScript等待时间（秒）"
-        name="javascriptWait"
-        initialValue={5}
-        tooltip="如果网站使用JavaScript动态加载内容，设置等待时间让内容加载完成。建议3-10秒"
-      >
-        <Input type="number" min={0} max={30} />
-      </Form.Item>
-      <Form.Item
-        label="请求后等待（秒）"
-        name="waitTime"
-        initialValue={0}
-        tooltip="请求完成后等待的时间，用于避免请求过快"
-      >
-        <Input type="number" min={0} max={60} />
-      </Form.Item>
-      <Form.Item
-        label="代理地址"
-        name="proxy"
-        tooltip="代理服务器地址，格式：http://proxy:port 或 https://proxy:port"
-      >
-        <Input placeholder="http://127.0.0.1:8080" />
-      </Form.Item>
-      <Form.Item
-        label="跟随重定向"
-        name="followRedirect"
-        initialValue={true}
-        valuePropName="checked"
-        tooltip="是否自动跟随HTTP重定向"
-      >
-        <Switch />
-      </Form.Item>
-      <Form.Item
-        label="验证SSL证书"
-        name="verifySSL"
-        initialValue={true}
-        valuePropName="checked"
-        tooltip="是否验证SSL证书（某些网站可能需要关闭）"
-      >
-        <Switch />
       </Form.Item>
     </>
   );
@@ -444,6 +402,8 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
         return <div>开始节点无需配置</div>;
       case 'crawler':
         return renderCrawlerConfig();
+      case 'dataclean':
+        return renderDataCleanConfig();
       case 'ai':
         return renderAIConfig();
       case 'condition':
@@ -467,6 +427,25 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
   if (!node) return null;
 
+  // 获取节点格式信息
+  const nodeType = node.data.type || node.type;
+  const inputFormats = getNodeInputFormats(nodeType);
+  const outputFormat = getNodeOutputFormat(nodeType);
+  const formatInfo = nodeFormats[nodeType];
+
+  // 格式化标签显示
+  const formatLabels: Record<string, string> = {
+    any: '任意',
+    json: 'JSON',
+    array: '数组',
+    text: '文本',
+    html: 'HTML',
+    url: 'URL',
+    number: '数字',
+    boolean: '布尔值',
+    null: '无',
+  };
+
   return (
     <Drawer
       title={`配置节点: ${node.data.label || node.id}`}
@@ -485,6 +464,38 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
         </div>
       }
     >
+      {/* 数据格式信息 */}
+      <div style={{
+        marginBottom: 16,
+        padding: 12,
+        background: '#f5f5f5',
+        borderRadius: 4,
+        fontSize: 12
+      }}>
+        <div style={{ marginBottom: 8, fontWeight: 500 }}>数据格式</div>
+        <div style={{ marginBottom: 4 }}>
+          <span style={{ color: '#666' }}>输入格式：</span>
+          <Space size={4} wrap>
+            {inputFormats.map((format) => (
+              <Tag key={format} color="blue" style={{ margin: 0 }}>
+                {formatLabels[format] || format}
+              </Tag>
+            ))}
+          </Space>
+        </div>
+        <div>
+          <span style={{ color: '#666' }}>输出格式：</span>
+          <Tag color="green" style={{ margin: 0 }}>
+            {formatLabels[outputFormat] || outputFormat}
+          </Tag>
+        </div>
+        {formatInfo?.description && (
+          <div style={{ marginTop: 8, color: '#999', fontSize: 11 }}>
+            {formatInfo.description}
+          </div>
+        )}
+      </div>
+
       <Form form={form} layout="vertical">
         <Form.Item
           label="节点名称"

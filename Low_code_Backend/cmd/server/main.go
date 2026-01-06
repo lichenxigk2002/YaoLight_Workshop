@@ -7,12 +7,13 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"workflow-management-system/backend/infrastructure/config"
-	"workflow-management-system/backend/infrastructure/database"
-	"workflow-management-system/backend/infrastructure/middleware"
-	projectControllers "workflow-management-system/backend/modules/project/controllers"
-	authControllers "workflow-management-system/backend/modules/user/controllers"
-	workflowControllers "workflow-management-system/backend/modules/workflow/controllers"
+	"yaolight-workshop/backend/infrastructure/config"
+	"yaolight-workshop/backend/infrastructure/database"
+	"yaolight-workshop/backend/infrastructure/middleware"
+	"yaolight-workshop/backend/infrastructure/redis"
+	projectControllers "yaolight-workshop/backend/modules/project/controllers"
+	authControllers "yaolight-workshop/backend/modules/user/controllers"
+	workflowControllers "yaolight-workshop/backend/modules/workflow/controllers"
 )
 
 func main() {
@@ -26,6 +27,13 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer database.CloseDatabase()
+
+	// 2.5 初始化 Redis（可选，失败不影响运行）
+	if err := redis.InitRedis(); err != nil {
+		log.Printf("⚠️ Redis initialization failed (will use memory cache): %v", err)
+	} else {
+		defer redis.CloseRedis()
+	}
 
 	// 3. 设置Gin模式
 	if config.ServerMode == "release" {
@@ -74,6 +82,10 @@ func main() {
 		authController := authControllers.NewAuthController()
 		api.POST("/auth/register", authController.Register)
 		api.POST("/auth/login", authController.Login)
+		api.POST("/auth/send-code", authController.SendVerificationCode)
+		api.POST("/auth/send-register-code", authController.SendRegisterCode)
+		api.POST("/auth/email-login", authController.EmailLogin)
+		api.POST("/auth/email-register", authController.EmailRegister)
 
 		// 需要认证的路由
 		auth := api.Group("")
@@ -81,6 +93,7 @@ func main() {
 		{
 			// 用户相关路由
 			auth.GET("/users/current", authController.GetCurrentUser)
+			auth.PUT("/users/username", authController.UpdateUsername)
 
 			// 项目相关路由
 			projectController := projectControllers.NewProjectController()

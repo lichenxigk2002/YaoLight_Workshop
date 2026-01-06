@@ -7,12 +7,14 @@ import (
 	"strings"
 	"time"
 
-	crawlerService "workflow-management-system/backend/modules/crawler/services"
+	crawlerService "yaolight-workshop/backend/modules/crawler/services"
+	datacleanService "yaolight-workshop/backend/modules/dataclean/services"
 )
 
 // WorkflowExecutor 工作流执行器
 type WorkflowExecutor struct {
-	crawlerService *crawlerService.CrawlerService
+	crawlerService   *crawlerService.CrawlerService
+	datacleanService *datacleanService.DataCleanService
 }
 
 // NodeConfig 节点配置
@@ -53,7 +55,8 @@ type ExecutionResult struct {
 // NewWorkflowExecutor 创建工作流执行器
 func NewWorkflowExecutor() *WorkflowExecutor {
 	return &WorkflowExecutor{
-		crawlerService: crawlerService.NewCrawlerService(),
+		crawlerService:   crawlerService.NewCrawlerService(),
+		datacleanService: datacleanService.NewDataCleanService(),
 	}
 }
 
@@ -179,6 +182,8 @@ func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow) Node
 		return e.executeStartNode(node, dataFlow)
 	case "crawler":
 		return e.executeCrawlerNode(node, dataFlow)
+	case "dataclean":
+		return e.executeDataCleanNode(node, dataFlow)
 	case "ai":
 		return e.executeAINode(node, dataFlow)
 	case "condition":
@@ -305,6 +310,123 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 	return NodeExecutionResult{
 		NodeID:  node.ID,
 		Type:    "crawler",
+		Success: true,
+		Data:    result.Data,
+	}
+}
+
+// executeDataCleanNode 执行数据清洗节点
+func (e *WorkflowExecutor) executeDataCleanNode(node NodeConfig, dataFlow *DataFlow) NodeExecutionResult {
+	// 获取上游节点的输入数据
+	inputData, err := dataFlow.GetNodeInputData(node.ID)
+	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "dataclean",
+			Success: false,
+			Error:   fmt.Sprintf("获取输入数据失败: %v", err),
+		}
+	}
+
+	// 构建清洗配置
+	config := datacleanService.CleanConfig{
+		CleanType:    getString(node.Config, "cleanType", "custom"),
+		RemoveHTML:   getBool(node.Config, "removeHTML", false),
+		Trim:         getBool(node.Config, "trim", true),
+		RemoveSpaces: getBool(node.Config, "removeSpaces", false),
+		ToLowerCase:  getBool(node.Config, "toLowerCase", false),
+		ToUpperCase:  getBool(node.Config, "toUpperCase", false),
+		Deduplicate:  getBool(node.Config, "deduplicate", false),
+	}
+
+	// 如果使用预设配置
+	if config.CleanType != "custom" {
+		preset := e.datacleanService.GetPreset(config.CleanType)
+		// 预设配置与用户配置合并
+		if config.RemoveHTML || preset.RemoveHTML {
+			config.RemoveHTML = true
+		}
+		if config.Trim || preset.Trim {
+			config.Trim = true
+		}
+		if config.RemoveSpaces || preset.RemoveSpaces {
+			config.RemoveSpaces = true
+		}
+		if config.ToLowerCase || preset.ToLowerCase {
+			config.ToLowerCase = true
+		}
+		if config.ToUpperCase || preset.ToUpperCase {
+			config.ToUpperCase = true
+		}
+		// 使用预设的提取和替换规则
+		if preset.Extract != nil {
+			config.Extract = preset.Extract
+		}
+		if len(preset.Replace) > 0 {
+			config.Replace = preset.Replace
+		}
+	}
+
+	// 处理替换规则
+	if replaceRules, ok := node.Config["replace"].([]interface{}); ok {
+		config.Replace = make([]datacleanService.ReplaceRule, 0)
+		for _, rule := range replaceRules {
+			if ruleMap, ok := rule.(map[string]interface{}); ok {
+				config.Replace = append(config.Replace, datacleanService.ReplaceRule{
+					From:  getString(ruleMap, "from", ""),
+					To:    getString(ruleMap, "to", ""),
+					Regex: getBool(ruleMap, "regex", false),
+				})
+			}
+		}
+	}
+
+	// 处理提取规则
+	if extractRule, ok := node.Config["extract"].(map[string]interface{}); ok {
+		config.Extract = &datacleanService.ExtractRule{
+			Pattern: getString(extractRule, "pattern", ""),
+			Group:   getInt(extractRule, "group", 0),
+		}
+	}
+
+	// 处理过滤规则
+	if filterRule, ok := node.Config["filter"].(map[string]interface{}); ok {
+		config.Filter = &datacleanService.FilterRule{
+			Field:    getString(filterRule, "field", ""),
+			Operator: getString(filterRule, "operator", "contains"),
+			Value:    getString(filterRule, "value", ""),
+		}
+	}
+
+	// 处理字段映射
+	if fieldMapping, ok := node.Config["fieldMapping"].(map[string]interface{}); ok {
+		config.FieldMapping = fieldMapping
+	}
+
+	// 执行数据清洗
+	payload := ExtractPayload(inputData)
+	result, err := e.datacleanService.Execute(payload, config)
+	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "dataclean",
+			Success: false,
+			Error:   err.Error(),
+		}
+	}
+
+	if !result.Success {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "dataclean",
+			Success: false,
+			Error:   result.Error,
+		}
+	}
+
+	return NodeExecutionResult{
+		NodeID:  node.ID,
+		Type:    "dataclean",
 		Success: true,
 		Data:    result.Data,
 	}

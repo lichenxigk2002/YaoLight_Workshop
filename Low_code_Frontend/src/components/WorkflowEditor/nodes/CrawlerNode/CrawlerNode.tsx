@@ -22,7 +22,7 @@ const CrawlerNode: React.FC<NodeProps> = ({ data, ...props }) => {
       {...props}
       data={{ ...data, renderContent }}
       icon={<CloudDownloadOutlined style={{ fontSize: 20 }} />}
-      color="#1890ff"
+      color="#000000"
       label="爬虫节点"
       showInput={true}
       showOutput={true}

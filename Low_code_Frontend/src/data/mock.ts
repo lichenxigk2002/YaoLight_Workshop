@@ -16,7 +16,7 @@ export const mockNodeTypes = [
     name: '爬虫节点',
     type: 'crawler',
     icon: 'CloudDownloadOutlined',
-    color: '#1890ff',
+    color: '#000000',
   },
   {
     id: 2,

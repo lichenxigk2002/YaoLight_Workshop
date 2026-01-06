@@ -1,6 +1,6 @@
-# 工作流管理系统 - 前端
+# 瑶光工坊 (YaoLight Workshop) - 前端
 
-基于 React + Vite + TypeScript + Ant Design 的前端应用。
+基于 React + Vite + TypeScript + Ant Design 的智能工作流前端应用。
 
 ## 技术栈
 

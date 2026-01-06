@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import Login from '../pages/Login'
 import Dashboard from '../pages/Dashboard'
 import ProjectDetail from '../pages/ProjectDetail'
+import Profile from '../pages/Profile'
 import WorkflowEditor from '../components/WorkflowEditor'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
@@ -39,6 +40,16 @@ const router = createBrowserRouter([
       <ProtectedRoute>
         <Layout>
           <WorkflowEditor />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/profile',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <Profile />
         </Layout>
       </ProtectedRoute>
     ),

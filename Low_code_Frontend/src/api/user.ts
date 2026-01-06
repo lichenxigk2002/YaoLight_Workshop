@@ -26,6 +26,36 @@ export const userApi = {
     http.post<User>('/auth/register', data),
 
   /**
+   * 发送邮箱验证码
+   */
+  sendVerificationCode: (email: string) =>
+    http.post('/auth/send-code', { email }),
+
+  /**
+   * 邮箱验证码登录
+   */
+  emailLogin: (email: string, code: string) =>
+    http.post<LoginResponse>('/auth/email-login', { email, code }),
+
+  /**
+   * 发送注册验证码
+   */
+  sendRegisterCode: (email: string) =>
+    http.post('/auth/send-register-code', { email }),
+
+  /**
+   * 邮箱验证码注册
+   */
+  emailRegister: (email: string, code: string) =>
+    http.post<LoginResponse>('/auth/email-register', { email, code }),
+
+  /**
+   * 修改用户名
+   */
+  updateUsername: (username: string) =>
+    http.put('/users/username', { username }),
+
+  /**
    * 登出
    */
   logout: () =>

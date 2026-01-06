@@ -7,5 +7,8 @@
 
 .nodeInfoItem {
   margin-top: 4px;
-  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: normal;
 }

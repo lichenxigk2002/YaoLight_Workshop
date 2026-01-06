@@ -2,6 +2,7 @@ import { Layout as AntLayout, Dropdown, Avatar, Space } from 'antd';
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/redux/auth';
+import { useTranslation } from 'react-i18next';
 import SettingsButton from '@/components/SettingsButton';
 import type { MenuProps } from 'antd';
 import styles from './index.module.scss';
@@ -15,10 +16,19 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    if (key === 'profile') {
+      navigate('/profile');
+    } else if (key === 'logout') {
+      handleLogout();
+    }
   };
 
   const menuItems: MenuProps['items'] = [
@@ -27,7 +37,7 @@ export default function Layout({ children }: LayoutProps) {
       label: (
         <Space>
           <UserOutlined />
-          <span>个人中心</span>
+          <span>{t('layout.userCenter')}</span>
         </Space>
       ),
     },
@@ -39,10 +49,9 @@ export default function Layout({ children }: LayoutProps) {
       label: (
         <Space>
           <LogoutOutlined />
-          <span>退出登录</span>
+          <span>{t('layout.logout')}</span>
         </Space>
       ),
-      onClick: handleLogout,
     },
   ];
 
@@ -50,13 +59,16 @@ export default function Layout({ children }: LayoutProps) {
     <AntLayout className={styles.layout}>
       <Header className={styles.header}>
         <div className={styles.logo}>
-          工作流管理系统
+          {t('common.brandName')}
         </div>
         <Space>
           <span className={styles.username}>{user?.username || '用户'}</span>
-          <Dropdown menu={{ items: menuItems }} placement="bottomRight">
+          <Dropdown
+            menu={{ items: menuItems, onClick: handleMenuClick }}
+            placement="bottomRight"
+          >
             <Avatar
-              style={{ backgroundColor: '#1890ff', cursor: 'pointer' }}
+              style={{ backgroundColor: '#000', cursor: 'pointer' }}
               icon={<UserOutlined />}
             />
           </Dropdown>
