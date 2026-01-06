@@ -1,0 +1,60 @@
+{
+  "common": {
+    "brandName": "瑶光工坊",
+    "brandNameEn": "YaoLight Workshop",
+    "copyright": "© 2026 瑶光工坊 YaoLight Workshop. All rights reserved."
+  },
+  "login": {
+    "title": "构建未来的智能工作流",
+    "subtitle": "新一代低代码工作流编排平台，让 AI 为您的业务赋能。",
+    "description": "简单、高效、可信赖。",
+    "welcomeTitle": "欢迎使用",
+    "welcomeSubtitle": "登录以继续使用您的工作流",
+    "tabLogin": "账号登录",
+    "tabEmailLogin": "邮箱快捷登录",
+    "username": "用户名",
+    "password": "密码",
+    "email": "邮箱地址",
+    "code": "6位验证码",
+    "getCode": "获取验证码",
+    "codeCountdown": "秒后重新获取",
+    "loginButton": "登录",
+    "loginRegisterButton": "登录 / 注册",
+    "socialLogin": "或通过以下方式登录",
+    "githubLogin": "GitHub",
+    "googleLogin": "Google",
+    "firstTimeNote": "首次使用将自动注册，可在个人中心修改用户名",
+    "usernameRequired": "请输入用户名",
+    "passwordRequired": "请输入密码",
+    "emailRequired": "请输入邮箱",
+    "emailInvalid": "请输入有效的邮箱地址",
+    "codeRequired": "请输入验证码",
+    "codeInvalid": "验证码为6位数字",
+    "usernamePlaceholder": "用户名",
+    "passwordPlaceholder": "密码",
+    "emailPlaceholder": "邮箱地址",
+    "codePlaceholder": "6位验证码"
+  },
+  "layout": {
+    "userCenter": "个人中心",
+    "logout": "退出登录"
+  },
+  "dashboard": {
+    "title": "我的项目",
+    "createProject": "创建项目",
+    "projectName": "项目名称",
+    "projectDescription": "项目描述",
+    "enterProject": "进入项目"
+  },
+  "workflow": {
+    "title": "工作流管理",
+    "createWorkflow": "新建工作流",
+    "workflowName": "工作流名称",
+    "workflowDescription": "工作流描述",
+    "editWorkflow": "编辑工作流",
+    "deleteWorkflow": "删除工作流",
+    "deleteConfirm": "确定要删除这个工作流吗？",
+    "executeWorkflow": "执行工作流",
+    "saveWorkflow": "保存工作流"
+  }
+}

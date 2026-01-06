@@ -1,0 +1,61 @@
+{
+  "common": {
+    "brandName": "YaoLight Workshop",
+    "brandNameEn": "YaoLight Workshop",
+    "copyright": "© 2026 YaoLight Workshop. All rights reserved."
+  },
+  "login": {
+    "title": "Build the Future of Intelligent Workflows",
+    "subtitle": "Next-generation low-code workflow orchestration platform powered by AI.",
+    "description": "Simple, efficient, and reliable.",
+    "welcomeTitle": "Welcome",
+    "welcomeSubtitle": "Sign in to continue to your workflows",
+    "tabLogin": "Account Login",
+    "tabEmailLogin": "Quick Email Login",
+    "username": "Username",
+    "password": "Password",
+    "email": "Email Address",
+    "code": "6-digit Code",
+    "getCode": "Get Code",
+    "codeCountdown": "s to resend",
+    "loginButton": "Sign In",
+    "loginRegisterButton": "Sign In / Sign Up",
+    "socialLogin": "Or sign in with",
+    "githubLogin": "GitHub",
+    "googleLogin": "Google",
+    "firstTimeNote": "First time users will be auto-registered, username can be changed in profile",
+    "usernameRequired": "Please enter username",
+    "passwordRequired": "Please enter password",
+    "emailRequired": "Please enter email",
+    "emailInvalid": "Please enter a valid email address",
+    "codeRequired": "Please enter verification code",
+    "codeInvalid": "Code must be 6 digits",
+    "usernamePlaceholder": "Username",
+    "passwordPlaceholder": "Password",
+    "emailPlaceholder": "Email Address",
+    "codePlaceholder": "6-digit Code"
+  },
+  "layout": {
+    "userCenter": "Profile",
+    "logout": "Sign Out"
+  },
+  "dashboard": {
+    "title": "My Projects",
+    "createProject": "Create Project",
+    "projectName": "Project Name",
+    "projectDescription": "Project Description",
+    "enterProject": "Enter Project"
+  },
+  "workflow": {
+    "title": "Workflow Management",
+    "createWorkflow": "Create Workflow",
+    "workflowName": "Workflow Name",
+    "workflowDescription": "Workflow Description",
+    "editWorkflow": "Edit Workflow",
+    "deleteWorkflow": "Delete Workflow",
+    "deleteConfirm": "Are you sure you want to delete this workflow?",
+    "executeWorkflow": "Execute Workflow",
+    "saveWorkflow": "Save Workflow"
+  }
+}
+
