@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Form, Input, Button, Select, Switch, message, Tag, Space, Modal, Tabs, Typography, Collapse, Image, Empty, Row, Col } from 'antd';
 import {
   RobotOutlined,
@@ -31,6 +31,8 @@ interface NodeConfigPanelProps {
   onSave: (nodeId: string, config: any) => void;
   autoTest?: boolean;
   executionResult?: any; // 执行结果，用于显示变量预览
+  workflowId?: string; // 工作流ID，用于保存到后端
+  onSaveToBackend?: () => Promise<boolean>; // 保存到后端的函数
 }
 
 const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
@@ -42,6 +44,8 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   onSave,
   autoTest = false,
   executionResult,
+  workflowId,
+  onSaveToBackend,
 }) => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
@@ -108,8 +112,17 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     ` : ''}
   `;
 
+  // 使用 ref 跟踪当前已初始化的节点ID，避免重复填充表单
+  const initializedNodeIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (node) {
+      // 如果已经为这个节点初始化过表单，且不是自动测试，则不重新填充
+      // 这样可以保持用户在表单中的输入，即使数据库中的数据更新了
+      if (initializedNodeIdRef.current === node.id && !autoTest) {
+        return;
+      }
+
       const config = node.data.config || {};
 
       // 处理配置数据的格式转换（对象转JSON字符串，用于表单显示）
@@ -140,6 +153,9 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
         ...formConfig,
       });
 
+      // 标记当前节点已初始化
+      initializedNodeIdRef.current = node.id;
+
       // 如果需要自动测试，且是爬虫节点，则延迟触发测试
       const currentNodeType = node?.data?.type || node?.type;
       if (autoTest && currentNodeType === 'crawler') {
@@ -148,47 +164,69 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           crawlerTest.handleTestCrawl();
         }, 100);
       }
+    } else {
+      // 节点为空时，重置初始化标记
+      initializedNodeIdRef.current = null;
     }
-  }, [node, form, autoTest, crawlerTest]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node?.id, autoTest]); // 只依赖 node.id，避免 node 对象变化时重新填充表单
 
-  const handleSave = () => {
-    form
-      .validateFields()
-      .then((values) => {
-        if (node) {
-          const config = { ...values };
-          const parseJsonField = (field: string) => {
-            const v = (config as any)[field];
-            if (typeof v === 'string') {
-              const s = v.trim();
-              if (s.startsWith('{') && s.endsWith('}')) {
-                try {
-                  (config as any)[field] = JSON.parse(s);
-                } catch {
-                }
+  const handleSave = async () => {
+    try {
+      const values = await form.validateFields();
+      if (node) {
+        const config = { ...values };
+        const parseJsonField = (field: string) => {
+          const v = (config as any)[field];
+          if (typeof v === 'string') {
+            const s = v.trim();
+            if (s.startsWith('{') && s.endsWith('}')) {
+              try {
+                (config as any)[field] = JSON.parse(s);
+              } catch {
               }
             }
-          };
-          parseJsonField('headers');
-          parseJsonField('cookies');
-          delete config.label; // label不是config的一部分
-          delete config.connectionDirection; // connectionDirection不是config的一部分
-          delete (config as any).testCleanEnable;
-          delete (config as any).testCleanRemoveHTML;
-          delete (config as any).testCleanTrim;
+          }
+        };
+        parseJsonField('headers');
+        parseJsonField('cookies');
+        delete config.label; // label不是config的一部分
+        delete config.connectionDirection; // connectionDirection不是config的一部分
+        delete (config as any).testCleanEnable;
+        delete (config as any).testCleanRemoveHTML;
+        delete (config as any).testCleanTrim;
 
-          onSave(node.id, {
-            label: values.label,
-            connectionDirection: values.connectionDirection || 'vertical',
-            config: config,
-          });
-          message.success(t('node.config.configSaved'));
-          onClose();
+        // 先更新本地状态
+        onSave(node.id, {
+          label: values.label,
+          connectionDirection: values.connectionDirection || 'vertical',
+          config: config,
+        });
+
+        // 等待状态更新后，再保存到后端
+        // 使用setTimeout确保状态已更新
+        if (workflowId && onSaveToBackend) {
+          setTimeout(async () => {
+            try {
+              const saved = await onSaveToBackend();
+              if (saved) {
+                // 静默保存成功，不显示额外消息
+              } else {
+                message.warning('配置已保存，但保存到后端失败，请手动保存');
+              }
+            } catch (error) {
+              console.error('保存到后端失败:', error);
+              message.warning('配置已保存，但保存到后端失败，请手动保存');
+            }
+          }, 100);
         }
-      })
-      .catch((error) => {
-        console.error('表单验证失败:', error);
-      });
+
+        message.success(t('node.config.configSaved'));
+        onClose();
+      }
+    } catch (error) {
+      console.error('表单验证失败:', error);
+    }
   };
 
 
@@ -1362,24 +1400,6 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
                     ) : (
                       <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
                         {t('node.config.crawler.noCleanResult')}
-                      </div>
-                    )}
-                  </div>
-                ),
-              },
-              {
-                key: 'html',
-                label: t('node.config.crawler.htmlPreview'),
-                children: (
-                  <div style={{ maxHeight: '50vh', overflow: 'auto', border: '1px solid var(--border-secondary)', borderRadius: 4 }}>
-                    {crawlerTest.previewData?.crawler?.data?.html ? (
-                      <div
-                        style={{ padding: 16, background: 'var(--bg-primary)' }}
-                        dangerouslySetInnerHTML={{ __html: crawlerTest.previewData.crawler.data.html }}
-                      />
-                    ) : (
-                      <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
-                        {t('node.config.crawler.noHtmlPreview')}
                       </div>
                     )}
                   </div>

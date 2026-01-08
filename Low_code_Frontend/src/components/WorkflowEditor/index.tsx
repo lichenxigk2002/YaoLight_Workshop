@@ -108,7 +108,7 @@ const WorkflowEditor: React.FC = () => {
   } = useWorkflowNodes(nodes, setNodes, getNodeLabel);
 
   // 使用保存/加载Hook
-  const { lastSaveTime, loadWorkflowNodes, handleSave } = useWorkflowSave(
+  const { lastSaveTime, loadWorkflowNodes, handleSave, saveWorkflowInternal } = useWorkflowSave(
     workflowId,
     nodes,
     edges,
@@ -525,6 +525,8 @@ const WorkflowEditor: React.FC = () => {
                   nodes={nodes}
                   edges={edges}
                   executionResult={executionResult}
+                  workflowId={workflowId}
+                  onSaveToBackend={() => saveWorkflowInternal(true)}
                   onClose={() => {
                     setConfigPanelVisible(false);
                     setSelectedNode(null);
