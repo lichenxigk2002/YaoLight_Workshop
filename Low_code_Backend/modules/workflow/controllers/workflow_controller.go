@@ -22,8 +22,9 @@ type WorkflowController struct {
 func NewWorkflowController() *WorkflowController {
 	workflowRepo := workflowRepos.NewWorkflowRepository(database.DB)
 	workflowNodeRepo := workflowRepos.NewWorkflowNodeRepository(database.DB)
+	commentCardRepo := workflowRepos.NewWorkflowCommentCardRepository(database.DB)
 	return &WorkflowController{
-		workflowService: workflowService.NewWorkflowService(workflowRepo, workflowNodeRepo),
+		workflowService: workflowService.NewWorkflowService(workflowRepo, workflowNodeRepo, commentCardRepo),
 		executor:        workflowService.NewWorkflowExecutor(),
 	}
 }

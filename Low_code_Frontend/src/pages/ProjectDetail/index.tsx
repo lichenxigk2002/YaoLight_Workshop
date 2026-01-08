@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, Modal, Form, Input, message, Popconfirm, Tag, Breadcrumb } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { projectApi } from '@/api/project';
 import { workflowApi } from '@/api/workflow';
 import type { Workflow } from '@/types/workflow';
@@ -13,6 +14,7 @@ const { TextArea } = Input;
 
 export default function ProjectDetail() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -31,7 +33,7 @@ export default function ProjectDetail() {
       const data = await projectApi.getProjectById(Number(projectId));
       setProject(data);
     } catch (error: any) {
-      message.error(error.message || '加载项目信息失败');
+      message.error(error.message || t('dashboard.loadFailed'));
     }
   };
 
@@ -52,7 +54,7 @@ export default function ProjectDetail() {
       setWorkflows(response?.list || []);
       setTotal(response?.total || 0);
     } catch (error: any) {
-      message.error(error.message || '加载工作流列表失败');
+      message.error(error.message || t('workflow.execFailed'));
     } finally {
       setLoading(false);
     }
@@ -69,20 +71,20 @@ export default function ProjectDetail() {
     try {
       if (editingWorkflow) {
         await workflowApi.updateWorkflow(editingWorkflow.id, values);
-        message.success('更新工作流成功');
+        message.success(t('workflow.execSuccess'));
       } else {
         await workflowApi.createWorkflow({
           ...values,
           projectId: Number(projectId),
         });
-        message.success('创建工作流成功');
+        message.success(t('workflow.execSuccess'));
       }
       setModalVisible(false);
       form.resetFields();
       setEditingWorkflow(null);
       loadWorkflows();
     } catch (error: any) {
-      message.error(error.message || '操作失败');
+      message.error(error.message || t('common.operationFailed'));
     }
   };
 
@@ -90,10 +92,10 @@ export default function ProjectDetail() {
   const handleDelete = async (id: number) => {
     try {
       await workflowApi.deleteWorkflow(id);
-      message.success('删除工作流成功');
+      message.success(t('workflow.execSuccess'));
       loadWorkflows();
     } catch (error: any) {
-      message.error(error.message || '删除失败');
+      message.error(error.message || t('common.operationFailed'));
     }
   };
 
@@ -122,7 +124,7 @@ export default function ProjectDetail() {
   // 执行工作流
   const handleExecute = async (workflow: Workflow) => {
     try {
-      const hide = message.loading('执行中...', 0);
+      const hide = message.loading(t('workflow.executeWorkflow'), 0);
       await workflowApi.executeWorkflow({
         nodes: (workflow.nodes || []).map(node => ({
           id: node.id,
@@ -132,15 +134,15 @@ export default function ProjectDetail() {
         edges: workflow.edges || [],
       });
       hide();
-      message.success('工作流执行成功');
+      message.success(t('workflow.execSuccess'));
     } catch (error: any) {
-      message.error(error.message || '执行失败');
+      message.error(error.message || t('workflow.execFailed'));
     }
   };
 
   const columns = [
     {
-      title: '工作流名称',
+      title: t('workflow.workflowName'),
       dataIndex: 'name',
       key: 'name',
       render: (text: string, record: Workflow) => (
@@ -148,33 +150,33 @@ export default function ProjectDetail() {
       ),
     },
     {
-      title: '描述',
+      title: t('workflow.description'),
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
     },
     {
-      title: '状态',
+      title: t('workflow.status'),
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => {
         const statusMap: Record<string, { color: string; text: string }> = {
-          draft: { color: 'default', text: '草稿' },
-          published: { color: 'green', text: '已发布' },
-          archived: { color: 'orange', text: '已归档' },
+          draft: { color: 'default', text: t('workflow.statusDraft') },
+          published: { color: 'green', text: t('workflow.statusPublished') },
+          archived: { color: 'orange', text: t('workflow.statusArchived') },
         };
         const statusInfo = statusMap[status] || { color: 'default', text: status };
         return <Tag color={statusInfo.color}>{statusInfo.text}</Tag>;
       },
     },
     {
-      title: '创建时间',
+      title: t('workflow.createdAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (text: string) => new Date(text).toLocaleString('zh-CN'),
+      render: (text: string) => new Date(text).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'),
     },
     {
-      title: '操作',
+      title: t('common.actions'),
       key: 'action',
       render: (_: any, record: Workflow) => (
         <Space>
@@ -183,23 +185,23 @@ export default function ProjectDetail() {
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
-            编辑
+            {t('common.edit')}
           </Button>
           <Button
             type="link"
             icon={<PlayCircleOutlined />}
             onClick={() => handleExecute(record)}
           >
-            执行
+            {t('common.execute')}
           </Button>
           <Popconfirm
-            title="确定要删除这个工作流吗？"
+            title={t('workflow.deleteConfirm')}
             onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
+            okText={t('common.ok')}
+            cancelText={t('common.cancel')}
           >
             <Button type="link" danger icon={<DeleteOutlined />}>
-              删除
+              {t('common.delete')}
             </Button>
           </Popconfirm>
         </Space>
@@ -212,8 +214,8 @@ export default function ProjectDetail() {
       <Breadcrumb
         style={{ marginBottom: 16 }}
         items={[
-          { title: <a onClick={() => navigate('/')}>项目列表</a> },
-          { title: project?.name || '项目详情' },
+          { title: <a onClick={() => navigate('/')}>{t('dashboard.projectsList')}</a> },
+          { title: project?.name || t('dashboard.projectDetail') },
         ]}
       />
 
@@ -224,7 +226,7 @@ export default function ProjectDetail() {
               onClick={() => navigate('/')}
               style={{ cursor: 'pointer' }}
             />
-            <span>{project?.name || '项目详情'}</span>
+            <span>{project?.name || t('dashboard.projectDetail')}</span>
           </Space>
         }
         extra={
@@ -233,7 +235,7 @@ export default function ProjectDetail() {
             icon={<PlusOutlined />}
             onClick={handleCreate}
           >
-            新建工作流
+            {t('workflow.createWorkflow')}
           </Button>
         }
       >
@@ -247,7 +249,7 @@ export default function ProjectDetail() {
             pageSize: pageSize,
             total: total,
             showSizeChanger: true,
-            showTotal: (total) => `共 ${total} 条`,
+            showTotal: (total) => t('workflow.paginationTotal', { total }),
             onChange: (page, pageSize) => {
               setPage(page);
               setPageSize(pageSize);
@@ -257,7 +259,7 @@ export default function ProjectDetail() {
       </Card>
 
       <Modal
-        title={editingWorkflow ? '编辑工作流' : '新建工作流'}
+        title={editingWorkflow ? t('workflow.editWorkflow') : t('workflow.createWorkflow')}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -265,8 +267,8 @@ export default function ProjectDetail() {
           setEditingWorkflow(null);
         }}
         onOk={() => form.submit()}
-        okText="确定"
-        cancelText="取消"
+        okText={t('common.ok')}
+        cancelText={t('common.cancel')}
       >
         <Form
           form={form}
@@ -275,18 +277,18 @@ export default function ProjectDetail() {
         >
           <Form.Item
             name="name"
-            label="工作流名称"
-            rules={[{ required: true, message: '请输入工作流名称' }]}
+            label={t('workflow.workflowName')}
+            rules={[{ required: true, message: t('workflow.workflowName') }]}
           >
-            <Input placeholder="请输入工作流名称" />
+            <Input placeholder={t('workflow.workflowName')} />
           </Form.Item>
           <Form.Item
             name="description"
-            label="工作流描述"
+            label={t('workflow.workflowDescription')}
           >
             <TextArea
               rows={4}
-              placeholder="请输入工作流描述（可选）"
+              placeholder={t('workflow.workflowDescription')}
             />
           </Form.Item>
         </Form>

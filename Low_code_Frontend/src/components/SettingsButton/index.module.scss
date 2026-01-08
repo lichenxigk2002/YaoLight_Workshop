@@ -1,9 +1,14 @@
 .settingsButton {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
   z-index: 1000;
   transition: all 0.3s ease;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+
+  &:active {
+    cursor: grabbing;
+  }
 }
 
 .button {
@@ -19,23 +24,38 @@
   transition: all 0.3s ease;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
-  
+
   .anticon {
     font-size: 20px;
     color: var(--text-primary);
   }
-  
+
+  // 暗色主题下按钮背景是黑色，图标应该是白色
+  [data-theme='dark'] & {
+    background: #000000;
+    border-color: #434343;
+
+    .anticon {
+      color: #ffffff !important;
+    }
+  }
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px var(--shadow-lg);
     border-color: var(--primary);
-    
+
     .anticon {
       animation: rotate 1s linear infinite;
-      color: var(--primary);
+      // 不设置color，保持默认颜色不变
     }
   }
-  
+
+  // 暗色主题下hover时：边框不变白色，图标颜色不改变
+  [data-theme='dark'] &:hover {
+    border-color: #434343;
+  }
+
   &:active {
     transform: translateY(0);
   }
@@ -45,28 +65,13 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
 
-.popover {
-  .ant-popover-inner {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-secondary);
-  }
-  
-  .ant-popover-title {
-    background: var(--bg-primary);
-    border-bottom: 1px solid var(--border-secondary);
-    color: var(--text-primary);
-  }
-  
-  .ant-popover-inner-content {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-  }
-}
+// Popover样式已在全局主题文件中定义（Low_code_Frontend/src/styles/themes/index.scss）
 
 .popoverContent {
   min-width: 220px;
@@ -79,25 +84,24 @@
   padding: 12px 0;
   color: var(--text-primary);
   transition: all 0.3s ease;
-  
+
   &:not(:last-child) {
     border-bottom: 1px solid var(--border-secondary);
     margin-bottom: 8px;
     padding-bottom: 12px;
   }
-  
+
   &:hover {
     padding-left: 4px;
   }
-  
+
   span {
     color: var(--text-primary);
     font-size: 14px;
   }
-  
+
   .anticon {
     color: var(--primary);
     font-size: 16px;
   }
 }
-

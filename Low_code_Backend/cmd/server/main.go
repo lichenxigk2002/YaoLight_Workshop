@@ -11,6 +11,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/middleware"
 	"yaolight-workshop/backend/infrastructure/redis"
+	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	projectControllers "yaolight-workshop/backend/modules/project/controllers"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
 	workflowControllers "yaolight-workshop/backend/modules/workflow/controllers"
@@ -77,6 +78,10 @@ func main() {
 				},
 			})
 		})
+
+		// 静态资源代理（图片）
+		imageProxyController := fileControllers.NewImageProxyController()
+		api.GET("/proxy/image", imageProxyController.ProxyImage)
 
 		// 认证相关路由（无需JWT中间件）
 		authController := authControllers.NewAuthController()

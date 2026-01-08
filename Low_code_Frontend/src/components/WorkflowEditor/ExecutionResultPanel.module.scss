@@ -2,7 +2,7 @@
   :global {
     .ant-drawer-body {
       padding: 16px;
-      background: #f5f5f5;
+      background: var(--bg-secondary);
     }
   }
 }
@@ -12,11 +12,11 @@
 
   :global {
     .ant-collapse-item {
-      background: #fff;
+      background: var(--bg-primary);
       border-radius: 8px;
       margin-bottom: 12px;
       border: none;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 2px 8px var(--shadow-sm);
 
       &:last-child {
         margin-bottom: 0;
@@ -26,10 +26,13 @@
     .ant-collapse-header {
       padding: 12px 16px !important;
       border-radius: 8px !important;
+      color: var(--text-primary) !important;
     }
 
     .ant-collapse-content {
-      border-top: 1px solid #f0f0f0;
+      border-top: 1px solid var(--border-secondary);
+      background: var(--bg-primary);
+      color: var(--text-primary);
     }
 
     .ant-collapse-content-box {
@@ -48,6 +51,7 @@
   .nodeLabel {
     font-weight: 500;
     font-size: 14px;
+    color: var(--text-primary);
   }
 }
 
@@ -59,9 +63,14 @@
   .textPreview {
     margin-bottom: 16px;
     padding: 12px;
-    background: #f9f9f9;
+    background: var(--bg-secondary);
     border-radius: 4px;
-    border-left: 3px solid #1890ff;
+    color: var(--text-primary);
+    
+    // 强制内部文本颜色
+    :global(.ant-typography) {
+      color: var(--text-primary);
+    }
   }
 
   .listPreview {
@@ -73,14 +82,19 @@
 
     .listItem {
       padding: 8px 12px;
-      background: #fafafa;
+      background: var(--bg-secondary);
       border-radius: 4px;
       margin-bottom: 8px;
       display: flex;
       gap: 8px;
+      color: var(--text-primary);
 
       &:last-child {
         margin-bottom: 0;
+      }
+      
+      :global(.ant-typography-secondary) {
+        color: var(--text-tertiary);
       }
     }
   }
@@ -94,12 +108,12 @@
 
     .linkItem {
       padding: 6px 12px;
-      background: #fafafa;
+      background: var(--bg-secondary);
       border-radius: 4px;
       margin-bottom: 6px;
 
       a {
-        color: #1890ff;
+        color: #1890ff; // 保持蓝色链接，但在暗色下可能需要调整
         text-decoration: none;
 
         &:hover {
@@ -131,7 +145,11 @@
         height: 120px;
         object-fit: cover;
         border-radius: 4px;
-        border: 1px solid #e8e8e8;
+        border: 1px solid var(--border-secondary);
+      }
+      
+      :global(.ant-typography-secondary) {
+        color: var(--text-tertiary);
       }
     }
   }
@@ -139,21 +157,22 @@
 
 .errorMessage {
   padding: 12px;
-  background: #fff2f0;
-  border: 1px solid #ffccc7;
+  background: rgba(255, 77, 79, 0.1); // 使用半透明背景以适配深色模式
+  border: 1px solid rgba(255, 77, 79, 0.2);
   border-radius: 4px;
+  color: var(--text-primary);
 }
 
 .jsonDisplay {
   margin: 0;
   padding: 12px;
-  background: #f6f8fa;
-  border: 1px solid #e1e4e8;
+  background: var(--bg-tertiary); // 比 bg-secondary 更深一点
+  border: 1px solid var(--border-secondary);
   border-radius: 6px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
-  color: #24292e;
+  color: var(--text-primary);
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
@@ -166,17 +185,16 @@
   }
 
   &::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: var(--bg-secondary);
     border-radius: 4px;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #888;
+    background: var(--text-tertiary);
     border-radius: 4px;
 
     &:hover {
-      background: #555;
+      background: var(--text-secondary);
     }
   }
 }
-

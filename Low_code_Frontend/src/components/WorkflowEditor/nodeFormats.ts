@@ -144,40 +144,52 @@ export function getNodeOutputFormat(nodeType: string): DataFormat {
  * 验证节点连接是否兼容
  * @param sourceNodeType 源节点类型
  * @param targetNodeType 目标节点类型
+ * @param t 翻译函数（可选）
  * @returns 验证结果 { compatible: boolean, message?: string }
  */
 export function validateNodeConnection(
   sourceNodeType: string,
-  targetNodeType: string
+  targetNodeType: string,
+  t?: (key: string, params?: any) => string
 ): { compatible: boolean; message?: string } {
   const sourceOutput = getNodeOutputFormat(sourceNodeType);
   const targetInputs = getNodeInputFormats(targetNodeType);
 
   // 如果源节点输出为null（如输出节点、结束节点），不能连接到需要数据的节点
   if (sourceOutput === 'null' && !targetInputs.includes('null')) {
+    const sourceLabel = t ? t(`node.types.${sourceNodeType}`) : getNodeTypeLabel(sourceNodeType);
+    const targetLabel = t ? t(`node.types.${targetNodeType}`) : getNodeTypeLabel(targetNodeType);
     return {
       compatible: false,
-      message: `${getNodeTypeLabel(sourceNodeType)}没有输出数据，不能连接到${getNodeTypeLabel(targetNodeType)}`,
+      message: t 
+        ? t('node.validation.noOutputCannotConnect', { source: sourceLabel, target: targetLabel })
+        : `${sourceLabel}没有输出数据，不能连接到${targetLabel}`,
     };
   }
 
   // 如果目标节点不接受null，但源节点输出null
   if (sourceOutput === 'null' && !targetInputs.includes('null')) {
+    const sourceLabel = t ? t(`node.types.${sourceNodeType}`) : getNodeTypeLabel(sourceNodeType);
+    const targetLabel = t ? t(`node.types.${targetNodeType}`) : getNodeTypeLabel(targetNodeType);
     return {
       compatible: false,
-      message: `${getNodeTypeLabel(targetNodeType)}需要输入数据，但${getNodeTypeLabel(sourceNodeType)}没有输出`,
+      message: t
+        ? t('node.validation.needsInputButNoOutput', { source: sourceLabel, target: targetLabel })
+        : `${targetLabel}需要输入数据，但${sourceLabel}没有输出`,
     };
   }
 
   // 检查格式兼容性
   if (!isFormatCompatible(sourceOutput, targetInputs)) {
-    const sourceLabel = getNodeTypeLabel(sourceNodeType);
-    const targetLabel = getNodeTypeLabel(targetNodeType);
-    const formatLabel = getFormatLabel(sourceOutput);
+    const sourceLabel = t ? t(`node.types.${sourceNodeType}`) : getNodeTypeLabel(sourceNodeType);
+    const targetLabel = t ? t(`node.types.${targetNodeType}`) : getNodeTypeLabel(targetNodeType);
+    const formatLabel = t ? t(`node.formats.${sourceOutput}`) : getFormatLabel(sourceOutput);
     
     return {
       compatible: false,
-      message: `${sourceLabel}输出${formatLabel}格式，但${targetLabel}不接受此格式`,
+      message: t
+        ? t('node.validation.formatIncompatible', { source: sourceLabel, target: targetLabel, format: formatLabel })
+        : `${sourceLabel}输出${formatLabel}格式，但${targetLabel}不接受此格式`,
     };
   }
 

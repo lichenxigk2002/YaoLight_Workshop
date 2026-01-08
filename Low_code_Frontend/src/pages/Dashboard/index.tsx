@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, Modal, Form, Input, message, Popconfirm, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { projectApi } from '@/api/project';
 import type { Project, CreateProjectRequest } from '@/types/project';
 import type { PageRequest } from '@/types/api';
@@ -11,6 +12,7 @@ const { TextArea } = Input;
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -32,7 +34,7 @@ export default function Dashboard() {
       setProjects(response.list || []);
       setTotal(response.total || 0);
     } catch (error: any) {
-      message.error(error.message || '加载项目列表失败');
+      message.error(error.message || t('dashboard.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -47,17 +49,17 @@ export default function Dashboard() {
     try {
       if (editingProject) {
         await projectApi.updateProject(editingProject.id, values);
-        message.success('更新项目成功');
+        message.success(t('dashboard.updateSuccess'));
       } else {
         await projectApi.createProject(values);
-        message.success('创建项目成功');
+        message.success(t('dashboard.createSuccess'));
       }
       setModalVisible(false);
       form.resetFields();
       setEditingProject(null);
       loadProjects();
     } catch (error: any) {
-      message.error(error.message || '操作失败');
+      message.error(error.message || t('common.operationFailed'));
     }
   };
 
@@ -65,10 +67,10 @@ export default function Dashboard() {
   const handleDelete = async (id: number) => {
     try {
       await projectApi.deleteProject(id);
-      message.success('删除项目成功');
+      message.success(t('dashboard.deleteSuccess'));
       loadProjects();
     } catch (error: any) {
-      message.error(error.message || '删除失败');
+      message.error(error.message || t('dashboard.deleteFailed'));
     }
   };
 
@@ -96,7 +98,7 @@ export default function Dashboard() {
 
   const columns = [
     {
-      title: '项目名称',
+      title: t('dashboard.projectName'),
       dataIndex: 'name',
       key: 'name',
       render: (text: string, record: Project) => (
@@ -107,29 +109,29 @@ export default function Dashboard() {
       ),
     },
     {
-      title: '描述',
+      title: t('dashboard.description'),
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
     },
     {
-      title: '状态',
+      title: t('dashboard.status'),
       dataIndex: 'status',
       key: 'status',
       render: (status: string) => (
         <Tag color={status === 'active' ? 'green' : 'default'}>
-          {status === 'active' ? '活跃' : '已归档'}
+          {status === 'active' ? t('dashboard.statusActive') : t('dashboard.statusArchived')}
         </Tag>
       ),
     },
     {
-      title: '创建时间',
+      title: t('dashboard.createdAt'),
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (text: string) => new Date(text).toLocaleString('zh-CN'),
+      render: (text: string) => new Date(text).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'),
     },
     {
-      title: '操作',
+      title: t('common.actions'),
       key: 'action',
       render: (_: any, record: Project) => (
         <Space>
@@ -138,16 +140,16 @@ export default function Dashboard() {
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
           >
-            编辑
+            {t('common.edit')}
           </Button>
           <Popconfirm
-            title="确定要删除这个项目吗？"
+            title={t('dashboard.deleteConfirm')}
             onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
+            okText={t('common.ok')}
+            cancelText={t('common.cancel')}
           >
             <Button type="link" danger icon={<DeleteOutlined />}>
-              删除
+              {t('common.delete')}
             </Button>
           </Popconfirm>
         </Space>
@@ -158,14 +160,14 @@ export default function Dashboard() {
   return (
     <div className={styles.container}>
       <Card
-        title="项目管理"
+        title={t('dashboard.title')}
         extra={
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={handleCreate}
           >
-            新建项目
+            {t('dashboard.createProject')}
           </Button>
         }
       >
@@ -179,7 +181,7 @@ export default function Dashboard() {
             pageSize: pageSize,
             total: total,
             showSizeChanger: true,
-            showTotal: (total) => `共 ${total} 条`,
+            showTotal: (total) => t('dashboard.paginationTotal', { total }),
             onChange: (page, pageSize) => {
               setPage(page);
               setPageSize(pageSize);
@@ -189,7 +191,7 @@ export default function Dashboard() {
       </Card>
 
       <Modal
-        title={editingProject ? '编辑项目' : '新建项目'}
+        title={editingProject ? t('dashboard.editProject') : t('dashboard.newProject')}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -197,8 +199,8 @@ export default function Dashboard() {
           setEditingProject(null);
         }}
         onOk={() => form.submit()}
-        okText="确定"
-        cancelText="取消"
+        okText={t('common.ok')}
+        cancelText={t('common.cancel')}
       >
         <Form
           form={form}
@@ -207,18 +209,18 @@ export default function Dashboard() {
         >
           <Form.Item
             name="name"
-            label="项目名称"
-            rules={[{ required: true, message: '请输入项目名称' }]}
+            label={t('dashboard.projectName')}
+            rules={[{ required: true, message: t('dashboard.nameRequired') }]}
           >
-            <Input placeholder="请输入项目名称" />
+            <Input placeholder={t('dashboard.namePlaceholder')} />
           </Form.Item>
           <Form.Item
             name="description"
-            label="项目描述"
+            label={t('dashboard.projectDescription')}
           >
             <TextArea
               rows={4}
-              placeholder="请输入项目描述（可选）"
+              placeholder={t('dashboard.descriptionPlaceholder')}
             />
           </Form.Item>
         </Form>

@@ -1,4 +1,6 @@
 // 主题变量定义
+@use 'sass:map';
+@use 'sass:string';
 
 // 亮色主题
 $light-theme: (
@@ -84,19 +86,19 @@ $themes: (
 
 // 获取主题颜色函数
 @function theme-color($key) {
-  $theme-map: map-get($themes, 'light');
+  $theme-map: map.get($themes, 'light');
 
-  @if (str-index($key, 'dark-')==1) {
-    $theme-map: map-get($themes, 'dark');
-    $key: str-slice($key, 6);
+  @if (string.index($key, 'dark-') == 1) {
+    $theme-map: map.get($themes, 'dark');
+    $key: string.slice($key, 6);
   }
 
-  @return map-get($theme-map, $key);
+  @return map.get($theme-map, $key);
 }
 
 // Mixin: 应用主题
 @mixin theme($theme-name: 'light') {
-  $theme-map: map-get($themes, $theme-name);
+  $theme-map: map.get($themes, $theme-name);
 
   @each $key, $value in $theme-map {
     --#{$key}: #{$value};

@@ -47,18 +47,20 @@ export const workflowApi = {
    * 执行工作流
    */
   executeWorkflow: (data: ExecuteWorkflowRequest & { workflowId?: number }): Promise<ExecuteWorkflowResponse> => {
-    return http.post('/workflows/execute', data);
+    return http.post('/workflows/execute', data, {
+      timeout: 60000, // 60秒超时，给爬虫足够的时间执行
+    });
   },
 
   /**
    * 获取工作流的节点和边
    */
   getWorkflowNodes: (workflowId: number) =>
-    http.get<{ nodes: any[]; edges: any[] }>(`/workflows/${workflowId}/nodes`),
+    http.get<{ nodes: any[]; edges: any[]; commentCards?: any[] }>(`/workflows/${workflowId}/nodes`),
 
   /**
    * 保存工作流的节点和边
    */
-  saveWorkflowNodes: (workflowId: number, data: { nodes: any[]; edges: any[] }) =>
+  saveWorkflowNodes: (workflowId: number, data: { nodes: any[]; edges: any[]; commentCards?: any[] }) =>
     http.put(`/workflows/${workflowId}/nodes`, data),
 };

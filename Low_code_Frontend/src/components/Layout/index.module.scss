@@ -15,14 +15,14 @@
   box-shadow: 0 2px 8px var(--shadow-sm);
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
   border-bottom: 1px solid var(--border-secondary);
-  
+
   :global(.ant-dropdown-menu) {
     background: var(--bg-primary);
     border-color: var(--border-secondary);
-    
+
     :global(.ant-dropdown-menu-item) {
       color: var(--text-primary);
-      
+
       &:hover {
         background: var(--bg-secondary);
       }
@@ -31,13 +31,120 @@
 }
 
 .logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 20px;
   font-weight: bold;
   color: var(--primary);
+
+  .logoImage {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+  }
+
+  .brandText {
+    color: var(--primary);
+  }
 }
 
 .username {
   color: var(--text-secondary);
+}
+
+.themeToggle,
+.languageToggle {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  color: var(--text-primary);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+
+  :global(.anticon) {
+    font-size: 18px;
+    color: var(--text-primary);
+    transition: color 0.3s ease, transform 0.3s ease;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-primary);
+    background: var(--bg-secondary);
+    
+    :global(.anticon) {
+      transform: scale(1.1);
+    }
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  // 亮色主题下的特殊样式
+  [data-theme='light'] & {
+    box-shadow: none;
+    
+    :global(.anticon) {
+      color: var(--text-primary);
+    }
+
+    &:hover {
+      box-shadow: none;
+      :global(.anticon) {
+        color: var(--text-primary);
+      }
+    }
+
+    &:active {
+      box-shadow: none;
+    }
+  }
+
+  // 暗色主题下的特殊样式
+  [data-theme='dark'] & {
+    box-shadow: 0 2px 4px var(--shadow-sm);
+    
+    :global(.anticon) {
+      color: var(--text-primary);
+    }
+
+    &:hover {
+    box-shadow: 0 4px 12px var(--shadow-md);
+      background: var(--bg-secondary);
+      :global(.anticon) {
+        color: var(--text-primary);
+      }
+    }
+
+    &:active {
+      box-shadow: 0 2px 4px var(--shadow-sm);
+    }
+  }
+}
+
+.themeToggle {
+  margin-right: 16px;
+}
+
+.languageToggle {
+  margin-right: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  
+  // 确保文字颜色正确
+  color: var(--text-primary) !important;
+  
+  &:hover {
+    color: var(--text-primary) !important;
+  }
 }
 
 .content {
@@ -49,4 +156,3 @@
   display: flex;
   flex-direction: column;
 }
-

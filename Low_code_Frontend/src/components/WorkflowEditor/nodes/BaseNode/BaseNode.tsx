@@ -37,6 +37,46 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
       className={`${styles.baseNode} ${selected ? styles.selected : ''}`}
       data-node-type={data.type}
     >
+      {data.executionStatus && (
+        <div
+          className={`${styles.statusBadge} ${
+            data.executionStatus === 'success'
+              ? styles.status_success
+              : data.executionStatus === 'failed'
+              ? styles.status_failed
+              : styles.status_pending
+          }`}
+        >
+          {(() => {
+            const color =
+              data.executionStatus === 'success'
+                ? '#52c41a'
+                : data.executionStatus === 'failed'
+                ? '#f5222d'
+                : '#8c8c8c';
+            if (data.executionStatus === 'success') {
+              return (
+                <svg width="10" height="10" viewBox="0 0 12 12">
+                  <path d="M2 6 L5 9 L10 4" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              );
+            }
+            if (data.executionStatus === 'failed') {
+              return (
+                <svg width="10" height="10" viewBox="0 0 12 12">
+                  <path d="M3 3 L9 9" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" />
+                  <path d="M9 3 L3 9" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" />
+                </svg>
+              );
+            }
+            return (
+              <svg width="10" height="10" viewBox="0 0 12 12">
+                <path d="M2 6 L10 6" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" />
+              </svg>
+            );
+          })()}
+        </div>
+      )}
       {/* 输入端口 */}
       {showInput && (
         <>
@@ -91,16 +131,15 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
       )}
 
       {/* 节点卡片 */}
-      <Card
+  <Card
         size="small"
-        bordered={false}
+        variant="filled"
         className={styles.nodeCard}
         style={{
           border: selected ? `2px solid ${color}` : `1px solid var(--border-primary)`,
           boxShadow: selected ? `0 0 0 2px ${color}20` : 'none',
         }}
-        bodyStyle={{ padding: '12px' }}
-        headStyle={{ display: 'none', padding: 0, minHeight: 0 }}
+        styles={{ body: { padding: '12px' }, header: { display: 'none', padding: 0, minHeight: 0 } }}
       >
         <div className={styles.nodeHeader}>
           <span className={styles.nodeIcon} style={{ color }}>

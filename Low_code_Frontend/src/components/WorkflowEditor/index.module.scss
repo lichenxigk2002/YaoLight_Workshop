@@ -142,3 +142,23 @@
   stroke: var(--primary);
 }
 
+// 统一通知样式为黑白风格
+:global(.ant-notification-notice) {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  box-shadow: 0 2px 8px var(--shadow-sm);
+  border-radius: 8px;
+}
+:global(.ant-notification-notice-message),
+:global(.ant-notification-notice-description) {
+  color: var(--text-primary);
+}
+:global(.ant-notification-notice-close) {
+  color: var(--text-secondary);
+}
+:global(.ant-notification-notice-btn .ant-btn) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-secondary);
+}
+

@@ -42,14 +42,17 @@
 }
 
 .brandLogo {
-  font-size: 32px;
-  color: #fff;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
 
 .brandName {
   font-size: 24px;
-  font-weight: 600; /* 略微减细字重，更显精致 */
-  letter-spacing: -0.5px; /* 紧凑字间距，苹果风格 */
+  font-weight: 600;
+  /* 略微减细字重，更显精致 */
+  letter-spacing: -0.5px;
+  /* 紧凑字间距，苹果风格 */
 }
 
 .brandContent {
@@ -62,17 +65,20 @@
 }
 
 .brandTitle {
-  font-size: 56px !important; /* 加大字号 */
+  font-size: 56px !important;
+  /* 加大字号 */
   font-weight: 700 !important;
   color: #fff !important;
   line-height: 1.1 !important;
   margin-bottom: 24px !important;
-  letter-spacing: -1.5px; /* 紧凑字间距 */
+  letter-spacing: -1.5px;
+  /* 紧凑字间距 */
 }
 
 .brandSubtitle {
   font-size: 20px;
-  color: rgba(255, 255, 255, 0.7); /* 降低对比度 */
+  color: rgba(255, 255, 255, 0.7);
+  /* 降低对比度 */
   line-height: 1.6;
   font-weight: 400;
   max-width: 480px;
@@ -109,10 +115,13 @@
 }
 
 .glassCard {
-  background: rgba(255, 255, 255, 0.05); /* 更低透明度 */
-  backdrop-filter: blur(20px); /* 更强模糊 */
+  background: rgba(255, 255, 255, 0.05);
+  /* 更低透明度 */
+  backdrop-filter: blur(20px);
+  /* 更强模糊 */
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px; /* 更大圆角 */
+  border-radius: 24px;
+  /* 更大圆角 */
   padding: 40px;
   display: flex;
   align-items: center;
@@ -142,31 +151,31 @@
   backdrop-filter: blur(12px);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  
+
   &::before {
     content: '';
     position: absolute;
     inset: -1px;
     border-radius: 16px;
     padding: 1.5px;
-    background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.05));
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.05));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     opacity: 0;
     transition: opacity 0.4s;
   }
-  
+
   &:hover {
     transform: translateY(-2px);
     background: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.4);
     box-shadow: 0 8px 24px rgba(255, 255, 255, 0.1);
-    
+
     &::before {
       opacity: 1;
     }
-    
+
     .nodeIconSvg {
       transform: scale(1.1);
     }
@@ -187,7 +196,7 @@
   text-align: center;
   letter-spacing: 0.3px;
   transition: color 0.3s;
-  
+
   .nodeItem:hover & {
     color: rgba(255, 255, 255, 1);
   }
@@ -200,7 +209,7 @@
   margin: 0 16px;
   margin-top: -28px;
   position: relative;
-  
+
   &::after {
     content: '';
     position: absolute;
@@ -263,8 +272,10 @@
 
 .cardTitle {
   font-size: 32px !important;
-  font-weight: 600 !important; /* 减细字重 */
-  color: #000 !important; /* 纯黑 */
+  font-weight: 600 !important;
+  /* 减细字重 */
+  color: #000 !important;
+  /* 纯黑 */
   margin-bottom: 12px !important;
   letter-spacing: -1px;
 }
@@ -277,6 +288,7 @@
 .tabs {
   :global(.ant-tabs-nav) {
     margin-bottom: 32px;
+
     &::before {
       border-bottom: none;
     }
@@ -286,9 +298,10 @@
     font-size: 16px;
     padding: 12px 0;
     margin: 0 20px;
-    color: #999; /* 浅灰未选中 */
+    color: #999;
+    /* 浅灰未选中 */
     transition: color 0.3s;
-    
+
     &:hover {
       color: #000;
     }
@@ -296,13 +309,15 @@
 
   :global(.ant-tabs-tab-active) {
     :global(.ant-tabs-tab-btn) {
-      color: #000 !important; /* 纯黑选中 */
+      color: #000 !important;
+      /* 纯黑选中 */
       font-weight: 500;
     }
   }
 
   :global(.ant-tabs-ink-bar) {
-    background: #000; /* 纯黑指示条 */
+    background: #000;
+    /* 纯黑指示条 */
     height: 2px;
   }
 }
@@ -314,10 +329,14 @@
 }
 
 .input {
-  height: 52px; /* 稍高一点 */
-  border-radius: 12px; /* 更大圆角 */
-  background: #f5f5f7; /* 苹果浅灰背景 */
-  border: 1px solid transparent; /* 默认无边框 */
+  height: 52px;
+  /* 稍高一点 */
+  border-radius: 12px;
+  /* 更大圆角 */
+  background: #f5f5f7;
+  /* 苹果浅灰背景 */
+  border: 1px solid transparent;
+  /* 默认无边框 */
   font-size: 16px;
   transition: all 0.2s;
 
@@ -328,8 +347,10 @@
   &:focus,
   &:focus-within {
     background: #fff;
-    border-color: #000; /* 聚焦纯黑边框 */
-    box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.05); /* 极淡阴影 */
+    border-color: #000;
+    /* 聚焦纯黑边框 */
+    box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.05);
+    /* 极淡阴影 */
   }
 
   :global(.ant-input) {
@@ -345,28 +366,34 @@
 
 .submitButton {
   height: 52px;
-  border-radius: 12px; /* 匹配输入框 */
+  border-radius: 12px;
+  /* 匹配输入框 */
   font-size: 16px;
   font-weight: 500;
-  background: #000; /* 纯黑背景 */
+  background: #000;
+  /* 纯黑背景 */
   border: none;
   margin-top: 10px;
-  box-shadow: none; /* 去除阴影，扁平化 */
+  box-shadow: none;
+  /* 去除阴影，扁平化 */
 
   &:hover {
-    background: #333 !important; /* 深灰 Hover */
-    transform: none; /* 去除位移 */
+    background: #333 !important;
+    /* 深灰 Hover */
+    transform: none;
+    /* 去除位移 */
     box-shadow: none;
   }
 
   &:active {
-    transform: scale(0.99); /* 微妙的按压缩放 */
+    transform: scale(0.99);
+    /* 微妙的按压缩放 */
   }
 }
 
 .divider {
   margin: 30px 0 !important;
-  
+
   .dividerText {
     color: #94a3b8;
     font-size: 14px;
@@ -381,7 +408,8 @@
 
 .socialBtn {
   height: 44px;
-  border-radius: 12px; /* 匹配整体风格 */
+  border-radius: 12px;
+  /* 匹配整体风格 */
   border: 1px solid #e5e5e5;
   color: #000;
   font-weight: 500;
@@ -390,7 +418,7 @@
   justify-content: center;
   background: #fff;
   transition: all 0.2s;
-  
+
   &:hover {
     color: #000;
     border-color: #000;
@@ -408,12 +436,12 @@
   border: 1px solid #e5e5e5;
   color: #000;
   background: #fff;
-  
+
   &:hover:not(:disabled) {
     border-color: #000;
     color: #000;
   }
-  
+
   &:disabled {
     background: #f5f5f7;
     color: #999;

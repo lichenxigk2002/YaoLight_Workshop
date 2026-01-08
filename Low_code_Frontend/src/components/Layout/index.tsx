@@ -1,9 +1,9 @@
-import { Layout as AntLayout, Dropdown, Avatar, Space } from 'antd';
-import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import { Layout as AntLayout, Dropdown, Avatar, Space, Button } from 'antd';
+import { UserOutlined, LogoutOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/redux/auth';
 import { useTranslation } from 'react-i18next';
-import SettingsButton from '@/components/SettingsButton';
+import { useThemeStore } from '@/store/theme';
 import type { MenuProps } from 'antd';
 import styles from './index.module.scss';
 
@@ -16,7 +16,8 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { theme, toggleTheme } = useThemeStore();
 
   const handleLogout = () => {
     logout();
@@ -29,6 +30,11 @@ export default function Layout({ children }: LayoutProps) {
     } else if (key === 'logout') {
       handleLogout();
     }
+  };
+
+  const handleLanguageToggle = () => {
+    const newLanguage = i18n.language === 'zh-CN' ? 'en-US' : 'zh-CN';
+    i18n.changeLanguage(newLanguage);
   };
 
   const menuItems: MenuProps['items'] = [
@@ -59,9 +65,29 @@ export default function Layout({ children }: LayoutProps) {
     <AntLayout className={styles.layout}>
       <Header className={styles.header}>
         <div className={styles.logo}>
-          {t('common.brandName')}
+          <img
+            src={theme === 'dark' ? '/YaoLight_White.png' : '/YaoLight_Black.png'}
+            alt="YaoLight"
+            className={styles.logoImage}
+          />
+          <span className={styles.brandText}>{t('common.brandName')}</span>
         </div>
         <Space>
+          <Button
+            className={styles.themeToggle}
+            shape="circle"
+            size="middle"
+            onClick={toggleTheme}
+            icon={theme === 'dark' ? <MoonOutlined /> : <SunOutlined />}
+          />
+          <Button
+            className={styles.languageToggle}
+            shape="circle"
+            size="middle"
+            onClick={handleLanguageToggle}
+          >
+            {i18n.language === 'zh-CN' ? 'CN' : 'US'}
+          </Button>
           <span className={styles.username}>{user?.username || '用户'}</span>
           <Dropdown
             menu={{ items: menuItems, onClick: handleMenuClick }}
@@ -77,8 +103,6 @@ export default function Layout({ children }: LayoutProps) {
       <Content className={styles.content}>
         {children}
       </Content>
-      <SettingsButton />
     </AntLayout>
   );
 }
-

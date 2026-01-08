@@ -17,13 +17,15 @@ var (
 type WorkflowService struct {
 	workflowRepo     repository.WorkflowRepository
 	workflowNodeRepo *workflowRepos.WorkflowNodeRepository
+	commentCardRepo  *workflowRepos.WorkflowCommentCardRepository
 }
 
 // NewWorkflowService 创建工作流服务
-func NewWorkflowService(workflowRepo repository.WorkflowRepository, workflowNodeRepo *workflowRepos.WorkflowNodeRepository) *WorkflowService {
+func NewWorkflowService(workflowRepo repository.WorkflowRepository, workflowNodeRepo *workflowRepos.WorkflowNodeRepository, commentCardRepo *workflowRepos.WorkflowCommentCardRepository) *WorkflowService {
 	return &WorkflowService{
 		workflowRepo:     workflowRepo,
 		workflowNodeRepo: workflowNodeRepo,
+		commentCardRepo:  commentCardRepo,
 	}
 }
 
@@ -143,8 +145,9 @@ func (s *WorkflowService) DeleteWorkflow(id uint) error {
 
 // SaveWorkflowNodesRequest 保存工作流节点和边请求
 type SaveWorkflowNodesRequest struct {
-	Nodes []WorkflowNodeData `json:"nodes"`
-	Edges []EdgeData         `json:"edges"`
+	Nodes        []WorkflowNodeData        `json:"nodes"`
+	Edges        []EdgeData                `json:"edges"`
+	CommentCards []WorkflowCommentCardData `json:"commentCards,omitempty"`
 }
 
 // WorkflowNodeData 工作流节点数据（用于保存/加载）
@@ -159,6 +162,13 @@ type EdgeData struct {
 	ID     string `json:"id"`
 	Source string `json:"source"`
 	Target string `json:"target"`
+}
+
+// WorkflowCommentCardData 工作流注释卡片数据（用于保存/加载）
+type WorkflowCommentCardData struct {
+	ID       string                 `json:"id"`
+	Position map[string]interface{} `json:"position"`
+	Data     map[string]interface{} `json:"data"`
 }
 
 // SaveWorkflowNodes 保存工作流节点和边
@@ -220,6 +230,47 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 	// 删除不存在的节点
 	if err := s.workflowNodeRepo.DeleteByWorkflowIDAndNodeIDs(workflowID, nodeIDs); err != nil {
 		return err
+	}
+
+	// 处理注释卡片
+	if req.CommentCards != nil {
+		// 收集所有卡片ID，用于删除不存在的卡片
+		cardIDs := make([]string, len(req.CommentCards))
+
+		// 转换并保存注释卡片
+		cards := make([]*models.WorkflowCommentCard, len(req.CommentCards))
+		for i, cardData := range req.CommentCards {
+			cardIDs[i] = cardData.ID
+
+			// 提取文本和颜色
+			var text *string
+			if textVal, ok := cardData.Data["text"].(string); ok {
+				text = &textVal
+			}
+
+			color := "#fffacd" // 默认颜色
+			if colorVal, ok := cardData.Data["color"].(string); ok {
+				color = colorVal
+			}
+
+			cards[i] = &models.WorkflowCommentCard{
+				WorkflowID: workflowID,
+				CardID:     cardData.ID,
+				Position:   shared.JSONB{Data: cardData.Position},
+				Text:       text,
+				Color:      color,
+			}
+		}
+
+		// 批量保存注释卡片
+		if err := s.commentCardRepo.BatchCreateOrUpdate(cards); err != nil {
+			return err
+		}
+
+		// 删除不存在的注释卡片
+		if err := s.commentCardRepo.DeleteByWorkflowIDAndCardIDs(workflowID, cardIDs); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -307,9 +358,40 @@ func (s *WorkflowService) GetWorkflowNodes(workflowID uint) (*SaveWorkflowNodesR
 		}
 	}
 
+	// 查询注释卡片
+	dbCommentCards, err := s.commentCardRepo.FindByWorkflowID(workflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换为前端格式
+	commentCards := make([]WorkflowCommentCardData, len(dbCommentCards))
+	for i, dbCard := range dbCommentCards {
+		// 提取位置
+		position := map[string]interface{}{}
+		if dbCard.Position.Data != nil {
+			if posMap, ok := dbCard.Position.Data.(map[string]interface{}); ok {
+				position = posMap
+			}
+		}
+
+		// 构建卡片数据
+		cardData := map[string]interface{}{
+			"text":  dbCard.Text,
+			"color": dbCard.Color,
+		}
+
+		commentCards[i] = WorkflowCommentCardData{
+			ID:       dbCard.CardID,
+			Position: position,
+			Data:     cardData,
+		}
+	}
+
 	return &SaveWorkflowNodesRequest{
-		Nodes: nodes,
-		Edges: edges,
+		Nodes:        nodes,
+		Edges:        edges,
+		CommentCards: commentCards,
 	}, nil
 }
 

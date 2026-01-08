@@ -1,5 +1,5 @@
 // 主题入口文件
-@import './_variables';
+@use './_variables' as *;
 
 // 默认应用亮色主题
 :root {
@@ -168,6 +168,65 @@ body {
 
     &:hover .anticon {
       color: var(--primary);
+    }
+  }
+}
+
+// Popover 主题适配
+.ant-popover {
+  .ant-popover-inner {
+    background: var(--bg-primary);
+    border-color: var(--border-secondary);
+  }
+
+  .ant-popover-title {
+    background: var(--bg-primary);
+    border-bottom-color: var(--border-secondary);
+    color: var(--text-primary);
+  }
+
+  .ant-popover-inner-content {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+  }
+
+  .ant-popover-arrow {
+    &::before {
+      background: var(--bg-primary);
+      border-color: var(--border-secondary);
+    }
+  }
+}
+
+// Tooltip 主题适配
+.ant-tooltip {
+  .ant-tooltip-inner {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #e8e8e8;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .ant-tooltip-arrow {
+    &::before {
+      background: #ffffff !important;
+      border: 1px solid #e8e8e8;
+    }
+  }
+
+  // 暗色主题下保持深色
+  [data-theme='dark'] & {
+    .ant-tooltip-inner {
+      background: #141414 !important;
+      color: #ffffff !important;
+      border-color: #434343;
+    }
+
+    .ant-tooltip-arrow {
+      &::before {
+        background: #141414 !important;
+        border-color: #434343;
+      }
     }
   }
 }

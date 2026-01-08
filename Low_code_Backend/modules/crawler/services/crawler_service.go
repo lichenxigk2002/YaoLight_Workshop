@@ -309,7 +309,7 @@ func (s *CrawlerService) executeSinglePage(config CrawlerConfig) (*CrawlerResult
 		}
 	}
 
-	// 设置自定义Headers
+	// 设置自定义Headers（会覆盖默认值）
 	for key, value := range config.Headers {
 		req.Header.Set(key, value)
 	}
@@ -435,25 +435,33 @@ func (s *CrawlerService) extractData(doc *goquery.Document, config CrawlerConfig
 	extracted := make(map[string]interface{})
 	var extractedData []map[string]interface{}
 
-	doc.Find(config.Selector).Each(func(i int, s *goquery.Selection) {
+	doc.Find(config.Selector).Each(func(i int, sel *goquery.Selection) {
 		item := make(map[string]interface{})
 
 		switch config.ExtractType {
 		case "text":
-			text := strings.TrimSpace(s.Text())
+			text := strings.TrimSpace(sel.Text())
 			if text != "" {
 				item["text"] = text
 				item["index"] = i
 			}
 		case "html":
-			html, _ := s.Html()
+			sel.Find("img").Each(func(_ int, img *goquery.Selection) {
+				if src, ok := img.Attr("src"); ok && src != "" {
+					img.SetAttr("src", s.proxyImageURL(src, config.URL))
+				}
+				if dsrc, ok := img.Attr("data-src"); ok && dsrc != "" {
+					img.SetAttr("data-src", s.proxyImageURL(dsrc, config.URL))
+				}
+			})
+			html, _ := sel.Html()
 			if html != "" {
 				item["html"] = html
 				item["index"] = i
 			}
 		case "attr":
 			if config.ExtractAttr != "" {
-				attr, exists := s.Attr(config.ExtractAttr)
+				attr, exists := sel.Attr(config.ExtractAttr)
 				if exists {
 					item["attr"] = attr
 					item["attrName"] = config.ExtractAttr
@@ -462,43 +470,51 @@ func (s *CrawlerService) extractData(doc *goquery.Document, config CrawlerConfig
 			} else {
 				// 提取所有属性
 				attrs := make(map[string]string)
-				for _, attr := range s.Get(0).Attr {
+				for _, attr := range sel.Get(0).Attr {
 					attrs[attr.Key] = attr.Val
 				}
 				item["attrs"] = attrs
 				item["index"] = i
 			}
 		case "link":
-			href, exists := s.Attr("href")
+			href, exists := sel.Attr("href")
 			if exists {
 				item["link"] = href
-				item["text"] = strings.TrimSpace(s.Text())
+				item["text"] = strings.TrimSpace(sel.Text())
 				item["index"] = i
 			}
 		case "image":
-			src, exists := s.Attr("src")
+			src, exists := sel.Attr("src")
 			if !exists {
-				src, exists = s.Attr("data-src")
+				src, exists = sel.Attr("data-src")
 			}
 			if exists {
-				item["image"] = src
-				alt, _ := s.Attr("alt")
+				item["image"] = s.proxyImageURL(src, config.URL)
+				alt, _ := sel.Attr("alt")
 				item["alt"] = alt
 				item["index"] = i
 			}
 		case "all":
 			// 提取所有信息
-			item["text"] = strings.TrimSpace(s.Text())
-			html, _ := s.Html()
+			item["text"] = strings.TrimSpace(sel.Text())
+			sel.Find("img").Each(func(_ int, img *goquery.Selection) {
+				if src, ok := img.Attr("src"); ok && src != "" {
+					img.SetAttr("src", s.proxyImageURL(src, config.URL))
+				}
+				if dsrc, ok := img.Attr("data-src"); ok && dsrc != "" {
+					img.SetAttr("data-src", s.proxyImageURL(dsrc, config.URL))
+				}
+			})
+			html, _ := sel.Html()
 			item["html"] = html
 			attrs := make(map[string]string)
-			for _, attr := range s.Get(0).Attr {
+			for _, attr := range sel.Get(0).Attr {
 				attrs[attr.Key] = attr.Val
 			}
 			item["attrs"] = attrs
 			item["index"] = i
 		default:
-			text := strings.TrimSpace(s.Text())
+			text := strings.TrimSpace(sel.Text())
 			if text != "" {
 				item["text"] = text
 				item["index"] = i
@@ -527,6 +543,10 @@ func (s *CrawlerService) extractData(doc *goquery.Document, config CrawlerConfig
 	}
 
 	return extracted
+}
+
+func (s *CrawlerService) proxyImageURL(imageURL, referer string) string {
+	return fmt.Sprintf("/api/proxy/image?url=%s&referer=%s", url.QueryEscape(imageURL), url.QueryEscape(referer))
 }
 
 // decodeBody 解码响应体
@@ -813,29 +833,26 @@ func (s *CrawlerService) smartExtract(doc *goquery.Document, config CrawlerConfi
 
 	switch mode {
 	case "article":
-		// 文章模式：提取文章内容
-		extracted = s.extractArticle(doc)
+		extracted = s.extractArticle(doc, config.URL)
 	case "list":
-		// 列表模式：提取列表项
-		extracted = s.extractList(doc)
+		extracted = s.extractList(doc, config.URL)
 	case "links":
 		// 链接模式：提取所有链接
 		extracted = s.extractLinks(doc)
 	case "images":
-		// 图片模式：提取所有图片
-		extracted = s.extractImages(doc)
+		extracted = s.extractImages(doc, config.URL)
 	case "smart":
 		fallthrough
 	default:
 		// 智能模式：自动检测主要内容
-		extracted = s.extractSmart(doc)
+		extracted = s.extractSmart(doc, config.URL)
 	}
 
 	return extracted
 }
 
 // extractSmart 智能检测并提取主要内容
-func (s *CrawlerService) extractSmart(doc *goquery.Document) map[string]interface{} {
+func (s *CrawlerService) extractSmart(doc *goquery.Document, referer string) map[string]interface{} {
 	extracted := make(map[string]interface{})
 
 	// 优先级顺序：article > main > .content/.post/.article > body
@@ -863,6 +880,14 @@ func (s *CrawlerService) extractSmart(doc *goquery.Document) map[string]interfac
 	}
 
 	if mainContent != nil {
+		mainContent.Find("img").Each(func(_ int, img *goquery.Selection) {
+			if src, ok := img.Attr("src"); ok && src != "" {
+				img.SetAttr("src", s.proxyImageURL(src, referer))
+			}
+			if dsrc, ok := img.Attr("data-src"); ok && dsrc != "" {
+				img.SetAttr("data-src", s.proxyImageURL(dsrc, referer))
+			}
+		})
 		html, _ := mainContent.Html()
 		extracted["text"] = strings.TrimSpace(mainContent.Text())
 		extracted["html"] = html
@@ -881,7 +906,7 @@ func (s *CrawlerService) extractSmart(doc *goquery.Document) map[string]interfac
 }
 
 // extractArticle 提取文章内容
-func (s *CrawlerService) extractArticle(doc *goquery.Document) map[string]interface{} {
+func (s *CrawlerService) extractArticle(doc *goquery.Document, referer string) map[string]interface{} {
 	extracted := make(map[string]interface{})
 
 	// 尝试找到文章标题
@@ -914,6 +939,14 @@ func (s *CrawlerService) extractArticle(doc *goquery.Document) map[string]interf
 	}
 
 	if content != nil {
+		content.Find("img").Each(func(_ int, img *goquery.Selection) {
+			if src, ok := img.Attr("src"); ok && src != "" {
+				img.SetAttr("src", s.proxyImageURL(src, referer))
+			}
+			if dsrc, ok := img.Attr("data-src"); ok && dsrc != "" {
+				img.SetAttr("data-src", s.proxyImageURL(dsrc, referer))
+			}
+		})
 		html, _ := content.Html()
 		extracted["title"] = title
 		extracted["content"] = strings.TrimSpace(content.Text())
@@ -932,7 +965,7 @@ func (s *CrawlerService) extractArticle(doc *goquery.Document) map[string]interf
 }
 
 // extractList 提取列表项
-func (s *CrawlerService) extractList(doc *goquery.Document) map[string]interface{} {
+func (s *CrawlerService) extractList(doc *goquery.Document, referer string) map[string]interface{} {
 	extracted := make(map[string]interface{})
 	items := make([]map[string]interface{}, 0)
 
@@ -952,10 +985,18 @@ func (s *CrawlerService) extractList(doc *goquery.Document) map[string]interface
 	}
 
 	if listContainer != nil {
-		listContainer.Find("li, .item, .list-item, article, .post").Each(func(i int, s *goquery.Selection) {
-			text := strings.TrimSpace(s.Text())
+		listContainer.Find("li, .item, .list-item, article, .post").Each(func(i int, sel *goquery.Selection) {
+			text := strings.TrimSpace(sel.Text())
 			if text != "" {
-				html, _ := s.Html()
+				sel.Find("img").Each(func(_ int, img *goquery.Selection) {
+					if src, ok := img.Attr("src"); ok && src != "" {
+						img.SetAttr("src", s.proxyImageURL(src, referer))
+					}
+					if dsrc, ok := img.Attr("data-src"); ok && dsrc != "" {
+						img.SetAttr("data-src", s.proxyImageURL(dsrc, referer))
+					}
+				})
+				html, _ := sel.Html()
 				items = append(items, map[string]interface{}{
 					"index": i,
 					"text":  text,
@@ -1010,20 +1051,20 @@ func (s *CrawlerService) extractLinks(doc *goquery.Document) map[string]interfac
 }
 
 // extractImages 提取所有图片
-func (s *CrawlerService) extractImages(doc *goquery.Document) map[string]interface{} {
+func (s *CrawlerService) extractImages(doc *goquery.Document, referer string) map[string]interface{} {
 	extracted := make(map[string]interface{})
 	images := make([]map[string]interface{}, 0)
 
-	doc.Find("img").Each(func(i int, s *goquery.Selection) {
-		src, exists := s.Attr("src")
+	doc.Find("img").Each(func(i int, sel *goquery.Selection) {
+		src, exists := sel.Attr("src")
 		if !exists {
-			src, exists = s.Attr("data-src")
+			src, exists = sel.Attr("data-src")
 		}
 		if exists && src != "" {
-			alt, _ := s.Attr("alt")
+			alt, _ := sel.Attr("alt")
 			images = append(images, map[string]interface{}{
 				"index": i,
-				"src":   src,
+				"src":   s.proxyImageURL(src, referer),
 				"alt":   alt,
 			})
 		}

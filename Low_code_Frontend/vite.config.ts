@@ -11,6 +11,13 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern', // 使用新的 Sass API，消除 legacy-js-api 警告
+      },
+    },
+  },
   server: {
     port: 3000,
     proxy: {

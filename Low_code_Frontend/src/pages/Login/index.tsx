@@ -130,7 +130,7 @@ export default function Login() {
         {/* 左侧品牌展示区 */}
         <div className={styles.brandSection}>
           <div className={styles.brandHeader}>
-            <ApiOutlined className={styles.brandLogo} />
+            <img src="/YaoLight_White.png" alt="YaoLight" className={styles.brandLogo} />
             <span className={styles.brandName}>{t('common.brandName')}</span>
           </div>
           <div className={styles.brandContent}>

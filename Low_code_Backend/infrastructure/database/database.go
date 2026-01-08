@@ -95,6 +95,7 @@ func AutoMigrate() error {
 		// 依赖Workflow的表
 		&workflowModels.WorkflowNode{},
 		&workflowModels.WorkflowVersion{},
+		&workflowModels.WorkflowCommentCard{},
 
 		// 依赖Task的表
 		&taskModels.TaskNodeExecution{},

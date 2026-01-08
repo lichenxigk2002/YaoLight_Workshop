@@ -81,3 +81,29 @@
   margin-top: 4px;
   word-break: break-all;
 }
+
+// 执行状态徽标（黑白风格）
+.statusBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 2px solid var(--border-secondary);
+  pointer-events: none;
+  z-index: 5;
+}
+.status_success {
+  border-color: #52c41a;
+}
+.status_failed {
+  border-color: #f5222d;
+}
+.status_pending {
+  border-color: #bfbfbf;
+}

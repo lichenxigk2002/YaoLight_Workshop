@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Drawer, Collapse, Badge, Empty, Tag, Typography, Button, Space, message } from 'antd';
+import { Collapse, Empty, Tag, Typography, Button, Space, message } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   CopyOutlined,
   DownloadOutlined,
   EyeOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import styles from './ExecutionResultPanel.module.scss';
 
 const { Panel } = Collapse;
@@ -39,6 +41,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   result,
   nodes,
 }) => {
+  const { t } = useTranslation();
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
 
   // 获取节点名称
@@ -47,29 +50,16 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
     return node?.data?.label || nodeId;
   };
 
-  // 获取节点类型中文名
+  // 获取节点类型标签
   const getNodeTypeLabel = (type: string): string => {
-    const labels: Record<string, string> = {
-      start: '开始',
-      crawler: '爬虫',
-      dataclean: '数据清洗',
-      ai: 'AI处理',
-      condition: '条件判断',
-      transform: '数据转换',
-      loop: '循环',
-      merge: '合并',
-      delay: '延迟',
-      output: '输出',
-      end: '结束',
-    };
-    return labels[type] || type;
+    return t(`node.shortLabels.${type}`, type);
   };
 
   // 复制数据到剪贴板
   const copyToClipboard = (data: any) => {
     const text = JSON.stringify(data, null, 2);
     navigator.clipboard.writeText(text).then(() => {
-      message.success('已复制到剪贴板');
+      message.success(t('node.execution.copied'));
     });
   };
 
@@ -89,7 +79,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   // 渲染数据预览
   const renderDataPreview = (data: any, nodeType: string) => {
     if (!data) {
-      return <Empty description="无数据" image={Empty.SIMPLE_IMAGE} />;
+      return <Empty description={t('node.execution.noData')} image={Empty.SIMPLE_IMAGE} />;
     }
 
     // 如果是爬虫节点，特殊处理
@@ -98,21 +88,21 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
         <div className={styles.dataPreview}>
           <div className={styles.dataStats}>
             {data.count !== undefined && (
-              <Tag color="blue">提取项数: {data.count}</Tag>
+              <Tag color="blue">{t('node.execution.extractedItems')}: {data.count}</Tag>
             )}
             {data.mode && (
-              <Tag color="green">模式: {data.mode}</Tag>
+              <Tag color="green">{t('node.execution.mode')}: {data.mode}</Tag>
             )}
             {data.selector_used && (
-              <Tag color="purple">选择器: {data.selector_used}</Tag>
+              <Tag color="purple">{t('node.execution.selector')}: {data.selector_used}</Tag>
             )}
           </div>
           
           {/* 文本预览 */}
           {data.text && (
             <div className={styles.textPreview}>
-              <Text strong>文本内容：</Text>
-              <Paragraph ellipsis={{ rows: 5, expandable: true, symbol: '展开' }}>
+              <Text strong>{t('node.execution.textContent')}：</Text>
+              <Paragraph ellipsis={{ rows: 5, expandable: true, symbol: t('node.execution.expand') }}>
                 {typeof data.text === 'string' ? data.text : JSON.stringify(data.text)}
               </Paragraph>
             </div>
@@ -121,7 +111,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
           {/* 数据列表 */}
           {data.data && Array.isArray(data.data) && (
             <div className={styles.listPreview}>
-              <Text strong>提取数据（{data.data.length} 项）：</Text>
+              <Text strong>{t('node.execution.extractedData', { count: data.data.length })}：</Text>
               <div className={styles.listItems}>
                 {data.data.slice(0, 5).map((item: any, index: number) => (
                   <div key={index} className={styles.listItem}>
@@ -132,7 +122,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                   </div>
                 ))}
                 {data.data.length > 5 && (
-                  <Text type="secondary">... 还有 {data.data.length - 5} 项</Text>
+                  <Text type="secondary">... {t('node.execution.moreItems', { count: data.data.length - 5 })}</Text>
                 )}
               </div>
             </div>
@@ -141,7 +131,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
           {/* 链接列表 */}
           {data.links && Array.isArray(data.links) && (
             <div className={styles.linksPreview}>
-              <Text strong>链接列表（{data.links.length} 个）：</Text>
+              <Text strong>{t('node.execution.linkList', { count: data.links.length })}：</Text>
               <div className={styles.linkItems}>
                 {data.links.slice(0, 10).map((link: any, index: number) => (
                   <div key={index} className={styles.linkItem}>
@@ -151,7 +141,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                   </div>
                 ))}
                 {data.links.length > 10 && (
-                  <Text type="secondary">... 还有 {data.links.length - 10} 个链接</Text>
+                  <Text type="secondary">... {t('node.execution.moreLinks', { count: data.links.length - 10 })}</Text>
                 )}
               </div>
             </div>
@@ -160,7 +150,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
           {/* 图片列表 */}
           {data.images && Array.isArray(data.images) && (
             <div className={styles.imagesPreview}>
-              <Text strong>图片列表（{data.images.length} 张）：</Text>
+              <Text strong>{t('node.execution.imageList', { count: data.images.length })}：</Text>
               <div className={styles.imageItems}>
                 {data.images.slice(0, 6).map((img: any, index: number) => (
                   <div key={index} className={styles.imageItem}>
@@ -169,7 +159,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                   </div>
                 ))}
                 {data.images.length > 6 && (
-                  <Text type="secondary">... 还有 {data.images.length - 6} 张图片</Text>
+                  <Text type="secondary">... {t('node.execution.moreImages', { count: data.images.length - 6 })}</Text>
                 )}
               </div>
             </div>
@@ -209,97 +199,121 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   }
 
   return (
-    <Drawer
-      title={
-        <Space>
-          <span>执行结果</span>
-          {result.success ? (
-            <Badge status="success" text="成功" />
-          ) : (
-            <Badge status="error" text="失败" />
-          )}
-        </Space>
-      }
-      placement="right"
-      width={700}
-      onClose={onClose}
-      open={visible}
-      className={styles.resultDrawer}
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+      }}
     >
-      {result.results.length === 0 ? (
-        <Empty description="暂无执行结果" />
-      ) : (
-        <Collapse
-          activeKey={activeKeys}
-          onChange={(keys) => setActiveKeys(keys as string[])}
-          className={styles.resultCollapse}
-        >
-          {result.results.map((nodeResult, index) => (
-            <Panel
-              key={nodeResult.node_id}
-              header={
-                <div className={styles.panelHeader}>
-                  <Space>
-                    {nodeResult.success ? (
-                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                    ) : (
-                      <CloseCircleOutlined style={{ color: '#f5222d' }} />
-                    )}
-                    <span className={styles.nodeLabel}>
-                      {getNodeLabel(nodeResult.node_id)}
-                    </span>
-                    <Tag color={nodeResult.success ? 'success' : 'error'}>
-                      {getNodeTypeLabel(nodeResult.type)}
-                    </Tag>
-                  </Space>
-                </div>
-              }
-              extra={
-                <Space onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<EyeOutlined />}
-                    onClick={() => {
-                      if (activeKeys.includes(nodeResult.node_id)) {
-                        setActiveKeys(activeKeys.filter((k) => k !== nodeResult.node_id));
-                      } else {
-                        setActiveKeys([...activeKeys, nodeResult.node_id]);
+      {/* 头部 */}
+      <div style={{
+        padding: '16px 24px',
+        borderBottom: '1px solid var(--border-secondary)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexShrink: 0,
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>{t('node.execution.result')}</span>
+          {result.success ? (
+            <Tag color="success">{t('node.execution.success')}</Tag>
+          ) : (
+            <Tag color="error">{t('node.execution.failed')}</Tag>
+          )}
+        </div>
+        <Button 
+          type="text" 
+          icon={<CloseOutlined style={{ color: 'var(--text-primary)' }} />} 
+          onClick={onClose} 
+        />
+      </div>
+
+      {/* 内容区域 */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '16px',
+      }}>
+        {result.results.length === 0 ? (
+          <Empty description={t('node.execution.noResult')} />
+        ) : (
+          <Collapse
+            activeKey={activeKeys}
+            onChange={(keys) => setActiveKeys(keys as string[])}
+            className={styles.resultCollapse}
+          >
+            {result.results.map((nodeResult, index) => (
+              <Panel
+                key={nodeResult.node_id}
+                header={
+                  <div className={styles.panelHeader}>
+                    <Space>
+                      {nodeResult.success ? (
+                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                      ) : (
+                        <CloseCircleOutlined style={{ color: '#f5222d' }} />
+                      )}
+                      <span className={styles.nodeLabel}>
+                        {getNodeLabel(nodeResult.node_id)}
+                      </span>
+                      <Tag color={nodeResult.success ? 'success' : 'error'}>
+                        {getNodeTypeLabel(nodeResult.type)}
+                      </Tag>
+                    </Space>
+                  </div>
+                }
+                extra={
+                  <Space onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => {
+                        if (activeKeys.includes(nodeResult.node_id)) {
+                          setActiveKeys(activeKeys.filter((k) => k !== nodeResult.node_id));
+                        } else {
+                          setActiveKeys([...activeKeys, nodeResult.node_id]);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => copyToClipboard(nodeResult.data)}
+                    />
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DownloadOutlined />}
+                      onClick={() =>
+                        downloadAsJson(
+                          nodeResult.data,
+                          `${getNodeLabel(nodeResult.node_id)}_result.json`
+                        )
                       }
-                    }}
-                  />
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CopyOutlined />}
-                    onClick={() => copyToClipboard(nodeResult.data)}
-                  />
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<DownloadOutlined />}
-                    onClick={() =>
-                      downloadAsJson(
-                        nodeResult.data,
-                        `${getNodeLabel(nodeResult.node_id)}_result.json`
-                      )
-                    }
-                  />
-                </Space>
-              }
-            >
-              {nodeResult.success ? (
-                renderDataPreview(nodeResult.data, nodeResult.type)
-              ) : (
-                <div className={styles.errorMessage}>
-                  <Text type="danger">{nodeResult.error || '执行失败'}</Text>
-                </div>
-              )}
-            </Panel>
-          ))}
-        </Collapse>
-      )}
-    </Drawer>
+                    />
+                  </Space>
+                }
+              >
+                {nodeResult.success ? (
+                  renderDataPreview(nodeResult.data, nodeResult.type)
+                ) : (
+                  <div className={styles.errorMessage}>
+                    <Text type="danger">{nodeResult.error || t('node.execution.execFailed')}</Text>
+                  </div>
+                )}
+              </Panel>
+            ))}
+          </Collapse>
+        )}
+      </div>
+    </div>
   );
 };
 

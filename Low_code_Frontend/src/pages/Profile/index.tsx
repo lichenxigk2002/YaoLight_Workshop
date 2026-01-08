@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, message, Descriptions, Avatar, Modal } from 'antd';
 import { UserOutlined, EditOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/redux/auth';
 import { userApi } from '@/api/user';
 import styles from './index.module.scss';
 
 export default function Profile() {
+  const { t, i18n } = useTranslation();
   const { user, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -17,7 +19,7 @@ export default function Profile() {
       const userData = await userApi.getCurrentUser();
       setUser(userData);
     } catch (error: any) {
-      message.error('获取用户信息失败');
+      message.error(t('profile.getUserInfoFailed'));
     }
   };
 
@@ -30,13 +32,13 @@ export default function Profile() {
     try {
       setLoading(true);
       await userApi.updateUsername(values.username);
-      message.success('用户名修改成功');
+      message.success(t('profile.updateUsernameSuccess'));
       setModalVisible(false);
       form.resetFields();
       // 刷新用户信息
       await refreshUserInfo();
     } catch (error: any) {
-      message.error(error.message || '修改用户名失败');
+      message.error(error.message || t('profile.updateUsernameFailed'));
     } finally {
       setLoading(false);
     }
@@ -44,17 +46,17 @@ export default function Profile() {
 
   return (
     <div className={styles.container}>
-      <Card title="个人信息" className={styles.card}>
+      <Card title={t('profile.title')} className={styles.card}>
         <div className={styles.avatarSection}>
           <Avatar size={80} icon={<UserOutlined />} style={{ backgroundColor: '#000' }} />
           <div className={styles.userInfo}>
-            <h2>{user?.username || '未知用户'}</h2>
+            <h2>{user?.username || t('profile.unknownUser')}</h2>
             <p className={styles.email}>{user?.email}</p>
           </div>
         </div>
 
         <Descriptions column={1} className={styles.descriptions}>
-          <Descriptions.Item label="用户名">
+          <Descriptions.Item label={t('profile.username')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <span>{user?.username}</span>
               <Button
@@ -65,34 +67,34 @@ export default function Profile() {
                   setModalVisible(true);
                 }}
               >
-                修改
+                {t('profile.modify')}
               </Button>
             </div>
           </Descriptions.Item>
-          <Descriptions.Item label="邮箱">{user?.email}</Descriptions.Item>
-          <Descriptions.Item label="手机号">{user?.phone || '未绑定'}</Descriptions.Item>
-          <Descriptions.Item label="角色">
-            {user?.role === 'admin' ? '管理员' : '普通用户'}
+          <Descriptions.Item label={t('profile.email')}>{user?.email}</Descriptions.Item>
+          <Descriptions.Item label={t('profile.phone')}>{user?.phone || t('profile.notBound')}</Descriptions.Item>
+          <Descriptions.Item label={t('profile.role')}>
+            {user?.role === 'admin' ? t('profile.admin') : t('profile.normalUser')}
           </Descriptions.Item>
-          <Descriptions.Item label="账号状态">
-            {user?.status === 'active' ? '正常' : '未激活'}
+          <Descriptions.Item label={t('profile.accountStatus')}>
+            {user?.status === 'active' ? t('profile.active') : t('profile.inactive')}
           </Descriptions.Item>
-          <Descriptions.Item label="登录次数">{user?.login_count || 0}</Descriptions.Item>
-          <Descriptions.Item label="上次登录">
+          <Descriptions.Item label={t('profile.loginCount')}>{user?.login_count || 0}</Descriptions.Item>
+          <Descriptions.Item label={t('profile.lastLogin')}>
             {user?.last_login_at
-              ? new Date(user.last_login_at).toLocaleString('zh-CN')
-              : '无记录'}
+              ? new Date(user.last_login_at).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US')
+              : t('profile.noRecord')}
           </Descriptions.Item>
-          <Descriptions.Item label="注册时间">
+          <Descriptions.Item label={t('profile.registrationTime')}>
             {user?.createdAt
-              ? new Date(user.createdAt).toLocaleString('zh-CN')
-              : '未知'}
+              ? new Date(user.createdAt).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US')
+              : t('profile.unknown')}
           </Descriptions.Item>
         </Descriptions>
       </Card>
 
       <Modal
-        title="修改用户名"
+        title={t('profile.modifyUsername')}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -100,27 +102,27 @@ export default function Profile() {
         }}
         onOk={() => form.submit()}
         confirmLoading={loading}
-        okText="确定"
-        cancelText="取消"
+        okText={t('common.ok')}
+        cancelText={t('common.cancel')}
       >
         <Form form={form} layout="vertical" onFinish={handleUpdateUsername}>
           <Form.Item
             name="username"
-            label="新用户名"
+            label={t('profile.newUsername')}
             rules={[
-              { required: true, message: '请输入用户名' },
-              { min: 3, message: '用户名至少3个字符' },
-              { max: 50, message: '用户名最多50个字符' },
+              { required: true, message: t('profile.usernameRequired') },
+              { min: 3, message: t('profile.usernameMinLength') },
+              { max: 50, message: t('profile.usernameMaxLength') },
               {
                 pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/,
-                message: '用户名只能包含字母、数字、下划线和中文',
+                message: t('profile.usernamePattern'),
               },
             ]}
           >
-            <Input placeholder="请输入新用户名" maxLength={50} />
+            <Input placeholder={t('profile.newUsernamePlaceholder')} maxLength={50} />
           </Form.Item>
           <div style={{ color: '#999', fontSize: '12px' }}>
-            提示：用户名修改后将作为您的显示名称
+            {t('profile.usernameTip')}
           </div>
         </Form>
       </Modal>

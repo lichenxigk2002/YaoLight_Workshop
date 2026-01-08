@@ -72,6 +72,15 @@ func NewDataCleanService() *DataCleanService {
 func (s *DataCleanService) Execute(data interface{}, config CleanConfig) (*CleanResult, error) {
 	stats := CleanStats{}
 
+	// 空数据直接返回
+	if data == nil {
+		return &CleanResult{
+			Success: true,
+			Data:    "",
+			Stats:   stats,
+		}, nil
+	}
+
 	// 处理不同类型的数据
 	switch v := data.(type) {
 	case string:
@@ -124,6 +133,15 @@ func (s *DataCleanService) Execute(data interface{}, config CleanConfig) (*Clean
 				Success: false,
 				Error:   "解析数据失败",
 			}, err
+		}
+
+		// 解析后为空，直接返回空结果，避免递归
+		if parsed == nil {
+			return &CleanResult{
+				Success: true,
+				Data:    "",
+				Stats:   stats,
+			}, nil
 		}
 
 		return s.Execute(parsed, config)
@@ -245,12 +263,14 @@ func (s *DataCleanService) cleanObject(obj map[string]interface{}, config CleanC
 // removeHTMLTags 移除HTML标签
 func (s *DataCleanService) removeHTMLTags(text string) string {
 	// 移除script和style标签及其内容
-	re := regexp.MustCompile(`<(script|style)[^>]*>.*?</\1>`)
-	text = re.ReplaceAllString(text, "")
+	reScript := regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
+	text = reScript.ReplaceAllString(text, "")
+	reStyle := regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
+	text = reStyle.ReplaceAllString(text, "")
 
 	// 移除其他HTML标签
-	re = regexp.MustCompile(`<[^>]+>`)
-	text = re.ReplaceAllString(text, "")
+	reTags := regexp.MustCompile(`<[^>]+>`)
+	text = reTags.ReplaceAllString(text, "")
 
 	// 解码HTML实体
 	text = s.decodeHTMLEntities(text)

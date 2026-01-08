@@ -85,3 +85,21 @@ type WorkflowVersion struct {
 func (WorkflowVersion) TableName() string {
 	return "workflow_versions"
 }
+
+// WorkflowCommentCard 工作流注释卡片持久化实体
+type WorkflowCommentCard struct {
+	ID         uint           `gorm:"primaryKey" json:"id"`
+	WorkflowID uint           `gorm:"not null;index" json:"workflowId"`
+	CardID     string         `gorm:"type:varchar(100);not null" json:"cardId"`
+	Position   shared.JSONB   `gorm:"type:jsonb;default:'{\"x\":0,\"y\":0}'" json:"position"`
+	Text       *string        `gorm:"type:text" json:"text"`
+	Color      string         `gorm:"type:varchar(20);default:'#fffacd'" json:"color"`
+	CreatedAt  time.Time      `json:"createdAt"`
+	UpdatedAt  time.Time      `json:"updatedAt"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// TableName 指定表名
+func (WorkflowCommentCard) TableName() string {
+	return "workflow_comment_cards"
+}

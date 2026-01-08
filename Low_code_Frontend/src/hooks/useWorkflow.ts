@@ -23,7 +23,7 @@ export const useWorkflow = () => {
         })),
       }
 
-      const result = await workflowApi.execute(executionData)
+      const result = await workflowApi.executeWorkflow(executionData)
       
       if (result.success) {
         message.success(`工作流执行完成！共执行 ${result.results.length} 个节点`)
