@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"yaolight-workshop/backend/modules/ai/services/providers"
@@ -315,6 +316,11 @@ func (p *DeepSeekProvider) ChatStream(config *providers.AIModelConfig, prompt st
 				// 处理思考内容
 				deltaReasoningContent := streamResponse.Choices[0].Delta.ReasoningContent
 				if deltaReasoningContent != "" {
+					previewLen := len(deltaReasoningContent)
+					if previewLen > 50 {
+						previewLen = 50
+					}
+					log.Printf("DeepSeek流式: 收到思考内容，长度: %d, 预览: %s", len(deltaReasoningContent), deltaReasoningContent[:previewLen])
 					fullReasoningContent.WriteString(deltaReasoningContent)
 					// 发送带标记的思考内容
 					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil)
@@ -323,6 +329,11 @@ func (p *DeepSeekProvider) ChatStream(config *providers.AIModelConfig, prompt st
 				// 处理正式内容
 				deltaContent := streamResponse.Choices[0].Delta.Content
 				if deltaContent != "" {
+					previewLen := len(deltaContent)
+					if previewLen > 50 {
+						previewLen = 50
+					}
+					log.Printf("DeepSeek流式: 收到正式内容，长度: %d, 预览: %s", len(deltaContent), deltaContent[:previewLen])
 					fullContent.WriteString(deltaContent)
 					// 发送带标记的正式内容
 					callback("[CONTENT_DELTA]"+deltaContent, false, nil)

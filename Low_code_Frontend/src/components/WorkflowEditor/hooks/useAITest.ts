@@ -17,6 +17,7 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
   const [streamingContent, setStreamingContent] = useState<string>('');
   const [streamingReasoningContent, setStreamingReasoningContent] = useState<string>('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isReasoningStreaming, setIsReasoningStreaming] = useState(false); // 思考内容是否正在流式输出
   const cancelStreamRef = useRef<(() => void) | null>(null);
 
   const handleTestAI = async () => {
@@ -95,12 +96,18 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
       if (enableStream) {
         // 流式执行
         setIsStreaming(true);
+        setIsReasoningStreaming(false); // 重置思考状态
         setStreamingContent('');
         setStreamingReasoningContent('');
         setPreviewOpen(true);
         setPreviewData({
           ai: { node_id: node.id, type: 'ai', success: true, data: { content: '', reasoningContent: '' } },
-          raw: { success: true, results: [] },
+          raw: {
+            success: true,
+            results: [],
+            request: execReq, // 保存请求配置
+            streaming: true,
+          },
           streamingContent: '',
           streamingReasoningContent: '',
           isStreaming: true,
@@ -111,73 +118,65 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
         let fullContent = '';
         let fullReasoningContent = '';
         let messageCount = 0;
+        let lastReasoningMessageTime = 0; // 记录最后一次收到思考内容的时间
         cancelStreamRef.current = workflowApi.executeWorkflowStream(
           execReq,
           (nodeId, content, done, contentType) => {
             messageCount++;
-            console.log(`📥 [${messageCount}] 收到流式数据:`, { 
-              nodeId, 
-              content: content.substring(0, 50), 
-              done, 
-              contentType,
-              contentLength: content.length 
-            });
-            
+            console.log('AI测试收到消息:', { nodeId, contentType, contentLength: content.length, done, contentPreview: content.substring(0, 100) });
+
             if (nodeId === node.id) {
               // 根据内容类型累加到不同的变量
               if (contentType === 'reasoning') {
+                console.log('收到思考内容:', content.substring(0, 50) + '...', '总长度:', fullReasoningContent.length + content.length);
                 fullReasoningContent += content;
                 setStreamingReasoningContent(fullReasoningContent);
-                console.log(`🧠 [${messageCount}] 思考内容累加:`, {
-                  总长度: fullReasoningContent.length,
-                  新增: content.length,
-                  内容预览: fullReasoningContent.substring(0, 100)
-                });
+                setIsReasoningStreaming(true); // 正在输出思考内容
+                lastReasoningMessageTime = Date.now(); // 更新最后思考内容时间
               } else if (contentType === 'content') {
                 fullContent += content;
                 setStreamingContent(fullContent);
-                console.log(`✅ [${messageCount}] 正式内容累加:`, {
-                  总长度: fullContent.length,
-                  新增: content.length,
-                  内容预览: fullContent.substring(0, 100)
-                });
+                // 如果开始输出正式内容，说明思考内容已经完成
+                if (fullReasoningContent.length > 0) {
+                  setIsReasoningStreaming(false);
+                }
               } else {
                 // 没有类型标记，可能是done时的完整内容，需要解析
                 if (done && (content.includes('[REASONING]') || content.includes('[CONTENT]'))) {
                   const reasoningMatch = content.match(/\[REASONING\]([\s\S]*?)\[\/REASONING\]/);
                   const contentMatch = content.match(/\[CONTENT\]([\s\S]*?)\[\/CONTENT\]/);
-                  
-                  // 注意：done消息可能只包含完整内容，不要覆盖已累加的内容
+
+                  // 处理完整格式：只累加新增部分，避免重复
                   if (reasoningMatch) {
                     const extractedReasoning = reasoningMatch[1];
-                    // 如果提取的内容比已累加的更长，说明这是完整内容，应该替换
+                    // 只累加新增的部分
                     if (extractedReasoning.length > fullReasoningContent.length) {
-                      fullReasoningContent = extractedReasoning;
+                      const newReasoning = extractedReasoning.substring(fullReasoningContent.length);
+                      fullReasoningContent += newReasoning;
                       setStreamingReasoningContent(fullReasoningContent);
-                      console.log('🧠 从done消息中提取完整思考内容:', fullReasoningContent.length);
-                    } else {
-                      console.log('🧠 done消息中的思考内容已包含在累加内容中，跳过');
                     }
                   }
                   if (contentMatch) {
                     const extractedContent = contentMatch[1];
-                    // 如果提取的内容比已累加的更长，说明这是完整内容，应该替换
+                    // 只累加新增的部分
                     if (extractedContent.length > fullContent.length) {
-                      fullContent = extractedContent;
+                      const newContent = extractedContent.substring(fullContent.length);
+                      fullContent += newContent;
                       setStreamingContent(fullContent);
-                      console.log('✅ 从done消息中提取完整正式内容:', fullContent.length);
-                    } else {
-                      console.log('✅ done消息中的正式内容已包含在累加内容中，跳过');
                     }
                   }
                 } else {
                   // 向后兼容：没有标记的情况，默认作为正式内容
-                  console.warn(`⚠️ [${messageCount}] 未识别内容类型，默认作为正式内容:`, content.substring(0, 30));
                   fullContent += content;
                   setStreamingContent(fullContent);
+                  // 如果已经有思考内容，但收到的是没有类型标记的内容，可能是正式内容
+                  // 如果距离最后一次思考内容超过一定时间（比如500ms），认为思考完成
+                  if (fullReasoningContent.length > 0 && Date.now() - lastReasoningMessageTime > 500) {
+                    setIsReasoningStreaming(false);
+                  }
                 }
               }
-              
+
               // 强制更新状态
               setIsStreaming(!done);
               setPreviewData({
@@ -195,16 +194,28 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
                     tokensUsed: 0,
                   },
                 },
-                raw: { success: true, results: [] },
+                raw: {
+                  success: true,
+                  results: [{
+                    node_id: node.id,
+                    type: 'ai',
+                    success: true,
+                    data: {
+                      content: fullContent,
+                      reasoningContent: fullReasoningContent,
+                      model: 'deepseek-chat',
+                      tokensUsed: 0,
+                    },
+                  }],
+                  request: execReq,
+                  streaming: !done,
+                },
               });
-              
+
               if (done) {
-                console.log('🎉 流式输出完成，总计:', messageCount, '条消息');
-                console.log('   思考内容长度:', fullReasoningContent.length);
-                console.log('   正式内容长度:', fullContent.length);
-                console.log('   思考内容预览:', fullReasoningContent.substring(0, 200));
-                console.log('   正式内容预览:', fullContent.substring(0, 200));
-                
+                // 全部完成，停止思考状态
+                setIsReasoningStreaming(false);
+
                 // 强制更新状态，确保UI显示最新内容
                 setStreamingReasoningContent(fullReasoningContent);
                 setStreamingContent(fullContent);
@@ -223,9 +234,24 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
                       tokensUsed: 0,
                     },
                   },
-                  raw: { success: true, results: [] },
+                  raw: {
+                    success: true,
+                    results: [{
+                      node_id: node.id,
+                      type: 'ai',
+                      success: true,
+                      data: {
+                        content: fullContent,
+                        reasoningContent: fullReasoningContent,
+                        model: 'deepseek-chat',
+                        tokensUsed: 0,
+                      },
+                    }],
+                    request: execReq,
+                    streaming: false,
+                  },
                 });
-                
+
                 message.destroy('aiTest');
                 message.success('AI节点流式测试完成');
               }
@@ -243,6 +269,13 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
                 success: false,
                 error: error,
               },
+              raw: {
+                ...prev!.raw,
+                success: false,
+                error: error,
+                request: execReq,
+                streaming: false,
+              },
             }));
           },
           () => {
@@ -251,10 +284,66 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
           }
         );
       } else {
-        // 非流式执行
+        // 非流式执行（但后端现在总是返回 SSE 格式，所以也需要使用流式接口）
         message.loading({ content: '正在测试AI节点...', key: 'aiTest', duration: 0 });
-        const result = await workflowApi.executeWorkflow(execReq);
+
+        const results: any[] = [];
+        let hasError = false;
+        let errorMessage = '';
+        let isResolved = false; // 防止重复 resolve
+
+        await new Promise<void>((resolve, reject) => {
+          workflowApi.executeWorkflowStream(
+            execReq,
+            (_nodeId, content, done, contentType) => {
+              // 处理节点结果
+              if (contentType === 'node_result') {
+                try {
+                  const nodeResult = JSON.parse(content);
+                  results.push({
+                    node_id: nodeResult.node_id || nodeResult.NodeID,
+                    type: nodeResult.type || nodeResult.Type,
+                    success: nodeResult.success || nodeResult.Success,
+                    data: nodeResult.data || nodeResult.Data || {},
+                    error: nodeResult.error || nodeResult.Error,
+                  });
+                } catch (e) {
+                  console.error('解析节点结果失败:', e, content);
+                }
+              }
+
+              // 执行完成
+              if (done && !isResolved) {
+                isResolved = true;
+                resolve();
+              }
+            },
+            (error) => {
+              if (!isResolved) {
+                hasError = true;
+                errorMessage = error;
+                isResolved = true;
+                reject(new Error(error));
+              }
+            },
+            () => {
+              // onComplete 回调，确保在流结束时 resolve（如果还没有 resolve）
+              if (!isResolved) {
+                isResolved = true;
+                resolve();
+              }
+            }
+          );
+        });
+
         message.destroy('aiTest');
+
+        // 构建响应格式
+        const result = {
+          success: !hasError,
+          results: results,
+          error: hasError ? errorMessage : undefined,
+        };
 
         if (!result.success) {
           message.error(result.error || 'AI节点测试执行失败');
@@ -299,6 +388,7 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
     streamingContent,
     streamingReasoningContent,
     isStreaming,
+    isReasoningStreaming, // 导出思考内容流式状态
     cancelStream,
   };
 }

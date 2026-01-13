@@ -20,7 +20,6 @@ class HttpClient {
   constructor() {
     // 从环境变量获取 API 基础 URL
     this.baseURL = import.meta.env.VITE_BASE_URL || '/api';
-    console.log('API基础URL:', this.baseURL);
 
     // 创建 axios 实例
     this.instance = axios.create({
@@ -44,8 +43,6 @@ class HttpClient {
     // 请求拦截器
     this.instance.interceptors.request.use(
       (config) => {
-        console.log('发送请求:', config.url, config.method?.toUpperCase());
-
         // 从 localStorage 获取 token
         const token = this.getToken();
         if (token && config.headers) {
@@ -55,7 +52,6 @@ class HttpClient {
         return config;
       },
       (error: AxiosError) => {
-        console.error('请求配置错误:', error);
         return Promise.reject(error);
       }
     );
@@ -63,9 +59,52 @@ class HttpClient {
     // 响应拦截器
     this.instance.interceptors.response.use(
       (response: AxiosResponse<ApiResponse>) => {
-        console.log('API响应数据:', response.data);
+        // 调试日志 - 先查看原始响应数据
+        if (response.config.url?.includes('/workflows/execute')) {
+          console.log('工作流执行响应（原始）:', {
+            url: response.config.url,
+            status: response.status,
+            rawData: response.data,
+            dataType: typeof response.data,
+            isArray: Array.isArray(response.data),
+            keys: response.data ? Object.keys(response.data) : [],
+          });
+        }
 
-        const { code, message: responseMessage, data } = response.data;
+        // 检查响应数据格式
+        const responseData = response.data;
+
+        // 如果响应数据已经是目标格式（没有包装在 ApiResponse 中），直接返回
+        if (responseData && typeof responseData === 'object' && 'success' in responseData && 'results' in responseData) {
+          // 这是 ExecuteWorkflowResponse 格式，直接返回
+          if (response.config.url?.includes('/workflows/execute')) {
+            console.log('检测到 ExecuteWorkflowResponse 格式，直接返回');
+          }
+          return responseData;
+        }
+
+        // 标准 ApiResponse 格式处理
+        if (!responseData || typeof responseData !== 'object' || !('code' in responseData)) {
+          // 如果响应数据不是标准格式，可能是直接返回的数据
+          if (response.config.url?.includes('/workflows/execute')) {
+            console.log('响应数据不是标准 ApiResponse 格式，直接返回原始数据');
+          }
+          return responseData;
+        }
+
+        const { code, message: responseMessage, data } = responseData as ApiResponse;
+
+        // 调试日志
+        if (response.config.url?.includes('/workflows/execute')) {
+          console.log('工作流执行响应（解析后）:', {
+            url: response.config.url,
+            status: response.status,
+            code,
+            message: responseMessage,
+            data,
+            timeout: response.config.timeout,
+          });
+        }
 
         // 处理业务状态码
         if (code === 40001) {
@@ -76,6 +115,7 @@ class HttpClient {
           return Promise.reject(new Error('未授权'));
         } else if (code !== 200 && code !== 0) {
           // 其他业务错误
+          console.error('业务错误:', { code, message: responseMessage, url: response.config.url });
           message.error(responseMessage || '请求失败');
           return Promise.reject(new Error(responseMessage || '请求失败'));
         }
@@ -84,7 +124,16 @@ class HttpClient {
         return data;
       },
       (error: AxiosError<ApiResponse>) => {
-        console.error('API请求错误:', error);
+        // 调试日志
+        if (error.config?.url?.includes('/workflows/execute')) {
+          console.error('工作流执行请求错误:', {
+            url: error.config.url,
+            code: error.code,
+            message: error.message,
+            response: error.response,
+            timeout: error.config.timeout,
+          });
+        }
 
         // 处理 HTTP 状态码错误
         if (error.response) {
@@ -119,7 +168,8 @@ class HttpClient {
           }
         } else if (error.code === 'ECONNABORTED') {
           // 超时错误
-          message.error('请求超时，请稍后重试');
+          const timeout = error.config?.timeout || 10000;
+          message.error(`请求超时（${timeout / 1000}秒），请稍后重试或检查网络连接`);
         } else if (error.message === 'Network Error') {
           // 网络错误
           message.error('网络错误，请检查网络连接');
@@ -143,7 +193,7 @@ class HttpClient {
         return authData.state?.token || null;
       }
     } catch (e) {
-      console.warn('获取 token 失败:', e);
+      // 获取 token 失败
     }
     return null;
   }
@@ -250,7 +300,6 @@ class HttpClient {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
-      console.error('文件下载失败:', error);
       message.error('文件下载失败');
       throw error;
     }

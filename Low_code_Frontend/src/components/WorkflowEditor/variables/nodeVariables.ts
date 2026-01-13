@@ -52,7 +52,7 @@ export const nodeIODefinitions: Record<string, NodeIODefinition> = {
         variable: 'data',
         label: '爬取数据',
         type: 'object',
-        description: '爬取到的数据对象',
+        description: '爬取到的完整数据（包含所有字段）',
       },
       {
         variable: 'html',

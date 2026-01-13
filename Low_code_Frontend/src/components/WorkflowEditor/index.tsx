@@ -119,14 +119,15 @@ const WorkflowEditor: React.FC = () => {
   );
 
   // 使用执行Hook
-  const { handleRun } = useWorkflowExecute(
+  const { handleRun, handleCancel, isExecuting } = useWorkflowExecute(
     nodes,
     edges,
     setExecutionResult,
     setResultPanelVisible,
     setConfigPanelVisible,
     setSelectedNode,
-    updateNodesExecutionStatus
+    updateNodesExecutionStatus,
+    workflowId
   );
 
   // 使用右键菜单Hook
@@ -516,6 +517,8 @@ const WorkflowEditor: React.FC = () => {
                 onClose={() => setResultPanelVisible(false)}
                 result={executionResult}
                 nodes={nodes}
+                onCancel={handleCancel}
+                isExecuting={isExecuting}
               />
             ) : (
               selectedNode && (

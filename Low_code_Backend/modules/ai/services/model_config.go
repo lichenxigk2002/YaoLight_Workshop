@@ -44,6 +44,11 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置DeepSeek API Key，请在.env中配置DEEPSEEK_API_KEY")
 		}
+	case "doubao":
+		apiKey = config.DoubaoAPIKey
+		if apiKey == "" {
+			return nil, fmt.Errorf("系统未配置豆包 API Key，请在.env中配置DOUBAO_API_KEY")
+		}
 	default:
 		return nil, fmt.Errorf("不支持的预设提供商: %s", provider)
 	}
@@ -53,7 +58,7 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		Provider:     provider,
 		ModelName:    getString(customConfig, "modelName", "deepseek-chat"),
 		APIKey:       apiKey,
-		BaseURL:      getString(customConfig, "baseUrl", "https://api.deepseek.com"),
+		BaseURL:      getString(customConfig, "baseUrl", getDefaultBaseURL(provider)),
 		Temperature:  getFloat64Ptr(customConfig, "temperature"),
 		MaxTokens:    getIntPtr(customConfig, "maxTokens"),
 		TopP:         getFloat64Ptr(customConfig, "topP"),
@@ -163,4 +168,16 @@ func getIntPtr(m map[string]interface{}, key string) *int {
 		return &i
 	}
 	return nil
+}
+
+// getDefaultBaseURL 根据提供商获取默认BaseURL
+func getDefaultBaseURL(provider string) string {
+	switch provider {
+	case "deepseek":
+		return "https://api.deepseek.com"
+	case "doubao":
+		return "https://ark.cn-beijing.volces.com/api/v3"
+	default:
+		return ""
+	}
 }

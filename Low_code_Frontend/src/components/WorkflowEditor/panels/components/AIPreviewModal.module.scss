@@ -102,14 +102,18 @@
   animation: fadeInDown 0.5s ease-out;
 }
 
-// 流光图标动画
+// 思考图标（基础样式）
 .thinkingIcon {
   width: 20px;
   height: 20px;
-  animation: shimmer 2s ease-in-out infinite;
 
   path {
     fill: white;
+  }
+  
+  // 只有添加 shimmer 类时才应用流光动画
+  &.shimmer {
+    animation: shimmer 2s ease-in-out infinite;
   }
 }
 
@@ -164,6 +168,11 @@
     
     path {
       fill: currentColor;
+    }
+    
+    // 只有添加 shimmer 类时才应用流光动画
+    &.shimmer {
+      animation: shimmer 2s ease-in-out infinite;
     }
   }
 }

@@ -5,11 +5,17 @@
 }
 
 .section {
-  background: #fff;
+  background: var(--bg-primary, #fff);
   border-radius: 8px;
   padding: 12px;
   border: 1px solid var(--border-secondary, #e8e8e8);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 1px 2px var(--shadow-sm, rgba(0, 0, 0, 0.03));
+  
+  // 深色主题适配
+  :global([data-theme='dark']) & {
+    background: var(--bg-secondary, #1f1f1f);
+    box-shadow: 0 1px 2px var(--shadow-sm, rgba(0, 0, 0, 0.3));
+  }
 }
 
 .sectionTitle {
@@ -69,15 +75,20 @@
 
   :global(.ant-radio-button-wrapper-checked) {
     border-color: var(--primary, #1677ff) !important;
-    background: #e6f4ff !important;
-    /* 浅蓝色背景 */
+    background: var(--bg-secondary, #e6f4ff) !important;
     color: var(--primary, #1677ff) !important;
     box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
 
     &:hover {
       border-color: var(--primary, #1677ff) !important;
-      background: #e6f4ff !important;
+      background: var(--bg-secondary, #e6f4ff) !important;
       color: var(--primary, #1677ff) !important;
+    }
+    
+    // 深色主题适配
+    :global([data-theme='dark']) & {
+      background: var(--bg-tertiary, #262626) !important;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
     }
   }
 }
@@ -176,8 +187,13 @@
     border: 1px solid var(--border-secondary, #e8e8e8);
     border-radius: 8px !important; // 统一使用8px圆角，与其他section一致
     margin-bottom: 0;
-    background: #fff;
+    background: var(--bg-primary, #fff);
     overflow: hidden; // 确保圆角生效
+    
+    // 深色主题适配
+    :global([data-theme='dark']) & {
+      background: var(--bg-secondary, #1f1f1f);
+    }
   }
 
   // header 在所有状态下都保持圆角
@@ -208,6 +224,13 @@
   :global(.ant-collapse-content) {
     border-radius: 0 0 8px 8px !important; // 统一使用8px圆角
     border-top: 1px solid var(--border-secondary, #f0f0f0);
+    background: var(--bg-primary, #fff);
+    
+    // 深色主题适配
+    :global([data-theme='dark']) & {
+      background: var(--bg-secondary, #1f1f1f);
+      border-top-color: var(--border-secondary, #303030);
+    }
   }
 
   :global(.ant-collapse-content-box) {

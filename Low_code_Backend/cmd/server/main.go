@@ -118,6 +118,7 @@ func main() {
 			auth.DELETE("/workflows/:id", workflowController.DeleteWorkflow)
 			auth.GET("/workflows/:id/nodes", workflowController.GetWorkflowNodes)
 			auth.PUT("/workflows/:id/nodes", workflowController.SaveWorkflowNodes)
+			auth.PUT("/workflows/:id/nodes/:nodeId", workflowController.SaveWorkflowNode)
 			auth.POST("/workflows/execute", workflowController.ExecuteWorkflow)
 			auth.POST("/workflows/execute/stream", workflowController.ExecuteWorkflowStream)
 

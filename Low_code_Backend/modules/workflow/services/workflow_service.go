@@ -276,6 +276,48 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 	return nil
 }
 
+// SaveWorkflowNodeRequest 保存单个节点请求
+type SaveWorkflowNodeRequest struct {
+	Node WorkflowNodeData `json:"node"`
+}
+
+// SaveWorkflowNode 保存单个节点
+func (s *WorkflowService) SaveWorkflowNode(workflowID uint, nodeID string, req *SaveWorkflowNodeRequest) error {
+	// 验证工作流是否存在
+	_, err := s.workflowRepo.FindByID(workflowID)
+	if err != nil {
+		return ErrWorkflowNotFound
+	}
+
+	nodeData := req.Node
+
+	// 提取配置
+	config := nodeData.Data["config"]
+	if config == nil {
+		config = map[string]interface{}{}
+	}
+
+	// 提取标签
+	var label *string
+	if labelVal, ok := nodeData.Data["label"].(string); ok {
+		label = &labelVal
+	}
+
+	// 构建节点实体
+	node := &models.WorkflowNode{
+		WorkflowID: workflowID,
+		NodeID:     nodeID,
+		NodeType:   nodeData.Type,
+		Label:      label,
+		Position:   shared.JSONB{Data: nodeData.Position},
+		Config:     shared.JSONB{Data: config},
+		IsEnabled:  true,
+	}
+
+	// 保存节点（CreateOrUpdate 会自动处理创建或更新）
+	return s.workflowNodeRepo.CreateOrUpdate(node)
+}
+
 // GetWorkflowNodes 获取工作流的节点和边
 func (s *WorkflowService) GetWorkflowNodes(workflowID uint) (*SaveWorkflowNodesRequest, error) {
 	// 验证工作流是否存在

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { FormInstance } from 'antd';
 import { Node } from 'reactflow';
+import { workflowApi } from '@/api/workflow';
 
 interface UseNodeConfigFormOptions {
   node: Node | null;
@@ -48,6 +49,26 @@ export function useNodeConfigForm({
         (formConfig.retryCount !== undefined && formConfig.retryCount !== 3)
       );
 
+      // 判断节点类型
+      const nodeType = node.data?.type || node.type;
+      const isAINode = nodeType === 'ai';
+
+      // 为AI节点的高级参数设置默认值（如果配置中没有）
+      if (isAINode) {
+        if (formConfig.temperature === undefined) {
+          formConfig.temperature = 0.7;
+        }
+        if (formConfig.maxTokens === undefined) {
+          formConfig.maxTokens = 2000;
+        }
+        if (formConfig.stream === undefined) {
+          formConfig.stream = false;
+        }
+        if (formConfig.thinking === undefined) {
+          formConfig.thinking = false;
+        }
+      }
+
       // 填充表单数据
       form.setFieldsValue({
         label: node.data.label || '',
@@ -77,9 +98,32 @@ export function useNodeConfigForm({
    */
   const handleSave = async (onSave: (nodeId: string, config: any) => void, onSaveToBackend?: () => Promise<boolean>, workflowId?: string) => {
     try {
-      const values = await form.validateFields();
+      // 先验证必填字段
+      await form.validateFields();
+      // 然后获取所有字段值（包括折叠区域中的字段）
+      const values = form.getFieldsValue();
       if (node) {
+        const nodeType = node.data?.type || node.type;
+        const isAINode = nodeType === 'ai';
+
         const config = { ...values };
+
+        // 为AI节点的高级参数确保有值（如果为undefined，使用默认值）
+        if (isAINode) {
+          if (config.temperature === undefined || config.temperature === null) {
+            config.temperature = 0.7;
+          }
+          if (config.maxTokens === undefined || config.maxTokens === null) {
+            config.maxTokens = 2000;
+          }
+          if (config.stream === undefined || config.stream === null) {
+            config.stream = false;
+          }
+          if (config.thinking === undefined || config.thinking === null) {
+            config.thinking = false;
+          }
+        }
+
         const parseJsonField = (field: string) => {
           const v = (config as any)[field];
           if (typeof v === 'string') {
@@ -108,8 +152,31 @@ export function useNodeConfigForm({
           config: config,
         });
 
-        // 等待状态更新后，再保存到后端
-        if (workflowId && onSaveToBackend) {
+        // 如果提供了 workflowId，保存单个节点到后端
+        if (workflowId) {
+          try {
+            // 构建节点数据（使用当前节点的 position）
+            const nodeData = {
+              id: node.id,
+              type: nodeType,
+              position: node.position || { x: 0, y: 0 },
+              data: {
+                label: values.label,
+                type: nodeType,
+                config: config,
+                connectionDirection: values.connectionDirection || 'vertical',
+              },
+            };
+
+            await workflowApi.saveWorkflowNode(Number(workflowId), node.id, nodeData);
+            // 单个节点保存成功，不显示消息（避免频繁提示）
+          } catch (error: any) {
+            console.error('保存单个节点失败:', error);
+            // 单个节点保存失败，不显示错误消息（避免干扰用户）
+            // 用户可以使用面板上的保存按钮保存所有节点
+          }
+        } else if (onSaveToBackend) {
+          // 如果没有 workflowId 但有 onSaveToBackend，使用原来的逻辑
           setTimeout(async () => {
             try {
               const saved = await onSaveToBackend();
@@ -117,7 +184,6 @@ export function useNodeConfigForm({
                 // message.warning('配置已保存，但保存到后端失败，请手动保存');
               }
             } catch (error) {
-              console.error('保存到后端失败:', error);
               // message.warning('配置已保存，但保存到后端失败，请手动保存');
             }
           }, 100);
@@ -126,7 +192,6 @@ export function useNodeConfigForm({
         return true;
       }
     } catch (error) {
-      console.error('表单验证失败:', error);
       return false;
     }
     return false;

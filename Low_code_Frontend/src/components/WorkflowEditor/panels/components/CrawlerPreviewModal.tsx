@@ -25,6 +25,13 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
 }) => {
   const { t } = useTranslation();
 
+  // 调试日志
+  React.useEffect(() => {
+    if (open) {
+      console.log('CrawlerPreviewModal 打开，previewData:', crawlerTest.previewData);
+    }
+  }, [open, crawlerTest.previewData]);
+
   if (!crawlerTest.previewData) {
     return (
       <Modal
@@ -146,13 +153,13 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
             </div>
             {(crawlerTest.previewData?.crawler?.error ||
               crawlerTest.previewData?.dataclean?.error) && (
-              <div className={styles.errorContainer}>
-                <Text type="danger" style={{ fontSize: 12 }}>
-                  {crawlerTest.previewData?.crawler?.error ||
-                    crawlerTest.previewData?.dataclean?.error}
-                </Text>
-              </div>
-            )}
+                <div className={styles.errorContainer}>
+                  <Text type="danger" style={{ fontSize: 12 }}>
+                    {crawlerTest.previewData?.crawler?.error ||
+                      crawlerTest.previewData?.dataclean?.error}
+                  </Text>
+                </div>
+              )}
           </div>
           <Collapse defaultActiveKey={['summary']} size="small" ghost>
             <Collapse.Panel
@@ -226,18 +233,18 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
                         ? typeof crawlerTest.previewData.dataclean.data === 'string'
                           ? crawlerTest.previewData.dataclean.data
                           : JSON.stringify(
-                              crawlerTest.previewData.dataclean.data,
-                              null,
-                              2
-                            )
-                        : crawlerTest.previewData?.crawler?.data?.text ??
-                          JSON.stringify(
-                            crawlerTest.previewData?.crawler?.data?.value ||
-                              crawlerTest.previewData?.crawler?.data?.data ||
-                              crawlerTest.previewData?.crawler?.data,
+                            crawlerTest.previewData.dataclean.data,
                             null,
                             2
-                          )}
+                          )
+                        : crawlerTest.previewData?.crawler?.data?.text ??
+                        JSON.stringify(
+                          crawlerTest.previewData?.crawler?.data?.value ||
+                          crawlerTest.previewData?.crawler?.data?.data ||
+                          crawlerTest.previewData?.crawler?.data,
+                          null,
+                          2
+                        )}
                     </Paragraph>
                   </div>
                 </div>

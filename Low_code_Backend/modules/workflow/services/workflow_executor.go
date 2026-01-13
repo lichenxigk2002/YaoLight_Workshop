@@ -863,14 +863,44 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	// 构建提供商特定配置（DeepSeek特有参数）
 	providerConfig := make(map[string]interface{})
 	stream := false
+
+	// 如果使用已保存的模型，先从模型配置读取默认值
+	if modelMode == "saved" {
+		modelRepo := aiRepos.NewAIModelRepository(database.DB)
+		modelEntity, err := modelRepo.FindByIDAndUser(getUint(node.Config, "modelId", 0), userID)
+		if err == nil && modelEntity != nil {
+			// 从模型的 Params JSONB 字段读取默认配置
+			if modelEntity.Params.Data != nil {
+				if paramsMap, ok := modelEntity.Params.Data.(map[string]interface{}); ok {
+					// 将模型级别的默认配置合并到 providerConfig
+					for k, v := range paramsMap {
+						providerConfig[k] = v
+					}
+					// 读取模型默认的 stream 值
+					if s, ok := paramsMap["stream"].(bool); ok {
+						stream = s
+					}
+				}
+			}
+		}
+	}
+
+	// 节点配置可以覆盖模型默认值
 	if modelConfig.Provider == "deepseek" {
-		// 从节点配置中读取DeepSeek特有参数
+		// 从节点配置中读取DeepSeek特有参数（覆盖模型默认值）
 		if thinking, ok := node.Config["thinking"].(bool); ok {
 			providerConfig["thinking"] = thinking
+		} else if _, exists := providerConfig["thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["thinking"] = false
 		}
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s
 			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
 		}
 	}
 

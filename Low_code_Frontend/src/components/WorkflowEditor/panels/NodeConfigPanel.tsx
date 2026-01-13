@@ -212,11 +212,17 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
       {/* 爬虫节点预览模态框 */}
       {isCrawlerNode && (
-        <CrawlerPreviewModal
-          open={crawlerTest.previewOpen}
-          onClose={() => crawlerTest.setPreviewOpen(false)}
-          crawlerTest={crawlerTest}
-        />
+        <>
+          {console.log('渲染 CrawlerPreviewModal，previewOpen:', crawlerTest.previewOpen, 'previewData:', crawlerTest.previewData)}
+          <CrawlerPreviewModal
+            open={crawlerTest.previewOpen}
+            onClose={() => {
+              console.log('关闭预览面板');
+              crawlerTest.setPreviewOpen(false);
+            }}
+            crawlerTest={crawlerTest}
+          />
+        </>
       )}
 
       {/* AI节点预览模态框 */}
@@ -225,6 +231,7 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           open={aiTest.previewOpen}
           onClose={() => aiTest.setPreviewOpen(false)}
           aiTest={aiTest}
+          nodeConfig={node?.data?.config}
         />
       )}
     </div>

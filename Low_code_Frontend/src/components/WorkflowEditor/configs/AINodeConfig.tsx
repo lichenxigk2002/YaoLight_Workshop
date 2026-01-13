@@ -5,7 +5,7 @@ import { Node, Edge } from 'reactflow';
 import { VariableSelectField } from '../variables';
 import { AITooltips } from '../utils/configTooltips';
 import { aiApi } from '@/api/ai';
-import type { AIModel, SystemPresetModel } from '@/types/ai';
+import type { AIModel, SystemPresetModel, ProviderTemplate } from '@/types/ai';
 import {
   SettingOutlined,
   DatabaseOutlined,
@@ -36,19 +36,48 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
   const { t } = useTranslation();
   const [systemModels, setSystemModels] = useState<SystemPresetModel[]>([]);
   const [userModels, setUserModels] = useState<AIModel[]>([]);
+  const [providerTemplates, setProviderTemplates] = useState<ProviderTemplate[]>([]);
   const [loading, setLoading] = useState(false);
+  const form = Form.useFormInstance();
 
-  // 加载系统预设模型
+  // 监听模型选择变化，自动填充模型默认值
+  const modelMode = Form.useWatch('modelMode', form);
+  const modelId = Form.useWatch('modelId', form);
+
   useEffect(() => {
-    const loadSystemModels = async () => {
+    // 当选择已保存的模型时，自动填充模型默认配置
+    if (modelMode === 'saved' && modelId) {
+      const selectedModel = userModels.find(m => m.id === modelId);
+      if (selectedModel && selectedModel.params) {
+        // 如果节点配置中没有设置，使用模型默认值
+        const currentStream = form.getFieldValue('stream');
+        const currentThinking = form.getFieldValue('thinking');
+
+        if (currentStream === undefined && selectedModel.params.stream !== undefined) {
+          form.setFieldValue('stream', selectedModel.params.stream);
+        }
+        if (currentThinking === undefined && selectedModel.params.thinking !== undefined) {
+          form.setFieldValue('thinking', selectedModel.params.thinking);
+        }
+      }
+    }
+  }, [modelMode, modelId, userModels, form]);
+
+  // 加载系统预设模型和供应商模板
+  useEffect(() => {
+    const loadData = async () => {
       try {
-        const models = await aiApi.getSystemPresetModels();
+        const [models, templates] = await Promise.all([
+          aiApi.getSystemPresetModels(),
+          aiApi.getProviderTemplates(),
+        ]);
         setSystemModels(models);
+        setProviderTemplates(templates);
       } catch (error) {
-        console.error(t('node.config.ai.loadSystemModelsFailed'), error);
+        // 加载失败
       }
     };
-    loadSystemModels();
+    loadData();
   }, []);
 
   // 加载用户模型列表的函数
@@ -59,7 +88,6 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       const response = await aiApi.getModels({ page: 1, pageSize: 100 });
       setUserModels(response.list || []);
     } catch (error) {
-      console.error(t('node.config.ai.loadUserModelsFailed'), error);
       message.error(t('node.config.ai.loadUserModelsFailed'));
     } finally {
       setLoading(false);
@@ -142,6 +170,15 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                           placeholder={t('node.config.ai.selectSystemPresetModel')}
                           loading={loading}
                           className={styles.modelSelect}
+                          onChange={(value) => {
+                            // 当选择 provider 时，自动设置对应的 modelName
+                            const selectedModel = systemModels.find(m => m.provider === value);
+                            const providerTemplate = providerTemplates.find(t => t.provider === value);
+                            const defaultModelName = selectedModel?.modelName || providerTemplate?.supportedModels[0] || '';
+                            if (defaultModelName) {
+                              form.setFieldValue('modelName', defaultModelName);
+                            }
+                          }}
                         >
                           {systemModels.map((model) => (
                             <Option key={model.id} value={model.provider}>
@@ -162,16 +199,43 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                           )}
                         </Select>
                       </Form.Item>
-                      <Form.Item
-                        label={t('node.config.ai.modelName')}
-                        name="modelName"
-                        initialValue="deepseek-chat"
-                        className={styles.formItem}
-                      >
-                        <Select className={styles.modelSelect}>
-                          <Option value="deepseek-chat">deepseek-chat</Option>
-                          <Option value="deepseek-coder">deepseek-coder</Option>
-                        </Select>
+                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.provider !== curr?.provider}>
+                        {({ getFieldValue }) => {
+                          const selectedProvider = getFieldValue('provider');
+                          const selectedSystemModel = systemModels.find(m => m.provider === selectedProvider);
+                          const providerTemplate = providerTemplates.find(t => t.provider === selectedProvider);
+
+                          // 获取支持的模型列表
+                          const supportedModels = providerTemplate?.supportedModels || [];
+                          // 默认模型名称：优先使用系统预设模型的 modelName，否则使用模板的第一个模型
+                          const defaultModelName = selectedSystemModel?.modelName || supportedModels[0] || '';
+
+                          return (
+                            <Form.Item
+                              label={t('node.config.ai.modelName')}
+                              name="modelName"
+                              rules={[{ required: true, message: t('node.config.ai.modelNameRequired') }]}
+                              className={styles.formItem}
+                            >
+                              <Select
+                                className={styles.modelSelect}
+                                onChange={(value) => {
+                                  form.setFieldValue('modelName', value);
+                                }}
+                              >
+                                {supportedModels.length > 0 ? (
+                                  supportedModels.map((modelName) => (
+                                    <Option key={modelName} value={modelName}>
+                                      {modelName}
+                                    </Option>
+                                  ))
+                                ) : (
+                                  defaultModelName && <Option value={defaultModelName}>{defaultModelName}</Option>
+                                )}
+                              </Select>
+                            </Form.Item>
+                          );
+                        }}
                       </Form.Item>
                     </div>
                   </>
@@ -262,6 +326,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                       >
                         <Select className={styles.modelSelect}>
                           <Option value="deepseek">DeepSeek</Option>
+                          <Option value="doubao">豆包</Option>
                         </Select>
                       </Form.Item>
                       <Form.Item
@@ -362,39 +427,114 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                 style={{ width: '100%' }}
               />
             </Form.Item>
-            <Form.Item
-              label={t('node.config.ai.maxTokens')}
-              name="maxTokens"
-              initialValue={2000}
-              tooltip={t('node.config.ai.maxTokensTooltip')}
-              className={styles.formItem}
-            >
-              <InputNumber
-                min={1}
-                max={4096}
-                step={100}
-                style={{ width: '100%' }}
-              />
+            <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.modelMode !== curr?.modelMode || prev?.modelId !== curr?.modelId || prev?.provider !== curr?.provider || prev?.modelName !== curr?.modelName}>
+              {({ getFieldValue }) => {
+                const currentMode = getFieldValue('modelMode') || 'system';
+                const currentModelId = getFieldValue('modelId');
+                const currentProvider = getFieldValue('provider');
+                const currentModelName = getFieldValue('modelName') || '';
+
+                // 获取当前 provider
+                let activeProvider: string | null = null;
+                if (currentMode === 'saved' && currentModelId) {
+                  const selectedModel = userModels.find(m => m.id === currentModelId);
+                  activeProvider = selectedModel?.provider || null;
+                } else if (currentMode === 'system' || currentMode === 'custom') {
+                  activeProvider = currentProvider || null;
+                }
+
+                // 根据提供商和模型确定 maxTokens 的最大值
+                let maxTokensLimit = 32768; // 默认值
+                if (activeProvider === 'deepseek') {
+                  // DeepSeek 不同模型有不同的限制
+                  if (currentModelName.includes('reasoner')) {
+                    maxTokensLimit = 65536; // deepseek-reasoner 最大 64K
+                  } else {
+                    maxTokensLimit = 8192; // deepseek-chat 最大 8K
+                  }
+                } else if (activeProvider === 'doubao') {
+                  maxTokensLimit = 32768; // 豆包通常支持较大的 token 数
+                } else {
+                  maxTokensLimit = 32768; // 其他提供商默认值
+                }
+
+                return (
+                  <Form.Item
+                    label={t('node.config.ai.maxTokens')}
+                    name="maxTokens"
+                    initialValue={2000}
+                    tooltip={t('node.config.ai.maxTokensTooltip')}
+                    className={styles.formItem}
+                  >
+                    <InputNumber
+                      min={1}
+                      max={maxTokensLimit}
+                      step={100}
+                      style={{ width: '100%' }}
+                    />
+                  </Form.Item>
+                );
+              }}
             </Form.Item>
-            <Form.Item
-              label={t('node.config.ai.stream')}
-              name="stream"
-              valuePropName="checked"
-              initialValue={false}
-              tooltip={t('node.config.ai.streamTooltip')}
-              className={styles.formItem}
-            >
-              <Switch />
-            </Form.Item>
-            <Form.Item
-              label={t('node.config.ai.thinking')}
-              name="thinking"
-              valuePropName="checked"
-              initialValue={false}
-              tooltip={t('node.config.ai.thinkingTooltip')}
-              className={styles.formItem}
-            >
-              <Switch />
+            <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.modelMode !== curr?.modelMode || prev?.modelId !== curr?.modelId || prev?.provider !== curr?.provider}>
+              {({ getFieldValue }) => {
+                const currentMode = getFieldValue('modelMode') || 'system';
+                const currentModelId = getFieldValue('modelId');
+                const currentProvider = getFieldValue('provider');
+
+                // 获取当前 provider
+                let activeProvider: string | null = null;
+                if (currentMode === 'saved' && currentModelId) {
+                  const selectedModel = userModels.find(m => m.id === currentModelId);
+                  activeProvider = selectedModel?.provider || null;
+                } else if (currentMode === 'system' || currentMode === 'custom') {
+                  activeProvider = currentProvider || null;
+                }
+
+                // 只显示当前 provider 支持的配置项
+                return (
+                  <>
+                    {(activeProvider === 'deepseek' || activeProvider === 'doubao') && (
+                      <>
+                        <Form.Item
+                          label={t('node.config.ai.stream')}
+                          name="stream"
+                          valuePropName="checked"
+                          initialValue={false}
+                          tooltip={t('node.config.ai.streamTooltip')}
+                          className={styles.formItem}
+                        >
+                          <Switch />
+                        </Form.Item>
+                        <Form.Item
+                          label={t('node.config.ai.thinking')}
+                          name="thinking"
+                          valuePropName="checked"
+                          initialValue={false}
+                          tooltip={t('node.config.ai.thinkingTooltip')}
+                          className={styles.formItem}
+                        >
+                          <Switch />
+                        </Form.Item>
+                      </>
+                    )}
+                    {/* 其他 provider 的配置项可以在这里添加 */}
+                    {/* 例如：
+                    {activeProvider === 'openai' && (
+                      <Form.Item
+                        label="流式输出"
+                        name="stream"
+                        valuePropName="checked"
+                        initialValue={false}
+                        className={styles.formItem}
+                      >
+                        <Switch />
+                      </Form.Item>
+                    )}
+                    */}
+                  </>
+                );
+              }}
             </Form.Item>
           </Panel>
         </Collapse>
