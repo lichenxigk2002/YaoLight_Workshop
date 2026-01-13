@@ -1,7 +1,7 @@
-import React, { useMemo, forwardRef } from 'react';
-import { AutoComplete, Tooltip, Tag, Input } from 'antd';
+import { useMemo, forwardRef } from 'react';
+import { AutoComplete, Tooltip, Tag } from 'antd';
 import { Node, Edge } from 'reactflow';
-import { nodeIODefinitions, NodeVariable } from './nodeVariables';
+import { nodeIODefinitions } from './nodeVariables';
 import { useTranslation } from 'react-i18next';
 
 interface VariableSelectorProps {
@@ -29,7 +29,6 @@ export const VariableSelector = forwardRef<any, VariableSelectorProps>(({
   value,
   onChange,
   placeholder = '选择变量或输入表达式',
-  allowInput = true,
 }, ref) => {
   const { t } = useTranslation();
 
@@ -139,8 +138,8 @@ export const VariableSelector = forwardRef<any, VariableSelectorProps>(({
         const input = inputValue.toLowerCase();
 
         // 使用 value 进行过滤
-        const optionValue = typeof option.value === 'string' ? option.value.toLowerCase() : '';
-        if (optionValue.includes(input)) {
+        const optionValue = (option as any).value;
+        if (typeof optionValue === 'string' && optionValue.toLowerCase().includes(input)) {
           return true;
         }
 
@@ -173,8 +172,7 @@ VariableSelector.displayName = 'VariableSelector';
  */
 export function getVariableDisplayName(
   variablePath: string,
-  nodes: Node[],
-  edges: Edge[]
+  nodes: Node[]
 ): string {
   // 解析 {{nodeId.variable}} 格式
   const match = variablePath.match(/\{\{([^.]+)\.(.+)\}\}/);

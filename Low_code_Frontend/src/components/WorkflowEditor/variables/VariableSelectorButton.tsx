@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Button, Popover, List, Tag, Space, Input } from 'antd';
+import { Button, Popover, List, Tag, Input } from 'antd';
 import { Node, Edge } from 'reactflow';
 import { nodeIODefinitions } from './nodeVariables';
 import { ThunderboltOutlined } from '@ant-design/icons';
-import { useTranslation } from 'react-i18next';
 
 interface VariableSelectorButtonProps {
   node: Node | null;
@@ -18,7 +17,6 @@ export const VariableSelectorButton: React.FC<VariableSelectorButtonProps> = ({
   edges,
   onSelect,
 }) => {
-  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
 

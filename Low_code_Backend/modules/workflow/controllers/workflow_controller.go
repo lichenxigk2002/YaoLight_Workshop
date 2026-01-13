@@ -39,6 +39,17 @@ func NewWorkflowController() *WorkflowController {
 // @Success 200 {object} map[string]interface{} "执行成功"
 // @Router /api/workflows/execute [post]
 func (c *WorkflowController) ExecuteWorkflow(ctx *gin.Context) {
+	// 从中间件获取用户ID
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未授权",
+			"data":    nil,
+		})
+		return
+	}
+
 	var req workflowService.ExecutionRequest
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -49,6 +60,9 @@ func (c *WorkflowController) ExecuteWorkflow(ctx *gin.Context) {
 		})
 		return
 	}
+
+	// 设置用户ID到请求中（用于AI节点验证）
+	req.UserID = userID.(uint)
 
 	// 执行工作流
 	result, err := c.executor.Execute(req)
@@ -67,6 +81,80 @@ func (c *WorkflowController) ExecuteWorkflow(ctx *gin.Context) {
 		"message": "执行成功",
 		"data":    result,
 	})
+}
+
+// ExecuteWorkflowStream 流式执行工作流（SSE）
+// @Summary 流式执行工作流
+// @Description 使用Server-Sent Events流式执行工作流，实时返回AI节点输出
+// @Tags 工作流
+// @Accept json
+// @Produce text/event-stream
+// @Param request body workflowService.ExecutionRequest true "执行请求"
+// @Success 200 {string} text/event-stream "流式响应"
+// @Router /api/workflows/execute/stream [post]
+func (c *WorkflowController) ExecuteWorkflowStream(ctx *gin.Context) {
+	// 从中间件获取用户ID
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未授权",
+			"data":    nil,
+		})
+		return
+	}
+
+	var req workflowService.ExecutionRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "请求参数错误: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	req.UserID = userID.(uint)
+
+	// 设置SSE响应头
+	ctx.Header("Content-Type", "text/event-stream")
+	ctx.Header("Cache-Control", "no-cache")
+	ctx.Header("Connection", "keep-alive")
+	ctx.Header("X-Accel-Buffering", "no") // 禁用nginx缓冲
+
+	// 创建流式回调
+	callback := func(nodeID string, content string, done bool, contentType string, err error) {
+		if err != nil {
+			// 发送错误事件
+			ctx.SSEvent("error", map[string]interface{}{
+				"nodeId": nodeID,
+				"error":  err.Error(),
+				"done":   true,
+			})
+			ctx.Writer.Flush()
+			return
+		}
+
+		// 发送消息事件
+		event := map[string]interface{}{
+			"nodeId":      nodeID,
+			"content":     content,
+			"done":        done,
+			"contentType": contentType, // 添加内容类型：reasoning/content/""
+		}
+		ctx.SSEvent("message", event)
+		ctx.Writer.Flush()
+	}
+
+	// 执行流式工作流
+	err := c.executor.ExecuteWorkflowStream(ctx.Request.Context(), req, callback)
+	if err != nil {
+		ctx.SSEvent("error", map[string]interface{}{
+			"error": err.Error(),
+			"done":  true,
+		})
+		ctx.Writer.Flush()
+	}
 }
 
 // GetWorkflowList 获取工作流列表

@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Select, Tag, Tooltip } from 'antd';
 import { Node, Edge } from 'reactflow';
 import { nodeIODefinitions } from './nodeVariables';
-import { useTranslation } from 'react-i18next';
 
 const { Option } = Select;
 
@@ -27,27 +26,26 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
   allowClear = true,
   executionResult,
 }) => {
-  const { t } = useTranslation();
 
   // 修正变量路径：如果保存的变量路径中的节点ID不存在，尝试自动修正为正确的节点ID
   const correctedValue = useMemo(() => {
     if (!value || !node) return value;
-    
+
     // 提取变量路径中的节点ID，格式：{{nodeId.variable.path}}
     const match = value.match(/\{\{([^}]+)\}\}/);
     if (!match) return value;
-    
+
     const varPath = match[1];
     const parts = varPath.split('.');
     if (parts.length < 2) return value;
-    
+
     const savedNodeId = parts[0];
     const variablePath = parts.slice(1).join('.');
-    
+
     // 检查保存的节点ID是否存在
     const savedNodeExists = nodes.some(n => n.id === savedNodeId);
     if (savedNodeExists) return value;
-    
+
     // 如果节点ID不存在，尝试从上游节点中查找匹配的变量路径
     const upstreamNodes = edges
       .filter(edge => edge.target === node.id)
@@ -56,7 +54,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
         return sourceNode;
       })
       .filter(Boolean) as Node[];
-    
+
     // 尝试从上游节点中查找匹配的变量
     for (const upstreamNode of upstreamNodes) {
       const nodeType = upstreamNode.data?.type || upstreamNode.type;
@@ -78,7 +76,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
         }
       }
     }
-    
+
     return value;
   }, [value, node, nodes, edges, onChange]);
 
@@ -165,7 +163,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
       if (inputData) {
         // 解析变量路径，如 "data.url" -> ["data", "url"]
         const pathParts = variablePath.split('.');
-        
+
         // 如果是URL格式，直接显示（只有当变量路径是根级别时才适用）
         if (pathParts.length === 1 && (inputDataType === 'url' || (inputDataType === 'auto' && (inputData.startsWith('http://') || inputData.startsWith('https://'))))) {
           return {
@@ -173,7 +171,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
             type: 'placeholder'
           };
         }
-        
+
         // 如果是文本，显示文本（只有当变量路径是根级别时才适用）
         if (pathParts.length === 1 && (inputDataType === 'text' || inputDataType === 'string')) {
           return {
@@ -181,7 +179,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
             type: 'placeholder'
           };
         }
-        
+
         // 如果是JSON，尝试解析并根据变量路径提取值
         if (inputDataType === 'json' || inputDataType === 'auto') {
           try {
@@ -197,7 +195,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
                   return null;
                 }
               }
-              
+
               // 根据提取的值类型返回预览
               if (typeof current === 'string') {
                 // 如果是URL，显示完整URL
@@ -231,7 +229,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
                 }
                 return { value: `对象 (${keys.length} 字段)`, type: 'placeholder' };
               }
-              
+
               return { value: String(current), type: 'placeholder' };
             }
           } catch (e) {

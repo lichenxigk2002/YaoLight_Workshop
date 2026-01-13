@@ -1,0 +1,240 @@
+.configContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-secondary, #e8e8e8);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, rgba(0, 0, 0, 0.88));
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sectionDescription {
+  font-size: 12px;
+  color: var(--text-tertiary, rgba(0, 0, 0, 0.45));
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.modeSelector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 0;
+  width: 100%;
+
+  :global(.ant-radio-button-wrapper) {
+    flex: 1;
+    min-width: 0; /* 允许flex子元素收缩 */
+    border-radius: 6px !important;
+    border: 1px solid var(--border-primary, #d9d9d9) !important;
+    height: 32px;
+    padding: 0 10px; /* 减小padding */
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* 左对齐 */
+    transition: all 0.3s ease;
+    overflow: hidden; /* 隐藏溢出内容 */
+
+    &:before {
+      display: none !important;
+    }
+
+    &:hover {
+      border-color: var(--primary, #1677ff) !important;
+      color: var(--primary, #1677ff);
+      z-index: 1;
+    }
+
+    &:first-child {
+      border-radius: 6px !important;
+    }
+
+    &:last-child {
+      border-radius: 6px !important;
+    }
+  }
+
+  :global(.ant-radio-button-wrapper-checked) {
+    border-color: var(--primary, #1677ff) !important;
+    background: #e6f4ff !important;
+    /* 浅蓝色背景 */
+    color: var(--primary, #1677ff) !important;
+    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+
+    &:hover {
+      border-color: var(--primary, #1677ff) !important;
+      background: #e6f4ff !important;
+      color: var(--primary, #1677ff) !important;
+    }
+  }
+}
+
+.modeButton {
+  display: flex;
+  flex-direction: row;
+  /* 水平排列 */
+  align-items: center;
+  justify-content: flex-start; /* 左对齐 */
+  gap: 5px;
+  width: 100%;
+  min-width: 0; /* 允许flex子元素收缩 */
+  overflow: hidden; /* 隐藏溢出内容 */
+  position: relative; /* 用于定位 */
+
+  .modeIcon {
+    font-size: 14px;
+    flex-shrink: 0; /* 图标不收缩 */
+    width: 14px; /* 固定图标宽度 */
+    height: 14px; /* 固定图标高度 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modeText {
+    font-size: 12px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0; /* 允许文本收缩 */
+    flex: 1; /* 占据剩余空间 */
+    text-align: left; /* 文本左对齐 */
+    line-height: 1; /* 确保行高一致 */
+  }
+}
+
+.configForm {
+  margin-top: 12px;
+}
+
+.modelSelect {
+  width: 100%;
+
+  :global(.ant-select-selector) {
+    border-radius: 6px;
+  }
+
+  // Option内容文本溢出处理
+  :global(.ant-select-item-option-content) {
+    overflow: hidden;
+    width: 100%;
+  }
+}
+
+// Option中的文本溢出样式
+.optionText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.optionTag {
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.promptTextArea {
+  :global(.ant-input) {
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 8px 12px;
+  }
+}
+
+.advancedSection {
+  margin-top: 4px;
+
+  :global(.ant-collapse) {
+    background: transparent;
+    border: none;
+  }
+
+  :global(.ant-collapse-item) {
+    border: 1px solid var(--border-secondary, #e8e8e8);
+    border-radius: 8px !important; // 统一使用8px圆角，与其他section一致
+    margin-bottom: 0;
+    background: #fff;
+    overflow: hidden; // 确保圆角生效
+  }
+
+  // header 在所有状态下都保持圆角
+  :global(.ant-collapse-header) {
+    padding: 8px 12px !important;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-secondary, rgba(0, 0, 0, 0.65)) !important;
+    // 强制设置所有圆角
+    border-top-left-radius: 8px !important;
+    border-top-right-radius: 8px !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+
+  // 未展开时，header 应该有完整的圆角
+  :global(.ant-collapse-item:not(.ant-collapse-item-active)) {
+    :global(.ant-collapse-header) {
+      // 未展开时：所有角都是圆角
+      border-top-left-radius: 8px !important;
+      border-top-right-radius: 8px !important;
+      border-bottom-left-radius: 8px !important;
+      border-bottom-right-radius: 8px !important;
+    }
+  }
+
+  // content 保持下方圆角
+  :global(.ant-collapse-content) {
+    border-radius: 0 0 8px 8px !important; // 统一使用8px圆角
+    border-top: 1px solid var(--border-secondary, #f0f0f0);
+  }
+
+  :global(.ant-collapse-content-box) {
+    padding: 12px !important;
+  }
+}
+
+.formItem {
+  margin-bottom: 12px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  :global(.ant-form-item-label) {
+    padding-bottom: 4px;
+
+    label {
+      font-weight: 500;
+      font-size: 12px;
+      color: var(--text-primary, rgba(0, 0, 0, 0.88));
+      height: auto;
+
+      &:after {
+        display: none;
+        /* 移除冒号 */
+      }
+    }
+  }
+}

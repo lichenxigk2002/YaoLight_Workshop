@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"yaolight-workshop/backend/infrastructure/database"
+	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
+	aiService "yaolight-workshop/backend/modules/ai/services"
 	crawlerService "yaolight-workshop/backend/modules/crawler/services"
 	datacleanService "yaolight-workshop/backend/modules/dataclean/services"
 )
@@ -16,6 +19,7 @@ import (
 type WorkflowExecutor struct {
 	crawlerService   *crawlerService.CrawlerService
 	datacleanService *datacleanService.DataCleanService
+	aiService        *aiService.AIService
 }
 
 // NodeConfig 节点配置
@@ -33,8 +37,9 @@ type EdgeConfig struct {
 
 // ExecutionRequest 执行请求
 type ExecutionRequest struct {
-	Nodes []NodeConfig `json:"nodes"`
-	Edges []EdgeConfig `json:"edges"`
+	Nodes  []NodeConfig `json:"nodes"`
+	Edges  []EdgeConfig `json:"edges"`
+	UserID uint         `json:"userID,omitempty"` // 用户ID，用于验证模型归属
 }
 
 // NodeExecutionResult 节点执行结果
@@ -55,9 +60,12 @@ type ExecutionResult struct {
 
 // NewWorkflowExecutor 创建工作流执行器
 func NewWorkflowExecutor() *WorkflowExecutor {
+	modelRepo := aiRepos.NewAIModelRepository(database.DB)
+	templateRepo := aiRepos.NewProviderTemplateRepository(database.DB)
 	return &WorkflowExecutor{
 		crawlerService:   crawlerService.NewCrawlerService(),
 		datacleanService: datacleanService.NewDataCleanService(),
+		aiService:        aiService.NewAIService(modelRepo, templateRepo),
 	}
 }
 
@@ -120,8 +128,8 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		// 设置节点类型到变量上下文
 		variableContext.SetNodeType(nodeID, nodeConfig.Type)
 
-		// 执行节点
-		result := e.executeNode(*nodeConfig, dataFlow, variableContext)
+		// 执行节点（传递userID用于AI节点验证）
+		result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
 		results = append(results, result)
 
 		// 保存节点输出数据到数据流和变量上下文
@@ -186,7 +194,7 @@ func (e *WorkflowExecutor) findStartNodes(nodes []NodeConfig, edges []EdgeConfig
 }
 
 // executeNode 执行单个节点
-func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext) NodeExecutionResult {
+func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, userID uint) NodeExecutionResult {
 	log.Printf("执行节点: ID=%s, Type=%s", node.ID, node.Type)
 
 	switch node.Type {
@@ -197,7 +205,7 @@ func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, vari
 	case "dataclean":
 		return e.executeDataCleanNode(node, dataFlow, variableContext)
 	case "ai":
-		return e.executeAINode(node, dataFlow, variableContext)
+		return e.executeAINode(node, dataFlow, variableContext, userID)
 	case "condition":
 		return e.executeConditionNode(node, dataFlow, variableContext)
 	case "transform":
@@ -766,8 +774,8 @@ func (e *WorkflowExecutor) executeDataCleanNode(node NodeConfig, dataFlow *DataF
 	}
 }
 
-// executeAINode 执行AI节点（暂未实现）
-func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext) NodeExecutionResult {
+// executeAINode 执行AI节点
+func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, userID uint) NodeExecutionResult {
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
@@ -776,9 +784,18 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 
 	// 获取提示词配置
 	prompt := getString(node.Config, "prompt", "")
+	if prompt == "" {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   "提示词不能为空",
+			Data:    ExtractPayload(inputData),
+		}
+	}
 
 	// 如果提示词包含变量，解析它
-	if prompt != "" && strings.Contains(prompt, "{{") {
+	if strings.Contains(prompt, "{{") {
 		resolved, err := variableContext.ResolveTemplate(prompt)
 		if err == nil && resolved != "" {
 			prompt = resolved
@@ -808,17 +825,123 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 		}
 	}
 
-	// TODO: 实现AI节点逻辑
-	// 这里应该调用AI服务，使用prompt和content
-	log.Printf("AI节点 - Prompt: %s, Content: %s", prompt, content)
+	// 获取模型模式
+	modelMode := getString(node.Config, "modelMode", "system")
+
+	// 获取模型配置
+	modelRepo := aiRepos.NewAIModelRepository(database.DB)
+	modelConfig, err := aiService.GetModelConfigForExecution(
+		modelMode,
+		getUint(node.Config, "modelId", 0),
+		userID,
+		node.Config,
+		modelRepo,
+	)
+	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   fmt.Sprintf("加载模型配置失败: %v", err),
+			Data:    ExtractPayload(inputData),
+		}
+	}
+
+	// 获取提供商
+	provider, err := e.aiService.GetProvider(modelConfig.Provider)
+	if err != nil {
+		log.Printf("获取AI提供商失败: %v", err)
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   fmt.Sprintf("获取AI提供商失败: %v", err),
+			Data:    ExtractPayload(inputData),
+		}
+	}
+
+	// 构建提供商特定配置（DeepSeek特有参数）
+	providerConfig := make(map[string]interface{})
+	stream := false
+	if modelConfig.Provider == "deepseek" {
+		// 从节点配置中读取DeepSeek特有参数
+		if thinking, ok := node.Config["thinking"].(bool); ok {
+			providerConfig["thinking"] = thinking
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		}
+	}
+
+	// 如果启用流式输出，使用流式方法（但需要等待完成）
+	if stream {
+		var fullContent strings.Builder
+		err := provider.ChatStream(modelConfig, prompt, content, providerConfig, func(deltaContent string, done bool, err error) {
+			if err != nil {
+				return
+			}
+			if deltaContent != "" {
+				fullContent.WriteString(deltaContent)
+			}
+		})
+		if err != nil {
+			return NodeExecutionResult{
+				NodeID:  node.ID,
+				Type:    "ai",
+				Success: false,
+				Error:   fmt.Sprintf("AI流式调用失败: %v", err),
+				Data:    ExtractPayload(inputData),
+			}
+		}
+		// 流式完成，返回完整内容
+		resultData := map[string]interface{}{
+			"content":    fullContent.String(),
+			"tokensUsed": 0, // 流式输出暂时无法获取token数
+			"model":      modelConfig.ModelName,
+		}
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: true,
+			Data:    resultData,
+		}
+	}
+
+	// 调用AI服务（非流式）
+	chatResp, err := provider.Chat(modelConfig, prompt, content, providerConfig)
+	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   fmt.Sprintf("AI调用失败: %v", err),
+			Data:    ExtractPayload(inputData),
+		}
+	}
+
+	// 返回结果
+	resultData := map[string]interface{}{
+		"result":     chatResp.Content, // AI节点的输出变量名是 result
+		"content":    chatResp.Content, // 保留 content 以兼容旧代码
+		"tokensUsed": chatResp.TokensUsed,
+		"model":      chatResp.Model,
+	}
 
 	return NodeExecutionResult{
 		NodeID:  node.ID,
 		Type:    "ai",
-		Success: false,
-		Error:   "AI节点功能暂未实现",
-		Data:    ExtractPayload(inputData),
+		Success: true,
+		Data:    resultData,
 	}
+}
+
+// getUint 从配置中获取uint值
+func getUint(m map[string]interface{}, key string, defaultValue uint) uint {
+	if v, ok := m[key].(float64); ok {
+		return uint(v)
+	}
+	return defaultValue
 }
 
 // executeStartNode 执行开始节点

@@ -24,10 +24,10 @@ import {
   UnorderedListOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
-import NodePanel from './NodePanel';
-import NodeConfigPanel from './NodeConfigPanel';
-import ExecutionResultPanel from './ExecutionResultPanel';
-import { validateNodeConnection } from './nodeFormats';
+import NodePanel from './panels/NodePanel';
+import NodeConfigPanel from './panels/NodeConfigPanel';
+import ExecutionResultPanel from './panels/ExecutionResultPanel';
+import { validateNodeConnection } from './utils/nodeFormats';
 import styles from './index.module.scss';
 import { useThemeStore } from '@/store/theme';
 import { isCommentNode } from '@/utils/nodeUtils';

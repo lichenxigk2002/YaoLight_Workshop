@@ -36,7 +36,6 @@ interface ExecutionResultPanelProps {
 }
 
 const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
-  visible,
   onClose,
   result,
   nodes,
@@ -79,7 +78,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   // 渲染数据预览
   const renderDataPreview = (data: any, nodeType: string) => {
     if (!data) {
-      return <Empty description={t('node.execution.noData')} image={Empty.SIMPLE_IMAGE} />;
+      return <Empty description={t('node.execution.noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     }
 
     // 如果是爬虫节点，特殊处理
@@ -97,7 +96,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
               <Tag color="purple">{t('node.execution.selector')}: {data.selector_used}</Tag>
             )}
           </div>
-          
+
           {/* 文本预览 */}
           {data.text && (
             <div className={styles.textPreview}>
@@ -226,10 +225,10 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
             <Tag color="error">{t('node.execution.failed')}</Tag>
           )}
         </div>
-        <Button 
-          type="text" 
-          icon={<CloseOutlined style={{ color: 'var(--text-primary)' }} />} 
-          onClick={onClose} 
+        <Button
+          type="text"
+          icon={<CloseOutlined style={{ color: 'var(--text-primary)' }} />}
+          onClick={onClose}
         />
       </div>
 
@@ -247,7 +246,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
             onChange={(keys) => setActiveKeys(keys as string[])}
             className={styles.resultCollapse}
           >
-            {result.results.map((nodeResult, index) => (
+            {result.results.map((nodeResult) => (
               <Panel
                 key={nodeResult.node_id}
                 header={
