@@ -1,6 +1,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { message } from 'antd';
 import type { ApiResponse } from '@/types/api';
+import { StatusHandler } from './handlers';
+import { HttpError } from './core/error';
+import { HTTP_STATUS } from './core/status';
 
 /**
  * HTTP 请求配置
@@ -20,7 +23,6 @@ class HttpClient {
   constructor() {
     // 从环境变量获取 API 基础 URL
     this.baseURL = import.meta.env.VITE_BASE_URL || '/api';
-    console.log('API基础URL:', this.baseURL);
 
     // 创建 axios 实例
     this.instance = axios.create({
@@ -44,8 +46,6 @@ class HttpClient {
     // 请求拦截器
     this.instance.interceptors.request.use(
       (config) => {
-        console.log('发送请求:', config.url, config.method?.toUpperCase());
-
         // 从 localStorage 获取 token
         const token = this.getToken();
         if (token && config.headers) {
@@ -55,71 +55,111 @@ class HttpClient {
         return config;
       },
       (error: AxiosError) => {
-        console.error('请求配置错误:', error);
         return Promise.reject(error);
       }
     );
 
     // 响应拦截器
     this.instance.interceptors.response.use(
-      (response: AxiosResponse<ApiResponse>) => {
-        console.log('API响应数据:', response.data);
+      async (response: AxiosResponse<ApiResponse>) => {
+        const url = response.config?.url || '';
 
-        const { code, message: responseMessage, data } = response.data;
+        try {
+          // 使用 StatusHandler 处理 HTTP 状态码
+          // 这会处理各种 HTTP 状态码并返回解析后的数据
+          let responseData = await StatusHandler.handle(response, url);
 
-        // 处理业务状态码
-        if (code === 40001) {
-          // 未授权，跳转登录
-          message.error('登录已过期，请重新登录');
-          this.clearToken();
-          window.location.href = '/login';
-          return Promise.reject(new Error('未授权'));
-        } else if (code !== 200 && code !== 0) {
-          // 其他业务错误
-          message.error(responseMessage || '请求失败');
-          return Promise.reject(new Error(responseMessage || '请求失败'));
+          // 检查响应数据格式
+          // 如果响应数据已经是目标格式（没有包装在 ApiResponse 中），直接返回
+          if (responseData && typeof responseData === 'object' && 'success' in responseData && 'results' in responseData) {
+            // 这是 ExecuteWorkflowResponse 格式，直接返回
+            return responseData;
+          }
+
+          // 标准 ApiResponse 格式处理
+          if (!responseData || typeof responseData !== 'object' || !('code' in responseData)) {
+            // 如果响应数据不是标准格式，可能是直接返回的数据
+            return responseData;
+          }
+
+          const { code, message: responseMessage, data } = responseData as ApiResponse;
+
+          // 处理业务状态码
+          if (code === 40001) {
+            // 未授权，跳转登录
+            message.error('登录已过期，请重新登录');
+            this.clearToken();
+            window.location.href = '/login';
+            return Promise.reject(new Error('未授权'));
+          } else if (code !== 200 && code !== 0) {
+            // 其他业务错误
+            console.error('业务错误:', { code, message: responseMessage, url });
+            message.error(responseMessage || '请求失败');
+            return Promise.reject(new Error(responseMessage || '请求失败'));
+          }
+
+          // 返回数据
+          return data;
+        } catch (error) {
+          // 如果 StatusHandler 抛出错误，这里会被捕获
+          // 但正常情况下，HTTP 2xx 状态码不会抛出错误
+          // 这里主要是为了安全起见
+          if (error instanceof HttpError) {
+            throw error;
+          }
+          throw error;
         }
-
-        // 返回数据
-        return data;
       },
-      (error: AxiosError<ApiResponse>) => {
-        console.error('API请求错误:', error);
+      async (error: AxiosError<ApiResponse>) => {
+        const url = error.config?.url || '';
+
+        // 调试日志
+        if (error.config?.url?.includes('/workflows/execute')) {
+          console.error('工作流执行请求错误:', {
+            url: error.config.url,
+            code: error.code,
+            message: error.message,
+            response: error.response,
+            timeout: error.config.timeout,
+          });
+        }
 
         // 处理 HTTP 状态码错误
         if (error.response) {
-          const { status, data } = error.response;
+          try {
+            // 使用 StatusHandler 处理 HTTP 错误状态码
+            await StatusHandler.handle(error.response, url);
+          } catch (httpError) {
+            // StatusHandler 会抛出 HttpError
+            if (httpError instanceof HttpError) {
+              // 根据错误类型显示不同的错误消息
+              const errorMessage = httpError.getErrorMessage();
 
-          switch (status) {
-            case 400:
-              message.error(data?.message || '请求参数错误');
-              break;
-            case 401:
-              message.error('未授权，请重新登录');
-              this.clearToken();
-              window.location.href = '/login';
-              break;
-            case 403:
-              message.error('没有权限访问');
-              break;
-            case 404:
-              message.error('请求的资源不存在');
-              break;
-            case 500:
-              message.error(data?.message || '服务器错误');
-              break;
-            case 502:
-              message.error('网关错误');
-              break;
-            case 503:
-              message.error('服务不可用');
-              break;
-            default:
-              message.error(data?.message || `请求失败 (${status})`);
+              // 特殊处理 401 未授权
+              if (httpError.isUnauthorized()) {
+                message.error('未授权，请重新登录');
+                this.clearToken();
+                window.location.href = '/login';
+              } else if (httpError.isForbidden()) {
+                message.error('没有权限访问');
+              } else {
+                // 其他错误显示错误消息
+                message.error(errorMessage);
+              }
+
+              // 如果是重定向错误，记录重定向 URL
+              if (httpError.extra?.redirectUrl) {
+                console.warn('需要重定向到:', httpError.extra.redirectUrl);
+              }
+            } else {
+              // 如果不是 HttpError，使用默认错误处理
+              message.error('请求失败');
+            }
           }
         } else if (error.code === 'ECONNABORTED') {
           // 超时错误
-          message.error('请求超时，请稍后重试');
+          const timeout = error.config?.timeout || 10000;
+          message.error(`请求超时（${timeout / 1000}秒），请稍后重试或检查网络连接`);
         } else if (error.message === 'Network Error') {
           // 网络错误
           message.error('网络错误，请检查网络连接');
@@ -143,7 +183,7 @@ class HttpClient {
         return authData.state?.token || null;
       }
     } catch (e) {
-      console.warn('获取 token 失败:', e);
+      // 获取 token 失败
     }
     return null;
   }
@@ -250,7 +290,6 @@ class HttpClient {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
-      console.error('文件下载失败:', error);
       message.error('文件下载失败');
       throw error;
     }

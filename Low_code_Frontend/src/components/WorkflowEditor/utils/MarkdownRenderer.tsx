@@ -12,6 +12,11 @@ interface MarkdownRendererProps {
  * 用于渲染AI返回的Markdown格式文本
  */
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className }) => {
+  // 如果内容为空，返回空div
+  if (!content || content.trim() === '') {
+    return <div className={`${styles.markdownContainer} ${className || ''}`}></div>;
+  }
+
   return (
     <div className={`${styles.markdownContainer} ${className || ''}`}>
       <ReactMarkdown

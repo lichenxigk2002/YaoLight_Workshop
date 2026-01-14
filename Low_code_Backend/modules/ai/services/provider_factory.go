@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"yaolight-workshop/backend/modules/ai/services/providers"
 	"yaolight-workshop/backend/modules/ai/services/providers/deepseek"
+	"yaolight-workshop/backend/modules/ai/services/providers/doubao"
 )
 
 // ProviderFactory 提供商工厂
@@ -17,8 +18,9 @@ func NewProviderFactory() *ProviderFactory {
 		providers: make(map[string]providers.AIProvider),
 	}
 
-	// 注册提供商（先实现DeepSeek，其他后续添加）
+	// 注册提供商
 	factory.RegisterProvider("deepseek", deepseek.NewDeepSeekProvider())
+	factory.RegisterProvider("doubao", doubao.NewDoubaoProvider())
 
 	return factory
 }

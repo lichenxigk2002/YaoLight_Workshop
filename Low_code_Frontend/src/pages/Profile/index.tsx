@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, Form, Input, Button, message, Descriptions, Avatar, Modal } from 'antd';
 import { UserOutlined, EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore } from '@/redux/auth';
+import { useAuthStore } from '@/store/auth';
 import { userApi } from '@/api/user';
 import styles from './index.module.scss';
 

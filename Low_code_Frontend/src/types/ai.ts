@@ -15,6 +15,7 @@ export interface AIModel {
   maxTokens?: number;
   baseUrl?: string;
   endpoint?: string;
+  params?: Record<string, any>; // 模型级别的自定义配置（JSONB），例如 DeepSeek 的 stream 和 thinking
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +60,7 @@ export interface CreateModelRequest {
   endpoint?: string;
   temperature?: number;
   maxTokens?: number;
+  params?: Record<string, any>; // 模型级别的自定义配置（JSONB）
 }
 
 /**
@@ -72,5 +74,6 @@ export interface UpdateModelRequest {
   temperature?: number;
   maxTokens?: number;
   status?: string;
+  params?: Record<string, any>; // 模型级别的自定义配置（JSONB）
 }
 

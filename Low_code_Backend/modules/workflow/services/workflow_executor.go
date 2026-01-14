@@ -1,9 +1,9 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -71,11 +71,6 @@ func NewWorkflowExecutor() *WorkflowExecutor {
 
 // Execute 执行工作流
 func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, error) {
-	log.Printf("开始执行工作流，节点数: %d, 边数: %d", len(req.Nodes), len(req.Edges))
-	// 打印所有节点ID，用于调试
-	for _, node := range req.Nodes {
-		log.Printf("接收到的节点: ID=%s, Type=%s", node.ID, node.Type)
-	}
 
 	results := make([]NodeExecutionResult, 0)
 	// 使用数据流管理器
@@ -121,7 +116,6 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		}
 
 		if nodeConfig == nil {
-			log.Printf("未找到节点配置: %s", nodeID)
 			continue
 		}
 
@@ -166,7 +160,6 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 	for _, node := range req.Nodes {
 		if !executed[node.ID] {
 			allExecuted = false
-			log.Printf("节点未执行: %s", node.ID)
 		}
 	}
 
@@ -195,8 +188,6 @@ func (e *WorkflowExecutor) findStartNodes(nodes []NodeConfig, edges []EdgeConfig
 
 // executeNode 执行单个节点
 func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, userID uint) NodeExecutionResult {
-	log.Printf("执行节点: ID=%s, Type=%s", node.ID, node.Type)
-
 	switch node.Type {
 	case "start":
 		return e.executeStartNode(node, dataFlow)
@@ -251,12 +242,10 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 		// 提取变量路径（去除 {{}}）
 		varPath := strings.Trim(urlVariable, "{{}}")
 		varPath = strings.TrimSpace(varPath)
-		log.Printf("爬虫节点 %s: 解析URL变量，路径: %s", node.ID, varPath)
 
 		// 获取变量值
 		urlVar, err := variableContext.GetVariable(varPath)
 		if err == nil && urlVar != nil {
-			log.Printf("爬虫节点 %s: 获取到变量值，类型: %T, 值: %v", node.ID, urlVar, urlVar)
 			// 如果变量值是字符串，直接使用
 			if urlStr, ok := urlVar.(string); ok {
 				// 检查是否是有效的URL
@@ -287,11 +276,9 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 				finalURL = fmt.Sprintf("%v", urlVar)
 			}
 		} else {
-			log.Printf("爬虫节点 %s: 直接获取变量失败: %v，尝试使用ResolveTemplateToInterface", node.ID, err)
 			// 如果直接获取失败，尝试使用 ResolveTemplateToInterface（支持路径访问）
 			resolved, err := variableContext.ResolveTemplateToInterface(urlVariable)
 			if err == nil && resolved != nil {
-				log.Printf("爬虫节点 %s: ResolveTemplateToInterface成功，类型: %T, 值: %v", node.ID, resolved, resolved)
 				// 如果解析结果是字符串，直接使用
 				if urlStr, ok := resolved.(string); ok {
 					if strings.HasPrefix(urlStr, "http://") || strings.HasPrefix(urlStr, "https://") {
@@ -324,18 +311,12 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 					// 检查是否是未解析的模板字符串（仍然包含 {{}}）
 					if !strings.Contains(resolved, "{{") {
 						finalURL = resolved
-					} else {
-						// 如果仍然是模板字符串，说明变量不存在
-						log.Printf("警告: URL变量 %s 无法解析，变量可能不存在，尝试从输入数据中获取", urlVariable)
 					}
-				} else {
-					log.Printf("警告: URL变量 %s 解析失败: %v，尝试从输入数据中获取", urlVariable, err)
 				}
 			}
 
 			// 如果变量解析失败，尝试从输入数据中获取URL
 			if finalURL == "" && inputData != nil && inputData.Payload != nil {
-				log.Printf("爬虫节点 %s: 变量解析失败，尝试从输入数据中提取URL", node.ID)
 				// 提取变量路径（去除 {{}} 和节点ID）
 				varPath := strings.Trim(urlVariable, "{{}}")
 				varPath = strings.TrimSpace(varPath)
@@ -343,12 +324,10 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 				// 如果路径格式是 nodeId.variable.field，提取 variable.field
 				if len(parts) >= 2 {
 					variablePath := strings.Join(parts[1:], ".")
-					log.Printf("爬虫节点 %s: 从输入数据中提取路径: %s", node.ID, variablePath)
 					urlValue, err := GetDataByPath(inputData.Payload, variablePath)
 					if err == nil && urlValue != nil {
 						if urlStr, ok := urlValue.(string); ok && urlStr != "" {
 							finalURL = urlStr
-							log.Printf("爬虫节点 %s: 成功从输入数据中提取URL: %s", node.ID, finalURL)
 						} else if urlMap, ok := urlValue.(map[string]interface{}); ok {
 							// 如果是对象，尝试提取URL字段
 							urlFields := []string{"url", "link", "href", "src", "data"}
@@ -356,7 +335,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 								if val, exists := urlMap[field]; exists {
 									if urlStr, ok := val.(string); ok && urlStr != "" {
 										finalURL = urlStr
-										log.Printf("爬虫节点 %s: 成功从输入数据对象中提取URL: %s", node.ID, finalURL)
 										break
 									}
 								}
@@ -365,7 +343,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 					}
 					// 如果路径是 data.field 格式，但字段不存在，尝试从 data 对象中查找所有可能的URL字段
 					if finalURL == "" && len(parts) >= 3 && parts[1] == "data" {
-						log.Printf("爬虫节点 %s: 字段 %s 不存在，尝试从 data 对象中查找URL字段", node.ID, parts[2])
 						dataValue, err := GetDataByPath(inputData.Payload, "data")
 						if err == nil && dataValue != nil {
 							if dataMap, ok := dataValue.(map[string]interface{}); ok {
@@ -375,7 +352,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 									if val, exists := dataMap[field]; exists {
 										if urlStr, ok := val.(string); ok && urlStr != "" {
 											finalURL = urlStr
-											log.Printf("爬虫节点 %s: 从 data 对象中找到URL字段 %s: %s", node.ID, field, finalURL)
 											break
 										}
 									}
@@ -391,7 +367,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 								if val, exists := payloadMap[field]; exists {
 									if urlStr, ok := val.(string); ok && urlStr != "" {
 										finalURL = urlStr
-										log.Printf("爬虫节点 %s: 成功从输入数据中直接提取URL字段 %s: %s", node.ID, field, finalURL)
 										break
 									}
 								}
@@ -404,7 +379,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 
 		// 如果最终URL仍然包含模板字符串，说明解析失败
 		if finalURL != "" && strings.Contains(finalURL, "{{") {
-			log.Printf("错误: URL变量解析失败，最终URL包含未解析的模板: %s", finalURL)
 			return NodeExecutionResult{
 				NodeID:  node.ID,
 				Type:    "crawler",
@@ -415,7 +389,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 
 		// 如果用户选择了urlVariable但解析失败（finalURL为空），不应该回退到urlConfig，应该报错
 		if finalURL == "" {
-			log.Printf("错误: URL变量 %s 解析后为空值，请检查变量路径是否正确", urlVariable)
 			return NodeExecutionResult{
 				NodeID:  node.ID,
 				Type:    "crawler",
@@ -779,7 +752,6 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
-		log.Printf("AI节点获取输入数据失败: %v", err)
 	}
 
 	// 获取提示词配置
@@ -850,7 +822,6 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	// 获取提供商
 	provider, err := e.aiService.GetProvider(modelConfig.Provider)
 	if err != nil {
-		log.Printf("获取AI提供商失败: %v", err)
 		return NodeExecutionResult{
 			NodeID:  node.ID,
 			Type:    "ai",
@@ -863,21 +834,69 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	// 构建提供商特定配置（DeepSeek特有参数）
 	providerConfig := make(map[string]interface{})
 	stream := false
+
+	// 如果使用已保存的模型，先从模型配置读取默认值
+	if modelMode == "saved" {
+		modelRepo := aiRepos.NewAIModelRepository(database.DB)
+		modelEntity, err := modelRepo.FindByIDAndUser(getUint(node.Config, "modelId", 0), userID)
+		if err == nil && modelEntity != nil {
+			// 从模型的 Params JSONB 字段读取默认配置
+			if modelEntity.Params.Data != nil {
+				if paramsMap, ok := modelEntity.Params.Data.(map[string]interface{}); ok {
+					// 将模型级别的默认配置合并到 providerConfig
+					for k, v := range paramsMap {
+						providerConfig[k] = v
+					}
+					// 读取模型默认的 stream 值
+					if s, ok := paramsMap["stream"].(bool); ok {
+						stream = s
+					}
+				}
+			}
+		}
+	}
+
+	// 节点配置可以覆盖模型默认值
+	// 支持 DeepSeek 和豆包（doubao）的流式和深度思考参数
 	if modelConfig.Provider == "deepseek" {
-		// 从节点配置中读取DeepSeek特有参数
+		// DeepSeek 使用 thinking 布尔值
 		if thinking, ok := node.Config["thinking"].(bool); ok {
 			providerConfig["thinking"] = thinking
+		} else if _, exists := providerConfig["thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["thinking"] = false
 		}
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s
 			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "doubao" {
+		// 豆包使用 thinkingLevel 字符串（minimal/low/medium/high）
+		if thinkingLevel, ok := node.Config["thinkingLevel"].(string); ok && thinkingLevel != "" {
+			providerConfig["thinkingLevel"] = thinkingLevel
+		} else {
+			// 如果没有指定，使用默认值 medium
+			providerConfig["thinkingLevel"] = "medium"
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
 		}
 	}
 
 	// 如果启用流式输出，使用流式方法（但需要等待完成）
 	if stream {
 		var fullContent strings.Builder
-		err := provider.ChatStream(modelConfig, prompt, content, providerConfig, func(deltaContent string, done bool, err error) {
+		// 非流式执行路径，使用 Background context（不需要取消功能）
+		err := provider.ChatStream(context.Background(), modelConfig, prompt, content, providerConfig, func(deltaContent string, done bool, err error) {
 			if err != nil {
 				return
 			}
@@ -1320,7 +1339,6 @@ func (e *WorkflowExecutor) executeDelayNode(node NodeConfig, dataFlow *DataFlow)
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
-		log.Printf("延迟节点获取输入数据失败: %v", err)
 	}
 
 	// 执行延迟
@@ -1348,7 +1366,6 @@ func (e *WorkflowExecutor) executeEndNode(node NodeConfig, dataFlow *DataFlow) N
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
-		log.Printf("结束节点获取输入数据失败: %v", err)
 	}
 
 	return NodeExecutionResult{

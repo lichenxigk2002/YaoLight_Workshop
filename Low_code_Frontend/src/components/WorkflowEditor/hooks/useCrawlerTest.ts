@@ -42,7 +42,7 @@ export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [],
       const collectUpstreamNodes = (targetNodeId: string, collected: Set<string>): Node[] => {
         const upstreamEdges = edges.filter(edge => edge.target === targetNodeId);
         const upstreamNodes: Node[] = [];
-        
+
         upstreamEdges.forEach(edge => {
           const upstreamNode = nodes.find(n => n.id === edge.source);
           if (upstreamNode && !collected.has(upstreamNode.id)) {
@@ -53,7 +53,7 @@ export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [],
             upstreamNodes.push(...deeperNodes);
           }
         });
-        
+
         return upstreamNodes;
       };
 
@@ -75,13 +75,13 @@ export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [],
             config: upstreamNode.data?.config || {},
           });
         });
-        
+
         // 添加所有相关的边
         edges.forEach(edge => {
           const sourceIncluded = allUpstreamNodes.some(n => n.id === edge.source);
           const targetIsCrawler = edge.target === node.id;
           const targetIsUpstream = allUpstreamNodes.some(n => n.id === edge.target);
-          
+
           if ((sourceIncluded && targetIsCrawler) || (sourceIncluded && targetIsUpstream)) {
             execReq.edges.push({
               source: edge.source,
@@ -110,20 +110,81 @@ export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [],
       }
 
       message.loading({ content: t('node.crawlerTest.testing'), key: 'crawlTest', duration: 0 });
-      const result = await workflowApi.executeWorkflow(execReq);
+
+      // 使用流式接口，因为后端现在总是返回 SSE 格式
+      const results: any[] = [];
+      let hasError = false;
+      let errorMessage = '';
+      let isResolved = false; // 防止重复 resolve
+
+      await new Promise<void>((resolve, reject) => {
+        const cancelStream = workflowApi.executeWorkflowStream(
+          execReq,
+          (nodeId, content, done, contentType) => {
+            // 处理节点结果
+            if (contentType === 'node_result') {
+              try {
+                const nodeResult = JSON.parse(content);
+                results.push({
+                  node_id: nodeResult.node_id || nodeResult.NodeID,
+                  type: nodeResult.type || nodeResult.Type,
+                  success: nodeResult.success || nodeResult.Success,
+                  data: nodeResult.data || nodeResult.Data || {},
+                  error: nodeResult.error || nodeResult.Error,
+                });
+              } catch (e) {
+                console.error('解析节点结果失败:', e, content);
+              }
+            }
+
+            // 执行完成（done 为 true 时，通常表示最后一个消息）
+            if (done && !isResolved) {
+              isResolved = true;
+              resolve();
+            }
+          },
+          (error) => {
+            if (!isResolved) {
+              hasError = true;
+              errorMessage = error;
+              isResolved = true;
+              reject(new Error(error));
+            }
+          },
+          () => {
+            // onComplete 回调，确保在流结束时 resolve（如果还没有 resolve）
+            if (!isResolved) {
+              isResolved = true;
+              resolve();
+            }
+          }
+        );
+      });
+
       message.destroy('crawlTest');
+
+      // 构建响应格式
+      const result = {
+        success: !hasError,
+        results: results,
+        error: hasError ? errorMessage : undefined,
+      };
 
       if (!result.success) {
         message.error(result.error || t('node.crawlerTest.execFailed'));
       } else {
-        const crawlerResult = result.results.find((r: any) => r.type === 'crawler' && r.node_id === node.id);
-        const dataCleanResult = result.results.find((r: any) => r.type === 'dataclean' && r.node_id === 'clean');
-        setPreviewData({
+        const crawlerResult = result.results?.find((r: any) => r.type === 'crawler' && r.node_id === node.id);
+        const dataCleanResult = result.results?.find((r: any) => r.type === 'dataclean' && r.node_id === 'clean');
+
+        const previewData = {
           crawler: crawlerResult || null,
           dataclean: dataCleanResult || null,
           raw: result,
-        });
+        };
+
+        setPreviewData(previewData);
         setPreviewOpen(true);
+
         if (crawlerResult?.success) {
           if (dataCleanResult?.success) {
             message.success(t('node.crawlerTest.crawlAndCleanSuccess'));
@@ -135,7 +196,27 @@ export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [],
         }
       }
     } catch (e: any) {
-      message.error(e?.message || t('node.crawlerTest.testFailed'));
+      message.destroy('crawlTest');
+      console.error('爬虫测试错误:', e);
+      console.error('错误详情:', {
+        message: e?.message,
+        response: e?.response,
+        code: e?.code,
+        status: e?.response?.status,
+        data: e?.response?.data,
+      });
+
+      // 提供更详细的错误信息
+      let errorMessage = e?.message || t('node.crawlerTest.testFailed');
+      if (e?.code === 'ECONNABORTED') {
+        errorMessage = '请求超时，爬虫执行时间过长，请检查爬虫配置或增加超时时间';
+      } else if (e?.response?.data?.message) {
+        errorMessage = e.response.data.message;
+      } else if (e?.response?.status) {
+        errorMessage = `请求失败 (状态码: ${e.response.status})`;
+      }
+
+      message.error(errorMessage);
     }
   };
 

@@ -282,11 +282,11 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
         nodeDef.outputs.forEach(outputVar => {
           // 添加基础变量
           variables.push({
-            label: `${nodeLabel}.${outputVar.label}`,
+            label: outputVar.label, // 简化：只显示变量名称，如"爬取数据"
             value: `{{${upstreamNode.id}.${outputVar.variable}}}`,
             nodeId: upstreamNode.id,
             variable: outputVar.variable,
-            description: outputVar.description,
+            description: outputVar.description || `来自"${nodeLabel}"节点的${outputVar.label}`,
             nodeLabel,
             nodeType,
           });
@@ -303,11 +303,11 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
 
             commonFields.forEach(field => {
               variables.push({
-                label: `${nodeLabel}.${outputVar.label}.${field.label}`,
+                label: field.label, // 简化：只显示字段名称，如"URL地址"
                 value: `{{${upstreamNode.id}.${outputVar.variable}.${field.field}}}`,
                 nodeId: upstreamNode.id,
                 variable: `${outputVar.variable}.${field.field}`,
-                description: `${outputVar.description} - ${field.label}`,
+                description: `来自"${nodeLabel}"节点的${field.label}`, // 更直白的描述
                 nodeLabel,
                 nodeType,
               });
@@ -367,53 +367,73 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
       optionLabelProp="label"
     >
       {Object.entries(groupedVariables).map(([nodeLabel, vars]) => (
-        <Select.OptGroup key={nodeLabel} label={nodeLabel}>
+        <Select.OptGroup key={nodeLabel} label={`来自: ${nodeLabel}`}>
           {vars.map(v => (
             <Option
               key={v.value}
               value={v.value}
               label={v.label}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {/* 主要信息：突出显示"拿到了什么" */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500 }}>{v.label}</div>
-                    {v.description && (
-                      <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
-                        {v.description}
-                      </div>
-                    )}
+                    {/* 简化显示：只显示变量名称，去掉节点标签前缀 */}
+                    <div style={{ 
+                      fontWeight: 500, 
+                      fontSize: 14,
+                      color: '#262626',
+                      marginBottom: 2
+                    }}>
+                      {v.label.split('.').pop() || v.label}
+                    </div>
+                    {/* 更直白的描述 */}
+                    <div style={{ 
+                      fontSize: 12, 
+                      color: '#8c8c8c',
+                      lineHeight: '1.4'
+                    }}>
+                      {v.description || `来自"${v.nodeLabel}"节点的数据`}
+                    </div>
                   </div>
-                  <Tooltip title={v.value}>
+                  {/* 技术字段名放在次要位置，鼠标悬停时显示完整路径 */}
+                  <Tooltip title={`完整路径: ${v.value}`}>
                     <Tag
                       style={{
                         fontSize: 10,
                         fontFamily: 'monospace',
                         marginLeft: 8,
+                        background: '#f5f5f5',
+                        color: '#8c8c8c',
+                        border: 'none',
+                        cursor: 'help',
                       }}
                     >
                       {v.variable}
                     </Tag>
                   </Tooltip>
                 </div>
-                {/* 显示预览值 */}
+                {/* 显示预览值 - 更突出 */}
                 {(() => {
                   const preview = getVariablePreview(v.nodeId, v.variable);
-                  if (preview && preview.type === 'preview') {
+                  if (preview) {
                     return (
                       <div style={{
-                        fontSize: 11,
-                        color: '#1890ff',
-                        background: '#e6f7ff',
-                        padding: '4px 8px',
+                        fontSize: 12,
+                        color: preview.type === 'preview' ? '#52c41a' : '#1890ff',
+                        background: preview.type === 'preview' ? '#f6ffed' : '#e6f7ff',
+                        padding: '6px 10px',
                         borderRadius: 4,
-                        marginTop: 4,
-                        fontFamily: 'monospace',
-                        border: '1px solid #91d5ff',
+                        marginTop: 2,
+                        border: `1px solid ${preview.type === 'preview' ? '#b7eb8f' : '#91d5ff'}`,
                         wordBreak: 'break-all',
                       }}>
-                        <span style={{ color: '#666', marginRight: 4 }}>
-                          实际值:
+                        <span style={{ 
+                          color: preview.type === 'preview' ? '#389e0d' : '#0050b3',
+                          marginRight: 6,
+                          fontWeight: 500
+                        }}>
+                          {preview.type === 'preview' ? '✓ 实际数据:' : '示例数据:'}
                         </span>
                         <span style={{ fontWeight: 500 }}>{preview.value}</span>
                       </div>

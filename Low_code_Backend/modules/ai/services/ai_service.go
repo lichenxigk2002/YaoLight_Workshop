@@ -6,6 +6,7 @@ import (
 	"yaolight-workshop/backend/domain/entity"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/config"
+	"yaolight-workshop/backend/infrastructure/shared"
 	"yaolight-workshop/backend/modules/ai/models"
 	"yaolight-workshop/backend/modules/ai/services/providers"
 	"yaolight-workshop/backend/modules/ai/utils"
@@ -53,6 +54,17 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 				"maxTokens":   2000,
 			},
 		},
+		{
+			"provider":        "doubao",
+			"name":            "豆包",
+			"description":     "字节跳动豆包AI模型",
+			"defaultBaseUrl":  "https://ark.cn-beijing.volces.com/api/v3",
+			"supportedModels": []string{"doubao-seed-1-6-251015", "doubao-seedream-4-5-251128"},
+			"defaultConfig": map[string]interface{}{
+				"temperature": 0.7,
+				"maxTokens":   2000,
+			},
+		},
 	}, nil
 }
 
@@ -75,6 +87,19 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 			"baseUrl":     "https://api.deepseek.com",
 			"isSystem":    true,
 			"description": "系统预设的DeepSeek模型，所有用户可用",
+		})
+	}
+
+	// 检查是否有豆包预设配置
+	if config.DoubaoAPIKey != "" {
+		models = append(models, map[string]interface{}{
+			"id":          "system_doubao",
+			"name":        "豆包 (系统预设)",
+			"provider":    "doubao",
+			"modelName":   "doubao-seed-1-6-251015",
+			"baseUrl":     "https://ark.cn-beijing.volces.com/api/v3",
+			"isSystem":    true,
+			"description": "系统预设的豆包模型，所有用户可用",
 		})
 	}
 
@@ -114,15 +139,16 @@ func (s *AIService) GetModelByIDAndUser(id uint, userID uint) (*models.AIModel, 
 
 // CreateModelRequest 创建模型请求
 type CreateModelRequest struct {
-	Name        string   `json:"name" binding:"required"`
-	Provider    string   `json:"provider" binding:"required"`
-	ModelName   string   `json:"modelName" binding:"required"`
-	APIKey      string   `json:"apiKey" binding:"required"`
-	BaseURL     *string  `json:"baseUrl,omitempty"`
-	Endpoint    *string  `json:"endpoint,omitempty"`
-	Temperature *float64 `json:"temperature,omitempty"`
-	MaxTokens   *int     `json:"maxTokens,omitempty"`
-	UserID      uint     `json:"-"`
+	Name        string                 `json:"name" binding:"required"`
+	Provider    string                 `json:"provider" binding:"required"`
+	ModelName   string                 `json:"modelName" binding:"required"`
+	APIKey      string                 `json:"apiKey" binding:"required"`
+	BaseURL     *string                `json:"baseUrl,omitempty"`
+	Endpoint    *string                `json:"endpoint,omitempty"`
+	Temperature *float64               `json:"temperature,omitempty"`
+	MaxTokens   *int                   `json:"maxTokens,omitempty"`
+	Params      map[string]interface{} `json:"params,omitempty"` // 模型级别的自定义配置（JSONB）
+	UserID      uint                   `json:"-"`
 }
 
 // CreateModel 创建模型配置
@@ -157,6 +183,14 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 		maxTokens = &t
 	}
 
+	// 处理 Params 字段
+	var paramsJSONB shared.JSONB
+	if req.Params != nil && len(req.Params) > 0 {
+		paramsJSONB = shared.JSONB{Data: req.Params}
+	} else {
+		paramsJSONB = shared.JSONB{Data: map[string]interface{}{}}
+	}
+
 	// 创建领域实体
 	entity := &entity.AIModel{
 		Name:            req.Name,
@@ -168,6 +202,7 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 		Status:          "active",
 		Temperature:     temperature,
 		MaxTokens:       maxTokens,
+		Params:          paramsJSONB,
 		CreatedBy:       &req.UserID,
 	}
 
@@ -181,13 +216,14 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 
 // UpdateModelRequest 更新模型请求
 type UpdateModelRequest struct {
-	Name        *string  `json:"name,omitempty"`
-	APIKey      *string  `json:"apiKey,omitempty"`
-	BaseURL     *string  `json:"baseUrl,omitempty"`
-	Endpoint    *string  `json:"endpoint,omitempty"`
-	Temperature *float64 `json:"temperature,omitempty"`
-	MaxTokens   *int     `json:"maxTokens,omitempty"`
-	Status      *string  `json:"status,omitempty"`
+	Name        *string                 `json:"name,omitempty"`
+	APIKey      *string                 `json:"apiKey,omitempty"`
+	BaseURL     *string                 `json:"baseUrl,omitempty"`
+	Endpoint    *string                 `json:"endpoint,omitempty"`
+	Temperature *float64                `json:"temperature,omitempty"`
+	MaxTokens   *int                    `json:"maxTokens,omitempty"`
+	Status      *string                 `json:"status,omitempty"`
+	Params      *map[string]interface{} `json:"params,omitempty"` // 模型级别的自定义配置（JSONB）
 }
 
 // UpdateModel 更新模型配置
@@ -223,6 +259,10 @@ func (s *AIService) UpdateModel(id uint, userID uint, req *UpdateModelRequest) (
 	}
 	if req.Status != nil {
 		entity.Status = *req.Status
+	}
+	if req.Params != nil {
+		// 更新 Params 字段
+		entity.Params = shared.JSONB{Data: *req.Params}
 	}
 
 	// 保存

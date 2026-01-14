@@ -60,7 +60,6 @@ export function useWorkflowSave(
       // 更新节点ID计数器
       updateNodeIdCounter(allNodes);
     } catch (error: any) {
-      console.error('加载工作流节点失败:', error);
       message.error(
         t('node.messages.loadFailed', {
           error: error.message || t('workflowEditor.unknownError'),
@@ -101,7 +100,6 @@ export function useWorkflowSave(
         }
         return true;
       } catch (error: any) {
-        console.error('保存工作流失败:', error);
         if (!silent) {
           message.error(
             t('workflowEditor.saveFailed') || '保存工作流失败: ' + (error.message || '未知错误')

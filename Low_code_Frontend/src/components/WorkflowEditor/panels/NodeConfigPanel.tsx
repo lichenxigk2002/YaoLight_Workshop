@@ -19,6 +19,7 @@ import {
 } from '../configs';
 import { useNodeConfigForm } from './hooks/useNodeConfigForm';
 import { AIPreviewModal } from './components/AIPreviewModal';
+import { providerRegistry } from '../providers';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
 import styles from './NodeConfigPanel.module.scss';
 
@@ -70,7 +71,7 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     const success = await handleSaveForm(onSave, onSaveToBackend, workflowId);
     if (success) {
       message.success(t('node.config.configSaved'));
-      onClose();
+      // 保存后不关闭配置面板，保持打开状态
     }
   };
 
@@ -212,21 +213,44 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
       {/* 爬虫节点预览模态框 */}
       {isCrawlerNode && (
-        <CrawlerPreviewModal
-          open={crawlerTest.previewOpen}
-          onClose={() => crawlerTest.setPreviewOpen(false)}
-          crawlerTest={crawlerTest}
-        />
+        <>
+          <CrawlerPreviewModal
+            open={crawlerTest.previewOpen}
+            onClose={() => {
+              crawlerTest.setPreviewOpen(false);
+            }}
+            crawlerTest={crawlerTest}
+          />
+        </>
       )}
 
-      {/* AI节点预览模态框 */}
-      {isAINode && (
-        <AIPreviewModal
-          open={aiTest.previewOpen}
-          onClose={() => aiTest.setPreviewOpen(false)}
-          aiTest={aiTest}
-        />
-      )}
+      {/* AI节点预览模态框 - 使用提供商专属预览组件 */}
+      {isAINode && (() => {
+        const provider = node?.data?.config?.provider;
+        if (provider) {
+          const providerReg = providerRegistry.get(provider);
+          if (providerReg && providerReg.PreviewComponent) {
+            const PreviewComponent = providerReg.PreviewComponent;
+            return (
+              <PreviewComponent
+                open={aiTest.previewOpen}
+                onClose={() => aiTest.setPreviewOpen(false)}
+                aiTest={aiTest}
+                nodeConfig={node?.data?.config}
+              />
+            );
+          }
+        }
+        // 如果没有注册的提供商，使用通用预览组件
+        return (
+          <AIPreviewModal
+            open={aiTest.previewOpen}
+            onClose={() => aiTest.setPreviewOpen(false)}
+            aiTest={aiTest}
+            nodeConfig={node?.data?.config}
+          />
+        );
+      })()}
     </div>
   );
 };
