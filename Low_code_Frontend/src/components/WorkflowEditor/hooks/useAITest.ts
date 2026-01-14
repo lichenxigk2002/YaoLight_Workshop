@@ -93,7 +93,12 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
       // 检查是否启用流式输出
       const enableStream = config.stream === true;
 
-      if (enableStream) {
+      // 对于豆包，即使配置中没有 stream，也应该使用流式（因为豆包默认开启思考，会返回思考内容）
+      // 通过检查 thinkingLevel 字段来判断是否是豆包（只有豆包有这个字段）
+      const isDoubao = config.thinkingLevel !== undefined;
+      const shouldUseStream = enableStream || isDoubao;
+
+      if (shouldUseStream) {
         // 流式执行
         setIsStreaming(true);
         setIsReasoningStreaming(false); // 重置思考状态
@@ -177,6 +182,9 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
 
               // 强制更新状态
               setIsStreaming(!done);
+              // 从配置中获取模型名称
+              const modelName = config.modelName || config.provider || 'unknown';
+
               setPreviewData({
                 streamingContent: fullContent,
                 streamingReasoningContent: fullReasoningContent,
@@ -188,7 +196,7 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
                   data: {
                     content: fullContent,
                     reasoningContent: fullReasoningContent,
-                    model: 'deepseek-chat',
+                    model: modelName,
                     tokensUsed: 0,
                   },
                 },
@@ -201,7 +209,7 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
                     data: {
                       content: fullContent,
                       reasoningContent: fullReasoningContent,
-                      model: 'deepseek-chat',
+                      model: modelName,
                       tokensUsed: 0,
                     },
                   }],
@@ -217,6 +225,9 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
                 // 强制更新状态，确保UI显示最新内容
                 setStreamingReasoningContent(fullReasoningContent);
                 setStreamingContent(fullContent);
+                // 从配置中获取模型名称
+                const modelName = config.modelName || config.provider || 'unknown';
+
                 setPreviewData({
                   streamingContent: fullContent,
                   streamingReasoningContent: fullReasoningContent,
@@ -228,7 +239,7 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
                     data: {
                       content: fullContent,
                       reasoningContent: fullReasoningContent,
-                      model: 'deepseek-chat',
+                      model: modelName,
                       tokensUsed: 0,
                     },
                   },
@@ -241,7 +252,7 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
                       data: {
                         content: fullContent,
                         reasoningContent: fullReasoningContent,
-                        model: 'deepseek-chat',
+                        model: modelName,
                         tokensUsed: 0,
                       },
                     }],
@@ -260,16 +271,16 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
             if (error && error.includes && error.includes('aborted')) {
               return;
             }
-            
+
             message.destroy('aiTest');
             setIsStreaming(false);
             setIsReasoningStreaming(false);
-            
+
             // 只有真正的错误才显示错误消息
             if (error && !error.includes('canceled') && !error.includes('aborted')) {
-            message.error(`流式测试失败: ${error}`);
+              message.error(`流式测试失败: ${error}`);
             }
-            
+
             setPreviewData(prev => ({
               ...prev!,
               isStreaming: false,
@@ -383,20 +394,20 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
     if (cancelStreamRef.current) {
       cancelStreamRef.current();
       cancelStreamRef.current = null;
-      
+
       // 更新所有相关状态
       setIsStreaming(false);
       setIsReasoningStreaming(false);
-      
+
       // 销毁 loading 消息
       message.destroy('aiTest');
-      
+
       // 更新预览数据状态
       setPreviewData(prev => ({
         ...prev!,
         isStreaming: false,
       }));
-      
+
       message.info('已取消流式测试');
     }
   };

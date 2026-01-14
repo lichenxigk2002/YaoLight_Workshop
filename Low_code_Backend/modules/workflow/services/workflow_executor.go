@@ -857,13 +857,30 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	}
 
 	// 节点配置可以覆盖模型默认值
+	// 支持 DeepSeek 和豆包（doubao）的流式和深度思考参数
 	if modelConfig.Provider == "deepseek" {
-		// 从节点配置中读取DeepSeek特有参数（覆盖模型默认值）
+		// DeepSeek 使用 thinking 布尔值
 		if thinking, ok := node.Config["thinking"].(bool); ok {
 			providerConfig["thinking"] = thinking
 		} else if _, exists := providerConfig["thinking"]; !exists {
 			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
 			providerConfig["thinking"] = false
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "doubao" {
+		// 豆包使用 thinkingLevel 字符串（minimal/low/medium/high）
+		if thinkingLevel, ok := node.Config["thinkingLevel"].(string); ok && thinkingLevel != "" {
+			providerConfig["thinkingLevel"] = thinkingLevel
+		} else {
+			// 如果没有指定，使用默认值 medium
+			providerConfig["thinkingLevel"] = "medium"
 		}
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s

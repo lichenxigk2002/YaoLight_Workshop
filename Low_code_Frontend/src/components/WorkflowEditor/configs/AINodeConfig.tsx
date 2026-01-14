@@ -19,6 +19,9 @@ import {
   getModelConfigSupport,
   getModelConfigKey,
 } from './modelConfigSupport';
+// 导入 providers 以触发注册
+import '../providers';
+import { providerRegistry } from '../providers';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -116,6 +119,9 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       if (!support.thinking) {
         form.setFieldValue('thinking', undefined);
       }
+      if (!support.thinkingLevel) {
+        form.setFieldValue('thinkingLevel', undefined);
+      }
       if (!support.frequencyPenalty) {
         form.setFieldValue('frequencyPenalty', undefined);
       }
@@ -132,6 +138,9 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       }
       if (support.thinking && form.getFieldValue('thinking') === undefined) {
         form.setFieldValue('thinking', false);
+      }
+      if (support.thinkingLevel && form.getFieldValue('thinkingLevel') === undefined) {
+        form.setFieldValue('thinkingLevel', 'medium'); // 豆包默认使用 medium 模式
       }
     }
 
@@ -627,6 +636,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                 // 只显示当前模型支持的配置项
                 return (
                   <>
+                    {/* 公共配置：流式输出 */}
                     {support.stream && (
                       <Form.Item
                         label={t('node.config.ai.stream')}
@@ -639,18 +649,23 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                         <Switch />
                       </Form.Item>
                     )}
-                    {support.thinking && (
-                      <Form.Item
-                        label={t('node.config.ai.thinking')}
-                        name="thinking"
-                        valuePropName="checked"
-                        initialValue={false}
-                        tooltip={t('node.config.ai.thinkingTooltip')}
-                        className={styles.formItem}
-                      >
-                        <Switch />
-                      </Form.Item>
-                    )}
+                    
+                    {/* 提供商专属配置：通过注册机制动态加载 */}
+                    {activeProvider && (() => {
+                      const provider = providerRegistry.get(activeProvider);
+                      if (provider && provider.ConfigComponent) {
+                        const ConfigComponent = provider.ConfigComponent;
+                        return (
+                          <ConfigComponent
+                            form={form}
+                            node={node}
+                            nodes={nodes}
+                            edges={edges}
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
                     {support.frequencyPenalty && (
                       <Form.Item
                         label={t('node.config.ai.frequencyPenalty')}

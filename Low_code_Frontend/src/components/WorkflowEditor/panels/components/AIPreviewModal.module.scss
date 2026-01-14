@@ -93,13 +93,20 @@
   gap: 8px;
   padding: 8px 16px;
   margin-bottom: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #fff9e6; // 奶黄色背景
   border-radius: 20px;
-  color: white;
+  color: #8b6914; // 深棕色文字，在奶黄色背景上清晰可见
   font-size: 14px;
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-  animation: fadeInDown 0.5s ease-out;
+  box-shadow: 0 2px 8px rgba(139, 105, 20, 0.15); // 柔和的阴影
+  border: 1px solid rgba(139, 105, 20, 0.2); // 淡色边框
+
+  // 暗色主题适配
+  :global([data-theme='dark']) & {
+    background: rgba(255, 249, 230, 0.15); // 暗色主题下使用半透明奶黄色
+    color: #ffd700; // 金色文字
+    border-color: rgba(255, 215, 0, 0.3);
+  }
 }
 
 // 思考图标（基础样式）
@@ -108,12 +115,19 @@
   height: 20px;
 
   path {
-    fill: white;
+    fill: #8b6914; // 深棕色图标，匹配文字颜色
   }
-  
+
   // 只有添加 shimmer 类时才应用流光动画
   &.shimmer {
     animation: shimmer 2s ease-in-out infinite;
+  }
+
+  // 暗色主题适配
+  :global([data-theme='dark']) & {
+    path {
+      fill: #ffd700; // 暗色主题下使用金色图标
+    }
   }
 }
 
@@ -127,8 +141,8 @@
   }
 
   50% {
-    opacity: 0.7;
-    filter: brightness(1.5) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+    opacity: 0.8;
+    filter: brightness(1.3) drop-shadow(0 0 6px rgba(139, 105, 20, 0.6));
   }
 }
 
@@ -165,11 +179,11 @@
     width: 14px;
     height: 14px;
     flex-shrink: 0;
-    
+
     path {
       fill: currentColor;
     }
-    
+
     // 只有添加 shimmer 类时才应用流光动画
     &.shimmer {
       animation: shimmer 2s ease-in-out infinite;
@@ -186,23 +200,23 @@
   max-height: 300px;
   overflow-y: auto;
   overflow-x: hidden;
-  
+
   // 隐藏滚动条但保持滚动功能
   scrollbar-width: thin;
   scrollbar-color: var(--border-secondary) transparent;
-  
+
   &::-webkit-scrollbar {
     width: 6px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background-color: var(--border-secondary);
     border-radius: 3px;
-    
+
     &:hover {
       background-color: var(--text-tertiary);
     }

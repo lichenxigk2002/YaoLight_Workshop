@@ -31,7 +31,7 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(nodeID)
 	if err != nil {
-		log.Printf("AI节点获取输入数据失败: %v", err)
+		// 输入数据获取失败，继续执行（可能没有上游节点）
 	}
 
 	// 获取提示词配置
@@ -121,8 +121,9 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 	}
 
 	// 节点配置可以覆盖模型默认值
+	// 支持 DeepSeek 和豆包（doubao）的流式和深度思考参数
 	if modelConfig.Provider == "deepseek" {
-		// 从节点配置中读取DeepSeek特有参数（覆盖模型默认值）
+		// DeepSeek 使用 thinking 布尔值
 		if thinking, ok := node.Config["thinking"].(bool); ok {
 			providerConfig["thinking"] = thinking
 		} else if _, exists := providerConfig["thinking"]; !exists {
@@ -137,11 +138,27 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			stream = false
 			providerConfig["stream"] = false
 		}
+	} else if modelConfig.Provider == "doubao" {
+		// 豆包使用 thinkingLevel 字符串（minimal/low/medium/high）
+		if thinkingLevel, ok := node.Config["thinkingLevel"].(string); ok && thinkingLevel != "" {
+			providerConfig["thinkingLevel"] = thinkingLevel
+		} else {
+			// 如果没有指定，使用默认值 medium
+			providerConfig["thinkingLevel"] = "medium"
+		}
+		// 豆包默认开启流式（因为豆包默认开启思考，会返回思考内容）
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else {
+			// 如果节点配置没有指定，豆包默认使用流式
+			stream = true
+			providerConfig["stream"] = true
+		}
 	}
 
 	// 如果启用流式输出，使用流式方法
 	if stream {
-		log.Printf("流式执行: AI节点 %s 启用流式输出，准备调用 ChatStream", nodeID)
 		var fullContent strings.Builder
 		var fullReasoningContent strings.Builder
 		// 创建适配器，将 providers.StreamCallback 转换为 services.StreamCallback
@@ -149,16 +166,13 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			// 检查 context 是否已取消
 			select {
 			case <-ctx.Done():
-				log.Printf("流式执行: AI节点 %s 收到取消信号，停止回调处理", nodeID)
 				callback(nodeID, "", true, "", ctx.Err())
 				return
 			default:
 				// 继续执行
 			}
 
-			log.Printf("流式执行: AI节点 %s 收到回调，deltaContent长度: %d, done: %v, err: %v", nodeID, len(deltaContent), done, err)
 			if err != nil {
-				log.Printf("流式执行: AI节点 %s 回调错误: %v", nodeID, err)
 				callback(nodeID, "", true, "", err)
 				return
 			}
@@ -228,20 +242,15 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 				nodeData := NewNodeData(resultData)
 				dataFlow.SetNodeOutput(nodeID, nodeData)
 				variableContext.SetNodeOutput(nodeID, nodeData)
-				log.Printf("流式执行: AI节点 %s 完成，保存输出数据（思考内容长度: %d, 正式内容长度: %d）", nodeID, len(finalReasoningContent), len(finalContent))
 
 				// 发送完成信号（不发送内容，只标记 done=true，避免重复）
 				// 内容已经在增量消息中发送完毕
 				callback(nodeID, "", true, "", nil)
 			}
 		}
-		log.Printf("流式执行: AI节点 %s 调用 ChatStream，prompt长度: %d, content长度: %d", nodeID, len(prompt), len(content))
 		err := provider.ChatStream(ctx, modelConfig, prompt, content, providerConfig, providerCallback)
 		if err != nil {
-			log.Printf("流式执行: AI节点 %s ChatStream 返回错误: %v", nodeID, err)
 			callback(nodeID, "", true, "", err)
-		} else {
-			log.Printf("流式执行: AI节点 %s ChatStream 完成（无错误）", nodeID)
 		}
 	} else {
 		// 非流式输出
@@ -261,7 +270,6 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 		nodeData := NewNodeData(resultData)
 		dataFlow.SetNodeOutput(nodeID, nodeData)
 		variableContext.SetNodeOutput(nodeID, nodeData)
-		log.Printf("非流式执行: AI节点 %s 完成，保存输出数据", nodeID)
 
 		callback(nodeID, chatResp.Content, true, "", nil)
 	}
@@ -273,7 +281,6 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	req ExecutionRequest,
 	callback StreamCallback,
 ) error {
-	log.Printf("流式执行: 开始执行工作流，节点数: %d, 边数: %d", len(req.Nodes), len(req.Edges))
 
 	if len(req.Nodes) == 0 {
 		return fmt.Errorf("工作流节点为空")
@@ -288,7 +295,6 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			// 检查是否启用了流式输出
 			if stream, ok := aiNode.Config["stream"].(bool); ok && stream {
 				hasStreamingAI = true
-				log.Printf("流式执行: 找到流式AI节点 %s", aiNode.ID)
 				break
 			}
 		}
@@ -318,7 +324,6 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		}
 
 		if nodeConfig == nil {
-			log.Printf("未找到节点配置: %s", nodeID)
 			return
 		}
 
@@ -331,7 +336,6 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 		// 设置节点类型到变量上下文（关键步骤！）
 		variableContext.SetNodeType(nodeConfig.ID, nodeConfig.Type)
-		log.Printf("流式执行: 设置节点类型 %s -> %s", nodeConfig.ID, nodeConfig.Type)
 
 		// 执行节点
 		result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
@@ -339,7 +343,6 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			nodeData := NewNodeData(result.Data)
 			dataFlow.SetNodeOutput(nodeConfig.ID, nodeData)
 			variableContext.SetNodeOutput(nodeConfig.ID, nodeData)
-			log.Printf("流式执行: 保存节点 %s 的输出数据", nodeConfig.ID)
 
 			// 发送节点执行成功的事件，包含完整结果数据
 			// 使用特殊的contentType "node_result" 来标识这是节点结果事件
@@ -363,13 +366,10 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 		// 设置AI节点类型到变量上下文
 		variableContext.SetNodeType(aiNode.ID, aiNode.Type)
-		log.Printf("流式执行: 设置AI节点类型 %s -> %s", aiNode.ID, aiNode.Type)
 
 		// 如果AI节点启用了流式输出，使用流式执行
 		if hasStreamingAI {
-			log.Printf("流式执行: 开始执行AI节点 %s", aiNode.ID)
 			e.ExecuteAINodeStream(ctx, *aiNode, dataFlow, variableContext, req.UserID, callback)
-			log.Printf("流式执行: AI节点 %s 执行完成", aiNode.ID)
 		} else {
 			// AI节点未启用流式输出，使用普通执行
 			result := e.executeNode(*aiNode, dataFlow, variableContext, req.UserID)
@@ -411,7 +411,6 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			}
 
 			if nodeConfig == nil {
-				log.Printf("未找到节点配置: %s", nodeID)
 				continue
 			}
 

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"yaolight-workshop/backend/modules/ai/services/providers"
@@ -278,7 +277,6 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			log.Printf("DeepSeek流式: 收到取消信号，停止读取")
 			callback("", true, ctx.Err())
 			return ctx.Err()
 		default:
@@ -327,11 +325,6 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				// 处理思考内容
 				deltaReasoningContent := streamResponse.Choices[0].Delta.ReasoningContent
 				if deltaReasoningContent != "" {
-					previewLen := len(deltaReasoningContent)
-					if previewLen > 50 {
-						previewLen = 50
-					}
-					log.Printf("DeepSeek流式: 收到思考内容，长度: %d, 预览: %s", len(deltaReasoningContent), deltaReasoningContent[:previewLen])
 					fullReasoningContent.WriteString(deltaReasoningContent)
 					// 发送带标记的思考内容
 					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil)
@@ -340,11 +333,6 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				// 处理正式内容
 				deltaContent := streamResponse.Choices[0].Delta.Content
 				if deltaContent != "" {
-					previewLen := len(deltaContent)
-					if previewLen > 50 {
-						previewLen = 50
-					}
-					log.Printf("DeepSeek流式: 收到正式内容，长度: %d, 预览: %s", len(deltaContent), deltaContent[:previewLen])
 					fullContent.WriteString(deltaContent)
 					// 发送带标记的正式内容
 					callback("[CONTENT_DELTA]"+deltaContent, false, nil)

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { FormInstance } from 'antd';
 import { Node } from 'reactflow';
 import { workflowApi } from '@/api/workflow';
@@ -25,12 +25,21 @@ export function useNodeConfigForm({
   autoTest = false,
   onAutoTest,
 }: UseNodeConfigFormOptions) {
-  // 使用 ref 跟踪当前已初始化的节点ID，避免重复填充表单
+  // 使用 ref 跟踪当前已初始化的节点ID和配置，避免重复填充表单
   const initializedNodeIdRef = useRef<string | null>(null);
+  const initializedConfigRef = useRef<string | null>(null);
+
+  // 使用 useMemo 生成配置的序列化值，用于检测配置变化
+  const configKey = useMemo(() => {
+    if (!node) return null;
+    return JSON.stringify(node.data.config || {});
+  }, [node?.data?.config]);
 
   useEffect(() => {
     if (node) {
-      if (initializedNodeIdRef.current === node.id && !autoTest) {
+      // 如果节点ID和配置都没有变化，且不是自动测试，则跳过
+      const configChanged = initializedConfigRef.current !== configKey;
+      if (initializedNodeIdRef.current === node.id && !autoTest && !configChanged) {
         return;
       }
 
@@ -110,6 +119,7 @@ export function useNodeConfigForm({
       });
 
       initializedNodeIdRef.current = node.id;
+      initializedConfigRef.current = configKey;
 
       // 如果需要自动测试，则延迟触发测试
       if (autoTest && onAutoTest) {
@@ -119,9 +129,10 @@ export function useNodeConfigForm({
       }
     } else {
       initializedNodeIdRef.current = null;
+      initializedConfigRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node?.id, autoTest]);
+  }, [node?.id, configKey, autoTest]);
 
   /**
    * 处理保存逻辑
@@ -163,7 +174,7 @@ export function useNodeConfigForm({
 
         // 获取当前模型配置键
         const modelConfigKey = getModelConfigKey(modelMode, provider, modelName, modelId);
-        
+
         // 获取模型配置支持
         const support = getModelConfigSupport(provider);
 
@@ -187,6 +198,9 @@ export function useNodeConfigForm({
         }
         if (support.thinking && config.thinking !== undefined) {
           advancedConfig.thinking = config.thinking;
+        }
+        if (support.thinkingLevel && config.thinkingLevel !== undefined) {
+          advancedConfig.thinkingLevel = config.thinkingLevel;
         }
         if (support.frequencyPenalty && config.frequencyPenalty !== undefined) {
           advancedConfig.frequencyPenalty = config.frequencyPenalty;
@@ -221,6 +235,9 @@ export function useNodeConfigForm({
         }
         if (support.thinking && filteredConfig.thinking === undefined) {
           filteredConfig.thinking = false;
+        }
+        if (support.thinkingLevel && filteredConfig.thinkingLevel === undefined) {
+          filteredConfig.thinkingLevel = 'medium'; // 豆包默认使用 medium 模式
         }
 
         // 使用过滤后的配置

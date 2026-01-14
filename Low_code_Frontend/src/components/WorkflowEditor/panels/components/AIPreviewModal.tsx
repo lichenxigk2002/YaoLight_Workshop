@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, Tabs, Typography, Tag, Button } from 'antd';
 import { MarkdownRenderer } from '../../utils/MarkdownRenderer';
 import { StreamingLoader } from './StreamingLoader';
+import { ProviderIcon } from '@/components/Icons';
 import styles from './AIPreviewModal.module.scss';
 
 const { Text } = Typography;
@@ -79,6 +80,8 @@ interface AIPreviewModalProps {
   };
   nodeConfig?: {
     thinking?: boolean; // 深度思考开关状态
+    thinkingLevel?: 'minimal' | 'low' | 'medium' | 'high'; // 豆包思考长度
+    provider?: string; // 提供商名称
   };
 }
 
@@ -92,10 +95,74 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
   nodeConfig,
 }) => {
   // 检查是否启用了深度思考
-  const isThinkingEnabled = nodeConfig?.thinking === true;
+  // 对于豆包，默认开启思考，所以如果有思考内容或者配置中有 thinkingLevel，就显示思考面板
+  // 对于其他模型（如 DeepSeek），需要明确开启 thinking 才显示
+  const hasThinkingConfig = nodeConfig?.thinking === true || nodeConfig?.thinkingLevel !== undefined;
+  const hasReasoningContent = aiTest.streamingReasoningContent || aiTest.previewData?.streamingReasoningContent ||
+    (aiTest.previewData?.ai?.data?.reasoningContent);
+  const isThinkingEnabled = hasThinkingConfig || hasReasoningContent;
   // 跟踪当前激活的标签页
   const [activeTab, setActiveTab] = React.useState<string>('result');
 
+  // 所有 hooks 必须在早期返回之前调用
+  const aiData = aiTest.previewData?.ai;
+  const aiResult = aiData?.data || aiData?.value || aiData;
+
+  // 使用 useMemo 确保 displayContent 正确计算并响应 streamingContent 的变化
+  const displayContent = React.useMemo(() => {
+    // 如果没有 previewData，返回空字符串
+    if (!aiTest.previewData) {
+      return '';
+    }
+    // 优先使用 streamingContent（流式输出时实时显示）
+    // 同时检查 aiTest.streamingContent 和 previewData.streamingContent
+    const streamingContent = aiTest.streamingContent || aiTest.previewData?.streamingContent || '';
+    if (streamingContent) {
+      return streamingContent;
+    }
+    // 如果 streamingContent 为空，再从 aiResult 中提取
+    if (aiResult) {
+      if (typeof aiResult === 'object' && aiResult !== null && 'content' in aiResult) {
+        return String(aiResult.content || '');
+      } else if (typeof aiResult === 'string') {
+        return aiResult;
+      } else {
+        return JSON.stringify(aiResult, null, 2);
+      }
+    }
+    return '';
+  }, [aiTest.previewData, aiTest.streamingContent, aiTest.previewData?.streamingContent, aiResult]);
+
+  const displayReasoningContent = React.useMemo(() => {
+    // 如果没有 previewData，返回空字符串
+    if (!aiTest.previewData) {
+      return '';
+    }
+    if (aiTest.isStreaming) {
+      return aiTest.streamingReasoningContent || '';
+    } else {
+      if (aiTest.streamingReasoningContent) {
+        return aiTest.streamingReasoningContent;
+      }
+      if (aiResult && typeof aiResult === 'object' && aiResult !== null && 'reasoningContent' in aiResult) {
+        return String(aiResult.reasoningContent || '');
+      }
+    }
+    return '';
+  }, [aiTest.previewData, aiTest.isStreaming, aiTest.streamingReasoningContent, aiResult]);
+
+  const metadata = React.useMemo(() => {
+    if (aiResult && typeof aiResult === 'object' && aiResult !== null) {
+      return {
+        model: aiResult.model,
+        tokensUsed: aiResult.tokensUsed,
+      };
+    }
+    return null;
+  }, [aiResult]);
+
+
+  // 早期返回必须在所有 hooks 之后
   if (!aiTest.previewData) {
     return (
       <Modal
@@ -113,31 +180,6 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
         </div>
       </Modal>
     );
-  }
-
-  const aiData = aiTest.previewData?.ai;
-  const aiResult = aiData?.data || aiData?.value || aiData;
-
-  // 直接使用 streamingContent 和 streamingReasoningContent
-  let displayContent: string = aiTest.streamingContent || '';
-  let displayReasoningContent: string = aiTest.streamingReasoningContent || '';
-  let metadata: any = null;
-
-
-  // 如果没有 streamingContent，从 aiResult 中提取
-  if (!displayContent && aiResult) {
-    if (typeof aiResult === 'object' && aiResult !== null && 'content' in aiResult) {
-      displayContent = String(aiResult.content || '');
-      displayReasoningContent = String(aiResult.reasoningContent || '');
-      metadata = {
-        model: aiResult.model,
-        tokensUsed: aiResult.tokensUsed,
-      };
-    } else if (typeof aiResult === 'string') {
-      displayContent = aiResult;
-    } else {
-      displayContent = JSON.stringify(aiResult, null, 2);
-    }
   }
 
   // 构建标签页列表，只有启用深度思考时才包含"思考过程"标签页
@@ -163,11 +205,32 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                 )}
               </div>
               {metadata && metadata.model && (
-                <div>
-                  <Text type="secondary" style={{ marginRight: 8, fontSize: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
                     模型:
                   </Text>
-                  <Text style={{ fontSize: 12 }}>{metadata.model}</Text>
+                  {/* 从模型名称或节点配置推断提供商 */}
+                  {(() => {
+                    const modelName = metadata.model || '';
+                    // 优先从节点配置获取提供商
+                    let provider = nodeConfig?.provider?.toLowerCase() || '';
+                    // 如果配置中没有，从模型名称推断
+                    if (!provider) {
+                      if (modelName.toLowerCase().includes('deepseek')) {
+                        provider = 'deepseek';
+                      } else if (modelName.toLowerCase().includes('doubao') || modelName.toLowerCase().includes('seed')) {
+                        provider = 'doubao';
+                      }
+                    }
+                    return provider ? (
+                      <>
+                        <ProviderIcon provider={provider} size={14} />
+                        <Text style={{ fontSize: 12 }}>{metadata.model}</Text>
+                      </>
+                    ) : (
+                      <Text style={{ fontSize: 12 }}>{metadata.model}</Text>
+                    );
+                  })()}
                 </div>
               )}
               {metadata && metadata.tokensUsed && (
@@ -212,7 +275,7 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
             <div
               className={`${styles.contentArea} ${displayContent ? styles.hasContent : ''}`}
             >
-              {displayContent ? (
+              {displayContent && displayContent.trim() ? (
                 <>
                   <MarkdownRenderer
                     key={`content-${displayContent.length}`}
@@ -221,7 +284,11 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                   {/* 在内容底部添加三行空行 */}
                   <div className={styles.emptySpacer}></div>
                 </>
-              ) : null}
+              ) : (
+                <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
+                  {aiTest.isStreaming ? '等待AI响应...' : '暂无内容'}
+                </div>
+              )}
             </div>
           </div>
         </div>

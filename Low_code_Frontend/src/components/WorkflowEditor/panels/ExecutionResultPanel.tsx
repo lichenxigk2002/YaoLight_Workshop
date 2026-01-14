@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Collapse, Empty, Tag, Typography, Button, Space, message } from 'antd';
 import {
   CheckCircleOutlined,
@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
+import { ProviderIcon } from '@/components/Icons';
 import styles from './ExecutionResultPanel.module.scss';
 
 const { Panel } = Collapse;
@@ -364,9 +365,35 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                       <span className={styles.nodeLabel}>
                         {getNodeLabel(nodeResult.node_id)}
                       </span>
-                      <Tag color={nodeResult.success ? 'success' : 'error'}>
-                        {getNodeTypeLabel(nodeResult.type)}
-                      </Tag>
+                      {nodeResult.type === 'ai' ? (
+                        // AI节点只显示图标，不显示文字，不使用 Tag 背景
+                        (() => {
+                          // 从节点数据中获取模型信息，推断提供商
+                          const node = nodes.find((n) => n.id === nodeResult.node_id);
+                          const modelName = nodeResult.data?.model || node?.data?.config?.modelName || '';
+                          let provider = '';
+                          if (modelName.toLowerCase().includes('deepseek')) {
+                            provider = 'deepseek';
+                          } else if (modelName.toLowerCase().includes('doubao') || modelName.toLowerCase().includes('seed')) {
+                            provider = 'doubao';
+                          }
+                          // 如果无法从模型名称推断，尝试从配置中获取
+                          if (!provider && node?.data?.config?.provider) {
+                            provider = node.data.config.provider.toLowerCase();
+                          }
+                          return provider ? (
+                            <ProviderIcon provider={provider} size={14} />
+                          ) : (
+                            <Tag color={nodeResult.success ? 'success' : 'error'}>
+                              {getNodeTypeLabel(nodeResult.type)}
+                            </Tag>
+                          );
+                        })()
+                      ) : (
+                        <Tag color={nodeResult.success ? 'success' : 'error'}>
+                          {getNodeTypeLabel(nodeResult.type)}
+                        </Tag>
+                      )}
                     </Space>
                   </div>
                 }

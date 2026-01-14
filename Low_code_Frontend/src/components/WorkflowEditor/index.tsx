@@ -256,6 +256,22 @@ const WorkflowEditor: React.FC = () => {
         config: data.config,
       });
 
+      // 同步更新 selectedNode，确保配置面板显示最新的节点数据
+      if (selectedNode?.id === nodeId) {
+        setSelectedNode((prev) => {
+          if (!prev || prev.id !== nodeId) return prev;
+          return {
+            ...prev,
+            data: {
+              ...prev.data,
+              label: data.label,
+              connectionDirection: newDirection,
+              config: data.config,
+            },
+          };
+        });
+      }
+
       // 如果连接方向改变了，强制重新渲染所有节点和边
       if (hasDirectionChange) {
         setNodeRenderKey((prev) => prev + 1);
@@ -272,10 +288,9 @@ const WorkflowEditor: React.FC = () => {
         }, 100);
       }
 
-      setConfigPanelVisible(false);
-      setSelectedNode(null);
+      // 保存后不关闭配置面板，保持打开状态
     },
-    [nodes, updateNodeConfig, setEdges]
+    [nodes, updateNodeConfig, setEdges, selectedNode]
   );
 
   // 加载工作流节点和边

@@ -3,6 +3,8 @@
  * 定义每个模型/提供商支持的高级参数
  */
 
+import { providerRegistry } from '../providers';
+
 export interface ModelConfigSupport {
   // 基础参数（所有模型都支持）
   temperature: boolean;
@@ -11,7 +13,8 @@ export interface ModelConfigSupport {
 
   // 提供商特定参数
   stream?: boolean;        // 流式输出（DeepSeek、豆包支持）
-  thinking?: boolean;       // 深度思考（DeepSeek、豆包支持）
+  thinking?: boolean;       // 深度思考开关（DeepSeek支持）
+  thinkingLevel?: boolean;  // 思考长度模式（豆包支持：minimal/low/medium/high）
   frequencyPenalty?: boolean; // 频率惩罚（OpenAI支持）
   presencePenalty?: boolean;  // 存在惩罚（OpenAI支持）
   stopSequences?: boolean;    // 停止序列（OpenAI支持）
@@ -19,43 +22,36 @@ export interface ModelConfigSupport {
 
 /**
  * 根据提供商和模型名称获取配置支持
+ * 优先从注册表获取，如果没有注册则使用默认配置
  */
 export function getModelConfigSupport(
   provider: string | null
 ): ModelConfigSupport {
+  // 基础配置（所有模型都支持）
+  const baseConfig: ModelConfigSupport = {
+    temperature: true,
+    maxTokens: true,
+    topP: true,
+  };
+
   if (!provider) {
-    // 默认支持基础参数
+    return baseConfig;
+  }
+
+  // 优先从注册表获取
+  const providerReg = providerRegistry.get(provider);
+  if (providerReg && providerReg.supportedConfig) {
     return {
-      temperature: true,
-      maxTokens: true,
-      topP: true,
+      ...baseConfig,
+      ...providerReg.supportedConfig,
     };
   }
 
+  // 如果没有注册，使用默认配置（向后兼容）
   switch (provider.toLowerCase()) {
-    case 'deepseek':
-      return {
-        temperature: true,
-        maxTokens: true,
-        topP: true,
-        stream: true,
-        thinking: true,
-      };
-
-    case 'doubao':
-      return {
-        temperature: true,
-        maxTokens: true,
-        topP: true,
-        stream: true,
-        thinking: true,
-      };
-
     case 'openai':
       return {
-        temperature: true,
-        maxTokens: true,
-        topP: true,
+        ...baseConfig,
         stream: true,
         frequencyPenalty: true,
         presencePenalty: true,
@@ -63,12 +59,7 @@ export function getModelConfigSupport(
       };
 
     default:
-      // 其他提供商默认只支持基础参数
-      return {
-        temperature: true,
-        maxTokens: true,
-        topP: true,
-      };
+      return baseConfig;
   }
 }
 
@@ -120,6 +111,9 @@ export function filterSupportedConfig(
   if (support.thinking && config.thinking !== undefined) {
     filtered.thinking = config.thinking;
   }
+  if (support.thinkingLevel && config.thinkingLevel !== undefined) {
+    filtered.thinkingLevel = config.thinkingLevel;
+  }
   if (support.frequencyPenalty && config.frequencyPenalty !== undefined) {
     filtered.frequencyPenalty = config.frequencyPenalty;
   }
@@ -137,6 +131,7 @@ export function filterSupportedConfig(
     'topP',
     'stream',
     'thinking',
+    'thinkingLevel',
     'frequencyPenalty',
     'presencePenalty',
     'stopSequences',
