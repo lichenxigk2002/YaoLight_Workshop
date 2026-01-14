@@ -25,13 +25,6 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  // 调试日志
-  React.useEffect(() => {
-    if (open) {
-      console.log('CrawlerPreviewModal 打开，previewData:', crawlerTest.previewData);
-    }
-  }, [open, crawlerTest.previewData]);
-
   if (!crawlerTest.previewData) {
     return (
       <Modal

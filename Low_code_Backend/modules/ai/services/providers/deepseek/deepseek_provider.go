@@ -3,6 +3,7 @@ package deepseek
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -178,7 +179,7 @@ func (p *DeepSeekProvider) Chat(config *providers.AIModelConfig, prompt string, 
 }
 
 // ChatStream 流式聊天对话
-func (p *DeepSeekProvider) ChatStream(config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
+func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	// DeepSeek API地址
 	baseURL := config.BaseURL
 	if baseURL == "" {
@@ -247,8 +248,8 @@ func (p *DeepSeekProvider) ChatStream(config *providers.AIModelConfig, prompt st
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// 创建HTTP请求
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	// 创建HTTP请求（使用 context）
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -274,6 +275,16 @@ func (p *DeepSeekProvider) ChatStream(config *providers.AIModelConfig, prompt st
 	var fullReasoningContent strings.Builder
 
 	for scanner.Scan() {
+		// 检查 context 是否已取消
+		select {
+		case <-ctx.Done():
+			log.Printf("DeepSeek流式: 收到取消信号，停止读取")
+			callback("", true, ctx.Err())
+			return ctx.Err()
+		default:
+			// 继续执行
+		}
+
 		line := scanner.Text()
 		if line == "" {
 			continue

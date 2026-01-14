@@ -213,11 +213,9 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       {/* 爬虫节点预览模态框 */}
       {isCrawlerNode && (
         <>
-          {console.log('渲染 CrawlerPreviewModal，previewOpen:', crawlerTest.previewOpen, 'previewData:', crawlerTest.previewData)}
           <CrawlerPreviewModal
             open={crawlerTest.previewOpen}
             onClose={() => {
-              console.log('关闭预览面板');
               crawlerTest.setPreviewOpen(false);
             }}
             crawlerTest={crawlerTest}

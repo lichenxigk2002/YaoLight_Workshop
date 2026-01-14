@@ -31,7 +31,6 @@ export function useWorkflowExecute(
   const handleRun = useCallback(async () => {
     // 如果上一次流式执行还在进行，先取消它
     if (cancelStreamRef.current) {
-      console.log('取消上一次流式执行');
       cancelStreamRef.current();
       cancelStreamRef.current = null;
       setIsExecuting(false);
@@ -274,7 +273,6 @@ export function useWorkflowExecute(
 
               // 如果完成，标记为完成
               if (done && !isComplete) {
-                console.log('流式执行完成，done=true');
                 isComplete = true;
                 cancelStreamRef.current = null; // 清除取消函数
                 setIsExecuting(false); // 标记为执行完成
@@ -307,7 +305,6 @@ export function useWorkflowExecute(
             },
             () => {
               // 完成回调
-              console.log('流式执行完成回调');
               cancelStreamRef.current = null; // 清除取消函数
               setIsExecuting(false); // 标记为执行完成
               if (!isComplete) {
@@ -321,8 +318,6 @@ export function useWorkflowExecute(
           cancelStreamRef.current = cancelStream;
           setIsExecuting(true); // 标记为正在执行
         });
-
-        console.log('流式执行Promise完成，准备显示通知');
 
         // 构建最终结果
         const result = {
@@ -359,7 +354,6 @@ export function useWorkflowExecute(
         );
 
         // 立即显示通知（不等待setState完成）
-        console.log('显示成功通知，节点数:', totalNodeCount, '结果数:', results.length);
         notification.success({
           message: t('workflowEditor.execSuccessTitle') || '工作流执行完成',
           description: t('workflowEditor.execSuccessDesc', { count: totalNodeCount }) || `共执行 ${totalNodeCount} 个节点`,
@@ -456,7 +450,6 @@ export function useWorkflowExecute(
   // 取消当前执行的函数
   const handleCancel = useCallback(() => {
     if (cancelStreamRef.current) {
-      console.log('手动取消流式执行');
       cancelStreamRef.current();
       cancelStreamRef.current = null;
       setIsExecuting(false); // 标记为执行完成

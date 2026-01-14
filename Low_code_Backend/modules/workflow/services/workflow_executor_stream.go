@@ -19,6 +19,7 @@ type StreamCallback func(nodeID string, content string, done bool, contentType s
 
 // ExecuteAINodeStream 流式执行AI节点
 func (e *WorkflowExecutor) ExecuteAINodeStream(
+	ctx context.Context,
 	node NodeConfig,
 	dataFlow *DataFlow,
 	variableContext *VariableContext,
@@ -145,6 +146,16 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 		var fullReasoningContent strings.Builder
 		// 创建适配器，将 providers.StreamCallback 转换为 services.StreamCallback
 		providerCallback := func(deltaContent string, done bool, err error) {
+			// 检查 context 是否已取消
+			select {
+			case <-ctx.Done():
+				log.Printf("流式执行: AI节点 %s 收到取消信号，停止回调处理", nodeID)
+				callback(nodeID, "", true, "", ctx.Err())
+				return
+			default:
+				// 继续执行
+			}
+
 			log.Printf("流式执行: AI节点 %s 收到回调，deltaContent长度: %d, done: %v, err: %v", nodeID, len(deltaContent), done, err)
 			if err != nil {
 				log.Printf("流式执行: AI节点 %s 回调错误: %v", nodeID, err)
@@ -225,7 +236,7 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			}
 		}
 		log.Printf("流式执行: AI节点 %s 调用 ChatStream，prompt长度: %d, content长度: %d", nodeID, len(prompt), len(content))
-		err := provider.ChatStream(modelConfig, prompt, content, providerConfig, providerCallback)
+		err := provider.ChatStream(ctx, modelConfig, prompt, content, providerConfig, providerCallback)
 		if err != nil {
 			log.Printf("流式执行: AI节点 %s ChatStream 返回错误: %v", nodeID, err)
 			callback(nodeID, "", true, "", err)
@@ -357,7 +368,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		// 如果AI节点启用了流式输出，使用流式执行
 		if hasStreamingAI {
 			log.Printf("流式执行: 开始执行AI节点 %s", aiNode.ID)
-			e.ExecuteAINodeStream(*aiNode, dataFlow, variableContext, req.UserID, callback)
+			e.ExecuteAINodeStream(ctx, *aiNode, dataFlow, variableContext, req.UserID, callback)
 			log.Printf("流式执行: AI节点 %s 执行完成", aiNode.ID)
 		} else {
 			// AI节点未启用流式输出，使用普通执行

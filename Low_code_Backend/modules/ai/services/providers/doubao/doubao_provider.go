@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"yaolight-workshop/backend/modules/ai/services/providers"
@@ -208,7 +209,7 @@ func (p *DoubaoProvider) Chat(config *providers.AIModelConfig, prompt string, co
 
 // ChatStream 流式聊天对话
 // 注意：豆包 SDK 可能不支持流式输出，这里使用 HTTP 直接调用
-func (p *DoubaoProvider) ChatStream(config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
+func (p *DoubaoProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	// 构建BaseURL
 	baseURL := config.BaseURL
 	if baseURL == "" {
@@ -294,8 +295,8 @@ func (p *DoubaoProvider) ChatStream(config *providers.AIModelConfig, prompt stri
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// 创建HTTP请求
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	// 创建HTTP请求（使用 context）
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -322,6 +323,16 @@ func (p *DoubaoProvider) ChatStream(config *providers.AIModelConfig, prompt stri
 	var fullReasoningContent strings.Builder
 
 	for scanner.Scan() {
+		// 检查 context 是否已取消
+		select {
+		case <-ctx.Done():
+			log.Printf("豆包流式: 收到取消信号，停止读取")
+			callback("", true, ctx.Err())
+			return ctx.Err()
+		default:
+			// 继续执行
+		}
+
 		line := scanner.Text()
 		if line == "" {
 			continue

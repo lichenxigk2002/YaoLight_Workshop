@@ -170,16 +170,11 @@ export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [],
         error: hasError ? errorMessage : undefined,
       };
 
-      console.log('爬虫测试结果:', result);
-
       if (!result.success) {
         message.error(result.error || t('node.crawlerTest.execFailed'));
       } else {
         const crawlerResult = result.results?.find((r: any) => r.type === 'crawler' && r.node_id === node.id);
         const dataCleanResult = result.results?.find((r: any) => r.type === 'dataclean' && r.node_id === 'clean');
-
-        console.log('爬虫结果:', crawlerResult);
-        console.log('数据清洗结果:', dataCleanResult);
 
         const previewData = {
           crawler: crawlerResult || null,
@@ -187,10 +182,8 @@ export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [],
           raw: result,
         };
 
-        console.log('设置预览数据:', previewData);
         setPreviewData(previewData);
         setPreviewOpen(true);
-        console.log('设置预览面板打开');
 
         if (crawlerResult?.success) {
           if (dataCleanResult?.success) {

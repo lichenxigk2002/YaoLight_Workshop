@@ -1,5 +1,7 @@
 package providers
 
+import "context"
+
 // ChatResponse 聊天响应
 type ChatResponse struct {
 	Content    string `json:"content"`
@@ -48,8 +50,9 @@ type AIProvider interface {
 	Chat(config *AIModelConfig, prompt string, content string, providerConfig map[string]interface{}) (*ChatResponse, error)
 
 	// ChatStream 流式聊天对话
+	// ctx: 上下文，用于支持取消操作
 	// 如果providerConfig中stream为true，则使用流式输出
-	ChatStream(config *AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback StreamCallback) error
+	ChatStream(ctx context.Context, config *AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback StreamCallback) error
 
 	// Complete 文本补全
 	Complete(config *AIModelConfig, prompt string) (*CompleteResponse, error)

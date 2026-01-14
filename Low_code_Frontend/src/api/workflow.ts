@@ -48,11 +48,9 @@ export const workflowApi = {
    * 执行工作流
    */
   executeWorkflow: (data: ExecuteWorkflowRequest & { workflowId?: number }): Promise<ExecuteWorkflowResponse> => {
-    console.log('执行工作流请求:', data);
     return http.post('/workflows/execute', data, {
       timeout: 120000, // 120秒超时，给爬虫足够的时间执行
     }).then((result) => {
-      console.log('工作流执行成功，结果:', result);
       return result;
     }).catch((error) => {
       console.error('工作流执行失败:', error);
@@ -117,9 +115,12 @@ export const workflowApi = {
         });
       })
       .catch(err => {
-        if (err.name !== 'AbortError') {
-          onError?.(err.message || '请求失败');
+        // 如果是取消操作，不触发错误回调
+        if (err.name === 'AbortError') {
+          // 取消操作，不显示错误
+          return;
         }
+          onError?.(err.message || '请求失败');
       });
 
     // 返回取消函数

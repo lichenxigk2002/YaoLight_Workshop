@@ -123,12 +123,10 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
           execReq,
           (nodeId, content, done, contentType) => {
             messageCount++;
-            console.log('AI测试收到消息:', { nodeId, contentType, contentLength: content.length, done, contentPreview: content.substring(0, 100) });
 
             if (nodeId === node.id) {
               // 根据内容类型累加到不同的变量
               if (contentType === 'reasoning') {
-                console.log('收到思考内容:', content.substring(0, 50) + '...', '总长度:', fullReasoningContent.length + content.length);
                 fullReasoningContent += content;
                 setStreamingReasoningContent(fullReasoningContent);
                 setIsReasoningStreaming(true); // 正在输出思考内容
@@ -258,9 +256,20 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
             }
           },
           (error) => {
+            // 如果是取消操作，不显示错误消息
+            if (error && error.includes && error.includes('aborted')) {
+              return;
+            }
+            
             message.destroy('aiTest');
             setIsStreaming(false);
+            setIsReasoningStreaming(false);
+            
+            // 只有真正的错误才显示错误消息
+            if (error && !error.includes('canceled') && !error.includes('aborted')) {
             message.error(`流式测试失败: ${error}`);
+            }
+            
             setPreviewData(prev => ({
               ...prev!,
               isStreaming: false,
@@ -374,7 +383,20 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
     if (cancelStreamRef.current) {
       cancelStreamRef.current();
       cancelStreamRef.current = null;
+      
+      // 更新所有相关状态
       setIsStreaming(false);
+      setIsReasoningStreaming(false);
+      
+      // 销毁 loading 消息
+      message.destroy('aiTest');
+      
+      // 更新预览数据状态
+      setPreviewData(prev => ({
+        ...prev!,
+        isStreaming: false,
+      }));
+      
       message.info('已取消流式测试');
     }
   };
