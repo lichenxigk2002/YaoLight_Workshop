@@ -55,17 +55,17 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   const isCrawlerNode = nodeType === 'crawler';
   const isAINode = nodeType === 'ai';
 
-  // 测试功能
-  const crawlerTest = useCrawlerTest(isCrawlerNode ? node : null, form, nodes, edges);
-  const aiTest = useAITest(isAINode ? node : null, form, nodes, edges);
-
-  // 表单管理 Hook
-  const { handleSave: handleSaveForm } = useNodeConfigForm({
+  // 表单管理 Hook（必须先定义，因为测试函数需要用到 buildNodeConfig）
+  const { handleSave: handleSaveForm, buildNodeConfig } = useNodeConfigForm({
     node,
     form,
     autoTest,
-    onAutoTest: autoTest && isCrawlerNode ? crawlerTest.handleTestCrawl : undefined,
+    onAutoTest: undefined, // 先设为 undefined，后面再设置
   });
+
+  // 测试功能（使用 buildNodeConfig 和 handleSaveForm）
+  const crawlerTest = useCrawlerTest(isCrawlerNode ? node : null, form, nodes, edges, buildNodeConfig, handleSaveForm, onSave);
+  const aiTest = useAITest(isAINode ? node : null, form, nodes, edges, buildNodeConfig, handleSaveForm, onSave);
 
   const handleSave = async () => {
     const success = await handleSaveForm(onSave, onSaveToBackend, workflowId);

@@ -18,7 +18,7 @@ export const StreamingLoader: React.FC<StreamingLoaderProps> = ({
 }) => {
   if (!isStreaming) return null;
 
-  const displayText = text || (hasContent ? '正在流式输出' : '等待AI响应');
+  const displayText = text || (hasContent ? '正在流式输出' : '');
   const sizeClass = hasContent ? 'small' : 'large';
   const positionClass = hasContent ? 'bottomRight' : 'centered';
 

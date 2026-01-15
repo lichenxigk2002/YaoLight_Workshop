@@ -10,33 +10,57 @@ export interface PreviewState {
   raw: any;
 }
 
-export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [], edges: Edge[] = []) {
+export function useCrawlerTest(
+  node: Node | null, 
+  form: any, 
+  nodes: Node[] = [], 
+  edges: Edge[] = [],
+  buildNodeConfig?: () => Promise<any | null>,
+  handleSaveForm?: (onSave: (nodeId: string, config: any) => void, onSaveToBackend?: () => Promise<boolean>, workflowId?: string) => Promise<boolean>,
+  onSave?: (nodeId: string, config: any) => void
+) {
   const { t } = useTranslation();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewState | null>(null);
 
   const handleTestCrawl = async () => {
     try {
-      const values = await form.validateFields();
-      if (!node) return;
-
-      const config: any = { ...values };
-      const parseJsonField = (field: string) => {
-        const v = config[field];
-        if (typeof v === 'string') {
-          const s = v.trim();
-          if (s.startsWith('{') && s.endsWith('}')) {
-            try {
-              config[field] = JSON.parse(s);
-            } catch {
+      // 如果有 buildNodeConfig 函数，使用它来构建配置（会自动处理配置转换等）
+      let config: any;
+      if (buildNodeConfig) {
+        config = await buildNodeConfig(true);
+        if (!config) {
+          return; // 验证失败或构建失败
+        }
+        
+        // 自动保存配置（静默保存，不显示消息）
+        if (handleSaveForm && onSave) {
+          await handleSaveForm(onSave, undefined, undefined);
+        }
+      } else {
+        // 兼容旧逻辑：直接从表单获取值
+        const values = await form.validateFields();
+        if (!node) return;
+        config = { ...values };
+        const parseJsonField = (field: string) => {
+          const v = config[field];
+          if (typeof v === 'string') {
+            const s = v.trim();
+            if (s.startsWith('{') && s.endsWith('}')) {
+              try {
+                config[field] = JSON.parse(s);
+              } catch {
+              }
             }
           }
-        }
-      };
-      parseJsonField('headers');
-      parseJsonField('cookies');
-      delete config.label;
-      delete config.connectionDirection;
+        };
+        parseJsonField('headers');
+        parseJsonField('cookies');
+        delete config.label;
+        delete config.connectionDirection;
+      }
+      
+      if (!node) return;
 
       // 递归查找所有上游节点（包括上游节点的上游节点）
       const collectUpstreamNodes = (targetNodeId: string, collected: Set<string>): Node[] => {
@@ -98,12 +122,15 @@ export function useCrawlerTest(node: Node | null, form: any, nodes: Node[] = [],
       // 添加要测试的爬虫节点
       execReq.nodes.push({ id: node.id, type: node.data.type || 'crawler', config });
 
-      const testCleanEnable = !!values.testCleanEnable;
+      // 从表单获取测试清洗相关配置（这些字段不在节点配置中，只在测试时使用）
+      const formValues = form.getFieldsValue();
+      const testCleanEnable = !!formValues.testCleanEnable;
       if (testCleanEnable) {
         const cleanConfig = {
           cleanType: 'custom',
-          removeHTML: values.testCleanRemoveHTML !== false,
-          trim: values.testCleanTrim !== false,
+          removeHTML: formValues.testCleanRemoveHTML !== false,
+          trim: formValues.testCleanTrim !== false,
+          removeSpaces: true, // 测试时默认移除多余空格，让数据更干净
         };
         execReq.nodes.push({ id: 'clean', type: 'dataclean', config: cleanConfig });
         execReq.edges.push({ source: node.id, target: 'clean' });

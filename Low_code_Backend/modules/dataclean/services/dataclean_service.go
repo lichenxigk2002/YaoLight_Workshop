@@ -260,13 +260,18 @@ func (s *DataCleanService) cleanObject(obj map[string]interface{}, config CleanC
 	return result
 }
 
-// removeHTMLTags 移除HTML标签
+// removeHTMLTags 移除HTML标签和代码，只保留正常文本
 func (s *DataCleanService) removeHTMLTags(text string) string {
-	// 移除script和style标签及其内容
+	// 移除script和style标签及其内容（使用非贪婪匹配，并处理多行）
+	// 使用 (?s) 使 . 匹配换行符，(?i) 忽略大小写
 	reScript := regexp.MustCompile(`(?is)<script[^>]*>.*?</script>`)
 	text = reScript.ReplaceAllString(text, "")
 	reStyle := regexp.MustCompile(`(?is)<style[^>]*>.*?</style>`)
 	text = reStyle.ReplaceAllString(text, "")
+
+	// 移除noscript标签及其内容
+	reNoScript := regexp.MustCompile(`(?is)<noscript[^>]*>.*?</noscript>`)
+	text = reNoScript.ReplaceAllString(text, "")
 
 	// 移除其他HTML标签
 	reTags := regexp.MustCompile(`<[^>]+>`)
@@ -274,6 +279,92 @@ func (s *DataCleanService) removeHTMLTags(text string) string {
 
 	// 解码HTML实体
 	text = s.decodeHTMLEntities(text)
+
+	// 移除JavaScript代码模式
+	// 移除 var xxx = ...; 模式
+	reJSVar := regexp.MustCompile(`(?i)\bvar\s+\w+\s*=\s*[^;]+;`)
+	text = reJSVar.ReplaceAllString(text, "")
+
+	// 移除 function xxx() { ... } 模式
+	reJSFunction := regexp.MustCompile(`(?is)\bfunction\s+\w*\s*\([^)]*\)\s*\{[^}]*\}`)
+	text = reJSFunction.ReplaceAllString(text, "")
+
+	// 移除 if (...) { ... } 模式
+	reJSIf := regexp.MustCompile(`(?is)\bif\s*\([^)]+\)\s*\{[^}]*\}`)
+	text = reJSIf.ReplaceAllString(text, "")
+
+	// 移除 document.write(...) 模式
+	reDocWrite := regexp.MustCompile(`(?i)document\.write\s*\([^)]*\)`)
+	text = reDocWrite.ReplaceAllString(text, "")
+
+	// 移除 console.log(...) 模式
+	reConsoleLog := regexp.MustCompile(`(?i)console\.(log|error|warn|info)\s*\([^)]*\)`)
+	text = reConsoleLog.ReplaceAllString(text, "")
+
+	// 移除 window.location 相关代码
+	reWindowLoc := regexp.MustCompile(`(?i)window\.location\.[\w.]+[^;]*;?`)
+	text = reWindowLoc.ReplaceAllString(text, "")
+
+	// 移除 jQuery/$(...) 调用
+	reJQuery := regexp.MustCompile(`(?i)\$\([^)]+\)[^;]*;?`)
+	text = reJQuery.ReplaceAllString(text, "")
+
+	// 移除 new Swiper(...) 等构造函数调用
+	reNewObj := regexp.MustCompile(`(?i)\bnew\s+\w+\s*\([^)]*\)`)
+	text = reNewObj.ReplaceAllString(text, "")
+
+	// 移除CSS代码模式
+	// 移除 .class { ... } 或 #id { ... } 模式
+	reCSSRule := regexp.MustCompile(`(?is)[.#]?[\w-]+\s*\{[^}]*\}`)
+	text = reCSSRule.ReplaceAllString(text, "")
+
+	// 移除base64编码的图片数据
+	reBase64 := regexp.MustCompile(`data:image/[^;]+;base64,[A-Za-z0-9+/=]+`)
+	text = reBase64.ReplaceAllString(text, "")
+
+	// 移除URL中的JavaScript协议
+	reJSProtocol := regexp.MustCompile(`(?i)javascript:[^;]*;?`)
+	text = reJSProtocol.ReplaceAllString(text, "")
+
+	// 移除单行的JavaScript语句（以分号结尾的代码行）
+	reJSStatement := regexp.MustCompile(`(?i)^\s*(var|let|const|function|if|for|while|switch|case|break|return|try|catch|throw)\s+[^;]+;?\s*$`)
+
+	// 按行处理，移除代码行
+	lines := strings.Split(text, "\n")
+	var cleanLines []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// 跳过空行
+		if trimmed == "" {
+			continue
+		}
+		// 跳过纯代码行
+		if reJSStatement.MatchString(trimmed) {
+			continue
+		}
+		// 跳过看起来像代码的行（包含大量特殊字符，且长度较短）
+		specialCharCount := strings.Count(trimmed, "{") + strings.Count(trimmed, "}") +
+			strings.Count(trimmed, "(") + strings.Count(trimmed, ")") +
+			strings.Count(trimmed, ";") + strings.Count(trimmed, "=")
+		if len(trimmed) < 50 && specialCharCount > len(trimmed)/4 {
+			continue
+		}
+		// 跳过包含大量特殊字符的短行（可能是代码片段）
+		if len(trimmed) < 30 && (strings.Contains(trimmed, "function") ||
+			strings.Contains(trimmed, "var ") ||
+			strings.Contains(trimmed, "document.") ||
+			strings.Contains(trimmed, "window.") ||
+			strings.Contains(trimmed, "$(")) {
+			continue
+		}
+		cleanLines = append(cleanLines, line)
+	}
+	text = strings.Join(cleanLines, "\n")
+
+	// 清理多余的空白字符（多个连续空白字符替换为单个空格）
+	// 这有助于清理移除HTML标签后留下的多余空白
+	reWhitespace := regexp.MustCompile(`\s+`)
+	text = reWhitespace.ReplaceAllString(text, " ")
 
 	return text
 }

@@ -65,6 +65,26 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 				"maxTokens":   2000,
 			},
 		},
+		{
+			"provider":       "qianwen",
+			"name":           "通义千问",
+			"description":    "阿里云通义千问AI模型（OpenAI兼容模式）",
+			"defaultBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			"supportedModels": []string{
+				// 通义千问模型列表（已升级至Qwen3系列，支持深度思考）
+				"qwen-max",             // 通义千问Max：效果最好，适合复杂任务（支持深度思考）
+				"qwen-plus",            // 通义千问Plus：效果、速度、成本均衡（支持深度思考）
+				"qwen-flash",           // 通义千问Flash：速度最快、成本最低（支持深度思考）
+				"qwen-turbo",           // 通义千问Turbo（推荐使用Flash替代）
+				"qwen-max-longcontext", // 通义千问Max长上下文版本
+				"qwen-vl-plus",         // 通义千问VL视觉语言模型
+				"qwen-coder",           // 通义千问Coder代码模型
+			},
+			"defaultConfig": map[string]interface{}{
+				"temperature": 0.7,
+				"maxTokens":   2000,
+			},
+		},
 	}, nil
 }
 
@@ -81,7 +101,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.DeepSeekAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_deepseek",
-			"name":        "DeepSeek (系统预设)",
+			"name":        "DeepSeek",
 			"provider":    "deepseek",
 			"modelName":   "deepseek-chat",
 			"baseUrl":     "https://api.deepseek.com",
@@ -94,12 +114,25 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.DoubaoAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_doubao",
-			"name":        "豆包 (系统预设)",
+			"name":        "豆包",
 			"provider":    "doubao",
 			"modelName":   "doubao-seed-1-6-251015",
 			"baseUrl":     "https://ark.cn-beijing.volces.com/api/v3",
 			"isSystem":    true,
 			"description": "系统预设的豆包模型，所有用户可用",
+		})
+	}
+
+	// 检查是否有通义千问预设配置
+	if config.QianwenAPIKey != "" {
+		models = append(models, map[string]interface{}{
+			"id":          "system_qianwen",
+			"name":        "通义千问",
+			"provider":    "qianwen",
+			"modelName":   "qwen-plus",
+			"baseUrl":     "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			"isSystem":    true,
+			"description": "系统预设的通义千问模型，所有用户可用",
 		})
 	}
 
@@ -153,8 +186,13 @@ type CreateModelRequest struct {
 
 // CreateModel 创建模型配置
 func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error) {
-	// 验证提供商是否支持（暂时只支持deepseek）
-	if req.Provider != "deepseek" {
+	// 验证提供商是否支持
+	supportedProviders := map[string]bool{
+		"deepseek": true,
+		"doubao":   true,
+		"qianwen":  true,
+	}
+	if !supportedProviders[req.Provider] {
 		return nil, fmt.Errorf("provider %s not supported yet", req.Provider)
 	}
 
@@ -167,7 +205,17 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 	// 使用默认值
 	baseURL := req.BaseURL
 	if baseURL == nil {
-		defaultURL := "https://api.deepseek.com"
+		var defaultURL string
+		switch req.Provider {
+		case "deepseek":
+			defaultURL = "https://api.deepseek.com"
+		case "doubao":
+			defaultURL = "https://ark.cn-beijing.volces.com/api/v3"
+		case "qianwen":
+			defaultURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		default:
+			defaultURL = "https://api.deepseek.com"
+		}
 		baseURL = &defaultURL
 	}
 

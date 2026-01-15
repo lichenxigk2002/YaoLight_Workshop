@@ -102,6 +102,15 @@ export function useWorkflowExecute(
           const cancelStream = workflowApi.executeWorkflowStream(
             executionData,
             (nodeId, content, done, contentType) => {
+              // 如果是工作流完成信号，直接处理，不当作节点
+              if (contentType === 'workflow_complete' && done && !isComplete) {
+                isComplete = true;
+                cancelStreamRef.current = null; // 清除取消函数
+                setIsExecuting(false); // 标记为执行完成
+                resolve();
+                return;
+              }
+
               // 如果是节点结果事件（所有节点执行完成，包含完整结果数据）
               if (contentType === 'node_result') {
                 try {
@@ -236,6 +245,11 @@ export function useWorkflowExecute(
                 });
               }
 
+              // 跳过 workflow_complete 信号，不创建结果项
+              if (nodeId === 'workflow_complete') {
+                return;
+              }
+
               // 查找或创建结果项（针对AI节点的流式内容）
               let resultItem = results.find(r => r.node_id === nodeId);
               if (!resultItem) {
@@ -271,13 +285,9 @@ export function useWorkflowExecute(
                 results: [...results],
               });
 
-              // 如果完成，标记为完成
-              if (done && !isComplete) {
-                isComplete = true;
-                cancelStreamRef.current = null; // 清除取消函数
-                setIsExecuting(false); // 标记为执行完成
-                resolve();
-              }
+              // 注意：AI节点的 done=true 只表示该节点的流式输出完成，
+              // 不代表整个工作流完成，所以不能在这里结束
+              // 只有当收到 workflow_complete 信号时才结束（已在上面处理）
             },
             (error) => {
               console.error('流式执行错误:', error);
@@ -325,8 +335,15 @@ export function useWorkflowExecute(
           results: results,
         };
 
-        // 计算执行的节点总数（包括上游节点和AI节点）
-        const totalNodeCount = resultMap.size;
+        // 计算实际执行的节点总数（根据实际收到的 node_result 事件）
+        // 过滤掉 pending 状态的节点和 workflow_complete 信号，只计算实际执行过的节点
+        const executedNodeCount = Array.from(resultMap.entries())
+          .filter(([nodeId, status]) => 
+            nodeId !== 'workflow_complete' && (status === 'success' || status === 'failed')
+          ).length;
+        // 过滤掉 workflow_complete 的结果项
+        const actualResults = results.filter(r => r.node_id !== 'workflow_complete');
+        const totalNodeCount = executedNodeCount > 0 ? executedNodeCount : actualResults.length;
 
         // 显示通知的函数
         const showResultPanel = () => {

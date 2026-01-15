@@ -220,6 +220,8 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                         provider = 'deepseek';
                       } else if (modelName.toLowerCase().includes('doubao') || modelName.toLowerCase().includes('seed')) {
                         provider = 'doubao';
+                      } else if (modelName.toLowerCase().includes('qwen')) {
+                        provider = 'qianwen';
                       }
                     }
                     return provider ? (
@@ -286,7 +288,7 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                 </>
               ) : (
                 <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
-                  {aiTest.isStreaming ? '等待AI响应...' : '暂无内容'}
+                  {aiTest.isStreaming ? '' : '暂无内容'}
                 </div>
               )}
             </div>
@@ -379,7 +381,7 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                 ? '正在思考'
                 : displayContent
                   ? '正在流式输出'
-                  : '等待AI响应'
+                  : ''
             }
           />
         )}

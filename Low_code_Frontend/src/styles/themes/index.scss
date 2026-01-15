@@ -230,3 +230,69 @@ body {
     }
   }
 }
+
+// Notification 通知组件主题适配
+.ant-notification {
+  .ant-notification-notice {
+    background: var(--bg-primary) !important;
+    border: 1px solid var(--border-secondary) !important;
+    box-shadow: 0 2px 8px var(--shadow-sm) !important;
+    border-radius: 8px !important;
+
+    .ant-notification-notice-message {
+      color: var(--text-primary) !important;
+    }
+
+    .ant-notification-notice-description {
+      color: var(--text-secondary) !important;
+    }
+
+    .ant-notification-notice-close {
+      color: var(--text-secondary) !important;
+
+      &:hover {
+        color: var(--text-primary) !important;
+      }
+    }
+
+    .ant-notification-notice-btn {
+      .ant-btn {
+        background: var(--bg-secondary) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-secondary) !important;
+
+        &:hover {
+          background: var(--bg-tertiary) !important;
+          border-color: var(--border-primary) !important;
+        }
+      }
+    }
+  }
+}
+
+// Select 下拉框主题适配
+.ant-select-dropdown {
+  background: var(--bg-primary) !important;
+  border-color: var(--border-secondary) !important;
+
+  .ant-select-item {
+    color: var(--text-primary) !important;
+
+    &:hover {
+      background: var(--bg-secondary) !important;
+    }
+
+    &.ant-select-item-option-selected {
+      background: var(--bg-secondary) !important;
+      color: var(--text-primary) !important;
+    }
+  }
+
+  .ant-select-item-group {
+    color: var(--text-secondary) !important;
+  }
+
+  .ant-select-item-option-content {
+    color: var(--text-primary) !important;
+  }
+}

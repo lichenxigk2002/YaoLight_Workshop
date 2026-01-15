@@ -1,0 +1,112 @@
+.container {
+  position: relative;
+  width: 100%;
+}
+
+.contentEditableWrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.contentEditable {
+  width: 100%;
+  min-height: 120px;
+  padding: 4px 11px;
+  border: 1px solid var(--border-secondary, #d9d9d9);
+  border-radius: 2px;
+  background: var(--bg-primary, #fff);
+  color: var(--text-primary, #000);
+  font-size: 14px;
+  line-height: 1.5715;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  outline: none;
+  overflow-y: auto;
+  
+  &:focus {
+    border-color: var(--primary-color, #1890ff);
+    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+  }
+  
+  &:empty:before {
+    content: attr(data-placeholder);
+    color: rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+  }
+}
+
+.hiddenTextarea {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.variableTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-secondary, #f5f5f5);
+  color: var(--text-primary, #262626);
+  padding: 0 4px 0 6px;
+  border: 1px dashed var(--border-secondary, #d9d9d9);
+  border-radius: 2px;
+  font-size: 11px; // 标签内文字更小
+  font-weight: 400;
+  margin: 0 1px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s;
+  white-space: nowrap;
+  line-height: 1.5715; // 与 TextArea 的行高一致
+  vertical-align: baseline; // 与文字基线对齐
+  height: 1.5715em; // 与文字行高完全一致
+  
+  &:hover {
+    background: var(--bg-tertiary, #fafafa);
+    border-color: var(--border-primary, #bfbfbf);
+  }
+  
+  &:active {
+    background: var(--bg-secondary, #f5f5f5);
+  }
+}
+
+.variableTagText {
+  flex: 1;
+}
+
+.variableTagDelete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  margin-left: 2px;
+  padding: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  color: var(--text-secondary, #8c8c8c);
+  font-size: 10px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  
+  &:hover {
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #262626);
+  }
+  
+  &:active {
+    background: var(--bg-secondary, #f5f5f5);
+  }
+}
+
+.insertButton {
+  margin-top: 8px;
+}
+

@@ -135,22 +135,27 @@ export function useNodeConfigForm({
   }, [node?.id, configKey, autoTest]);
 
   /**
-   * 处理保存逻辑
+   * 从表单构建节点配置（不保存，仅处理配置数据）
+   * 这个函数可以被测试和保存功能共享使用
    */
-  const handleSave = async (onSave: (nodeId: string, config: any) => void, onSaveToBackend?: () => Promise<boolean>, workflowId?: string) => {
+  const buildNodeConfig = async (validate: boolean = true): Promise<any | null> => {
     try {
-      // 先验证必填字段
-      await form.validateFields();
+      // 如果需要验证，先验证必填字段
+      if (validate) {
+        await form.validateFields();
+      }
       // 然后获取所有字段值（包括折叠区域中的字段）
+      // 注意：Collapse 只是视觉隐藏，Form.Item 仍然在 DOM 中，getFieldsValue() 可以获取到所有字段
       const values = form.getFieldsValue();
       if (!node) {
-        return false;
+        return null;
       }
 
       const nodeType = node.data?.type || node.type;
       const isAINode = nodeType === 'ai';
 
       const config: any = { ...values };
+      const existingConfig = node.data?.config || {};
 
       // 为AI节点处理模型配置
       if (isAINode) {
@@ -161,7 +166,6 @@ export function useNodeConfigForm({
 
         // 对于已保存的模型，如果配置中没有 provider 和 modelName，尝试从节点配置中读取
         if (modelMode === 'saved' && modelId) {
-          const existingConfig = node.data?.config || {};
           if (!provider && existingConfig.provider) {
             provider = existingConfig.provider;
             config.provider = provider;
@@ -179,10 +183,64 @@ export function useNodeConfigForm({
         const support = getModelConfigSupport(provider);
 
         // 获取或创建 modelConfigs 对象
-        const existingConfig = node.data?.config || {};
         const modelConfigs: Record<string, any> = existingConfig.modelConfigs || {};
 
-        // 保存当前模型的高级配置到 modelConfigs
+        // 如果表单中没有高级参数的值（可能因为从未展开过面板），从节点配置中读取
+        // 优先使用表单中的值，如果表单中没有，则从节点配置中读取，最后使用默认值
+        if (support.temperature && config.temperature === undefined) {
+          // 尝试从节点配置中读取
+          if (existingConfig.temperature !== undefined) {
+            config.temperature = existingConfig.temperature;
+          }
+        }
+        if (support.maxTokens && config.maxTokens === undefined) {
+          if (existingConfig.maxTokens !== undefined) {
+            config.maxTokens = existingConfig.maxTokens;
+          }
+        }
+        if (support.topP && config.topP === undefined) {
+          if (existingConfig.topP !== undefined) {
+            config.topP = existingConfig.topP;
+          }
+        }
+        if (support.stream && config.stream === undefined) {
+          if (existingConfig.stream !== undefined) {
+            config.stream = existingConfig.stream;
+          }
+        }
+        if (support.thinking && config.thinking === undefined) {
+          if (existingConfig.thinking !== undefined) {
+            config.thinking = existingConfig.thinking;
+          }
+        }
+        if (support.thinkingLevel && config.thinkingLevel === undefined) {
+          if (existingConfig.thinkingLevel !== undefined) {
+            config.thinkingLevel = existingConfig.thinkingLevel;
+          }
+        }
+        if (support.frequencyPenalty && config.frequencyPenalty === undefined) {
+          if (existingConfig.frequencyPenalty !== undefined) {
+            config.frequencyPenalty = existingConfig.frequencyPenalty;
+          }
+        }
+        if (support.presencePenalty && config.presencePenalty === undefined) {
+          if (existingConfig.presencePenalty !== undefined) {
+            config.presencePenalty = existingConfig.presencePenalty;
+          }
+        }
+        if (support.stopSequences && config.stopSequences === undefined) {
+          if (existingConfig.stopSequences !== undefined) {
+            config.stopSequences = existingConfig.stopSequences;
+          }
+        }
+        // 通义千问使用 enable_thinking
+        if (support.thinking && config.enable_thinking === undefined) {
+          if (existingConfig.enable_thinking !== undefined) {
+            config.enable_thinking = existingConfig.enable_thinking;
+          }
+        }
+
+        // 保存当前模型的高级配置到 modelConfigs（使用处理后的值）
         const advancedConfig: Record<string, any> = {};
         if (support.temperature && config.temperature !== undefined) {
           advancedConfig.temperature = config.temperature;
@@ -211,6 +269,10 @@ export function useNodeConfigForm({
         if (support.stopSequences && config.stopSequences !== undefined) {
           advancedConfig.stopSequences = config.stopSequences;
         }
+        // 通义千问使用 enable_thinking
+        if (support.thinking && config.enable_thinking !== undefined) {
+          advancedConfig.enable_thinking = config.enable_thinking;
+        }
 
         // 保存到 modelConfigs
         if (modelConfigKey) {
@@ -236,6 +298,10 @@ export function useNodeConfigForm({
         if (support.thinking && filteredConfig.thinking === undefined) {
           filteredConfig.thinking = false;
         }
+        // 通义千问使用 enable_thinking 而不是 thinking
+        if (support.thinking && filteredConfig.enable_thinking === undefined) {
+          filteredConfig.enable_thinking = false;
+        }
         if (support.thinkingLevel && filteredConfig.thinkingLevel === undefined) {
           filteredConfig.thinkingLevel = 'medium'; // 豆包默认使用 medium 模式
         }
@@ -260,17 +326,29 @@ export function useNodeConfigForm({
       parseJsonField('headers');
       parseJsonField('cookies');
 
-      // 只删除节点级别的属性（这些不属于配置，应该保存在节点数据中）
-      // 所有配置项都应该保存，包括：
-      // - useHeadless（网页类型）
-      // - useAdvanced（高级配置开关）
-      // - headers, cookies, timeout, proxy, retryCount（高级配置子项）
-      // - testCleanEnable, testCleanRemoveHTML, testCleanTrim（测试时应用数据清洗配置）
-      // - extractMode, selector, extractType, extractAttr（提取模式相关）
-      // - javascriptWait, waitForSelector（SPA相关）
-      // - 以及其他所有配置项
+      // 删除节点级别的属性
       delete config.label;
       delete config.connectionDirection;
+
+      return config;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  /**
+   * 处理保存逻辑
+   */
+  const handleSave = async (onSave: (nodeId: string, config: any) => void, onSaveToBackend?: () => Promise<boolean>, workflowId?: string) => {
+    try {
+      // 使用 buildNodeConfig 构建配置（已经处理了所有配置逻辑，包括AI节点模型配置、JSON字段解析等）
+      const config = await buildNodeConfig(true);
+      if (!config || !node) {
+        return false;
+      }
+
+      const values = form.getFieldsValue();
+      const nodeType = node.data?.type || node.type;
 
       // 先更新本地状态
       onSave(node.id, {
@@ -324,5 +402,6 @@ export function useNodeConfigForm({
 
   return {
     handleSave,
+    buildNodeConfig, // 导出构建配置函数，供测试使用
   };
 }

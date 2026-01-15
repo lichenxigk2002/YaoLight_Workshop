@@ -5,6 +5,7 @@ import (
 	"yaolight-workshop/backend/modules/ai/services/providers"
 	"yaolight-workshop/backend/modules/ai/services/providers/deepseek"
 	"yaolight-workshop/backend/modules/ai/services/providers/doubao"
+	"yaolight-workshop/backend/modules/ai/services/providers/qianwen"
 )
 
 // ProviderFactory 提供商工厂
@@ -21,6 +22,7 @@ func NewProviderFactory() *ProviderFactory {
 	// 注册提供商
 	factory.RegisterProvider("deepseek", deepseek.NewDeepSeekProvider())
 	factory.RegisterProvider("doubao", doubao.NewDoubaoProvider())
+	factory.RegisterProvider("qianwen", qianwen.NewQianwenProvider())
 
 	return factory
 }

@@ -111,6 +111,10 @@ export function filterSupportedConfig(
   if (support.thinking && config.thinking !== undefined) {
     filtered.thinking = config.thinking;
   }
+  // 通义千问使用 enable_thinking 而不是 thinking
+  if (support.thinking && config.enable_thinking !== undefined) {
+    filtered.enable_thinking = config.enable_thinking;
+  }
   if (support.thinkingLevel && config.thinkingLevel !== undefined) {
     filtered.thinkingLevel = config.thinkingLevel;
   }
@@ -131,6 +135,7 @@ export function filterSupportedConfig(
     'topP',
     'stream',
     'thinking',
+    'enable_thinking', // 通义千问的深度思考参数
     'thinkingLevel',
     'frequencyPenalty',
     'presencePenalty',
