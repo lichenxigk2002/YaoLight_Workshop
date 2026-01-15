@@ -120,7 +120,7 @@ export const workflowApi = {
           // 取消操作，不显示错误
           return;
         }
-          onError?.(err.message || '请求失败');
+        onError?.(err.message || '请求失败');
       });
 
     // 返回取消函数

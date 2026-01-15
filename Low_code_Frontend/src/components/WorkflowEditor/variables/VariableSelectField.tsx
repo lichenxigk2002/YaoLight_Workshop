@@ -293,17 +293,37 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
 
           // 如果变量类型是object，添加常见的子字段选项（用于URL变量等场景）
           if (outputVar.type === 'object' || outputVar.type === 'any') {
-            const commonFields = [
-              { field: 'url', label: 'URL地址' },
-              { field: 'link', label: '链接' },
-              { field: 'href', label: '超链接' },
-              { field: 'src', label: '资源地址' },
-              { field: 'data', label: '数据' },
-            ];
+            // 根据节点类型选择不同的常见字段
+            let commonFields: Array<{ field: string; label: string }> = [];
+            
+            if (nodeType === 'dataclean') {
+              // 数据清洗节点：添加更多字段，因为清洗后的数据可能包含各种字段
+              commonFields = [
+                { field: 'data', label: '数据' },
+                { field: 'content', label: '内容' },
+                { field: 'text', label: '文本' },
+                { field: 'title', label: '标题' },
+                { field: 'url', label: 'URL地址' },
+                { field: 'link', label: '链接' },
+                { field: 'href', label: '超链接' },
+                { field: 'src', label: '资源地址' },
+              ];
+            } else {
+              // 其他节点：使用默认字段
+              commonFields = [
+                { field: 'url', label: 'URL地址' },
+                { field: 'link', label: '链接' },
+                { field: 'href', label: '超链接' },
+                { field: 'src', label: '资源地址' },
+                { field: 'data', label: '数据' },
+                { field: 'content', label: '内容' },
+                { field: 'text', label: '文本' },
+              ];
+            }
 
             commonFields.forEach(field => {
               variables.push({
-                label: field.label, // 简化：只显示字段名称，如"URL地址"
+                label: `${outputVar.label}.${field.label}`, // 显示完整路径，如"清洗后数据.内容"
                 value: `{{${upstreamNode.id}.${outputVar.variable}.${field.field}}}`,
                 nodeId: upstreamNode.id,
                 variable: `${outputVar.variable}.${field.field}`,
@@ -382,7 +402,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
                     <div style={{ 
                       fontWeight: 500, 
                       fontSize: 14,
-                      color: '#262626',
+                      color: 'var(--text-primary, #262626)',
                       marginBottom: 2
                     }}>
                       {v.label.split('.').pop() || v.label}
@@ -390,7 +410,7 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
                     {/* 更直白的描述 */}
                     <div style={{ 
                       fontSize: 12, 
-                      color: '#8c8c8c',
+                      color: 'var(--text-tertiary, #8c8c8c)',
                       lineHeight: '1.4'
                     }}>
                       {v.description || `来自"${v.nodeLabel}"节点的数据`}
@@ -403,8 +423,8 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
                         fontSize: 10,
                         fontFamily: 'monospace',
                         marginLeft: 8,
-                        background: '#f5f5f5',
-                        color: '#8c8c8c',
+                        background: 'var(--bg-secondary, #f5f5f5)',
+                        color: 'var(--text-tertiary, #8c8c8c)',
                         border: 'none',
                         cursor: 'help',
                       }}
@@ -417,25 +437,31 @@ export const VariableSelectField: React.FC<VariableSelectFieldProps> = ({
                 {(() => {
                   const preview = getVariablePreview(v.nodeId, v.variable);
                   if (preview) {
+                    const isPreview = preview.type === 'preview';
                     return (
                       <div style={{
                         fontSize: 12,
-                        color: preview.type === 'preview' ? '#52c41a' : '#1890ff',
-                        background: preview.type === 'preview' ? '#f6ffed' : '#e6f7ff',
+                        color: isPreview ? '#52c41a' : '#1890ff',
+                        background: isPreview 
+                          ? 'var(--bg-secondary, #f6ffed)' 
+                          : 'var(--bg-secondary, #e6f7ff)',
                         padding: '6px 10px',
                         borderRadius: 4,
                         marginTop: 2,
-                        border: `1px solid ${preview.type === 'preview' ? '#b7eb8f' : '#91d5ff'}`,
+                        border: `1px solid ${isPreview ? '#b7eb8f' : '#91d5ff'}`,
                         wordBreak: 'break-all',
                       }}>
                         <span style={{ 
-                          color: preview.type === 'preview' ? '#389e0d' : '#0050b3',
+                          color: isPreview ? '#389e0d' : '#0050b3',
                           marginRight: 6,
                           fontWeight: 500
                         }}>
-                          {preview.type === 'preview' ? '✓ 实际数据:' : '示例数据:'}
+                          {isPreview ? '✓ 实际数据:' : '示例数据:'}
                         </span>
-                        <span style={{ fontWeight: 500 }}>{preview.value}</span>
+                        <span style={{ 
+                          fontWeight: 500,
+                          color: 'var(--text-primary, inherit)'
+                        }}>{preview.value}</span>
                       </div>
                     );
                   }

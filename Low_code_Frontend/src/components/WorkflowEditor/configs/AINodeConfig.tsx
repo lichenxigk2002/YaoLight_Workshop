@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Form, Input, Select, Radio, Collapse, InputNumber, Tag, message, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Node, Edge } from 'reactflow';
-import { VariableSelectField } from '../variables';
+import { VariableSelectField, VariableTagTextArea } from '../variables';
 import { AITooltips } from '../utils/configTooltips';
 import { aiApi } from '@/api/ai';
 import type { AIModel, SystemPresetModel, ProviderTemplate } from '@/types/ai';
@@ -22,6 +22,7 @@ import {
 // 导入 providers 以触发注册
 import '../providers';
 import { providerRegistry } from '../providers';
+import { ProviderIcon } from '../../Icons/ProviderIcon';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -118,6 +119,10 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       }
       if (!support.thinking) {
         form.setFieldValue('thinking', undefined);
+        // 通义千问使用 enable_thinking 而不是 thinking
+        if (currentProvider === 'qianwen') {
+          form.setFieldValue('enable_thinking', undefined);
+        }
       }
       if (!support.thinkingLevel) {
         form.setFieldValue('thinkingLevel', undefined);
@@ -137,7 +142,14 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
         form.setFieldValue('stream', false);
       }
       if (support.thinking && form.getFieldValue('thinking') === undefined) {
-        form.setFieldValue('thinking', false);
+        // 通义千问使用 enable_thinking 而不是 thinking
+        if (currentProvider === 'qianwen') {
+          if (form.getFieldValue('enable_thinking') === undefined) {
+            form.setFieldValue('enable_thinking', false);
+          }
+        } else {
+          form.setFieldValue('thinking', false);
+        }
       }
       if (support.thinkingLevel && form.getFieldValue('thinkingLevel') === undefined) {
         form.setFieldValue('thinkingLevel', 'medium'); // 豆包默认使用 medium 模式
@@ -307,18 +319,20 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                             }
                           }}
                         >
-                          {systemModels.map((model) => (
-                            <Option key={model.id} value={model.provider}>
-                              <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <Tag color="blue" className={styles.optionTag} title={model.name}>
-                                  {model.name}
-                                </Tag>
-                                <span className={styles.optionText} title={model.modelName}>
-                                  {model.modelName}
-                                </span>
-                              </div>
-                            </Option>
-                          ))}
+                          {systemModels.map((model) => {
+                            // 获取提供商的显示名称（优先使用注册表中的displayName）
+                            const providerReg = providerRegistry.get(model.provider);
+                            const displayName = providerReg?.displayName || model.name;
+                            
+                            return (
+                              <Option key={model.id} value={model.provider}>
+                                <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <ProviderIcon provider={model.provider} size={16} />
+                                  <span>{displayName}</span>
+                                </div>
+                              </Option>
+                            );
+                          })}
                           {systemModels.length === 0 && (
                             <Option disabled value="">
                               {t('node.config.ai.noSystemPresetModel')}
@@ -454,6 +468,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                         <Select className={styles.modelSelect}>
                           <Option value="deepseek">DeepSeek</Option>
                           <Option value="doubao">豆包</Option>
+                          <Option value="qianwen">通义千问</Option>
                         </Select>
                       </Form.Item>
                       <Form.Item
@@ -512,10 +527,14 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
             className={styles.formItem}
             tooltip={t('node.config.ai.promptTooltip')}
           >
-            <TextArea
+            <VariableTagTextArea
               rows={5}
-              className={styles.promptTextArea}
+              node={node}
+              nodes={nodes}
+              edges={edges}
               placeholder={t('node.config.ai.promptPlaceholder')}
+              className={styles.promptTextArea}
+              executionResult={executionResult}
             />
           </Form.Item>
 

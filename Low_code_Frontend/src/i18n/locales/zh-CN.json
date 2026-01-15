@@ -353,6 +353,8 @@
         "streamTooltip": "启用流式输出，实时显示AI生成的内容（DeepSeek特有功能，测试节点时可实时查看输出）",
         "thinking": "深度思考",
         "thinkingTooltip": "启用深度思考模式，AI会进行更深入的推理，适合需要复杂推理的任务（DeepSeek特有功能，仅在使用DeepSeek模型时生效）",
+        "enableThinking": "深度思考",
+        "enableThinkingTooltip": "开启后，思考内容将通过reasoning_content字段返回。适用于 Qwen3、Qwen3-Omni-Flash、Qwen3-VL模型。",
         "loadSystemModelsFailed": "加载系统预设模型失败",
         "loadUserModelsFailed": "加载用户模型失败"
       },
@@ -398,6 +400,7 @@
       "nodeAdded": "已添加{{label}}节点",
       "nodeDeleted": "节点已删除",
       "nodesDeleted": "已删除 {{count}} 个节点",
+      "edgesDeleted": "已删除 {{count}} 条连线",
       "nodeConnected": "节点已连接",
       "nodeNotFound": "无法找到节点",
       "loadFailed": "加载工作流节点失败: {{error}}"

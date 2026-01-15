@@ -1,3 +1,5 @@
 export { default as StarBadgeIcon } from './StarBadgeIcon';
 export { ProviderIcon } from './ProviderIcon';
+export { default as MessageIcon } from './MessageIcon';
+export { default as CollapseIcon } from './CollapseIcon';
 

@@ -4,6 +4,7 @@
 export { VariableSelector, getVariableDisplayName } from './VariableSelector';
 export { VariableSelectField } from './VariableSelectField';
 export { VariableSelectorButton } from './VariableSelectorButton';
+export { VariableTagTextArea } from './VariableTagTextArea';
 export {
   nodeIODefinitions,
   getNodeInputVariables,

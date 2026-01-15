@@ -739,11 +739,31 @@ func (e *WorkflowExecutor) executeDataCleanNode(node NodeConfig, dataFlow *DataF
 		}
 	}
 
+	// 将清洗后的数据包装成符合变量定义的格式
+	// 变量定义中输出变量是 "cleaned"，所以需要包装成 { "cleaned": result.Data }
+	// 同时，如果清洗后的数据是对象，保留其原有结构以便直接访问字段
+	var cleanedData map[string]interface{}
+
+	if cleanedObj, ok := result.Data.(map[string]interface{}); ok {
+		// 如果清洗后的数据是对象，保留原有结构，同时添加 cleaned 字段
+		cleanedData = make(map[string]interface{})
+		for k, v := range cleanedObj {
+			cleanedData[k] = v
+		}
+		// 添加 cleaned 字段，指向整个清洗后的数据（用于变量访问）
+		cleanedData["cleaned"] = result.Data
+	} else {
+		// 如果清洗后的数据不是对象（是字符串、数组等），包装成对象
+		cleanedData = map[string]interface{}{
+			"cleaned": result.Data,
+		}
+	}
+
 	return NodeExecutionResult{
 		NodeID:  node.ID,
 		Type:    "dataclean",
 		Success: true,
-		Data:    result.Data,
+		Data:    cleanedData,
 	}
 }
 
@@ -889,6 +909,24 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
 			stream = false
 			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "qianwen" {
+		// 通义千问支持流式输出
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+		// 通义千问深度思考参数（enable_thinking）
+		// 注意：通义千问使用 enable_thinking 而不是 thinking
+		if enableThinking, ok := node.Config["enable_thinking"].(bool); ok {
+			providerConfig["enable_thinking"] = enableThinking
+		} else if _, exists := providerConfig["enable_thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["enable_thinking"] = false
 		}
 	}
 

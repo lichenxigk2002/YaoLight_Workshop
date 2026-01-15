@@ -23,6 +23,8 @@ import {
   ReloadOutlined,
   UnorderedListOutlined,
   CheckCircleOutlined,
+  DownloadOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import NodePanel from './panels/NodePanel';
 import NodeConfigPanel from './panels/NodeConfigPanel';
@@ -31,6 +33,7 @@ import { validateNodeConnection } from './utils/nodeFormats';
 import styles from './index.module.scss';
 import { useThemeStore } from '@/store/theme';
 import { isCommentNode } from '@/utils/nodeUtils';
+import { exportWorkflow, importWorkflow } from '@/utils/workflowImportExport';
 
 // 导入自定义Hooks
 import { useWorkflowNodes } from './hooks/useWorkflowNodes';
@@ -241,6 +244,16 @@ const WorkflowEditor: React.FC = () => {
     [setEdges, t]
   );
 
+  // 删除连线（ReactFlow的onEdgesDelete）
+  const onEdgesDelete = useCallback(
+    (deleted: Edge[]) => {
+      if (deleted.length > 0) {
+        message.success(t('node.messages.edgesDeleted', { count: deleted.length }) || `已删除 ${deleted.length} 条连线`);
+      }
+    },
+    [t]
+  );
+
   // 保存节点配置
   const handleNodeConfigSave = useCallback(
     (nodeId: string, data: any) => {
@@ -292,6 +305,62 @@ const WorkflowEditor: React.FC = () => {
     },
     [nodes, updateNodeConfig, setEdges, selectedNode]
   );
+
+  // 导出工作流
+  const handleExportWorkflow = useCallback(() => {
+    if (nodes.length === 0 && edges.length === 0) {
+      message.warning('当前工作流为空，无法导出');
+      return;
+    }
+    try {
+      exportWorkflow(nodes, edges);
+      message.success('工作流已导出');
+    } catch (error: any) {
+      message.error('导出失败: ' + (error.message || '未知错误'));
+    }
+  }, [nodes, edges]);
+
+  // 导入工作流
+  const handleImportWorkflow = useCallback(() => {
+    if (nodes.length > 0 || edges.length > 0) {
+      message.warning('请先清空当前工作流，再导入');
+      return;
+    }
+
+    // 创建隐藏的文件输入元素
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.style.display = 'none';
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        const { nodes: importedNodes, edges: importedEdges } = await importWorkflow(file, getNodeLabel);
+        setNodes(importedNodes);
+        setEdges(importedEdges);
+        updateNodeIdCounter(importedNodes);
+        message.success('工作流已导入');
+
+        // 自动适配视图
+        setTimeout(() => {
+          if (reactFlowInstance) {
+            reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
+          }
+        }, 100);
+      } catch (error: any) {
+        message.error('导入失败: ' + (error.message || '未知错误'));
+      } finally {
+        // 清理
+        document.body.removeChild(input);
+      }
+    };
+
+    document.body.appendChild(input);
+    input.click();
+  }, [nodes, edges, setNodes, setEdges, updateNodeIdCounter, reactFlowInstance, getNodeLabel]);
 
   // 加载工作流节点和边
   useEffect(() => {
@@ -351,6 +420,7 @@ const WorkflowEditor: React.FC = () => {
               setContextMenu(null);
             }}
             onNodesDelete={onNodesDelete}
+            onEdgesDelete={onEdgesDelete}
             onInit={(instance) => {
               setReactFlowInstance(instance);
               if (!hasInitialized.current) {
@@ -471,6 +541,24 @@ const WorkflowEditor: React.FC = () => {
                 style={{ fontSize: '12px' }}
               >
                 {t('workflowEditor.nodes')}
+              </Button>
+              <Button
+                size="small"
+                shape="round"
+                icon={<DownloadOutlined />}
+                onClick={handleExportWorkflow}
+                style={{ fontSize: '12px' }}
+              >
+                导出
+              </Button>
+              <Button
+                size="small"
+                shape="round"
+                icon={<UploadOutlined />}
+                onClick={handleImportWorkflow}
+                style={{ fontSize: '12px' }}
+              >
+                导入
               </Button>
             </Space>
             {nodeListVisible && (

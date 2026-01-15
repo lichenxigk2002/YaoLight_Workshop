@@ -353,6 +353,8 @@
         "streamTooltip": "Enable stream output to display AI-generated content in real-time (DeepSeek-specific feature, can view output in real-time when testing nodes)",
         "thinking": "Deep Thinking",
         "thinkingTooltip": "Enable deep thinking mode, AI will perform deeper reasoning, suitable for tasks requiring complex reasoning (DeepSeek-specific feature, only effective when using DeepSeek models)",
+        "enableThinking": "Deep Thinking",
+        "enableThinkingTooltip": "When enabled, thinking content will be returned through the reasoning_content field. Applicable to Qwen3, Qwen3-Omni-Flash, Qwen3-VL models.",
         "loadSystemModelsFailed": "Failed to load system preset models",
         "loadUserModelsFailed": "Failed to load user models"
       },
@@ -394,14 +396,15 @@
       "moreLinks": "... {{count}} more links",
       "moreImages": "... {{count}} more images"
     },
-    "messages": {
+      "messages": {
       "nodeAdded": "Added {{label}} node",
       "nodeDeleted": "Node deleted",
       "nodesDeleted": "Deleted {{count}} nodes",
+      "edgesDeleted": "Deleted {{count}} edges",
       "nodeConnected": "Node connected",
       "nodeNotFound": "Cannot find node",
       "loadFailed": "Failed to load workflow nodes: {{error}}"
-    },
+      },
     "contextMenu": {
       "configNode": "Configure Node",
       "testCrawl": "Test Crawl",

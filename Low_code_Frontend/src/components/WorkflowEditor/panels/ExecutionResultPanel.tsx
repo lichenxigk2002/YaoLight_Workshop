@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
-import { ProviderIcon } from '@/components/Icons';
+import { ProviderIcon, MessageIcon, CollapseIcon } from '@/components/Icons';
 import styles from './ExecutionResultPanel.module.scss';
 
 const { Panel } = Collapse;
@@ -49,6 +49,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
 }) => {
   const { t } = useTranslation();
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
+  const [expandedSections, setExpandedSections] = useState<Record<string, { reasoning: boolean; content: boolean }>>({});
 
   // 当结果更新时，自动展开AI节点（如果正在流式输出）
   useEffect(() => {
@@ -103,7 +104,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   };
 
   // 渲染数据预览
-  const renderDataPreview = (data: any, nodeType: string) => {
+  const renderDataPreview = (data: any, nodeType: string, nodeId?: string) => {
     if (!data) {
       return <Empty description={t('node.execution.noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     }
@@ -200,43 +201,74 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
       const reasoningContent = data.reasoningContent || '';
       const hasReasoning = reasoningContent && reasoningContent.trim() !== '';
 
+      // 获取当前节点的展开状态（默认都展开）
+      const currentNodeId = nodeId || (data as any).node_id || '';
+      const sectionState = expandedSections[currentNodeId] || { reasoning: true, content: true };
+
+      const toggleSection = (section: 'reasoning' | 'content') => {
+        setExpandedSections(prev => ({
+          ...prev,
+          [currentNodeId]: {
+            ...prev[currentNodeId],
+            [section]: !(prev[currentNodeId]?.[section] ?? true),
+          },
+        }));
+      };
+
       return (
         <div className={styles.dataPreview}>
           {/* 如果有思考内容，显示思考过程 */}
           {hasReasoning && (
-            <div style={{ marginBottom: 16 }}>
-              <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                思考过程：
-              </Text>
-              <div style={{
-                padding: 12,
-                background: 'var(--bg-tertiary)',
-                borderRadius: 4,
-                maxHeight: '200px',
-                overflowY: 'auto'
-              }}>
-                <MarkdownRenderer content={reasoningContent} />
+            <div className={styles.reasoningSection}>
+              <div
+                className={styles.sectionHeader}
+                onClick={() => toggleSection('reasoning')}
+                style={{ cursor: 'pointer', userSelect: 'none' }}
+              >
+                <Text strong className={styles.sectionTitle}>
+                  <svg
+                    className="icon"
+                    viewBox="0 0 1024 1024"
+                    version="1.1"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 6 }}
+                  >
+                    <path d="M377.75872 215.00928c27.29472-79.90784 137.69728-82.304 170.05056-7.26528l2.74944 7.296 36.83328 107.74528a182.62016 182.62016 0 0 0 103.90528 110.08l9.91744 3.68128L808.96 473.344c79.872 27.29472 82.304 137.69728 7.296 170.08128L808.96 646.144l-107.74528 36.83328a182.50752 182.50752 0 0 0-110.11072 103.90528l-3.712 9.88672-36.80256 107.776c-27.29472 79.90272-137.66144 82.304-170.01472 7.296l-2.816-7.296-36.79744-107.74528A182.54848 182.54848 0 0 0 237.056 686.68928l-9.856-3.712-107.74528-36.80256c-79.93344-27.29472-82.36544-137.66144-7.296-169.984l7.296-2.84672 107.74528-36.80256a182.5792 182.5792 0 0 0 110.08-103.90016l3.68128-9.856 36.79744-107.776z m86.4 29.50144L427.3664 352.22528a273.92 273.92 0 0 1-159.29856 166.58944l-11.42272 4.16256-107.74528 36.79744 107.74528 36.80256a273.87392 273.87392 0 0 1 166.58944 159.32416l4.16256 11.42784 36.79744 107.70944 36.80256-107.70944a273.95072 273.95072 0 0 1 159.32928-166.59456l11.392-4.12672 107.74016-36.83328-107.74016-36.79744a273.94048 273.94048 0 0 1-166.59456-159.32928l-4.096-11.42272-36.83328-107.71456h-0.03072zM829.44 57.6a45.6704 45.6704 0 0 1 40.99072 25.56928l2.20672 5.34528 15.96928 46.81216 46.87872 16a45.6448 45.6448 0 0 1 30.848 40.31488 45.70112 45.70112 0 0 1-25.472 43.90912l-5.376 2.176-46.848 16-15.96416 46.88384a45.62944 45.62944 0 0 1-84.224 5.34016l-2.21184-5.34528-15.96416-46.848-46.88384-15.99488a45.6704 45.6704 0 0 1-5.40672-84.19328l5.40672-2.20672 46.848-16 15.96928-46.848a45.6704 45.6704 0 0 1 43.20256-30.91456H829.44z" fill="currentColor"></path>
+                  </svg>
+                  思考过程：
+                </Text>
+                <CollapseIcon expanded={sectionState.reasoning} size={16} />
               </div>
+              {sectionState.reasoning && (
+                <div className={styles.reasoningContent}>
+                  <MarkdownRenderer content={reasoningContent} />
+                </div>
+              )}
             </div>
           )}
 
           {/* 显示正式回答 */}
-          <div>
-            <Text strong style={{ display: 'block', marginBottom: 8 }}>
-              {hasReasoning ? '正式回答：' : '回答：'}
-            </Text>
-            <div style={{
-              padding: 12,
-              background: 'var(--bg-secondary)',
-              borderRadius: 4,
-              minHeight: '100px'
-            }}>
-              {content ? (
-                <MarkdownRenderer content={content} />
-              ) : (
-                <Text type="secondary">等待AI响应...</Text>
-              )}
+          <div className={styles.contentSection}>
+            <div
+              className={styles.sectionHeader}
+              onClick={() => toggleSection('content')}
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+            >
+              <Text strong className={styles.sectionTitle}>
+                <MessageIcon size={16} style={{ marginRight: 6 }} />
+                {hasReasoning ? '正式回答：' : '回答：'}
+              </Text>
+              <CollapseIcon expanded={sectionState.content} size={16} />
             </div>
+            {sectionState.content && (
+              <div className={styles.contentArea}>
+                {content ? (
+                  <MarkdownRenderer content={content} />
+                ) : null}
+              </div>
+            )}
           </div>
 
           {/* 显示元数据 */}
@@ -376,6 +408,8 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                             provider = 'deepseek';
                           } else if (modelName.toLowerCase().includes('doubao') || modelName.toLowerCase().includes('seed')) {
                             provider = 'doubao';
+                          } else if (modelName.toLowerCase().includes('qwen')) {
+                            provider = 'qianwen';
                           }
                           // 如果无法从模型名称推断，尝试从配置中获取
                           if (!provider && node?.data?.config?.provider) {
@@ -432,7 +466,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                 }
               >
                 {nodeResult.success ? (
-                  renderDataPreview(nodeResult.data, nodeResult.type)
+                  renderDataPreview(nodeResult.data, nodeResult.type, nodeResult.node_id)
                 ) : (
                   <div className={styles.errorMessage}>
                     <Text type="danger">{nodeResult.error || t('node.execution.execFailed')}</Text>

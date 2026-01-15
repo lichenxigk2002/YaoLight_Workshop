@@ -155,6 +155,24 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			stream = true
 			providerConfig["stream"] = true
 		}
+	} else if modelConfig.Provider == "qianwen" {
+		// 通义千问支持流式输出
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+		// 通义千问深度思考参数（enable_thinking）
+		// 注意：通义千问使用 enable_thinking 而不是 thinking
+		if enableThinking, ok := node.Config["enable_thinking"].(bool); ok {
+			providerConfig["enable_thinking"] = enableThinking
+		} else if _, exists := providerConfig["enable_thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["enable_thinking"] = false
+		}
 	}
 
 	// 如果启用流式输出，使用流式方法

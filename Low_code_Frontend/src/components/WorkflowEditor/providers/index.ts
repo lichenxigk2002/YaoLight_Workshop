@@ -8,4 +8,5 @@ export type { AIProviderRegistration, ProviderConfigProps, ProviderPreviewProps 
 // 注册所有提供商
 import './deepseek';
 import './doubao';
+import './qianwen';
 

@@ -144,21 +144,28 @@
 
 // 统一通知样式为黑白风格
 :global(.ant-notification-notice) {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-secondary);
-  box-shadow: 0 2px 8px var(--shadow-sm);
-  border-radius: 8px;
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border-secondary) !important;
+  box-shadow: 0 2px 8px var(--shadow-sm) !important;
+  border-radius: 8px !important;
 }
 :global(.ant-notification-notice-message),
 :global(.ant-notification-notice-description) {
-  color: var(--text-primary);
+  color: var(--text-primary) !important;
 }
 :global(.ant-notification-notice-close) {
-  color: var(--text-secondary);
+  color: var(--text-secondary) !important;
+}
+:global(.ant-notification-notice-close:hover) {
+  color: var(--text-primary) !important;
 }
 :global(.ant-notification-notice-btn .ant-btn) {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-secondary);
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-secondary) !important;
+}
+:global(.ant-notification-notice-btn .ant-btn:hover) {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-primary) !important;
 }
 

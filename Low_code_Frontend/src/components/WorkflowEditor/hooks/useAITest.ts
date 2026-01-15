@@ -11,7 +11,15 @@ export interface AIPreviewState {
   isStreaming?: boolean; // 是否正在流式输出
 }
 
-export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edges: Edge[] = []) {
+export function useAITest(
+  node: Node | null, 
+  form: any, 
+  nodes: Node[] = [], 
+  edges: Edge[] = [],
+  buildNodeConfig?: () => Promise<any | null>,
+  handleSaveForm?: (onSave: (nodeId: string, config: any) => void, onSaveToBackend?: () => Promise<boolean>, workflowId?: string) => Promise<boolean>,
+  onSave?: (nodeId: string, config: any) => void
+) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<AIPreviewState | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');
@@ -22,13 +30,29 @@ export function useAITest(node: Node | null, form: any, nodes: Node[] = [], edge
 
   const handleTestAI = async () => {
     try {
-      const values = await form.validateFields();
+      // 如果有 buildNodeConfig 函数，使用它来构建配置（会自动处理AI节点的模型配置等）
+      let config: any;
+      if (buildNodeConfig) {
+        config = await buildNodeConfig(true);
+        if (!config) {
+          return; // 验证失败或构建失败
+        }
+        
+        // 自动保存配置（静默保存，不显示消息）
+        if (handleSaveForm && onSave) {
+          await handleSaveForm(onSave, undefined, undefined);
+        }
+      } else {
+        // 兼容旧逻辑：直接从表单获取值
+        const values = await form.validateFields();
+        if (!node) return;
+        config = { ...values };
+        // 删除不需要的字段
+        delete config.label;
+        delete config.connectionDirection;
+      }
+      
       if (!node) return;
-
-      const config: any = { ...values };
-      // 删除不需要的字段
-      delete config.label;
-      delete config.connectionDirection;
 
       // 递归查找所有上游节点（包括上游节点的上游节点）
       const collectUpstreamNodes = (targetNodeId: string, collected: Set<string>): Node[] => {

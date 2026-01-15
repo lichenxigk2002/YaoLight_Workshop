@@ -49,6 +49,11 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置豆包 API Key，请在.env中配置DOUBAO_API_KEY")
 		}
+	case "qianwen":
+		apiKey = config.QianwenAPIKey
+		if apiKey == "" {
+			return nil, fmt.Errorf("系统未配置通义千问 API Key，请在.env中配置QIANWEN_API_KEY")
+		}
 	default:
 		return nil, fmt.Errorf("不支持的预设提供商: %s", provider)
 	}
@@ -177,6 +182,8 @@ func getDefaultBaseURL(provider string) string {
 		return "https://api.deepseek.com"
 	case "doubao":
 		return "https://ark.cn-beijing.volces.com/api/v3"
+	case "qianwen":
+		return "https://dashscope.aliyuncs.com/compatible-mode/v1"
 	default:
 		return ""
 	}

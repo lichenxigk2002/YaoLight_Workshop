@@ -39,6 +39,29 @@
       padding: 16px;
       max-height: 500px;
       overflow-y: auto;
+
+      // 使用更美观的滚动条样式
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--border-secondary);
+        border-radius: 3px;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+
+      &:hover::-webkit-scrollbar-thumb {
+        opacity: 1;
+      }
     }
   }
 }
@@ -66,7 +89,7 @@
     background: var(--bg-secondary);
     border-radius: 4px;
     color: var(--text-primary);
-    
+
     // 强制内部文本颜色
     :global(.ant-typography) {
       color: var(--text-primary);
@@ -92,7 +115,7 @@
       &:last-child {
         margin-bottom: 0;
       }
-      
+
       :global(.ant-typography-secondary) {
         color: var(--text-tertiary);
       }
@@ -147,11 +170,87 @@
         border-radius: 4px;
         border: 1px solid var(--border-secondary);
       }
-      
+
       :global(.ant-typography-secondary) {
         color: var(--text-tertiary);
       }
     }
+  }
+
+  // AI节点的思考过程和正式回答样式
+  .reasoningSection {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-secondary);
+  }
+
+  .contentSection {
+    // 正式回答部分
+  }
+
+  .sectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: var(--bg-secondary);
+    }
+  }
+
+  .sectionTitle {
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .reasoningContent {
+    padding: 14px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    // 移除左边框
+    // border-left: 3px solid var(--primary);
+    // 移除独立滚动，让整个容器统一滚动
+    // max-height: 200px;
+    // overflow-y: auto;
+
+    // 使用更美观的滚动条样式（如果需要滚动）
+    // scrollbar-width: thin;
+    // scrollbar-color: transparent transparent;
+
+    // &::-webkit-scrollbar {
+    //   width: 4px;
+    // }
+
+    // &::-webkit-scrollbar-track {
+    //   background: transparent;
+    // }
+
+    // &::-webkit-scrollbar-thumb {
+    //   background: var(--border-secondary);
+    //   border-radius: 2px;
+    //   opacity: 0;
+    //   transition: opacity 0.2s;
+    // }
+
+    // &:hover::-webkit-scrollbar-thumb {
+    //   opacity: 1;
+    // }
+  }
+
+  .contentArea {
+    padding: 14px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    min-height: 100px;
+    // 移除独立滚动，让整个容器统一滚动
   }
 }
 
@@ -198,4 +297,3 @@
     }
   }
 }
-
