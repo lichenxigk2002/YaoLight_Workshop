@@ -374,75 +374,65 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		executed[nodeConfig.ID] = true
 	}
 
-	// 如果有AI节点，执行AI节点的所有上游节点
-	if aiNode != nil {
+	// 执行所有节点（按拓扑顺序）
+	// 找到所有起始节点（没有入边的节点）
+	startNodes := e.findStartNodes(req.Nodes, req.Edges)
+	queue := make([]string, 0)
+	for _, node := range startNodes {
+		queue = append(queue, node.ID)
+	}
+
+	// 执行所有节点
+	for len(queue) > 0 {
+		nodeID := queue[0]
+		queue = queue[1:]
+
+		if executed[nodeID] {
+			continue
+		}
+
+		// 找到节点配置
+		var nodeConfig *NodeConfig
+		for i := range req.Nodes {
+			if req.Nodes[i].ID == nodeID {
+				nodeConfig = &req.Nodes[i]
+				break
+			}
+		}
+
+		if nodeConfig == nil {
+			continue
+		}
+
+		// 先执行该节点的上游节点
 		for _, edge := range req.Edges {
-			if edge.Target == aiNode.ID {
+			if edge.Target == nodeID {
 				executeUpstream(edge.Source)
 			}
 		}
 
-		// 设置AI节点类型到变量上下文
-		variableContext.SetNodeType(aiNode.ID, aiNode.Type)
+		// 设置节点类型到变量上下文
+		variableContext.SetNodeType(nodeConfig.ID, nodeConfig.Type)
 
-		// 如果AI节点启用了流式输出，使用流式执行
-		if hasStreamingAI {
-			e.ExecuteAINodeStream(ctx, *aiNode, dataFlow, variableContext, req.UserID, callback)
+		// 如果是AI节点且启用了流式输出，使用流式执行
+		if nodeConfig.Type == "ai" && hasStreamingAI && nodeConfig.ID == aiNode.ID {
+			// 使用流式执行AI节点
+			// 创建一个包装的callback来跟踪执行状态
+			originalCallback := callback
+			wrappedCallback := func(nodeID string, content string, done bool, contentType string, err error) {
+				// 调用原始callback
+				originalCallback(nodeID, content, done, contentType, err)
+			}
+
+			e.ExecuteAINodeStream(ctx, *nodeConfig, dataFlow, variableContext, req.UserID, wrappedCallback)
+
+			// 标记AI节点为已执行（无论成功或失败）
+			executed[nodeConfig.ID] = true
+
+			// 继续执行下游节点（无论AI节点成功或失败）
+			// 注意：这里不continue，让代码继续执行到"找到下一个节点"的逻辑
 		} else {
-			// AI节点未启用流式输出，使用普通执行
-			result := e.executeNode(*aiNode, dataFlow, variableContext, req.UserID)
-			if result.Success {
-				nodeData := NewNodeData(result.Data)
-				dataFlow.SetNodeOutput(aiNode.ID, nodeData)
-				variableContext.SetNodeOutput(aiNode.ID, nodeData)
-				resultJSON, _ := json.Marshal(result)
-				callback(aiNode.ID, string(resultJSON), false, "node_result", nil)
-			} else {
-				resultJSON, _ := json.Marshal(result)
-				callback(aiNode.ID, string(resultJSON), false, "node_result", fmt.Errorf("节点执行失败: %s", result.Error))
-			}
-		}
-	} else {
-		// 没有AI节点，执行所有节点（按拓扑顺序）
-		startNodes := e.findStartNodes(req.Nodes, req.Edges)
-		queue := make([]string, 0)
-		for _, node := range startNodes {
-			queue = append(queue, node.ID)
-		}
-
-		// 执行所有节点
-		for len(queue) > 0 {
-			nodeID := queue[0]
-			queue = queue[1:]
-
-			if executed[nodeID] {
-				continue
-			}
-
-			// 找到节点配置
-			var nodeConfig *NodeConfig
-			for i := range req.Nodes {
-				if req.Nodes[i].ID == nodeID {
-					nodeConfig = &req.Nodes[i]
-					break
-				}
-			}
-
-			if nodeConfig == nil {
-				continue
-			}
-
-			// 先执行该节点的上游节点
-			for _, edge := range req.Edges {
-				if edge.Target == nodeID {
-					executeUpstream(edge.Source)
-				}
-			}
-
-			// 设置节点类型到变量上下文
-			variableContext.SetNodeType(nodeConfig.ID, nodeConfig.Type)
-
-			// 执行节点
+			// 普通节点或非流式AI节点，使用普通执行
 			result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
 			if result.Success {
 				nodeData := NewNodeData(result.Data)
@@ -454,25 +444,30 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 				resultJSON, _ := json.Marshal(result)
 				callback(nodeConfig.ID, string(resultJSON), false, "node_result", fmt.Errorf("节点执行失败: %s", result.Error))
 			}
-			executed[nodeConfig.ID] = true
+		}
 
-			// 找到下一个节点
-			for _, edge := range req.Edges {
-				if edge.Source == nodeID && !executed[edge.Target] {
-					allInputsReady := true
-					for _, e := range req.Edges {
-						if e.Target == edge.Target && !executed[e.Source] {
-							allInputsReady = false
-							break
-						}
+		executed[nodeConfig.ID] = true
+
+		// 找到下一个节点
+		for _, edge := range req.Edges {
+			if edge.Source == nodeID && !executed[edge.Target] {
+				allInputsReady := true
+				for _, e := range req.Edges {
+					if e.Target == edge.Target && !executed[e.Source] {
+						allInputsReady = false
+						break
 					}
-					if allInputsReady {
-						queue = append(queue, edge.Target)
-					}
+				}
+				if allInputsReady {
+					queue = append(queue, edge.Target)
 				}
 			}
 		}
 	}
+
+	// 所有节点执行完成，发送最终完成信号
+	// 使用一个特殊的节点ID "workflow_complete" 来表示整个工作流完成
+	callback("workflow_complete", "", true, "workflow_complete", nil)
 
 	return nil
 }
