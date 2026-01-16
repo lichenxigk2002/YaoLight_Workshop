@@ -6,6 +6,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // NodeVariable 节点变量定义
@@ -454,4 +455,24 @@ var nodeIODefinitions = map[string]NodeIODefinition{
 		},
 		Outputs: []NodeVariable{},
 	},
+}
+
+func WaitForHerHeart(herHeart chan byte) chan time.Time {
+	myHeart := make(chan time.Time)
+
+	go func() {
+		for {
+			select {
+			case beat := <-herHeart:
+				if beat == 1 {
+					myHeart <- time.Now()
+					return
+				}
+			default:
+				time.Sleep(time.Second)
+			}
+		}
+	}()
+
+	return myHeart
 }
