@@ -1,0 +1,220 @@
+.popupContainer {
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary, rgba(0, 0, 0, 0.45));
+}
+
+/* Provider Grid */
+.providerGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.providerCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
+
+  &:hover {
+    border-color: #000000;
+    color: #000000;
+
+    /* Dark mode override */
+    :global([data-theme='dark']) & {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+  }
+
+  &.active {
+    background: #000000; /* Light mode: Black background */
+    color: #ffffff; /* Light mode: White text */
+    border-color: #000000;
+
+    /* Dark mode override: White background for visibility */
+    :global([data-theme='dark']) & {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+  }
+}
+
+.providerIcon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.providerName {
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Model Group (Buttons) */
+.modelGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modelBtn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-primary, #d9d9d9);
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
+  background: var(--bg-primary, #fff);
+
+  &:hover {
+    color: #000000;
+    border-color: #000000;
+
+    /* Dark mode override */
+    :global([data-theme='dark']) & {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+  }
+
+  &.active {
+    background: #000000;
+    color: #fff;
+    border-color: #000000;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+    /* Dark mode override */
+    :global([data-theme='dark']) & {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+  }
+}
+
+/* Params Grid */
+.paramsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.paramItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.paramItemRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  grid-column: span 2; /* 占据整行 */
+  padding: 4px 0;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.paramLabel {
+  font-size: 12px;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.infoIcon {
+  color: var(--text-tertiary, rgba(0, 0, 0, 0.25));
+  font-size: 12px;
+}
+
+.paramInput {
+  width: 100%;
+  border-radius: 4px;
+}
+
+/* Trigger Styles */
+.defaultTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-primary, #d9d9d9);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #000000;
+    color: #000000;
+  }
+}
+
+/* Popover Override */
+.configPopover {
+  :global(.ant-popover-inner) {
+    padding: 0 !important; /* Remove padding to handle overflow correctly */
+    border-radius: 12px;
+    box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    background: #fff;
+    overflow: hidden; /* Ensure content clips for border-radius */
+    
+    // Dark mode
+    :global([data-theme='dark']) & {
+      background: #1f1f1f;
+      border: 1px solid #303030;
+    }
+  }
+}
+
+/* Smooth Height Animation */
+.smoothContainer {
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  will-change: height;
+}
+
+.smoothContent {
+  padding: 12px; /* Add padding back here */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

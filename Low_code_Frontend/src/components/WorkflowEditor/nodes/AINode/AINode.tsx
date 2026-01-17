@@ -26,6 +26,10 @@ const AINode: React.FC<NodeProps> = ({ data, ...props }) => {
         return 'doubao';
       } else if (lowerModelName.includes('qwen')) {
         return 'qianwen';
+      } else if (lowerModelName.includes('spark')) {
+        return 'spark';
+      } else if (lowerModelName.includes('hunyuan')) {
+        return 'hunyuan';
       }
     }
     

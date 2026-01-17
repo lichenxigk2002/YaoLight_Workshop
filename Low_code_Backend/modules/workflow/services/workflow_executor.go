@@ -1008,7 +1008,7 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 			stream = false
 			providerConfig["stream"] = false
 		}
-	} else if modelConfig.Provider == "qianwen" {
+	} else if modelConfig.Provider == "qwen" {
 		// 通义千问支持流式输出
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s
@@ -1065,6 +1065,40 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 		}
 		if pp, ok := node.Config["presencePenalty"].(float64); ok {
 			providerConfig["presencePenalty"] = pp
+		}
+
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "spark" {
+		if thinkingType, ok := node.Config["thinkingType"].(string); ok && thinkingType != "" {
+			providerConfig["thinkingType"] = thinkingType
+		} else if _, exists := providerConfig["thinkingType"]; !exists {
+			providerConfig["thinkingType"] = "enabled"
+		}
+
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
+
+		if user, ok := node.Config["user"].(string); ok && user != "" {
+			providerConfig["user"] = user
+		} else if _, exists := providerConfig["user"]; !exists {
+			providerConfig["user"] = fmt.Sprintf("%d", userID)
+		}
+	} else if modelConfig.Provider == "hunyuan" {
+		if v, ok := node.Config["enableEnhancement"].(bool); ok {
+			providerConfig["enableEnhancement"] = v
+		} else if _, exists := providerConfig["enableEnhancement"]; !exists {
+			providerConfig["enableEnhancement"] = true
 		}
 
 		if s, ok := node.Config["stream"].(bool); ok {
@@ -1147,6 +1181,9 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 		"tokensUsed":        chatResp.TokensUsed,
 		"model":             chatResp.Model,
 		"reasoning_details": chatResp.ReasoningDetails, // 包含推理详情
+	}
+	if chatResp.ReasoningDetails != nil {
+		resultData["reasoningContent"] = chatResp.ReasoningDetails
 	}
 
 	return NodeExecutionResult{

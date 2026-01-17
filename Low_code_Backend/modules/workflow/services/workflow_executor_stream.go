@@ -230,6 +230,39 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			stream = false
 			providerConfig["stream"] = false
 		}
+	} else if modelConfig.Provider == "spark" {
+		if thinkingType, ok := node.Config["thinkingType"].(string); ok && thinkingType != "" {
+			providerConfig["thinkingType"] = thinkingType
+		} else if _, exists := providerConfig["thinkingType"]; !exists {
+			providerConfig["thinkingType"] = "enabled"
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
+
+		if user, ok := node.Config["user"].(string); ok && user != "" {
+			providerConfig["user"] = user
+		} else if _, exists := providerConfig["user"]; !exists {
+			providerConfig["user"] = fmt.Sprintf("%d", userID)
+		}
+	} else if modelConfig.Provider == "hunyuan" {
+		if v, ok := node.Config["enableEnhancement"].(bool); ok {
+			providerConfig["enableEnhancement"] = v
+		} else if _, exists := providerConfig["enableEnhancement"]; !exists {
+			providerConfig["enableEnhancement"] = true
+		}
+
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
 	}
 
 	// 如果启用流式输出，使用流式方法
@@ -341,6 +374,9 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			"content":    chatResp.Content, // 保留 content 以兼容旧代码
 			"tokensUsed": chatResp.TokensUsed,
 			"model":      chatResp.Model, // ChatResponse 中是 Model
+		}
+		if chatResp.ReasoningDetails != nil {
+			resultData["reasoningContent"] = chatResp.ReasoningDetails
 		}
 		nodeData := NewNodeData(resultData)
 		dataFlow.SetNodeOutput(nodeID, nodeData)

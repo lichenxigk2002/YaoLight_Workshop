@@ -66,7 +66,7 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 			},
 		},
 		{
-			"provider":       "qianwen",
+			"provider":       "qwen",
 			"name":           "通义千问",
 			"description":    "阿里云通义千问AI模型（OpenAI兼容模式）",
 			"defaultBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -111,12 +111,39 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 			"description":    "OpenAI GPT 系列模型（通过 OpenRouter 访问）",
 			"defaultBaseUrl": "https://openrouter.ai/api/v1",
 			"supportedModels": []string{
+				"openai/gpt-oss-20b",
+				"openai/gpt-oss-120b",
 				"openai/gpt-4o-mini",
 				"openai/gpt-4o",
 			},
 			"defaultConfig": map[string]interface{}{
 				"temperature": 0.7,
 				"maxTokens":   4096,
+			},
+		},
+		{
+			"provider":        "spark",
+			"name":            "讯飞星火",
+			"description":     "讯飞星火深度推理模型（OpenAI兼容接口）",
+			"defaultBaseUrl":  "https://spark-api-open.xf-yun.com/v2",
+			"supportedModels": []string{"spark-x"},
+			"defaultConfig": map[string]interface{}{
+				"temperature":  1.2,
+				"topP":         0.95,
+				"maxTokens":    65535,
+				"thinkingType": "enabled",
+			},
+		},
+		{
+			"provider":        "hunyuan",
+			"name":            "腾讯混元",
+			"description":     "腾讯混元大模型（OpenAI兼容接口）",
+			"defaultBaseUrl":  "https://api.hunyuan.cloud.tencent.com/v1",
+			"supportedModels": []string{"hunyuan-turbos-latest"},
+			"defaultConfig": map[string]interface{}{
+				"temperature":       0.7,
+				"maxTokens":         2000,
+				"enableEnhancement": true,
 			},
 		},
 		{
@@ -193,11 +220,11 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	}
 
 	// 检查是否有通义千问预设配置
-	if config.QianwenAPIKey != "" {
+	if config.QwenAPIKey != "" {
 		models = append(models, map[string]interface{}{
-			"id":          "system_qianwen",
+			"id":          "system_qwen",
 			"name":        "通义千问",
-			"provider":    "qianwen",
+			"provider":    "qwen",
 			"modelName":   "qwen-plus",
 			"baseUrl":     "https://dashscope.aliyuncs.com/compatible-mode/v1",
 			"isSystem":    true,
@@ -218,6 +245,32 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 		})
 	}
 
+	// 检查是否有讯飞星火预设配置
+	if config.SparkAPIKey != "" {
+		models = append(models, map[string]interface{}{
+			"id":          "system_spark",
+			"name":        "讯飞星火",
+			"provider":    "spark",
+			"modelName":   "spark-x",
+			"baseUrl":     "https://spark-api-open.xf-yun.com/v2",
+			"isSystem":    true,
+			"description": "系统预设的讯飞星火模型，所有用户可用",
+		})
+	}
+
+	// 检查是否有腾讯混元预设配置
+	if config.HunyuanAPIKey != "" {
+		models = append(models, map[string]interface{}{
+			"id":          "system_hunyuan",
+			"name":        "腾讯混元",
+			"provider":    "hunyuan",
+			"modelName":   "hunyuan-turbos-latest",
+			"baseUrl":     "https://api.hunyuan.cloud.tencent.com/v1",
+			"isSystem":    true,
+			"description": "系统预设的腾讯混元模型，所有用户可用",
+		})
+	}
+
 	// 检查是否有Gemini预设配置
 	if config.GeminiAPIKey != "" {
 		models = append(models, map[string]interface{}{
@@ -234,7 +287,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 			"id":          "system_gpt",
 			"name":        "GPT",
 			"provider":    "gpt",
-			"modelName":   "openai/gpt-4o-mini",
+			"modelName":   "openai/gpt-oss-20b",
 			"baseUrl":     "https://openrouter.ai/api/v1",
 			"isSystem":    true,
 			"description": "系统预设的OpenAI GPT模型（OpenRouter），所有用户可用",
@@ -306,7 +359,9 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 	supportedProviders := map[string]bool{
 		"deepseek": true,
 		"doubao":   true,
-		"qianwen":  true,
+		"qwen":     true,
+		"spark":    true,
+		"hunyuan":  true,
 		"zhipuai":  true,
 		"gemini":   true,
 		"gpt":      true,
@@ -331,8 +386,12 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 			defaultURL = "https://api.deepseek.com"
 		case "doubao":
 			defaultURL = "https://ark.cn-beijing.volces.com/api/v3"
-		case "qianwen":
+		case "qwen":
 			defaultURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		case "spark":
+			defaultURL = "https://spark-api-open.xf-yun.com/v2"
+		case "hunyuan":
+			defaultURL = "https://api.hunyuan.cloud.tencent.com/v1"
 		case "zhipuai":
 			defaultURL = "https://open.bigmodel.cn/api/paas/v4"
 		case "gemini", "gpt", "grok":

@@ -3,14 +3,14 @@
  */
 
 import { providerRegistry } from '../registry';
-import { QianwenConfig } from './QianwenConfig';
-import { QianwenPreview } from './QianwenPreview';
+import { QwenConfig } from './QwenConfig';
+import { QwenPreview } from './QwenPreview';
 
 providerRegistry.register({
-  name: 'qianwen',
+  name: 'qwen',
   displayName: '通义千问',
-  ConfigComponent: QianwenConfig,
-  PreviewComponent: QianwenPreview,
+  ConfigComponent: QwenConfig,
+  PreviewComponent: QwenPreview,
   supportedConfig: {
     stream: true,
     thinking: true, // 通义千问使用 enable_thinking 参数

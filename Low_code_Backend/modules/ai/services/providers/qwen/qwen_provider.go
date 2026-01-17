@@ -1,4 +1,4 @@
-package qianwen
+package qwen
 
 import (
 	"bufio"
@@ -12,14 +12,14 @@ import (
 	"yaolight-workshop/backend/modules/ai/services/providers"
 )
 
-// QianwenProvider 通义千问提供商实现
-type QianwenProvider struct {
+// QwenProvider 通义千问提供商实现
+type QwenProvider struct {
 	client *http.Client
 }
 
-// NewQianwenProvider 创建通义千问提供商实例
-func NewQianwenProvider() providers.AIProvider {
-	return &QianwenProvider{
+// NewQwenProvider 创建通义千问提供商实例
+func NewQwenProvider() providers.AIProvider {
+	return &QwenProvider{
 		client: &http.Client{},
 	}
 }
@@ -28,6 +28,7 @@ func NewQianwenProvider() providers.AIProvider {
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+	Name    string `json:"name,omitempty"`
 }
 
 // StreamOptions 流式输出配置
@@ -82,7 +83,7 @@ type StreamResponseBody struct {
 }
 
 // Chat 聊天对话（非流式）
-func (p *QianwenProvider) Chat(config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}) (*providers.ChatResponse, error) {
+func (p *QwenProvider) Chat(config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}) (*providers.ChatResponse, error) {
 	// 通义千问API地址（使用OpenAI兼容模式）
 	baseURL := config.BaseURL
 	if baseURL == "" {
@@ -199,7 +200,7 @@ func (p *QianwenProvider) Chat(config *providers.AIModelConfig, prompt string, c
 }
 
 // ChatStream 流式聊天对话
-func (p *QianwenProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
+func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	// 通义千问API地址（使用OpenAI兼容模式）
 	baseURL := config.BaseURL
 	if baseURL == "" {
@@ -283,12 +284,12 @@ func (p *QianwenProvider) ChatStream(ctx context.Context, config *providers.AIMo
 	}
 
 	// 读取流式响应（SSE格式）
-	// 使用Reader而不是Scanner，因为SSE流可能需要更精确的控制
-	reader := bufio.NewReader(resp.Body)
+	// 使用Scanner更方便按行读取
+	scanner := bufio.NewScanner(resp.Body)
 	var fullContent strings.Builder
 	var fullReasoningContent strings.Builder
 
-	for {
+	for scanner.Scan() {
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
@@ -298,16 +299,7 @@ func (p *QianwenProvider) ChatStream(ctx context.Context, config *providers.AIMo
 			// 继续执行
 		}
 
-		// 读取一行
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return fmt.Errorf("failed to read stream: %w", err)
-		}
-
-		line = strings.TrimSpace(line)
+		line := scanner.Text()
 		if line == "" {
 			continue
 		}
@@ -368,6 +360,10 @@ func (p *QianwenProvider) ChatStream(ctx context.Context, config *providers.AIMo
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("failed to read stream: %w", err)
+	}
+
 	// 最终回调（如果流正常结束）
 	finalContent := ""
 	if fullReasoningContent.Len() > 0 {
@@ -381,7 +377,7 @@ func (p *QianwenProvider) ChatStream(ctx context.Context, config *providers.AIMo
 }
 
 // Complete 文本补全
-func (p *QianwenProvider) Complete(config *providers.AIModelConfig, prompt string) (*providers.CompleteResponse, error) {
+func (p *QwenProvider) Complete(config *providers.AIModelConfig, prompt string) (*providers.CompleteResponse, error) {
 	// 通义千问使用chat接口
 	chatResp, err := p.Chat(config, prompt, "", nil)
 	if err != nil {
@@ -395,7 +391,7 @@ func (p *QianwenProvider) Complete(config *providers.AIModelConfig, prompt strin
 }
 
 // Embed 文本嵌入
-func (p *QianwenProvider) Embed(config *providers.AIModelConfig, text string) (*providers.EmbedResponse, error) {
+func (p *QwenProvider) Embed(config *providers.AIModelConfig, text string) (*providers.EmbedResponse, error) {
 	// 通义千问可能不支持嵌入接口，返回错误
 	return nil, fmt.Errorf("通义千问暂不支持文本嵌入功能")
 }

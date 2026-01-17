@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { DeepSeek, Doubao, Qwen, Zhipu, Gemini, Grok, OpenAI } from '@lobehub/icons';
+import { DeepSeek, Doubao, Qwen, Zhipu, Gemini, Grok, OpenAI, Spark, Hunyuan } from '@lobehub/icons';
 
 // 检查图标组件是否正确加载
 const SafeIcon = ({ Component, ...props }: any) => {
@@ -39,8 +39,15 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({ provider, size = 16,
     return <SafeIcon Component={Doubao} size={size} className={className} />;
   }
 
-  if (providerLower === 'qianwen') {
-    return <SafeIcon Component={Qwen} size={size} className={className} />;
+  if (providerLower === 'qianwen' || providerLower === 'qwen') {
+    // 确保 Qwen 组件存在，否则返回 null 避免报错
+    if (!Qwen) {
+      console.warn('Qwen icon component is missing');
+      return null;
+    }
+    // 用户指出千问图标应为紫色（品牌色）
+    // 强制指定颜色，以防 SafeIcon 回退到单色版时显示为黑/白
+    return <SafeIcon Component={Qwen} size={size} className={className} style={{ color: '#615CED' }} />;
   }
 
   if (providerLower === 'zhipuai') {
@@ -57,6 +64,14 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({ provider, size = 16,
 
   if (providerLower === 'grok') {
     return <SafeIcon Component={Grok} size={size} className={className} />;
+  }
+
+  if (providerLower === 'spark') {
+    return <SafeIcon Component={Spark} size={size} className={className} />;
+  }
+
+  if (providerLower === 'hunyuan') {
+    return <SafeIcon Component={Hunyuan} size={size} className={className} />;
   }
 
   // 默认返回空（未知提供商）

@@ -224,6 +224,10 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                         provider = 'qianwen';
                       } else if (modelName.toLowerCase().includes('glm') || modelName.toLowerCase().includes('zhipuai')) {
                         provider = 'zhipuai';
+                      } else if (modelName.toLowerCase().includes('spark')) {
+                        provider = 'spark';
+                      } else if (modelName.toLowerCase().includes('hunyuan')) {
+                        provider = 'hunyuan';
                       }
                     }
                     return provider ? (

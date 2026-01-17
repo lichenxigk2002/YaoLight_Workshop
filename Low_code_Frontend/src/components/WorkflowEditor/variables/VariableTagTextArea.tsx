@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Button, Popover, List, Tag, Input as AntdInput, Tooltip } from 'antd';
+import { useTranslation } from 'react-i18next';
 import type { Node, Edge } from 'reactflow';
 import { nodeIODefinitions } from './nodeVariables';
 import { ThunderboltOutlined, CloseOutlined } from '@ant-design/icons';
@@ -73,6 +74,7 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
   className,
   executionResult,
 }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const contentEditableRef = useRef<HTMLDivElement>(null);
@@ -182,7 +184,7 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
             value: `{{${upstreamNode.id}.${outputVar.variable}}}`,
             nodeId: upstreamNode.id,
             variable: outputVar.variable,
-            description: outputVar.description || `来自"${nodeLabel}"节点的${outputVar.label}`,
+            description: outputVar.description || t('node.variables.fromNode', { node: nodeLabel, label: outputVar.label }) || `来自"${nodeLabel}"节点的${outputVar.label}`,
             nodeLabel,
             nodeType,
           });
@@ -194,26 +196,26 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
             if (nodeType === 'dataclean') {
               // 数据清洗节点：添加更多字段，因为清洗后的数据可能包含各种字段
               commonFields = [
-                { field: 'data', label: '数据' },
-                { field: 'content', label: '内容' },
-                { field: 'text', label: '文本' },
-                { field: 'title', label: '标题' },
-                { field: 'url', label: 'URL地址' },
-                { field: 'link', label: '链接' },
-                { field: 'href', label: '超链接' },
-                { field: 'src', label: '资源地址' },
+                { field: 'data', label: t('node.variables.fields.data') || '数据' },
+                { field: 'content', label: t('node.variables.fields.content') || '内容' },
+                { field: 'text', label: t('node.variables.fields.text') || '文本' },
+                { field: 'title', label: t('node.variables.fields.title') || '标题' },
+                { field: 'url', label: t('node.variables.fields.url') || 'URL地址' },
+                { field: 'link', label: t('node.variables.fields.link') || '链接' },
+                { field: 'href', label: t('node.variables.fields.href') || '超链接' },
+                { field: 'src', label: t('node.variables.fields.src') || '资源地址' },
               ];
             } else {
               // 其他节点：使用默认字段
               commonFields = [
-                { field: 'url', label: 'URL地址' },
-                { field: 'link', label: '链接' },
-                { field: 'href', label: '超链接' },
-                { field: 'src', label: '资源地址' },
-                { field: 'data', label: '数据' },
-                { field: 'text', label: '文本' },
-                { field: 'title', label: '标题' },
-                { field: 'content', label: '内容' },
+                { field: 'url', label: t('node.variables.fields.url') || 'URL地址' },
+                { field: 'link', label: t('node.variables.fields.link') || '链接' },
+                { field: 'href', label: t('node.variables.fields.href') || '超链接' },
+                { field: 'src', label: t('node.variables.fields.src') || '资源地址' },
+                { field: 'data', label: t('node.variables.fields.data') || '数据' },
+                { field: 'text', label: t('node.variables.fields.text') || '文本' },
+                { field: 'title', label: t('node.variables.fields.title') || '标题' },
+                { field: 'content', label: t('node.variables.fields.content') || '内容' },
               ];
             }
 
@@ -223,7 +225,7 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
                 value: `{{${upstreamNode.id}.${outputVar.variable}.${field.field}}}`,
                 nodeId: upstreamNode.id,
                 variable: `${outputVar.variable}.${field.field}`,
-                description: `来自"${nodeLabel}"节点的${field.label}`,
+                description: t('node.variables.fromNode', { node: nodeLabel, label: field.label }) || `来自"${nodeLabel}"节点的${field.label}`,
                 nodeLabel,
                 nodeType,
               });
@@ -234,7 +236,7 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
     });
 
     return variables;
-  }, [node, nodes, edges]);
+  }, [node, nodes, edges, t]);
 
   // 获取变量信息
   const getVariableInfo = useCallback((variable: string): VariableInfo | null => {
@@ -595,15 +597,15 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
     <div style={{ width: 400, maxHeight: 400 }}>
       {availableVariables.length === 0 ? (
         <div style={{ padding: '16px', textAlign: 'center', color: '#999' }}>
-          <div style={{ marginBottom: 8 }}>暂无可用变量</div>
+          <div style={{ marginBottom: 8 }}>{t('node.variables.noVariables') || '暂无可用变量'}</div>
           <div style={{ fontSize: 12 }}>
-            请先连接上游节点，或直接输入变量表达式：{`{{nodeId.variable}}`}
+            {t('node.variables.noVariablesTip') || '请先连接上游节点，或直接输入变量表达式：'}{`{{nodeId.variable}}`}
           </div>
         </div>
       ) : (
         <>
           <AntdInput
-            placeholder="搜索变量..."
+            placeholder={t('node.variables.searchVariables') || '搜索变量...'}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             style={{ marginBottom: 12 }}
@@ -722,7 +724,7 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
       </div>
       <Popover
         content={popoverContent}
-        title="选择变量"
+        title={t('node.variables.selectVariable') || '选择变量'}
         trigger="click"
         open={open}
         onOpenChange={(newOpen) => {
@@ -752,9 +754,9 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
           icon={<ThunderboltOutlined />}
           size="small"
           className={styles.insertButton}
-          title="插入变量"
+          title={t('node.variables.insertVariable') || '插入变量'}
         >
-          插入变量
+          {t('node.variables.insertVariable') || '插入变量'}
         </Button>
       </Popover>
     </div>

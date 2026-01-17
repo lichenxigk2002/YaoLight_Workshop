@@ -28,9 +28,13 @@ export const VariableSelector = forwardRef<any, VariableSelectorProps>(({
   edges,
   value,
   onChange,
-  placeholder = '选择变量或输入表达式',
+  placeholder,
 }, ref) => {
   const { t } = useTranslation();
+  // 使用 t 函数获取 placeholder，如果 props 中传入了 placeholder，则优先使用 props
+  const finalPlaceholder = placeholder === '选择变量或输入表达式' 
+    ? (t('node.variables.selectOrInput') || '选择变量或输入表达式')
+    : placeholder;
 
   // 获取所有可用的上游变量
   const availableVariables = useMemo(() => {
@@ -131,7 +135,7 @@ export const VariableSelector = forwardRef<any, VariableSelectorProps>(({
       value={value || ''}
       onChange={handleChange}
       onSelect={handleChange}
-      placeholder={placeholder}
+      placeholder={finalPlaceholder || '选择变量或输入表达式'}
       options={options.length > 0 ? options : undefined}
       filterOption={(inputValue, option) => {
         if (!option) return false;
@@ -156,7 +160,7 @@ export const VariableSelector = forwardRef<any, VariableSelectorProps>(({
       notFoundContent={
         availableVariables.length === 0 ? (
           <div style={{ padding: '8px 0', color: '#999', fontSize: 12 }}>
-            没有可用变量。可以直接输入 URL 或变量表达式，如：{`{{nodeId.variable}}`}
+            {t('node.variables.noVariablesInputTip') || '没有可用变量。可以直接输入 URL 或变量表达式，如：'}{`{{nodeId.variable}}`}
           </div>
         ) : undefined
       }

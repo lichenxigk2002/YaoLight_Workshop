@@ -7,7 +7,7 @@ import React from 'react';
 import { ProviderPreviewProps } from '../types';
 import { AIPreviewModal } from '../../panels/components/AIPreviewModal';
 
-export const QianwenPreview: React.FC<ProviderPreviewProps> = (props) => {
+export const QwenPreview: React.FC<ProviderPreviewProps> = (props) => {
   // 通义千问使用通用的预览组件
   // 如果需要自定义，可以在这里实现
   return <AIPreviewModal {...props} />;
