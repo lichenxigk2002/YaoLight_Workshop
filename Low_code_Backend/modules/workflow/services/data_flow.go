@@ -55,6 +55,11 @@ func (df *DataFlow) SetNodeOutput(nodeID string, data *NodeData) {
 	df.nodeOutputs[nodeID] = data
 }
 
+// GetNodeOutput 获取节点的输出数据
+func (df *DataFlow) GetNodeOutput(nodeID string) *NodeData {
+	return df.nodeOutputs[nodeID]
+}
+
 // GetNodeInput 获取节点的输入数据
 // 返回所有上游节点的输出数据
 func (df *DataFlow) GetNodeInput(nodeID string) ([]*NodeData, error) {

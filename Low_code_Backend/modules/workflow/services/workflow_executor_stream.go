@@ -173,6 +173,63 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
 			providerConfig["enable_thinking"] = false
 		}
+	} else if modelConfig.Provider == "zhipuai" {
+		// 智谱AI GLM 使用 thinking 布尔值（与 DeepSeek 相同）
+		if thinking, ok := node.Config["thinking"].(bool); ok {
+			providerConfig["thinking"] = thinking
+		} else if _, exists := providerConfig["thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["thinking"] = false
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+		}
+	} else if modelConfig.Provider == "gemini" {
+		// Gemini (via OpenRouter)
+		// OpenRouter 的 reasoning 参数是一个对象，例如：
+		// { "enabled": true } 或 { "max_tokens": 2000 }
+		// 检查 reasoning 参数 (前端使用布尔值)
+		if reasoning, ok := node.Config["reasoning"].(bool); ok {
+			if reasoning {
+				// 启用推理，使用默认配置
+				providerConfig["reasoning"] = map[string]interface{}{
+					"enabled": true,
+				}
+			} else {
+				// 禁用推理
+				providerConfig["reasoning"] = map[string]interface{}{
+					"enabled": false,
+				}
+			}
+		} else if reasoningMap, ok := node.Config["reasoning"].(map[string]interface{}); ok {
+			// 如果前端传递的是对象，直接使用
+			providerConfig["reasoning"] = reasoningMap
+		} else if _, exists := providerConfig["reasoning"]; !exists {
+			// 默认不启用推理
+			providerConfig["reasoning"] = map[string]interface{}{
+				"enabled": false,
+			}
+		}
+		// 兼容 thinking 参数 (DeepSeek 风格)
+		if thinking, ok := node.Config["thinking"].(bool); ok {
+			if thinking {
+				providerConfig["reasoning"] = map[string]interface{}{
+					"enabled": true,
+				}
+			}
+		}
+
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
 	}
 
 	// 如果启用流式输出，使用流式方法
@@ -325,6 +382,9 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	// 执行上游节点（如果有）
 	executed := make(map[string]bool)
 
+	// 存储条件节点的结果，用于判断边是否应该执行
+	conditionResults := make(map[string]bool)
+
 	// 递归执行所有上游节点（按拓扑顺序）
 	var executeUpstream func(nodeID string)
 	executeUpstream = func(nodeID string) {
@@ -448,18 +508,78 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 		executed[nodeConfig.ID] = true
 
-		// 找到下一个节点
-		for _, edge := range req.Edges {
-			if edge.Source == nodeID && !executed[edge.Target] {
-				allInputsReady := true
-				for _, e := range req.Edges {
-					if e.Target == edge.Target && !executed[e.Source] {
-						allInputsReady = false
-						break
+		// 如果是条件节点，需要根据条件结果选择正确的分支
+		if nodeConfig.Type == "condition" {
+			// 从 dataFlow 获取条件节点的执行结果
+			conditionResult := false
+			if nodeData := dataFlow.GetNodeOutput(nodeConfig.ID); nodeData != nil {
+				if resultData, ok := nodeData.Payload.(map[string]interface{}); ok {
+					if res, exists := resultData["result"]; exists {
+						if boolRes, ok := res.(bool); ok {
+							conditionResult = boolRes
+						}
 					}
 				}
-				if allInputsReady {
-					queue = append(queue, edge.Target)
+			}
+			// 保存条件节点的结果，供后续判断使用
+			conditionResults[nodeConfig.ID] = conditionResult
+
+			// 只执行匹配条件结果的边
+			for _, edge := range req.Edges {
+				if edge.Source == nodeID && !executed[edge.Target] {
+					// 检查边的 sourceHandle 是否匹配条件结果
+					shouldExecute := false
+					if edge.SourceHandle == "true" && conditionResult {
+						shouldExecute = true
+					} else if edge.SourceHandle == "false" && !conditionResult {
+						shouldExecute = true
+					} else if edge.SourceHandle == "" {
+						// 兼容旧数据：如果没有 sourceHandle，默认执行所有边
+						shouldExecute = true
+					}
+
+					if shouldExecute {
+						allInputsReady := true
+						for _, e := range req.Edges {
+							if e.Target == edge.Target && !executed[e.Source] {
+								allInputsReady = false
+								break
+							}
+						}
+						if allInputsReady {
+							queue = append(queue, edge.Target)
+						}
+					}
+				}
+			}
+		} else {
+			// 非条件节点，执行所有出边
+			for _, edge := range req.Edges {
+				if edge.Source == nodeID && !executed[edge.Target] {
+					// 检查该节点的所有入边是否都已执行
+					// 对于合并节点，需要特殊处理：只检查"应该执行"的边
+					allInputsReady := true
+					for _, e := range req.Edges {
+						if e.Target == edge.Target {
+							// 检查这个入边是否应该被执行
+							shouldWaitForThisEdge := true
+
+							// 如果源节点没有执行，检查它是否来自条件节点的未执行分支
+							if !executed[e.Source] {
+								// 递归检查：如果源节点没有执行，检查它的上游边是否来自条件节点的未执行分支
+								shouldWaitForThisEdge = isEdgeFromConditionBranch(e, req.Nodes, req.Edges, conditionResults, executed)
+							}
+
+							// 如果这个边应该被执行，但源节点还没执行，则不能继续
+							if shouldWaitForThisEdge && !executed[e.Source] {
+								allInputsReady = false
+								break
+							}
+						}
+					}
+					if allInputsReady {
+						queue = append(queue, edge.Target)
+					}
 				}
 			}
 		}

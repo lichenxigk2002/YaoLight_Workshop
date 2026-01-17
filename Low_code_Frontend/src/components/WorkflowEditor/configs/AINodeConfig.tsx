@@ -323,7 +323,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                             // 获取提供商的显示名称（优先使用注册表中的displayName）
                             const providerReg = providerRegistry.get(model.provider);
                             const displayName = providerReg?.displayName || model.name;
-                            
+
                             return (
                               <Option key={model.id} value={model.provider}>
                                 <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -466,40 +466,105 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                         className={styles.formItem}
                       >
                         <Select className={styles.modelSelect}>
-                          <Option value="deepseek">DeepSeek</Option>
-                          <Option value="doubao">豆包</Option>
-                          <Option value="qianwen">通义千问</Option>
+                          <Option value="deepseek">
+                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <ProviderIcon provider="deepseek" size={16} />
+                              <span>DeepSeek</span>
+                            </div>
+                          </Option>
+                          <Option value="doubao">
+                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <ProviderIcon provider="doubao" size={16} />
+                              <span>豆包</span>
+                            </div>
+                          </Option>
+                          <Option value="qianwen">
+                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <ProviderIcon provider="qianwen" size={16} />
+                              <span>通义千问</span>
+                            </div>
+                          </Option>
+                          <Option value="zhipuai">
+                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <ProviderIcon provider="zhipuai" size={16} />
+                              <span>智谱AI GLM</span>
+                            </div>
+                          </Option>
+                          <Option value="gemini">
+                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <ProviderIcon provider="gemini" size={16} />
+                              <span>Google Gemini</span>
+                            </div>
+                          </Option>
+                          <Option value="gpt">
+                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <ProviderIcon provider="gpt" size={16} />
+                              <span>GPT</span>
+                            </div>
+                          </Option>
+                          <Option value="grok">
+                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <ProviderIcon provider="grok" size={16} />
+                              <span>Grok</span>
+                            </div>
+                          </Option>
                         </Select>
                       </Form.Item>
-                      <Form.Item
-                        label={t('node.config.ai.modelName')}
-                        name="modelName"
-                        rules={[{ required: true, message: t('node.config.ai.modelNameRequired') }]}
-                        initialValue="deepseek-chat"
-                        className={styles.formItem}
-                      >
-                        <Input placeholder="deepseek-chat" />
-                      </Form.Item>
-                      <Form.Item
-                        label={t('node.config.ai.apiKey')}
-                        name="apiKey"
-                        rules={[{ required: true, message: t('node.config.ai.apiKeyRequired') }]}
-                        className={styles.formItem}
-                        tooltip={t('node.config.ai.apiKeyTooltip')}
-                      >
-                        <Input.Password
-                          placeholder="sk-xxx"
-                          iconRender={(visible) => (visible ? <EyeInvisibleOutlined /> : <EyeInvisibleOutlined />)}
-                        />
-                      </Form.Item>
-                      <Form.Item
-                        label={t('node.config.ai.baseUrl')}
-                        name="baseUrl"
-                        initialValue="https://api.deepseek.com"
-                        className={styles.formItem}
-                        tooltip={t('node.config.ai.baseUrlTooltip')}
-                      >
-                        <Input placeholder="https://api.deepseek.com" />
+                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.provider !== curr?.provider}>
+                        {({ getFieldValue }) => {
+                          const selectedProvider = getFieldValue('provider') || 'deepseek';
+                          const providerTemplate = providerTemplates.find(t => t.provider === selectedProvider);
+
+                          // 获取支持的模型列表
+                          const supportedModels = providerTemplate?.supportedModels || [];
+                          const defaultModelName = supportedModels[0] || '';
+                          const defaultBaseUrl = providerTemplate?.defaultBaseUrl || 'https://api.deepseek.com';
+
+                          return (
+                            <>
+                              <Form.Item
+                                label={t('node.config.ai.modelName')}
+                                name="modelName"
+                                rules={[{ required: true, message: t('node.config.ai.modelNameRequired') }]}
+                                initialValue={defaultModelName}
+                                className={styles.formItem}
+                              >
+                                {supportedModels.length > 0 ? (
+                                  <Select className={styles.modelSelect}>
+                                    {supportedModels.map((modelName) => (
+                                      <Option key={modelName} value={modelName}>
+                                        {modelName}
+                                      </Option>
+                                    ))}
+                                  </Select>
+                                ) : (
+                                  <Input placeholder="模型名称" />
+                                )}
+                              </Form.Item>
+                              <Form.Item
+                                label={t('node.config.ai.apiKey')}
+                                name="apiKey"
+                                rules={[{ required: true, message: t('node.config.ai.apiKeyRequired') }]}
+                                className={styles.formItem}
+                                tooltip={t('node.config.ai.apiKeyTooltip')}
+                              >
+                                <Input.Password
+                                  placeholder="API Key"
+                                  iconRender={(visible) => (visible ? <EyeInvisibleOutlined /> : <EyeInvisibleOutlined />)}
+                                />
+                              </Form.Item>
+                              <Form.Item
+                                label={t('node.config.ai.baseUrl')}
+                                name="baseUrl"
+                                initialValue={defaultBaseUrl}
+                                className={styles.formItem}
+                                tooltip={t('node.config.ai.baseUrlTooltip')}
+                              >
+                                <Input placeholder={defaultBaseUrl} />
+                              </Form.Item>
+                            </>
+                          );
+                        }}
                       </Form.Item>
                     </div>
                   </>
@@ -606,6 +671,14 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                   }
                 } else if (activeProvider === 'doubao') {
                   maxTokensLimit = 32768; // 豆包通常支持较大的 token 数
+                } else if (activeProvider === 'zhipuai') {
+                  maxTokensLimit = 131072; // 智谱AI GLM-4.7/4.6 最大支持 128K
+                } else if (activeProvider === 'gemini') {
+                  maxTokensLimit = 32768; // Gemini 限制
+                } else if (activeProvider === 'gpt') {
+                  maxTokensLimit = 131072; // GPT (OpenRouter) 通常支持更大的 token 数
+                } else if (activeProvider === 'grok') {
+                  maxTokensLimit = 131072; // Grok 限制
                 } else {
                   maxTokensLimit = 32768; // 其他提供商默认值
                 }
@@ -668,7 +741,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                         <Switch />
                       </Form.Item>
                     )}
-                    
+
                     {/* 提供商专属配置：通过注册机制动态加载 */}
                     {activeProvider && (() => {
                       const provider = providerRegistry.get(activeProvider);

@@ -158,8 +158,10 @@ func (c *WorkflowController) ExecuteWorkflow(ctx *gin.Context) {
 		req.Edges = make([]workflowService.EdgeConfig, len(workflowNodes.Edges))
 		for i, edge := range workflowNodes.Edges {
 			req.Edges[i] = workflowService.EdgeConfig{
-				Source: edge.Source,
-				Target: edge.Target,
+				Source:       edge.Source,
+				Target:       edge.Target,
+				SourceHandle: edge.SourceHandle,
+				TargetHandle: edge.TargetHandle,
 			}
 		}
 	} else {
@@ -324,8 +326,10 @@ func (c *WorkflowController) ExecuteWorkflowStream(ctx *gin.Context) {
 		req.Edges = make([]workflowService.EdgeConfig, len(workflowNodes.Edges))
 		for i, edge := range workflowNodes.Edges {
 			req.Edges[i] = workflowService.EdgeConfig{
-				Source: edge.Source,
-				Target: edge.Target,
+				Source:       edge.Source,
+				Target:       edge.Target,
+				SourceHandle: edge.SourceHandle,
+				TargetHandle: edge.TargetHandle,
 			}
 		}
 	} else {

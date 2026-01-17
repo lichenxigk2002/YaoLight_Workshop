@@ -159,9 +159,11 @@ type WorkflowNodeData struct {
 }
 
 type EdgeData struct {
-	ID     string `json:"id"`
-	Source string `json:"source"`
-	Target string `json:"target"`
+	ID           string `json:"id"`
+	Source       string `json:"source"`
+	Target       string `json:"target"`
+	SourceHandle string `json:"sourceHandle,omitempty"` // 条件节点的输出端口：true 或 false
+	TargetHandle string `json:"targetHandle,omitempty"` // 合并节点的输入端口：input-0, input-1, input-2
 }
 
 // WorkflowCommentCardData 工作流注释卡片数据（用于保存/加载）
@@ -203,10 +205,19 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 		connections := []map[string]interface{}{}
 		for _, edge := range req.Edges {
 			if edge.Source == nodeData.ID {
-				connections = append(connections, map[string]interface{}{
+				conn := map[string]interface{}{
 					"target": edge.Target,
 					"edgeId": edge.ID,
-				})
+				}
+				// 如果有 sourceHandle，保存它
+				if edge.SourceHandle != "" {
+					conn["sourceHandle"] = edge.SourceHandle
+				}
+				// 如果有 targetHandle，保存它
+				if edge.TargetHandle != "" {
+					conn["targetHandle"] = edge.TargetHandle
+				}
+				connections = append(connections, conn)
 			}
 		}
 
@@ -388,11 +399,20 @@ func (s *WorkflowService) GetWorkflowNodes(workflowID uint) (*SaveWorkflowNodesR
 							} else {
 								edgeID = dbNode.NodeID + "-" + target
 							}
-							edges = append(edges, EdgeData{
+							edgeData := EdgeData{
 								ID:     edgeID,
 								Source: dbNode.NodeID,
 								Target: target,
-							})
+							}
+							// 如果有 sourceHandle，加载它
+							if sourceHandle, ok := connMap["sourceHandle"].(string); ok {
+								edgeData.SourceHandle = sourceHandle
+							}
+							// 如果有 targetHandle，加载它
+							if targetHandle, ok := connMap["targetHandle"].(string); ok {
+								edgeData.TargetHandle = targetHandle
+							}
+							edges = append(edges, edgeData)
 						}
 					}
 				}

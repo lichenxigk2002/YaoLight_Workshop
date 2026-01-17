@@ -350,11 +350,21 @@
         "maxTokens": "Max Tokens",
         "maxTokensTooltip": "Maximum number of tokens to generate",
         "stream": "Stream Output",
-        "streamTooltip": "Enable stream output to display AI-generated content in real-time (DeepSeek-specific feature, can view output in real-time when testing nodes)",
-        "thinking": "Deep Thinking",
-        "thinkingTooltip": "Enable deep thinking mode, AI will perform deeper reasoning, suitable for tasks requiring complex reasoning (DeepSeek-specific feature, only effective when using DeepSeek models)",
+        "streamTooltip": "Enable stream output to display AI-generated content in real-time (Can view output in real-time when testing nodes)",
+        "thinking": "Deep Thinking/Reasoning",
+        "thinkingTooltip": "Enable reasoning mode, AI will display its thinking process, suitable for tasks requiring complex reasoning",
+        "thinkingEffort": "Thinking Effort",
+        "thinkingEffortTooltip": "Adjust the model's thinking effort. Low for faster response, High for deeper analysis.",
+        "thinkingEffortLow": "Low - Faster",
+        "thinkingEffortMedium": "Medium - Balanced",
+        "thinkingEffortHigh": "High - Deeper",
         "enableThinking": "Deep Thinking",
         "enableThinkingTooltip": "When enabled, thinking content will be returned through the reasoning_content field. Applicable to Qwen3, Qwen3-Omni-Flash, Qwen3-VL models.",
+        "frequencyPenalty": "Frequency Penalty",
+        "frequencyPenaltyTooltip": "Decreases the model's likelihood to repeat the same line verbatim. Higher values penalize repetition more. Range -2.0 to 2.0.",
+        "presencePenalty": "Presence Penalty",
+        "presencePenaltyTooltip": "Encourages the model to talk about new topics. Higher values penalize existing topics more. Range -2.0 to 2.0.",
+        "reasoningInvisible": "Reasoning process is not exposed for this model",
         "loadSystemModelsFailed": "Failed to load system preset models",
         "loadUserModelsFailed": "Failed to load user models"
       },
@@ -396,7 +406,7 @@
       "moreLinks": "... {{count}} more links",
       "moreImages": "... {{count}} more images"
     },
-      "messages": {
+    "messages": {
       "nodeAdded": "Added {{label}} node",
       "nodeDeleted": "Node deleted",
       "nodesDeleted": "Deleted {{count}} nodes",
@@ -404,7 +414,7 @@
       "nodeConnected": "Node connected",
       "nodeNotFound": "Cannot find node",
       "loadFailed": "Failed to load workflow nodes: {{error}}"
-      },
+    },
     "contextMenu": {
       "configNode": "Configure Node",
       "testCrawl": "Test Crawl",

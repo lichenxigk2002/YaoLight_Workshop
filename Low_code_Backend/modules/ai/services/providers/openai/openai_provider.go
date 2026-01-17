@@ -2,6 +2,7 @@ package openai
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -133,8 +134,14 @@ func (p *OpenAIProvider) Chat(config *providers.AIModelConfig, prompt string, co
 }
 
 // ChatStream 流式聊天对话（OpenAI暂不支持，返回错误）
-func (p *OpenAIProvider) ChatStream(config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
-	// OpenAI流式输出暂未实现，使用非流式方法
+func (p *OpenAIProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
+	select {
+	case <-ctx.Done():
+		callback("", true, ctx.Err())
+		return ctx.Err()
+	default:
+	}
+
 	chatResp, err := p.Chat(config, prompt, content, providerConfig)
 	if err != nil {
 		callback("", true, err)

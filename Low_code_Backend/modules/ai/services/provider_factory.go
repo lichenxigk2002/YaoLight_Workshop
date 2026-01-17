@@ -5,7 +5,11 @@ import (
 	"yaolight-workshop/backend/modules/ai/services/providers"
 	"yaolight-workshop/backend/modules/ai/services/providers/deepseek"
 	"yaolight-workshop/backend/modules/ai/services/providers/doubao"
+	"yaolight-workshop/backend/modules/ai/services/providers/gemini"
+	"yaolight-workshop/backend/modules/ai/services/providers/gpt"
+	"yaolight-workshop/backend/modules/ai/services/providers/grok"
 	"yaolight-workshop/backend/modules/ai/services/providers/qianwen"
+	"yaolight-workshop/backend/modules/ai/services/providers/zhipuai"
 )
 
 // ProviderFactory 提供商工厂
@@ -22,7 +26,11 @@ func NewProviderFactory() *ProviderFactory {
 	// 注册提供商
 	factory.RegisterProvider("deepseek", deepseek.NewDeepSeekProvider())
 	factory.RegisterProvider("doubao", doubao.NewDoubaoProvider())
+	factory.RegisterProvider("gemini", gemini.NewGeminiProvider())
+	factory.RegisterProvider("gpt", gpt.NewGPTProvider())
+	factory.RegisterProvider("grok", grok.NewGrokProvider())
 	factory.RegisterProvider("qianwen", qianwen.NewQianwenProvider())
+	factory.RegisterProvider("zhipuai", zhipuai.NewZhipuaiProvider())
 
 	return factory
 }

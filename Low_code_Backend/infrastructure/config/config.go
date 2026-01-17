@@ -34,6 +34,8 @@ var (
 	DeepSeekAPIKey string // DeepSeek预设API Key
 	DoubaoAPIKey   string // 豆包预设API Key
 	QianwenAPIKey  string // 通义千问预设API Key
+	ZhipuaiAPIKey  string // 智谱AI预设API Key
+	GeminiAPIKey   string // Gemini预设API Key
 )
 
 // LoadConfig 加载配置
@@ -68,6 +70,8 @@ func LoadConfig() error {
 	DeepSeekAPIKey = getEnv("DEEPSEEK_API_KEY", "")
 	DoubaoAPIKey = getEnv("DOUBAO_API_KEY", "")
 	QianwenAPIKey = getEnv("QIANWEN_API_KEY", "")
+	ZhipuaiAPIKey = getEnv("ZHIPUAI_API_KEY", "")
+	GeminiAPIKey = getEnv("OPENROUTER_API_KEY", "")
 
 	return nil
 }

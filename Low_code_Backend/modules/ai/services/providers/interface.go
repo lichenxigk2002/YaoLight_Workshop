@@ -4,9 +4,10 @@ import "context"
 
 // ChatResponse 聊天响应
 type ChatResponse struct {
-	Content    string `json:"content"`
-	TokensUsed int    `json:"tokens_used"`
-	Model      string `json:"model"`
+	Content          string      `json:"content"`
+	TokensUsed       int         `json:"tokens_used"`
+	Model            string      `json:"model"`
+	ReasoningDetails interface{} `json:"reasoning_details,omitempty"` // 用于存储推理模型的详细推理过程
 }
 
 // CompleteResponse 文本补全响应
