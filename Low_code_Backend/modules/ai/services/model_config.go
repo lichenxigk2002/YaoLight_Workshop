@@ -54,6 +54,28 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置通义千问 API Key，请在.env中配置QIANWEN_API_KEY")
 		}
+	case "zhipuai":
+		apiKey = config.ZhipuaiAPIKey
+		if apiKey == "" {
+			return nil, fmt.Errorf("系统未配置智谱AI API Key，请在.env中配置ZHIPUAI_API_KEY")
+		}
+	case "gemini", "gpt", "grok":
+		apiKey = config.GeminiAPIKey
+		if apiKey == "" {
+			return nil, fmt.Errorf("系统未配置OpenRouter API Key，请在.env中配置OPENROUTER_API_KEY")
+		}
+		// Gemini 系统预设使用 google/gemini-3-pro-preview
+		if provider == "gemini" && getString(customConfig, "modelName", "") == "deepseek-chat" {
+			// 如果没有指定模型名称，或者使用了默认值，强制使用 Gemini 的默认模型
+			customConfig["modelName"] = "google/gemini-3-pro-preview"
+		}
+		if provider == "gpt" && getString(customConfig, "modelName", "") == "deepseek-chat" {
+			customConfig["modelName"] = "openai/gpt-4o-mini"
+		}
+		// Grok 系统预设使用 x-ai/grok-2-1212
+		if provider == "grok" && getString(customConfig, "modelName", "") == "deepseek-chat" {
+			customConfig["modelName"] = "x-ai/grok-2-1212"
+		}
 	default:
 		return nil, fmt.Errorf("不支持的预设提供商: %s", provider)
 	}
@@ -184,6 +206,10 @@ func getDefaultBaseURL(provider string) string {
 		return "https://ark.cn-beijing.volces.com/api/v3"
 	case "qianwen":
 		return "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	case "zhipuai":
+		return "https://open.bigmodel.cn/api/paas/v4"
+	case "gemini", "gpt", "grok":
+		return "https://openrouter.ai/api/v1"
 	default:
 		return ""
 	}

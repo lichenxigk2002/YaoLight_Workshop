@@ -85,6 +85,75 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 				"maxTokens":   2000,
 			},
 		},
+		{
+			"provider":       "zhipuai",
+			"name":           "智谱AI GLM",
+			"description":    "智谱AI GLM系列模型（支持深度思考和流式输出）",
+			"defaultBaseUrl": "https://open.bigmodel.cn/api/paas/v4",
+			"supportedModels": []string{
+				// 智谱AI GLM模型列表
+				"glm-4.7",             // 最新旗舰模型，支持复杂推理、超长上下文
+				"glm-4.6",             // 旗舰模型，支持深度思考
+				"glm-4.5-air",         // 轻量级模型
+				"glm-4.5-airx",        // 增强版轻量模型
+				"glm-4.5-flash",       // 快速响应模型
+				"glm-4-flash-250414",  // 快速模型
+				"glm-4-flashx-250414", // 增强版快速模型
+			},
+			"defaultConfig": map[string]interface{}{
+				"temperature": 1.0,
+				"maxTokens":   1024,
+			},
+		},
+		{
+			"provider":       "gpt",
+			"name":           "GPT",
+			"description":    "OpenAI GPT 系列模型（通过 OpenRouter 访问）",
+			"defaultBaseUrl": "https://openrouter.ai/api/v1",
+			"supportedModels": []string{
+				"openai/gpt-4o-mini",
+				"openai/gpt-4o",
+			},
+			"defaultConfig": map[string]interface{}{
+				"temperature": 0.7,
+				"maxTokens":   4096,
+			},
+		},
+		{
+			"provider":       "gemini",
+			"name":           "Google Gemini",
+			"description":    "Google Gemini 系列模型（通过 OpenRouter 访问）",
+			"defaultBaseUrl": "https://openrouter.ai/api/v1",
+			"supportedModels": []string{
+				"google/gemini-pro-1.5",
+				"google/gemini-flash-1.5",
+				"google/gemini-3-pro-preview",
+			},
+			"defaultConfig": map[string]interface{}{
+				"temperature": 0.7,
+				"maxTokens":   2000,
+			},
+		},
+		{
+			"provider":       "grok",
+			"name":           "Grok",
+			"description":    "xAI Grok 系列模型（通过 OpenRouter 访问）",
+			"defaultBaseUrl": "https://openrouter.ai/api/v1",
+			"supportedModels": []string{
+				"x-ai/grok-4.1-fast",
+				"x-ai/grok-4-fast",
+				"x-ai/grok-code-fast-1",
+				"x-ai/grok-4",
+				"x-ai/grok-3-mini",
+				"x-ai/grok-3",
+				"x-ai/grok-3-mini-beta",
+				"x-ai/grok-3-beta",
+			},
+			"defaultConfig": map[string]interface{}{
+				"temperature": 0.7,
+				"maxTokens":   4096,
+			},
+		},
 	}, nil
 }
 
@@ -133,6 +202,53 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 			"baseUrl":     "https://dashscope.aliyuncs.com/compatible-mode/v1",
 			"isSystem":    true,
 			"description": "系统预设的通义千问模型，所有用户可用",
+		})
+	}
+
+	// 检查是否有智谱AI预设配置
+	if config.ZhipuaiAPIKey != "" {
+		models = append(models, map[string]interface{}{
+			"id":          "system_zhipuai",
+			"name":        "智谱AI GLM",
+			"provider":    "zhipuai",
+			"modelName":   "glm-4.7",
+			"baseUrl":     "https://open.bigmodel.cn/api/paas/v4",
+			"isSystem":    true,
+			"description": "系统预设的智谱AI GLM模型，所有用户可用",
+		})
+	}
+
+	// 检查是否有Gemini预设配置
+	if config.GeminiAPIKey != "" {
+		models = append(models, map[string]interface{}{
+			"id":          "system_gemini",
+			"name":        "Google Gemini",
+			"provider":    "gemini",
+			"modelName":   "google/gemini-3-pro-preview",
+			"baseUrl":     "https://openrouter.ai/api/v1",
+			"isSystem":    true,
+			"description": "系统预设的Google Gemini模型，所有用户可用",
+		})
+
+		models = append(models, map[string]interface{}{
+			"id":          "system_gpt",
+			"name":        "GPT",
+			"provider":    "gpt",
+			"modelName":   "openai/gpt-4o-mini",
+			"baseUrl":     "https://openrouter.ai/api/v1",
+			"isSystem":    true,
+			"description": "系统预设的OpenAI GPT模型（OpenRouter），所有用户可用",
+		})
+
+		// 既然有了OpenRouter Key，顺便也加上Grok作为系统预设
+		models = append(models, map[string]interface{}{
+			"id":          "system_grok",
+			"name":        "Grok",
+			"provider":    "grok",
+			"modelName":   "x-ai/grok-4.1-fast",
+			"baseUrl":     "https://openrouter.ai/api/v1",
+			"isSystem":    true,
+			"description": "系统预设的xAI Grok模型，所有用户可用",
 		})
 	}
 
@@ -191,6 +307,10 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 		"deepseek": true,
 		"doubao":   true,
 		"qianwen":  true,
+		"zhipuai":  true,
+		"gemini":   true,
+		"gpt":      true,
+		"grok":     true,
 	}
 	if !supportedProviders[req.Provider] {
 		return nil, fmt.Errorf("provider %s not supported yet", req.Provider)
@@ -213,6 +333,10 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 			defaultURL = "https://ark.cn-beijing.volces.com/api/v3"
 		case "qianwen":
 			defaultURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		case "zhipuai":
+			defaultURL = "https://open.bigmodel.cn/api/paas/v4"
+		case "gemini", "gpt", "grok":
+			defaultURL = "https://openrouter.ai/api/v1"
 		default:
 			defaultURL = "https://api.deepseek.com"
 		}
@@ -221,8 +345,14 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 
 	temperature := req.Temperature
 	if temperature == nil {
-		t := 0.7
-		temperature = &t
+		// 智谱AI默认1.0，其他默认0.7
+		if req.Provider == "zhipuai" {
+			t := 1.0
+			temperature = &t
+		} else {
+			t := 0.7
+			temperature = &t
+		}
 	}
 
 	maxTokens := req.MaxTokens

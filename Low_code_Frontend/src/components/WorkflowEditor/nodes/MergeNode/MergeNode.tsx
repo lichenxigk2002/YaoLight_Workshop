@@ -14,7 +14,7 @@ const MergeNode: React.FC<NodeProps> = (props) => {
       label={t('node.labels.merge')}
       showInput={true}
       showOutput={true}
-      inputCount={3} // 合并节点有多个输入端口
+      inputCount={3} // 合并节点有3个输入端口
     />
   );
 };

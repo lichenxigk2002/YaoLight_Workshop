@@ -106,6 +106,8 @@ export function transformEdgesFromLoadFormat(edgesData: EdgeData[]): Edge[] {
     id: edgeData.id || `${edgeData.source}-${edgeData.target}`,
     source: edgeData.source,
     target: edgeData.target,
+    sourceHandle: edgeData.sourceHandle || undefined, // 加载 sourceHandle（条件节点的 true/false 分支）
+    targetHandle: edgeData.targetHandle || undefined, // 加载 targetHandle（合并节点的 input-0/input-1/input-2）
   }));
 }
 
@@ -164,6 +166,8 @@ export function transformEdgesToSaveFormat(edges: Edge[], nodes: Node[]): EdgeDa
       id: edge.id,
       source: edge.source,
       target: edge.target,
+      sourceHandle: edge.sourceHandle || undefined, // 保存 sourceHandle（条件节点的 true/false 分支）
+      targetHandle: edge.targetHandle || undefined, // 保存 targetHandle（合并节点的 input-0/input-1/input-2）
     }));
 }
 

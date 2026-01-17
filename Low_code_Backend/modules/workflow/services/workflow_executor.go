@@ -31,8 +31,10 @@ type NodeConfig struct {
 
 // EdgeConfig 边配置
 type EdgeConfig struct {
-	Source string `json:"source"`
-	Target string `json:"target"`
+	Source       string `json:"source"`
+	Target       string `json:"target"`
+	SourceHandle string `json:"sourceHandle,omitempty"` // 条件节点的输出端口：true 或 false
+	TargetHandle string `json:"targetHandle,omitempty"` // 合并节点的输入端口：input-0, input-1, input-2
 }
 
 // ExecutionRequest 执行请求
@@ -90,6 +92,8 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 
 	// 按拓扑顺序执行节点
 	executed := make(map[string]bool)
+	// 存储条件节点的结果，用于判断边是否应该执行
+	conditionResults := make(map[string]bool)
 	queue := make([]string, 0)
 
 	// 将起始节点加入队列
@@ -137,19 +141,77 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 
 		executed[nodeID] = true
 
-		// 找到下一个节点（出边指向的节点）
-		for _, edge := range req.Edges {
-			if edge.Source == nodeID && !executed[edge.Target] {
-				// 检查该节点的所有入边是否都已执行
-				allInputsReady := true
-				for _, e := range req.Edges {
-					if e.Target == edge.Target && !executed[e.Source] {
-						allInputsReady = false
-						break
+		// 如果是条件节点，需要根据条件结果选择正确的分支
+		if nodeConfig.Type == "condition" && result.Success {
+			// 获取条件判断结果
+			conditionResult := false
+			if resultData, ok := result.Data.(map[string]interface{}); ok {
+				if res, exists := resultData["result"]; exists {
+					if boolRes, ok := res.(bool); ok {
+						conditionResult = boolRes
 					}
 				}
-				if allInputsReady {
-					queue = append(queue, edge.Target)
+			}
+			// 保存条件节点的结果，供后续判断使用
+			conditionResults[nodeID] = conditionResult
+
+			// 只执行匹配条件结果的边
+			for _, edge := range req.Edges {
+				if edge.Source == nodeID && !executed[edge.Target] {
+					// 检查边的 sourceHandle 是否匹配条件结果
+					shouldExecute := false
+					if edge.SourceHandle == "true" && conditionResult {
+						shouldExecute = true
+					} else if edge.SourceHandle == "false" && !conditionResult {
+						shouldExecute = true
+					} else if edge.SourceHandle == "" {
+						// 兼容旧数据：如果没有 sourceHandle，默认执行所有边
+						shouldExecute = true
+					}
+
+					if shouldExecute {
+						// 检查该节点的所有入边是否都已执行
+						allInputsReady := true
+						for _, e := range req.Edges {
+							if e.Target == edge.Target && !executed[e.Source] {
+								allInputsReady = false
+								break
+							}
+						}
+						if allInputsReady {
+							queue = append(queue, edge.Target)
+						}
+					}
+				}
+			}
+		} else {
+			// 非条件节点，执行所有出边
+			for _, edge := range req.Edges {
+				if edge.Source == nodeID && !executed[edge.Target] {
+					// 检查该节点的所有入边是否都已执行
+					// 对于合并节点，需要特殊处理：只检查"应该执行"的边
+					allInputsReady := true
+					for _, e := range req.Edges {
+						if e.Target == edge.Target {
+							// 检查这个入边是否应该被执行
+							shouldWaitForThisEdge := true
+
+							// 如果源节点没有执行，检查它是否来自条件节点的未执行分支
+							if !executed[e.Source] {
+								// 递归检查：如果源节点没有执行，检查它的上游边是否来自条件节点的未执行分支
+								shouldWaitForThisEdge = isEdgeFromConditionBranch(e, req.Nodes, req.Edges, conditionResults, executed)
+							}
+
+							// 如果这个边应该被执行，但源节点还没执行，则不能继续
+							if shouldWaitForThisEdge && !executed[e.Source] {
+								allInputsReady = false
+								break
+							}
+						}
+					}
+					if allInputsReady {
+						queue = append(queue, edge.Target)
+					}
 				}
 			}
 		}
@@ -167,6 +229,42 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		Success: allExecuted,
 		Results: results,
 	}, nil
+}
+
+// isEdgeFromConditionBranch 检查边是否来自条件节点的未执行分支
+// 如果源节点没有执行，递归检查它的上游边是否来自条件节点的未执行分支
+func isEdgeFromConditionBranch(edge EdgeConfig, nodes []NodeConfig, edges []EdgeConfig, conditionResults map[string]bool, executed map[string]bool) bool {
+	// 如果源节点已执行，需要等待
+	if executed[edge.Source] {
+		return true
+	}
+
+	// 检查这个边是否直接来自条件节点
+	for _, sourceNode := range nodes {
+		if sourceNode.ID == edge.Source && sourceNode.Type == "condition" {
+			if conditionResult, exists := conditionResults[edge.Source]; exists {
+				// 条件节点已执行，检查边的sourceHandle是否匹配
+				if edge.SourceHandle == "true" && !conditionResult {
+					return false // 条件为false，但边是true分支，不等待
+				} else if edge.SourceHandle == "false" && conditionResult {
+					return false // 条件为true，但边是false分支，不等待
+				}
+			}
+		}
+	}
+
+	// 如果源节点没有执行，递归检查它的上游边
+	for _, upstreamEdge := range edges {
+		if upstreamEdge.Target == edge.Source {
+			// 递归检查上游边是否来自条件节点的未执行分支
+			if !isEdgeFromConditionBranch(upstreamEdge, nodes, edges, conditionResults, executed) {
+				return false // 上游边来自未执行的分支，不等待
+			}
+		}
+	}
+
+	// 默认需要等待
+	return true
 }
 
 // findStartNodes 找到起始节点（没有入边的节点）
@@ -928,18 +1026,80 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
 			providerConfig["enable_thinking"] = false
 		}
+	} else if modelConfig.Provider == "zhipuai" {
+		// 智谱AI GLM 使用 thinking 布尔值（与 DeepSeek 相同）
+		if thinking, ok := node.Config["thinking"].(bool); ok {
+			providerConfig["thinking"] = thinking
+		} else if _, exists := providerConfig["thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["thinking"] = false
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "gemini" || modelConfig.Provider == "grok" {
+		// Gemini/Grok (via OpenRouter)
+		// 检查 thinking 参数 (OpenRouter 支持 reasoning)
+		if thinking, ok := node.Config["thinking"].(bool); ok {
+			providerConfig["thinking"] = thinking
+		} else if _, exists := providerConfig["thinking"]; !exists {
+			providerConfig["thinking"] = false
+		}
+		// 检查 reasoning 参数 (前端界面可能是这个名字)
+		if reasoning, ok := node.Config["reasoning"].(bool); ok {
+			providerConfig["reasoning"] = reasoning
+		}
+
+		// 检查 reasoning_effort 参数
+		if effort, ok := node.Config["reasoning_effort"].(string); ok && effort != "" {
+			providerConfig["reasoning_effort"] = effort
+		}
+		// 检查 frequency_penalty 和 presence_penalty
+		if fp, ok := node.Config["frequencyPenalty"].(float64); ok {
+			providerConfig["frequencyPenalty"] = fp
+		}
+		if pp, ok := node.Config["presencePenalty"].(float64); ok {
+			providerConfig["presencePenalty"] = pp
+		}
+
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
 	}
 
 	// 如果启用流式输出，使用流式方法（但需要等待完成）
 	if stream {
 		var fullContent strings.Builder
+		var fullReasoningContent strings.Builder
+
 		// 非流式执行路径，使用 Background context（不需要取消功能）
 		err := provider.ChatStream(context.Background(), modelConfig, prompt, content, providerConfig, func(deltaContent string, done bool, err error) {
 			if err != nil {
 				return
 			}
 			if deltaContent != "" {
-				fullContent.WriteString(deltaContent)
+				// 解析内容类型标记
+				if strings.HasPrefix(deltaContent, "[REASONING_DELTA]") {
+					// 思考内容增量
+					reasoningDelta := strings.TrimPrefix(deltaContent, "[REASONING_DELTA]")
+					fullReasoningContent.WriteString(reasoningDelta)
+				} else if strings.HasPrefix(deltaContent, "[CONTENT_DELTA]") {
+					// 正式内容增量
+					contentDelta := strings.TrimPrefix(deltaContent, "[CONTENT_DELTA]")
+					fullContent.WriteString(contentDelta)
+				} else {
+					// 没有标记，向后兼容
+					fullContent.WriteString(deltaContent)
+				}
 			}
 		})
 		if err != nil {
@@ -953,9 +1113,12 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 		}
 		// 流式完成，返回完整内容
 		resultData := map[string]interface{}{
-			"content":    fullContent.String(),
-			"tokensUsed": 0, // 流式输出暂时无法获取token数
-			"model":      modelConfig.ModelName,
+			"result":            fullContent.String(),
+			"content":           fullContent.String(),
+			"reasoningContent":  fullReasoningContent.String(),
+			"reasoning_details": fullReasoningContent.String(), // 兼容 reasoning_details
+			"tokensUsed":        0,                             // 流式输出暂时无法获取token数
+			"model":             modelConfig.ModelName,
 		}
 		return NodeExecutionResult{
 			NodeID:  node.ID,
@@ -979,10 +1142,11 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 
 	// 返回结果
 	resultData := map[string]interface{}{
-		"result":     chatResp.Content, // AI节点的输出变量名是 result
-		"content":    chatResp.Content, // 保留 content 以兼容旧代码
-		"tokensUsed": chatResp.TokensUsed,
-		"model":      chatResp.Model,
+		"result":            chatResp.Content, // AI节点的输出变量名是 result
+		"content":           chatResp.Content, // 保留 content 以兼容旧代码
+		"tokensUsed":        chatResp.TokensUsed,
+		"model":             chatResp.Model,
+		"reasoning_details": chatResp.ReasoningDetails, // 包含推理详情
 	}
 
 	return NodeExecutionResult{
