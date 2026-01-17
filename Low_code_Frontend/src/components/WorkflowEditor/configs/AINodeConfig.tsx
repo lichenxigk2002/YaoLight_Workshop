@@ -22,9 +22,10 @@ import {
 // 导入 providers 以触发注册
 import '../providers';
 import { providerRegistry } from '../providers';
+import { AIModelConfigPopup } from './AIModelConfigPopup';
 import { ProviderIcon } from '../../Icons/ProviderIcon';
+import { ProviderPicker, type ProviderPickerMode, type ProviderPickerOption } from './ProviderPicker';
 
-const { TextArea } = Input;
 const { Option } = Select;
 const { Panel } = Collapse;
 
@@ -47,6 +48,50 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
   const [providerTemplates, setProviderTemplates] = useState<ProviderTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const form = Form.useFormInstance();
+
+  const [providerPickerMode, setProviderPickerMode] = useState<ProviderPickerMode>(() => {
+    if (typeof window === 'undefined') return 'list';
+    const v = window.localStorage.getItem('ai_provider_picker_mode');
+    return v === 'cards' ? 'cards' : 'list';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('ai_provider_picker_mode', providerPickerMode);
+  }, [providerPickerMode]);
+
+  const providerPickerOptionsCustom = React.useMemo<ProviderPickerOption[]>(
+    () => [
+      { value: 'deepseek', title: 'DeepSeek', icon: <ProviderIcon provider="deepseek" size={18} /> },
+      { value: 'doubao', title: '豆包', icon: <ProviderIcon provider="doubao" size={18} /> },
+      { value: 'qwen', title: '通义千问', icon: <ProviderIcon provider="qwen" size={18} /> },
+      { value: 'minimax', title: 'MiniMax', icon: <ProviderIcon provider="minimax" size={18} /> },
+      { value: 'spark', title: '讯飞星火', icon: <ProviderIcon provider="spark" size={18} /> },
+      { value: 'hunyuan', title: '腾讯混元', icon: <ProviderIcon provider="hunyuan" size={18} /> },
+      { value: 'zhipuai', title: '智谱AI GLM', icon: <ProviderIcon provider="zhipuai" size={18} /> },
+      { value: 'gemini', title: 'Google Gemini', icon: <ProviderIcon provider="gemini" size={18} /> },
+      { value: 'gpt', title: 'GPT', icon: <ProviderIcon provider="gpt" size={18} /> },
+      { value: 'grok', title: 'Grok', icon: <ProviderIcon provider="grok" size={18} /> },
+    ],
+    [],
+  );
+
+  const providerPickerOptionsSystem = React.useMemo<ProviderPickerOption[]>(() => {
+    const seen = new Set<string>();
+    const opts: ProviderPickerOption[] = [];
+    for (const m of systemModels) {
+      if (seen.has(m.provider)) continue;
+      seen.add(m.provider);
+      const providerReg = providerRegistry.get(m.provider);
+      const displayName = providerReg?.displayName || m.name;
+      opts.push({
+        value: m.provider,
+        title: displayName,
+        icon: <ProviderIcon provider={m.provider} size={18} />,
+      });
+    }
+    return opts;
+  }, [systemModels]);
 
   // 用于跟踪当前模型配置键，避免重复切换
   const currentModelConfigKeyRef = useRef<string | null>(null);
@@ -105,6 +150,10 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
           form.setFieldValue(key, savedConfig[key]);
         }
       });
+      // 修复：确保 provider 值为 qwen（如果之前保存的是 qianwen）
+      if (savedConfig.provider === 'qianwen') {
+         form.setFieldValue('provider', 'qwen');
+      }
     } else {
       // 没有保存的配置，使用默认值
       const currentProvider = provider || (modelMode === 'saved' && modelId
@@ -120,7 +169,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       if (!support.thinking) {
         form.setFieldValue('thinking', undefined);
         // 通义千问使用 enable_thinking 而不是 thinking
-        if (currentProvider === 'qianwen') {
+        if (currentProvider === 'qwen') {
           form.setFieldValue('enable_thinking', undefined);
         }
       }
@@ -143,7 +192,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       }
       if (support.thinking && form.getFieldValue('thinking') === undefined) {
         // 通义千问使用 enable_thinking 而不是 thinking
-        if (currentProvider === 'qianwen') {
+        if (currentProvider === 'qwen') {
           if (form.getFieldValue('enable_thinking') === undefined) {
             form.setFieldValue('enable_thinking', false);
           }
@@ -299,18 +348,30 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                       {t('node.config.ai.systemPresetDesc')}
                     </div>
                     <div className={styles.configForm}>
+                      <Form.Item label={t('node.config.ai.displayMode') || '展示方式'} className={styles.formItem}>
+                        <Radio.Group
+                          value={providerPickerMode}
+                          onChange={(e) => setProviderPickerMode(e.target.value)}
+                        >
+                          <Radio.Button value="list">{t('node.config.ai.viewList') || '列表'}</Radio.Button>
+                          <Radio.Button value="cards">{t('node.config.ai.viewCards') || '图片'}</Radio.Button>
+                        </Radio.Group>
+                      </Form.Item>
                       <Form.Item
                         label={t('node.config.ai.selectModel')}
                         name="provider"
                         rules={[{ required: true, message: t('node.config.ai.selectProviderRequired') }]}
                         className={styles.formItem}
+                        style={providerPickerMode === 'cards' ? { display: 'none' } : {}}
                       >
-                        <Select
+                        <ProviderPicker
+                          mode={providerPickerMode}
                           placeholder={t('node.config.ai.selectSystemPresetModel')}
                           loading={loading}
                           className={styles.modelSelect}
+                          options={providerPickerOptionsSystem}
                           onChange={(value) => {
-                            // 当选择 provider 时，自动设置对应的 modelName
+                            form.setFieldValue('provider', value);
                             const selectedModel = systemModels.find(m => m.provider === value);
                             const providerTemplate = providerTemplates.find(t => t.provider === value);
                             const defaultModelName = selectedModel?.modelName || providerTemplate?.supportedModels[0] || '';
@@ -318,27 +379,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                               form.setFieldValue('modelName', defaultModelName);
                             }
                           }}
-                        >
-                          {systemModels.map((model) => {
-                            // 获取提供商的显示名称（优先使用注册表中的displayName）
-                            const providerReg = providerRegistry.get(model.provider);
-                            const displayName = providerReg?.displayName || model.name;
-
-                            return (
-                              <Option key={model.id} value={model.provider}>
-                                <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <ProviderIcon provider={model.provider} size={16} />
-                                  <span>{displayName}</span>
-                                </div>
-                              </Option>
-                            );
-                          })}
-                          {systemModels.length === 0 && (
-                            <Option disabled value="">
-                              {t('node.config.ai.noSystemPresetModel')}
-                            </Option>
-                          )}
-                        </Select>
+                        />
                       </Form.Item>
                       <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.provider !== curr?.provider}>
                         {({ getFieldValue }) => {
@@ -350,31 +391,80 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                           const supportedModels = providerTemplate?.supportedModels || [];
                           // 默认模型名称：优先使用系统预设模型的 modelName，否则使用模板的第一个模型
                           const defaultModelName = selectedSystemModel?.modelName || supportedModels[0] || '';
+                          const currentModelName = getFieldValue('modelName');
+                          const providerConfigSupport = getModelConfigSupport(selectedProvider);
 
                           return (
-                            <Form.Item
-                              label={t('node.config.ai.modelName')}
-                              name="modelName"
-                              rules={[{ required: true, message: t('node.config.ai.modelNameRequired') }]}
-                              className={styles.formItem}
-                            >
-                              <Select
-                                className={styles.modelSelect}
-                                onChange={(value) => {
-                                  form.setFieldValue('modelName', value);
-                                }}
-                              >
-                                {supportedModels.length > 0 ? (
-                                  supportedModels.map((modelName) => (
-                                    <Option key={modelName} value={modelName}>
-                                      {modelName}
-                                    </Option>
-                                  ))
-                                ) : (
-                                  defaultModelName && <Option value={defaultModelName}>{defaultModelName}</Option>
-                                )}
-                              </Select>
-                            </Form.Item>
+                            <>
+                              {providerPickerMode === 'cards' ? (
+                                <>
+                                  <div className={styles.label}>{t('node.config.ai.modelName')}</div>
+                                  <AIModelConfigPopup
+                                    value={selectedProvider}
+                                    onChange={(val) => {
+                                      form.setFieldValue('provider', val);
+                                      // 切换服务商时，自动选中默认模型
+                                      const selectedModel = systemModels.find(m => m.provider === val);
+                                      const template = providerTemplates.find(t => t.provider === val);
+                                      const defaultName = selectedModel?.modelName || template?.supportedModels[0] || '';
+                                      if (defaultName) {
+                                        form.setFieldValue('modelName', defaultName);
+                                      }
+                                    }}
+                                    options={providerPickerOptionsSystem}
+                                    supportedModels={supportedModels}
+                                    currentModelName={currentModelName}
+                                    onModelChange={(val) => form.setFieldValue('modelName', val)}
+                                    trigger={
+                                      <div className={styles.triggerCard}>
+                                        <div className={styles.triggerCardIcon}>
+                                          <ProviderIcon provider={selectedProvider} size={24} />
+                                        </div>
+                                        <div className={styles.triggerCardContent}>
+                                          <div className={styles.triggerCardTitle}>
+                                            {selectedSystemModel?.name || providerTemplate?.name || selectedProvider}
+                                          </div>
+                                          <div className={styles.triggerCardDesc}>
+                                            {currentModelName || defaultModelName || '请选择模型'}
+                                          </div>
+                                        </div>
+                                        <div className={styles.triggerCardAction}>
+                                          <SettingOutlined />
+                                        </div>
+                                      </div>
+                                    }
+                                  />
+                                  {/* 隐藏字段以确保 Form 数据同步 */}
+                                  <Form.Item name="modelName" style={{ display: 'none' }} rules={[{ required: true }]}>
+                                    <Input />
+                                  </Form.Item>
+                                </>
+                              ) : (
+                                <Form.Item
+                                  label={t('node.config.ai.modelName')}
+                                  name="modelName"
+                                  rules={[{ required: true, message: t('node.config.ai.modelNameRequired') }]}
+                                  className={styles.formItem}
+                                >
+                                  <Select
+                                    className={styles.modelSelect}
+                                    onChange={(value) => {
+                                      form.setFieldValue('modelName', value);
+                                    }}
+                                  >
+                                    {supportedModels.length > 0 ? (
+                                      supportedModels.map((modelName) => (
+                                        <Option key={modelName} value={modelName}>
+                                          {modelName}
+                                        </Option>
+                                      ))
+                                    ) : (
+                                      defaultModelName && <Option value={defaultModelName}>{defaultModelName}</Option>
+                                    )}
+                                  </Select>
+                                </Form.Item>
+                              )}
+                            </>
                           );
                         }}
                       </Form.Item>
@@ -458,6 +548,15 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                       {t('node.config.ai.customConfigDesc')}
                     </div>
                     <div className={styles.configForm}>
+                      <Form.Item label={t('node.config.ai.displayMode') || '展示方式'} className={styles.formItem}>
+                        <Radio.Group
+                          value={providerPickerMode}
+                          onChange={(e) => setProviderPickerMode(e.target.value)}
+                        >
+                          <Radio.Button value="list">{t('node.config.ai.viewList') || '列表'}</Radio.Button>
+                          <Radio.Button value="cards">{t('node.config.ai.viewCards') || '图片'}</Radio.Button>
+                        </Radio.Group>
+                      </Form.Item>
                       <Form.Item
                         label={t('node.config.ai.provider')}
                         name="provider"
@@ -465,50 +564,20 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                         initialValue="deepseek"
                         className={styles.formItem}
                       >
-                        <Select className={styles.modelSelect}>
-                          <Option value="deepseek">
-                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <ProviderIcon provider="deepseek" size={16} />
-                              <span>DeepSeek</span>
-                            </div>
-                          </Option>
-                          <Option value="doubao">
-                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <ProviderIcon provider="doubao" size={16} />
-                              <span>豆包</span>
-                            </div>
-                          </Option>
-                          <Option value="qianwen">
-                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <ProviderIcon provider="qianwen" size={16} />
-                              <span>通义千问</span>
-                            </div>
-                          </Option>
-                          <Option value="zhipuai">
-                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <ProviderIcon provider="zhipuai" size={16} />
-                              <span>智谱AI GLM</span>
-                            </div>
-                          </Option>
-                          <Option value="gemini">
-                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <ProviderIcon provider="gemini" size={16} />
-                              <span>Google Gemini</span>
-                            </div>
-                          </Option>
-                          <Option value="gpt">
-                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <ProviderIcon provider="gpt" size={16} />
-                              <span>GPT</span>
-                            </div>
-                          </Option>
-                          <Option value="grok">
-                            <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <ProviderIcon provider="grok" size={16} />
-                              <span>Grok</span>
-                            </div>
-                          </Option>
-                        </Select>
+                        <ProviderPicker
+                          mode={providerPickerMode}
+                          className={styles.modelSelect}
+                          options={providerPickerOptionsCustom}
+                          onChange={(value) => {
+                            form.setFieldValue('provider', value);
+                            const providerTemplate = providerTemplates.find(t => t.provider === value);
+                            const supportedModels = providerTemplate?.supportedModels || [];
+                            const defaultModelName = supportedModels[0] || '';
+                            const defaultBaseUrl = providerTemplate?.defaultBaseUrl || '';
+                            if (defaultModelName) form.setFieldValue('modelName', defaultModelName);
+                            if (defaultBaseUrl) form.setFieldValue('baseUrl', defaultBaseUrl);
+                          }}
+                        />
                       </Form.Item>
                       <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.provider !== curr?.provider}>
                         {({ getFieldValue }) => {
@@ -621,6 +690,8 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       </div>
 
       {/* 高级参数（可折叠） */}
+      {/* 在系统预设模式且为卡片视图时，高级参数已集成在弹窗中，故此处隐藏 */}
+      {!(modelMode === 'system' && providerPickerMode === 'cards') && (
       <div className={styles.advancedSection}>
         <Collapse
           ghost
@@ -679,6 +750,10 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                   maxTokensLimit = 131072; // GPT (OpenRouter) 通常支持更大的 token 数
                 } else if (activeProvider === 'grok') {
                   maxTokensLimit = 131072; // Grok 限制
+                } else if (activeProvider === 'spark') {
+                  maxTokensLimit = 65535; // 讯飞星火 X1.5 最大 65535
+                } else if (activeProvider === 'hunyuan') {
+                  maxTokensLimit = 32768;
                 } else {
                   maxTokensLimit = 32768; // 其他提供商默认值
                 }
@@ -797,6 +872,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
           </Panel>
         </Collapse>
       </div>
+      )}
     </div>
   );
 };

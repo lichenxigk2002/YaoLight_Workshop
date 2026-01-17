@@ -49,10 +49,20 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置豆包 API Key，请在.env中配置DOUBAO_API_KEY")
 		}
-	case "qianwen":
-		apiKey = config.QianwenAPIKey
+	case "qwen":
+		apiKey = config.QwenAPIKey
 		if apiKey == "" {
-			return nil, fmt.Errorf("系统未配置通义千问 API Key，请在.env中配置QIANWEN_API_KEY")
+			return nil, fmt.Errorf("系统未配置通义千问 API Key，请在.env中配置QWEN_API_KEY")
+		}
+	case "spark":
+		apiKey = config.SparkAPIKey
+		if apiKey == "" {
+			return nil, fmt.Errorf("系统未配置讯飞星火 APIpassword，请在.env中配置SPARK_API_PASSWORD")
+		}
+	case "hunyuan":
+		apiKey = config.HunyuanAPIKey
+		if apiKey == "" {
+			return nil, fmt.Errorf("系统未配置腾讯混元 API Key，请在.env中配置HUNYUAN_API_KEY")
 		}
 	case "zhipuai":
 		apiKey = config.ZhipuaiAPIKey
@@ -70,7 +80,7 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 			customConfig["modelName"] = "google/gemini-3-pro-preview"
 		}
 		if provider == "gpt" && getString(customConfig, "modelName", "") == "deepseek-chat" {
-			customConfig["modelName"] = "openai/gpt-4o-mini"
+			customConfig["modelName"] = "openai/gpt-oss-20b"
 		}
 		// Grok 系统预设使用 x-ai/grok-2-1212
 		if provider == "grok" && getString(customConfig, "modelName", "") == "deepseek-chat" {
@@ -204,10 +214,14 @@ func getDefaultBaseURL(provider string) string {
 		return "https://api.deepseek.com"
 	case "doubao":
 		return "https://ark.cn-beijing.volces.com/api/v3"
-	case "qianwen":
+	case "qwen":
 		return "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	case "spark":
+		return "https://spark-api-open.xf-yun.com/v2"
 	case "zhipuai":
 		return "https://open.bigmodel.cn/api/paas/v4"
+	case "hunyuan":
+		return "https://api.hunyuan.cloud.tencent.com/v1"
 	case "gemini", "gpt", "grok":
 		return "https://openrouter.ai/api/v1"
 	default:

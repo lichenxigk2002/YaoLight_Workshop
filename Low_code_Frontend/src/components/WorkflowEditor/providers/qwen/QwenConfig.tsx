@@ -6,9 +6,9 @@ import React from 'react';
 import { Form, Switch } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ProviderConfigProps } from '../types';
-import styles from './QianwenConfig.module.scss';
+import styles from './QwenConfig.module.scss';
 
-export const QianwenConfig: React.FC<ProviderConfigProps> = ({ form }) => {
+export const QwenConfig: React.FC<ProviderConfigProps> = ({ form }) => {
   const { t } = useTranslation();
 
   return (
