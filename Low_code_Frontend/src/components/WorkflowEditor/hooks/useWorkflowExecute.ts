@@ -329,10 +329,11 @@ export function useWorkflowExecute(
           setIsExecuting(true); // 标记为正在执行
         });
 
-        // 构建最终结果
+        const actualResults = results.filter(r => r.node_id !== 'workflow_complete');
+        const failedCount = actualResults.filter(r => r && r.success === false).length;
         const result = {
-          success: true,
-          results: results,
+          success: failedCount === 0,
+          results: actualResults,
         };
 
         // 计算实际执行的节点总数（根据实际收到的 node_result 事件）
@@ -341,9 +342,7 @@ export function useWorkflowExecute(
           .filter(([nodeId, status]) => 
             nodeId !== 'workflow_complete' && (status === 'success' || status === 'failed')
           ).length;
-        // 过滤掉 workflow_complete 的结果项
-        const actualResults = results.filter(r => r.node_id !== 'workflow_complete');
-        const totalNodeCount = executedNodeCount > 0 ? executedNodeCount : actualResults.length;
+        const totalNodeCount = executedNodeCount > 0 ? executedNodeCount : result.results.length;
 
         // 显示通知的函数
         const showResultPanel = () => {
@@ -370,17 +369,29 @@ export function useWorkflowExecute(
           t('workflowEditor.viewResult')
         );
 
-        // 立即显示通知（不等待setState完成）
-        notification.success({
-          message: t('workflowEditor.execSuccessTitle') || '工作流执行完成',
-          description: t('workflowEditor.execSuccessDesc', { count: totalNodeCount }) || `共执行 ${totalNodeCount} 个节点`,
-          placement: 'bottomRight',
-          icon: null,
-          onClick: showResultPanel,
-          btn: resultButton,
-          duration: 0, // 不自动关闭，让用户手动关闭或点击查看结果
-          key: 'workflow-exec-success', // 添加key，避免重复显示
-        });
+        if (result.success) {
+          notification.success({
+            message: t('workflowEditor.execSuccessTitle') || '工作流执行完成',
+            description: t('workflowEditor.execSuccessDesc', { count: totalNodeCount }) || `共执行 ${totalNodeCount} 个节点`,
+            placement: 'bottomRight',
+            icon: null,
+            onClick: showResultPanel,
+            btn: resultButton,
+            duration: 0,
+            key: 'workflow-exec-success',
+          });
+        } else {
+          notification.warning({
+            message: t('workflowEditor.execPartialTitle') || '工作流部分失败',
+            description: t('workflowEditor.execPartialDesc') || `共执行 ${totalNodeCount} 个节点，失败 ${failedCount} 个`,
+            placement: 'bottomRight',
+            icon: null,
+            onClick: showResultPanel,
+            btn: resultButton,
+            duration: 0,
+            key: 'workflow-exec-success',
+          });
+        }
 
         // 保存最终执行结果（在通知显示之后）
         setExecutionResult(result);

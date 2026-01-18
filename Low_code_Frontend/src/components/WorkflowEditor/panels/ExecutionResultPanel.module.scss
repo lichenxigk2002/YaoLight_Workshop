@@ -7,6 +7,30 @@
   }
 }
 
+.panelContainer {
+  :global(*) {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  :global(*::-webkit-scrollbar) {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+}
+
+.panelScroll {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+
+  &::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+}
+
 .resultCollapse {
   background: transparent;
 
@@ -29,6 +53,15 @@
       color: var(--text-primary) !important;
     }
 
+    .ant-collapse-header-text {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .ant-collapse-extra {
+      flex: 0 0 auto;
+    }
+
     .ant-collapse-content {
       border-top: 1px solid var(--border-secondary);
       background: var(--bg-primary);
@@ -40,27 +73,13 @@
       max-height: 500px;
       overflow-y: auto;
 
-      // 使用更美观的滚动条样式
-      scrollbar-width: thin;
-      scrollbar-color: transparent transparent;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
 
       &::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: var(--border-secondary);
-        border-radius: 3px;
-        opacity: 0;
-        transition: opacity 0.2s;
-      }
-
-      &:hover::-webkit-scrollbar-thumb {
-        opacity: 1;
+        width: 0 !important;
+        height: 0 !important;
+        display: none !important;
       }
     }
   }
@@ -70,12 +89,31 @@
   display: flex;
   align-items: center;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 
   .nodeLabel {
     font-weight: 500;
     font-size: 14px;
     color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.typeBadge {
+  flex: 0 0 auto;
 }
 
 .dataPreview {
@@ -278,22 +316,44 @@
   max-height: 600px;
   overflow-y: auto;
 
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+
   &::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
   }
+}
 
-  &::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-    border-radius: 4px;
-  }
+@media (max-width: 1920px) {
+  .resultCollapse {
+    :global {
+      .ant-collapse-header {
+        padding: 10px 12px !important;
+      }
 
-  &::-webkit-scrollbar-thumb {
-    background: var(--text-tertiary);
-    border-radius: 4px;
-
-    &:hover {
-      background: var(--text-secondary);
+      .ant-collapse-content-box {
+        padding: 12px;
+      }
     }
+  }
+
+  .panelHeader {
+    .nodeLabel {
+      font-size: 12px;
+      max-width: 150px;
+    }
+  }
+
+  .dataPreview {
+    .sectionTitle {
+      font-size: 13px;
+    }
+  }
+
+  .jsonDisplay {
+    font-size: 12px;
+    line-height: 1.55;
   }
 }

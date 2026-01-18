@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Collapse, Empty, Tag, Typography, Button, Space, message } from 'antd';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Collapse, Empty, Tag, Typography, Button, Space, message, Modal } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -12,6 +12,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
 import { ProviderIcon, MessageIcon, CollapseIcon } from '@/components/Icons';
+import { AIPreviewModal } from './components/AIPreviewModal';
+import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
 import styles from './ExecutionResultPanel.module.scss';
 
 const { Panel } = Collapse;
@@ -50,6 +52,8 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   const { t } = useTranslation();
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<string, { reasoning: boolean; content: boolean }>>({});
+  const [previewTarget, setPreviewTarget] = useState<NodeExecutionResult | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // 当结果更新时，自动展开AI节点（如果正在流式输出）
   useEffect(() => {
@@ -76,6 +80,75 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
     const node = nodes.find((n) => n.id === nodeId);
     return node?.data?.label || nodeId;
   };
+
+  const previewNodeConfig = useMemo(() => {
+    if (!previewTarget) return undefined;
+    const node = nodes.find((n) => n.id === previewTarget.node_id);
+    return node?.data?.config;
+  }, [nodes, previewTarget]);
+
+  const aiPreview = useMemo(() => {
+    if (!result || !previewTarget || previewTarget.type !== 'ai') return null;
+    const ai = previewTarget;
+    const previewData = { ai, raw: result, isStreaming: false };
+    return {
+      open: previewOpen,
+      onClose: () => {
+        setPreviewOpen(false);
+        setPreviewTarget(null);
+      },
+      aiTest: {
+        previewOpen,
+        setPreviewOpen: (open: boolean) => {
+          setPreviewOpen(open);
+          if (!open) setPreviewTarget(null);
+        },
+        previewData,
+        streamingContent: '',
+        streamingReasoningContent: '',
+        isStreaming: false,
+        isReasoningStreaming: false,
+        cancelStream: () => {},
+      },
+    };
+  }, [previewOpen, previewTarget, result]);
+
+  const crawlerPreview = useMemo(() => {
+    if (!result || !previewTarget || previewTarget.type !== 'crawler') return null;
+    const crawler = previewTarget;
+    const previewData = { crawler, raw: result };
+    return {
+      open: previewOpen,
+      onClose: () => {
+        setPreviewOpen(false);
+        setPreviewTarget(null);
+      },
+      crawlerTest: {
+        previewOpen,
+        setPreviewOpen: (open: boolean) => {
+          setPreviewOpen(open);
+          if (!open) setPreviewTarget(null);
+        },
+        previewData,
+      },
+    };
+  }, [previewOpen, previewTarget, result]);
+
+  const rawPreview = useMemo(() => {
+    if (!previewTarget) return null;
+    if (previewTarget.type === 'ai' || previewTarget.type === 'crawler') return null;
+    return {
+      open: previewOpen,
+      onClose: () => {
+        setPreviewOpen(false);
+        setPreviewTarget(null);
+      },
+      title: `${getNodeLabel(previewTarget.node_id)} 预览`,
+      data: previewTarget.data,
+      success: previewTarget.success,
+      error: previewTarget.error,
+    };
+  }, [previewOpen, previewTarget]);
 
   // 获取节点类型标签
   const getNodeTypeLabel = (type: string): string => {
@@ -318,6 +391,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
 
   return (
     <div
+      className={styles.panelContainer}
       style={{
         width: '100%',
         height: '100%',
@@ -374,7 +448,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
         flex: 1,
         overflowY: 'auto',
         padding: '16px',
-      }}>
+      }} className={styles.panelScroll}>
         {result.results.length === 0 ? (
           <Empty description={t('node.execution.noResult')} />
         ) : (
@@ -383,54 +457,59 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
             onChange={(keys) => setActiveKeys(keys as string[])}
             className={styles.resultCollapse}
           >
-            {result.results.map((nodeResult) => (
-              <Panel
-                key={nodeResult.node_id}
-                header={
-                  <div className={styles.panelHeader}>
-                    <Space>
-                      {nodeResult.success ? (
-                        <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                      ) : (
-                        <CloseCircleOutlined style={{ color: '#f5222d' }} />
-                      )}
-                      <span className={styles.nodeLabel}>
-                        {getNodeLabel(nodeResult.node_id)}
-                      </span>
-                      {nodeResult.type === 'ai' ? (
-                        // AI节点只显示图标，不显示文字，不使用 Tag 背景
-                        (() => {
-                          // 从节点数据中获取模型信息，推断提供商
-                          const node = nodes.find((n) => n.id === nodeResult.node_id);
-                          const modelName = nodeResult.data?.model || node?.data?.config?.modelName || '';
-                          let provider = '';
-                          if (modelName.toLowerCase().includes('deepseek')) {
-                            provider = 'deepseek';
-                          } else if (modelName.toLowerCase().includes('doubao') || modelName.toLowerCase().includes('seed')) {
-                            provider = 'doubao';
-                          } else if (modelName.toLowerCase().includes('qwen')) {
-                            provider = 'qianwen';
-                          }
-                          // 如果无法从模型名称推断，尝试从配置中获取
-                          if (!provider && node?.data?.config?.provider) {
-                            provider = node.data.config.provider.toLowerCase();
-                          }
-                          return provider ? (
-                            <ProviderIcon provider={provider} size={14} />
-                          ) : (
-                            <Tag color={nodeResult.success ? 'success' : 'error'}>
-                              {getNodeTypeLabel(nodeResult.type)}
-                            </Tag>
-                          );
-                        })()
-                      ) : (
-                        <Tag color={nodeResult.success ? 'success' : 'error'}>
-                          {getNodeTypeLabel(nodeResult.type)}
-                        </Tag>
-                      )}
-                    </Space>
-                  </div>
-                }
+            {result.results.map((nodeResult) => {
+              const nodeLabel = getNodeLabel(nodeResult.node_id);
+              return (
+                <Panel
+                  key={nodeResult.node_id}
+                  header={
+                    <div className={styles.panelHeader}>
+                      <div className={styles.headerLeft}>
+                        {nodeResult.success ? (
+                          <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                        ) : (
+                          <CloseCircleOutlined style={{ color: '#f5222d' }} />
+                        )}
+                        <span className={styles.nodeLabel} title={nodeLabel}>
+                          {nodeLabel}
+                        </span>
+                        <span className={styles.typeBadge}>
+                          {nodeResult.type === 'ai'
+                            ? (() => {
+                                const node = nodes.find((n) => n.id === nodeResult.node_id);
+                                const modelName =
+                                  nodeResult.data?.model || node?.data?.config?.modelName || '';
+                                let provider = '';
+                                if (modelName.toLowerCase().includes('deepseek')) {
+                                  provider = 'deepseek';
+                                } else if (
+                                  modelName.toLowerCase().includes('doubao') ||
+                                  modelName.toLowerCase().includes('seed')
+                                ) {
+                                  provider = 'doubao';
+                                } else if (modelName.toLowerCase().includes('qwen')) {
+                                  provider = 'qianwen';
+                                }
+                                if (!provider && node?.data?.config?.provider) {
+                                  provider = node.data.config.provider.toLowerCase();
+                                }
+                                return provider ? (
+                                  <ProviderIcon provider={provider} size={14} />
+                                ) : (
+                                  <Tag color={nodeResult.success ? 'success' : 'error'}>
+                                    {getNodeTypeLabel(nodeResult.type)}
+                                  </Tag>
+                                );
+                              })()
+                            : (
+                              <Tag color={nodeResult.success ? 'success' : 'error'}>
+                                {getNodeTypeLabel(nodeResult.type)}
+                              </Tag>
+                            )}
+                        </span>
+                      </div>
+                    </div>
+                  }
                 extra={
                   <Space onClick={(e) => e.stopPropagation()}>
                     <Button
@@ -438,11 +517,8 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                       size="small"
                       icon={<EyeOutlined />}
                       onClick={() => {
-                        if (activeKeys.includes(nodeResult.node_id)) {
-                          setActiveKeys(activeKeys.filter((k) => k !== nodeResult.node_id));
-                        } else {
-                          setActiveKeys([...activeKeys, nodeResult.node_id]);
-                        }
+                        setPreviewTarget(nodeResult);
+                        setPreviewOpen(true);
                       }}
                     />
                     <Button
@@ -473,10 +549,50 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                   </div>
                 )}
               </Panel>
-            ))}
+              );
+            })}
           </Collapse>
         )}
       </div>
+
+      {aiPreview && (
+        <AIPreviewModal
+          open={aiPreview.open}
+          onClose={aiPreview.onClose}
+          aiTest={aiPreview.aiTest}
+          nodeConfig={previewNodeConfig}
+        />
+      )}
+
+      {crawlerPreview && (
+        <CrawlerPreviewModal
+          open={crawlerPreview.open}
+          onClose={crawlerPreview.onClose}
+          crawlerTest={crawlerPreview.crawlerTest}
+        />
+      )}
+
+      {rawPreview && (
+        <Modal
+          title={rawPreview.title}
+          open={rawPreview.open}
+          onCancel={rawPreview.onClose}
+          footer={null}
+          width={700}
+          centered
+          maskClosable={false}
+          styles={{ body: { padding: '12px 24px 24px' } }}
+        >
+          {!rawPreview.success && rawPreview.error ? (
+            <div style={{ marginBottom: 12 }}>
+              <Text type="danger">{rawPreview.error}</Text>
+            </div>
+          ) : null}
+          <pre className={styles.jsonDisplay}>
+            {JSON.stringify(rawPreview.data, null, 2)}
+          </pre>
+        </Modal>
+      )}
     </div>
   );
 };

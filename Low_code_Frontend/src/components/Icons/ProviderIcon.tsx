@@ -45,9 +45,9 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({ provider, size = 16,
       console.warn('Qwen icon component is missing');
       return null;
     }
-    // 用户指出千问图标应为紫色（品牌色）
-    // 强制指定颜色，以防 SafeIcon 回退到单色版时显示为黑/白
-    return <SafeIcon Component={Qwen} size={size} className={className} style={{ color: '#615CED' }} />;
+    // 用户反馈图标显示有问题，使用单色版本，并指定通义千问的品牌色（紫色 #615CED）
+    // 注意：SafeIcon 会优先使用 Color 组件，所以这里直接使用 Qwen 组件
+    return <Qwen size={size} className={className} style={{ color: '#615CED' }} />;
   }
 
   if (providerLower === 'zhipuai') {
