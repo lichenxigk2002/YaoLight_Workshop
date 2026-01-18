@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { Form, Popover, InputNumber, Switch, Button, Tooltip, Select } from 'antd';
-import { DownOutlined, InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { Form, Modal, InputNumber, Switch, Tooltip, Select } from 'antd';
+import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { ProviderIcon } from '../../Icons/ProviderIcon';
 import styles from './AIModelConfigPopup.module.scss';
@@ -46,6 +46,7 @@ interface AIModelConfigPopupProps {
   currentModelName?: string;
   onModelChange: (model: string) => void;
   trigger?: React.ReactNode;
+  onOpen?: () => void;
 }
 
 export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
@@ -56,12 +57,48 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
   currentModelName,
   onModelChange,
   trigger,
+  onOpen,
 }) => {
   const { t } = useTranslation();
-  const form = Form.useFormInstance();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [modalStyle, setModalStyle] = useState<React.CSSProperties>({});
+  const [modalWidth, setModalWidth] = useState(420);
+
+  // 监听打开状态，计算水平位置（模仿 Popover left）但垂直居中
+  useEffect(() => {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      
+      // 响应式宽度计算，与 SCSS 中的断点保持一致
+      const isSmallScreen = window.innerWidth <= 2560;
+      // 宽度与 SCSS 中 .popupContainer 的 width 保持一致
+      const width = isSmallScreen ? 320 : 420;
+      setModalWidth(width);
+
+      // Popover placement="left" 意味着在触发器左侧
+      // 间距 10px
+      const gap = 12;
+      let left = rect.left - width - gap;
+      
+      // 简单防溢出：如果左边放不下，就放右边
+      if (left < 10) {
+        left = rect.right + gap;
+      }
+
+      setModalStyle({
+        top: '50%',
+        left: `${left}px`,
+        margin: 0,
+        transform: 'translateY(-50%)',
+        position: 'fixed',
+        padding: 0
+      });
+    }
+  }, [open]);
 
   // 获取当前选中提供商的配置支持情况
-  const support = useMemo(() => getModelConfigSupport(currentProvider), [currentProvider]);
+  const support = useMemo(() => getModelConfigSupport(currentProvider ?? null), [currentProvider]);
 
   // Popover 内容
   const content = (
@@ -191,11 +228,11 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
                 <span>{t('node.config.ai.thinkingLevel') || '思考程度'}</span>
               </div>
               <Form.Item name="thinkingLevel" noStyle>
-                 <Select size="small" className={styles.paramInput}>
-                    <Option value="low">Low</Option>
-                    <Option value="medium">Medium</Option>
-                    <Option value="high">High</Option>
-                 </Select>
+                <Select size="small" className={styles.paramInput}>
+                  <Option value="low">Low</Option>
+                  <Option value="medium">Medium</Option>
+                  <Option value="high">High</Option>
+                </Select>
               </Form.Item>
             </div>
           )}
@@ -242,19 +279,36 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
   );
 
   return (
-    <Popover
-      content={content}
-      trigger="click"
-      placement="left"
-      overlayClassName={styles.configPopover}
-      arrow={false}
-    >
-      {trigger || (
-        <div className={styles.defaultTrigger}>
-           <SettingOutlined />
-           <span>{t('node.config.ai.configureModel') || '配置模型'}</span>
-        </div>
-      )}
-    </Popover>
+    <>
+      <div 
+        ref={triggerRef}
+        onClick={(e) => { e.stopPropagation(); onOpen?.(); setOpen(true); }} 
+        style={{ display: 'inline-block', cursor: 'pointer' }}
+      >
+        {trigger || (
+          <div className={styles.defaultTrigger}>
+             <SettingOutlined />
+             <span>{t('node.config.ai.configureModel') || '配置模型'}</span>
+          </div>
+        )}
+      </div>
+      <Modal
+        open={open}
+        onCancel={(e) => { e.stopPropagation(); setOpen(false); }}
+        footer={null}
+        closable={false}
+        width={modalWidth}
+        style={modalStyle}
+        getContainer={false}
+        destroyOnClose
+        maskClosable={true}
+        maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}
+        className={styles.configModal}
+        transitionName="" 
+        maskTransitionName=""
+      >
+        {content}
+      </Modal>
+    </>
   );
 };

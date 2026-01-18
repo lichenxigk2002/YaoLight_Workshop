@@ -4,11 +4,18 @@
 // 默认应用亮色主题
 :root {
   @include theme('light');
+  --app-scrollbar-size: 6px;
+  --app-scrollbar-radius: 999px;
+  --app-scrollbar-track: transparent;
+  --app-scrollbar-thumb: rgba(255, 255, 255, 0.28);
+  --app-scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
 }
 
 // 暗色主题类
 [data-theme='dark'] {
   @include theme('dark');
+  --app-scrollbar-thumb: rgba(0, 0, 0, 0.28);
+  --app-scrollbar-thumb-hover: rgba(255, 255, 255, 0.36);
 }
 
 // 全局样式重置
@@ -16,6 +23,31 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--app-scrollbar-size);
+  height: var(--app-scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb);
+  border-radius: var(--app-scrollbar-radius);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb-hover);
 }
 
 body {

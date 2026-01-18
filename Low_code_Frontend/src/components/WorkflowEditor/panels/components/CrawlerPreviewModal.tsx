@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal, Tabs, Typography, Tag, Space, Collapse, Image, Empty } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { Scrollbar } from '@/components/Scrollbar';
 import styles from './CrawlerPreviewModal.module.scss';
 
 const { Paragraph, Text } = Typography;
@@ -105,7 +106,7 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
       key: 'overview',
       label: t('node.config.crawler.overview'),
       children: (
-        <div className={styles.contentArea}>
+        <Scrollbar className={styles.contentArea} axis="y">
           <div className={styles.statusContainer}>
             <Text type="secondary" className={styles.statusTitle}>
               {t('node.config.executionStatus')}
@@ -244,22 +245,14 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
               </div>
             </Collapse.Panel>
           </Collapse>
-        </div>
+        </Scrollbar>
       ),
     },
     {
       key: 'cleaned',
       label: t('node.config.crawler.cleaned'),
       children: (
-        <div
-          style={{
-            maxHeight: '60vh',
-            overflow: 'auto',
-            background: 'var(--bg-secondary)',
-            borderRadius: 4,
-            padding: 12,
-          }}
-        >
+        <Scrollbar className={styles.cleanedViewer} axis="y">
           {crawlerTest.previewData?.dataclean?.data ? (
             typeof crawlerTest.previewData.dataclean.data === 'string' ? (
               <Paragraph
@@ -285,18 +278,18 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
               {t('node.config.crawler.noCleanResult')}
             </div>
           )}
-        </div>
+        </Scrollbar>
       ),
     },
     {
       key: 'json',
       label: t('node.config.crawler.rawJson'),
       children: (
-        <div className={styles.jsonViewer}>
+        <Scrollbar className={styles.jsonViewer} axis="y" tone="contrast">
           <pre className={styles.jsonPre}>
             {JSON.stringify(crawlerTest.previewData, null, 2)}
           </pre>
-        </div>
+        </Scrollbar>
       ),
     },
   ];
@@ -306,7 +299,7 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
       key: 'images',
       label: t('node.config.crawler.imagePreview'),
       children: (
-        <div style={{ maxHeight: '60vh', overflow: 'auto', padding: 12 }}>
+        <Scrollbar className={styles.imagesViewer} axis="y">
           {hasImages ? (
             <Image.PreviewGroup>
               <Space size={[8, 8]} wrap>
@@ -354,7 +347,7 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
               </div>
             </div>
           )}
-        </div>
+        </Scrollbar>
       ),
     });
   }

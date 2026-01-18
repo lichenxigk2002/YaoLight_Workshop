@@ -33,13 +33,11 @@
 
 .contentArea {
   max-height: 50vh;
-  overflow: auto;
   padding-right: 4px;
 }
 
 .jsonViewer {
   max-height: 50vh;
-  overflow: auto;
   background: #282c34;
   color: #abb2bf;
   padding: 12px;
@@ -50,5 +48,17 @@
   margin: 0;
   font-size: 12px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.cleanedViewer {
+  max-height: 60vh;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.imagesViewer {
+  max-height: 60vh;
+  padding: 12px;
 }
 

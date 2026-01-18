@@ -91,6 +91,13 @@ const WorkflowEditor: React.FC = () => {
   const [autoTestNodeId, setAutoTestNodeId] = useState<string | null>(null);
   const [nodeListVisible, setNodeListVisible] = useState(false);
 
+  const defaultViewport = React.useMemo(() => {
+    if (typeof window === 'undefined') return { x: 0, y: 0, zoom: 1 };
+    const w = window.innerWidth;
+    const zoom = w <= 1920 ? 0.9 : w <= 2560 ? 0.95 : 1;
+    return { x: 0, y: 0, zoom };
+  }, []);
+
   // 获取节点标签（用于工具函数）
   const getNodeLabel = useCallback(
     (type: string): string => {
@@ -421,11 +428,16 @@ const WorkflowEditor: React.FC = () => {
             }}
             onNodesDelete={onNodesDelete}
             onEdgesDelete={onEdgesDelete}
+            defaultViewport={defaultViewport}
             onInit={(instance) => {
               setReactFlowInstance(instance);
               if (!hasInitialized.current) {
                 setTimeout(() => {
-                  instance.fitView({ padding: 0.2, duration: 0 });
+                  if (nodes.length > 0) {
+                    instance.fitView({ padding: 0.2, duration: 0 });
+                  } else {
+                    (instance as any)?.setViewport?.(defaultViewport, { duration: 0 });
+                  }
                   hasInitialized.current = true;
                 }, 0);
               }
@@ -594,7 +606,7 @@ const WorkflowEditor: React.FC = () => {
 
         <div
           style={{
-            width: configPanelVisible || resultPanelVisible ? 400 : 0,
+            width: configPanelVisible || resultPanelVisible ? 320 : 0,
             transition: 'width 0.3s cubic-bezier(0.2, 0, 0, 1)',
             overflow: 'hidden',
             flexShrink: 0,
@@ -602,7 +614,7 @@ const WorkflowEditor: React.FC = () => {
         >
           <div
             style={{
-              width: 400,
+              width: 320,
               height: '100%',
               background: 'var(--bg-primary)',
               borderRadius: '12px',

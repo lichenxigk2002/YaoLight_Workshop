@@ -415,6 +415,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                     supportedModels={supportedModels}
                                     currentModelName={currentModelName}
                                     onModelChange={(val) => form.setFieldValue('modelName', val)}
+                                    onOpen={() => restoreModelConfig()}
                                     trigger={
                                       <div className={styles.triggerCard}>
                                         <div className={styles.triggerCardIcon}>
