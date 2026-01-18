@@ -6,6 +6,7 @@ echo         启动前后端服务
 echo ========================================
 echo.
 
+
 REM 检查端口是否被占用
 netstat -ano | findstr :8080 | findstr LISTENING >nul
 if %errorlevel% == 0 (

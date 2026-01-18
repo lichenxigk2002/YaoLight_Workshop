@@ -28,13 +28,10 @@ export default defineConfig({
         rewrite: (path) => path, // 保持路径不变
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {
-            console.log('代理错误:', err);
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
-            console.log('代理请求:', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
-            console.log('代理响应:', proxyRes.statusCode, req.url);
           });
         },
       },

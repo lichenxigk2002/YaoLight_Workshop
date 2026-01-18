@@ -1,0 +1,64 @@
+// 爬虫预览模态框样式
+.statusContainer {
+  margin-bottom: 16px;
+  background: var(--bg-secondary);
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.statusTitle {
+  font-size: 12px;
+}
+
+.statusContent {
+  margin-top: 8px;
+  display: flex;
+  gap: 24px;
+}
+
+// 错误容器 - 支持亮色和暗色主题
+.errorContainer {
+  margin-top: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ffa39e;
+  background: #fff1f0;
+
+  // 暗色主题
+  :global([data-theme='dark']) & {
+    background: rgba(255, 77, 79, 0.1);
+    border-color: #a8071a;
+  }
+}
+
+.contentArea {
+  max-height: 50vh;
+  padding-right: 4px;
+}
+
+.jsonViewer {
+  max-height: 50vh;
+  background: #282c34;
+  color: #abb2bf;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.jsonPre {
+  margin: 0;
+  font-size: 12px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.cleanedViewer {
+  max-height: 60vh;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.imagesViewer {
+  max-height: 60vh;
+  padding: 12px;
+}
+

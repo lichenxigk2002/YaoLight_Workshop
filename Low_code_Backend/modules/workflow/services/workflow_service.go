@@ -159,9 +159,11 @@ type WorkflowNodeData struct {
 }
 
 type EdgeData struct {
-	ID     string `json:"id"`
-	Source string `json:"source"`
-	Target string `json:"target"`
+	ID           string `json:"id"`
+	Source       string `json:"source"`
+	Target       string `json:"target"`
+	SourceHandle string `json:"sourceHandle,omitempty"` // 条件节点的输出端口：true 或 false
+	TargetHandle string `json:"targetHandle,omitempty"` // 合并节点的输入端口：input-0, input-1, input-2
 }
 
 // WorkflowCommentCardData 工作流注释卡片数据（用于保存/加载）
@@ -203,10 +205,19 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 		connections := []map[string]interface{}{}
 		for _, edge := range req.Edges {
 			if edge.Source == nodeData.ID {
-				connections = append(connections, map[string]interface{}{
+				conn := map[string]interface{}{
 					"target": edge.Target,
 					"edgeId": edge.ID,
-				})
+				}
+				// 如果有 sourceHandle，保存它
+				if edge.SourceHandle != "" {
+					conn["sourceHandle"] = edge.SourceHandle
+				}
+				// 如果有 targetHandle，保存它
+				if edge.TargetHandle != "" {
+					conn["targetHandle"] = edge.TargetHandle
+				}
+				connections = append(connections, conn)
 			}
 		}
 
@@ -274,6 +285,48 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 	}
 
 	return nil
+}
+
+// SaveWorkflowNodeRequest 保存单个节点请求
+type SaveWorkflowNodeRequest struct {
+	Node WorkflowNodeData `json:"node"`
+}
+
+// SaveWorkflowNode 保存单个节点
+func (s *WorkflowService) SaveWorkflowNode(workflowID uint, nodeID string, req *SaveWorkflowNodeRequest) error {
+	// 验证工作流是否存在
+	_, err := s.workflowRepo.FindByID(workflowID)
+	if err != nil {
+		return ErrWorkflowNotFound
+	}
+
+	nodeData := req.Node
+
+	// 提取配置
+	config := nodeData.Data["config"]
+	if config == nil {
+		config = map[string]interface{}{}
+	}
+
+	// 提取标签
+	var label *string
+	if labelVal, ok := nodeData.Data["label"].(string); ok {
+		label = &labelVal
+	}
+
+	// 构建节点实体
+	node := &models.WorkflowNode{
+		WorkflowID: workflowID,
+		NodeID:     nodeID,
+		NodeType:   nodeData.Type,
+		Label:      label,
+		Position:   shared.JSONB{Data: nodeData.Position},
+		Config:     shared.JSONB{Data: config},
+		IsEnabled:  true,
+	}
+
+	// 保存节点（CreateOrUpdate 会自动处理创建或更新）
+	return s.workflowNodeRepo.CreateOrUpdate(node)
 }
 
 // GetWorkflowNodes 获取工作流的节点和边
@@ -346,11 +399,20 @@ func (s *WorkflowService) GetWorkflowNodes(workflowID uint) (*SaveWorkflowNodesR
 							} else {
 								edgeID = dbNode.NodeID + "-" + target
 							}
-							edges = append(edges, EdgeData{
+							edgeData := EdgeData{
 								ID:     edgeID,
 								Source: dbNode.NodeID,
 								Target: target,
-							})
+							}
+							// 如果有 sourceHandle，加载它
+							if sourceHandle, ok := connMap["sourceHandle"].(string); ok {
+								edgeData.SourceHandle = sourceHandle
+							}
+							// 如果有 targetHandle，加载它
+							if targetHandle, ok := connMap["targetHandle"].(string); ok {
+								edgeData.TargetHandle = targetHandle
+							}
+							edges = append(edges, edgeData)
 						}
 					}
 				}

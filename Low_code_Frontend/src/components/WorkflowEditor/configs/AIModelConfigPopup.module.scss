@@ -1,0 +1,301 @@
+.popupContainer {
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px;
+  
+  /* 响应式调整：笔记本/小屏幕 */
+  @media (max-width: 2560px) {
+    width: 320px;
+    gap: 10px;
+    padding: 8px;
+  }
+}
+
+/* 滚动条样式 mixin */
+@mixin custom-scrollbar {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Hide scrollbar for IE, Edge and Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.popupContainer {
+  @include custom-scrollbar;
+  overflow-y: auto;
+  max-height: 80vh; /* 防止过高 */
+
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  
+  @media (max-width: 2560px) {
+    gap: 4px;
+  }
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary, rgba(0, 0, 0, 0.45));
+}
+
+/* Provider Grid */
+.providerGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  
+  @media (max-width: 2560px) {
+    gap: 4px;
+  }
+}
+
+.providerCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
+
+  @media (max-width: 2560px) {
+    padding: 4px 2px;
+    gap: 2px;
+  }
+
+  &:hover {
+    border-color: #000000;
+    color: #000000;
+
+    /* Dark mode override */
+    :global([data-theme='dark']) & {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+  }
+
+  &.active {
+    background: #000000; /* Light mode: Black background */
+    color: #ffffff; /* Light mode: White text */
+    border-color: #000000;
+
+    /* Dark mode override: White background for visibility */
+    :global([data-theme='dark']) & {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+  }
+}
+
+.providerIcon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  @media (max-width: 2560px) {
+    font-size: 18px;
+  }
+}
+
+.providerName {
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  
+  @media (max-width: 2560px) {
+    transform: scale(0.9); /* 稍微缩小字体 */
+  }
+}
+
+/* Model Group (Buttons) */
+.modelGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  
+  @media (max-width: 2560px) {
+    gap: 4px;
+  }
+}
+
+.modelBtn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-primary, #d9d9d9);
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
+  background: var(--bg-primary, #fff);
+
+  @media (max-width: 2560px) {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  &:hover {
+    color: #000000;
+    border-color: #000000;
+
+    /* Dark mode override */
+    :global([data-theme='dark']) & {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+  }
+
+  &.active {
+    background: #000000;
+    color: #fff;
+    border-color: #000000;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+
+    /* Dark mode override */
+    :global([data-theme='dark']) & {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+  }
+}
+
+/* Params Grid */
+.paramsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  
+  @media (max-width: 2560px) {
+    gap: 6px;
+  }
+}
+
+.paramItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.paramItemRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  grid-column: span 2; /* 占据整行 */
+  padding: 4px 0;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.paramLabel {
+  font-size: 12px;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.infoIcon {
+  color: var(--text-tertiary, rgba(0, 0, 0, 0.25));
+  font-size: 12px;
+}
+
+.paramInput {
+  width: 100%;
+  border-radius: 4px;
+}
+
+/* Trigger Styles */
+.defaultTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-primary, #d9d9d9);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #000000;
+    color: #000000;
+  }
+}
+
+/* Popover/Modal Override */
+.configModal {
+  :global(.ant-modal-content) {
+    padding: 0 !important;
+    border-radius: 12px;
+    box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    background: #fff;
+    overflow: hidden;
+    
+    // Dark mode
+    :global([data-theme='dark']) & {
+      background: #1f1f1f;
+      border: 1px solid #303030;
+    }
+  }
+  
+  /* 去除 Modal 默认的关闭按钮（如果有） */
+  :global(.ant-modal-close) {
+    display: none;
+  }
+}
+
+.configPopover {
+  :global(.ant-popover-inner) {
+    padding: 0 !important; /* Remove padding to handle overflow correctly */
+    border-radius: 12px;
+    box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    background: #fff;
+    overflow: hidden; /* Ensure content clips for border-radius */
+    
+    // Dark mode
+    :global([data-theme='dark']) & {
+      background: #1f1f1f;
+      border: 1px solid #303030;
+    }
+  }
+}
+
+/* Smooth Height Animation */
+.smoothContainer {
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  will-change: height;
+}
+
+.smoothContent {
+  padding: 0; /* Remove padding here as it's now in popupContainer */
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

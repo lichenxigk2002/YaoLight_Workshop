@@ -206,7 +206,6 @@ func (vc *VariableContext) GetVariable(path string) (interface{}, error) {
 		}
 
 		// 如果指定的节点ID不存在，尝试从所有节点中查找相同的变量路径（忽略节点ID）
-		// 例如：node-8.data.url 找不到时，尝试查找 *.data.url
 		if len(parts) >= 2 {
 			variablePath := strings.Join(parts[1:], ".") // 去掉节点ID，保留变量路径
 			log.Printf("GetVariable: 指定的节点ID %s 不存在，尝试从所有节点中查找变量路径: %s", parts[0], variablePath)
@@ -232,7 +231,6 @@ func (vc *VariableContext) GetVariable(path string) (interface{}, error) {
 						}
 					}
 					// 如果变量路径是后缀，尝试从父对象访问
-					// 例如：查找 data.url，找到 start.data.url（如果存在）
 					if strings.HasPrefix(keyVariablePath, variablePath+".") {
 						// 这种情况已经在上面处理过了
 					} else if strings.HasSuffix(keyVariablePath, "."+variablePath) {
@@ -243,21 +241,17 @@ func (vc *VariableContext) GetVariable(path string) (interface{}, error) {
 				}
 			}
 
-			// 如果还是找不到，尝试从 data 对象中查找字段
-			// 例如：查找 data.link 失败时，尝试查找所有 *.data 对象，然后查找其中的 link 字段
 			if len(parts) >= 3 && parts[1] == "data" {
 				fieldName := parts[2] // 提取字段名，如 "link"
 				log.Printf("GetVariable: 尝试从所有 data 对象中查找字段: %s", fieldName)
 				for key, value := range vc.variables {
 					keyParts := strings.Split(key, ".")
 					if len(keyParts) >= 2 && keyParts[1] == "data" {
-						// 找到了一个 data 变量，尝试从中查找字段
 						if dataMap, ok := value.(map[string]interface{}); ok {
 							if fieldValue, exists := dataMap[fieldName]; exists {
 								log.Printf("GetVariable: 从 %s 中找到字段 %s，值: %v", key, fieldName, fieldValue)
 								return fieldValue, nil
 							}
-							// 如果直接字段不存在，尝试查找常见的URL字段
 							urlFields := []string{"url", "link", "href", "src"}
 							for _, urlField := range urlFields {
 								if urlValue, exists := dataMap[urlField]; exists {

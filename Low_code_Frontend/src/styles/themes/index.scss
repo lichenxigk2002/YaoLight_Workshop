@@ -4,11 +4,18 @@
 // 默认应用亮色主题
 :root {
   @include theme('light');
+  --app-scrollbar-size: 6px;
+  --app-scrollbar-radius: 999px;
+  --app-scrollbar-track: transparent;
+  --app-scrollbar-thumb: rgba(255, 255, 255, 0.28);
+  --app-scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
 }
 
 // 暗色主题类
 [data-theme='dark'] {
   @include theme('dark');
+  --app-scrollbar-thumb: rgba(0, 0, 0, 0.28);
+  --app-scrollbar-thumb-hover: rgba(255, 255, 255, 0.36);
 }
 
 // 全局样式重置
@@ -16,6 +23,31 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--app-scrollbar-size);
+  height: var(--app-scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb);
+  border-radius: var(--app-scrollbar-radius);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: var(--app-scrollbar-thumb-hover);
 }
 
 body {
@@ -228,5 +260,71 @@ body {
         border-color: #434343;
       }
     }
+  }
+}
+
+// Notification 通知组件主题适配
+.ant-notification {
+  .ant-notification-notice {
+    background: var(--bg-primary) !important;
+    border: 1px solid var(--border-secondary) !important;
+    box-shadow: 0 2px 8px var(--shadow-sm) !important;
+    border-radius: 8px !important;
+
+    .ant-notification-notice-message {
+      color: var(--text-primary) !important;
+    }
+
+    .ant-notification-notice-description {
+      color: var(--text-secondary) !important;
+    }
+
+    .ant-notification-notice-close {
+      color: var(--text-secondary) !important;
+
+      &:hover {
+        color: var(--text-primary) !important;
+      }
+    }
+
+    .ant-notification-notice-btn {
+      .ant-btn {
+        background: var(--bg-secondary) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-secondary) !important;
+
+        &:hover {
+          background: var(--bg-tertiary) !important;
+          border-color: var(--border-primary) !important;
+        }
+      }
+    }
+  }
+}
+
+// Select 下拉框主题适配
+.ant-select-dropdown {
+  background: var(--bg-primary) !important;
+  border-color: var(--border-secondary) !important;
+
+  .ant-select-item {
+    color: var(--text-primary) !important;
+
+    &:hover {
+      background: var(--bg-secondary) !important;
+    }
+
+    &.ant-select-item-option-selected {
+      background: var(--bg-secondary) !important;
+      color: var(--text-primary) !important;
+    }
+  }
+
+  .ant-select-item-group {
+    color: var(--text-secondary) !important;
+  }
+
+  .ant-select-item-option-content {
+    color: var(--text-primary) !important;
   }
 }

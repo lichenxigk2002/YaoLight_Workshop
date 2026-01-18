@@ -1,0 +1,141 @@
+.trigger {
+  width: 100%;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--border-primary, rgba(0, 0, 0, 0.15));
+  border-radius: 6px;
+  background: var(--bg-primary, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.3s;
+  
+  &:hover {
+    border-color: var(--primary, #1677ff);
+  }
+}
+
+.triggerInner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.triggerText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary, rgba(0, 0, 0, 0.88));
+}
+
+.popover {
+  width: 420px;
+}
+
+/* 基础 Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* 嵌入式 Grid (用于平铺显示) */
+.gridEmbedded {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); /* 4列，更紧凑 */
+  gap: 8px;
+  width: 100%;
+}
+
+/* 基础卡片样式 */
+.card {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column; /* 改为垂直布局，模仿用户截图 */
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  user-select: none;
+  transition: all 0.2s ease;
+  background: transparent;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.45));
+
+  &:hover {
+    background: var(--bg-tertiary, rgba(0, 0, 0, 0.04));
+    color: var(--text-primary, rgba(0, 0, 0, 0.88));
+  }
+}
+
+/* 选中状态 - 模仿 Emerald 风格 */
+.cardSelected {
+  background: rgba(16, 185, 129, 1) !important; /* Emerald-500 */
+  color: #fff !important;
+  box-shadow: 0 2px 5px rgba(16, 185, 129, 0.2);
+
+  /* Dark mode override: White background for selected state */
+  :global([data-theme='dark']) & {
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: 0 2px 5px rgba(255, 255, 255, 0.2);
+
+    .cardDesc {
+      color: rgba(0, 0, 0, 0.8);
+    }
+  }
+
+  .cardDesc {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  
+  // 覆盖图标颜色（如果图标支持currentColor）
+  :global(svg) {
+    fill: currentColor;
+    color: currentColor;
+  }
+}
+
+.cardIcon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 20px;
+}
+
+.cardText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+.cardTitle {
+  font-size: 11px; /* 字体更小 */
+  font-weight: 500;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.cardDesc {
+  display: none; /* 紧凑模式下隐藏描述 */
+}
+
+.empty {
+  padding: 8px 0;
+  opacity: 0.7;
+  text-align: center;
+  font-size: 12px;
+}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Tabs, Typography, Select, Space, Divider } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, ApiOutlined, GlobalOutlined, GithubOutlined, GoogleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/redux/auth';
+import { useAuthStore } from '@/store/auth';
 import { userApi } from '@/api/user';
 import { md5Hash } from '@/utils/crypto';
 import { useTranslation } from 'react-i18next';

@@ -1,7 +1,7 @@
 import { Layout as AntLayout, Dropdown, Avatar, Space, Button } from 'antd';
 import { UserOutlined, LogoutOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/redux/auth';
+import { useAuthStore } from '@/store/auth';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/store/theme';
 import type { MenuProps } from 'antd';

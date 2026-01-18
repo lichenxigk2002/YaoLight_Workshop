@@ -24,13 +24,13 @@ export const useWorkflow = () => {
       }
 
       const result = await workflowApi.executeWorkflow(executionData)
-      
+
       if (result.success) {
         message.success(`工作流执行完成！共执行 ${result.results.length} 个节点`)
       } else {
         message.warning('工作流执行完成，但有部分节点失败')
       }
-      
+
       return result
     } catch (error: any) {
       message.error(`工作流执行失败: ${error.message || '未知错误'}`)

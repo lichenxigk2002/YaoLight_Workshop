@@ -29,6 +29,15 @@ var (
 	// 服务器配置
 	ServerPort string
 	ServerMode string
+
+	// AI预设模型配置（从.env读取，系统级别的共享配置）
+	DeepSeekAPIKey string // DeepSeek预设API Key
+	DoubaoAPIKey   string // 豆包预设API Key
+	QwenAPIKey     string // 通义千问预设API Key
+	ZhipuaiAPIKey  string // 智谱AI预设API Key
+	GeminiAPIKey   string // Gemini预设API Key
+	SparkAPIKey    string // 讯飞星火预设APIpassword
+	HunyuanAPIKey  string // 腾讯混元预设API Key
 )
 
 // LoadConfig 加载配置
@@ -58,6 +67,15 @@ func LoadConfig() error {
 	// 服务器配置
 	ServerPort = getEnv("SERVER_PORT", "8080")
 	ServerMode = getEnv("SERVER_MODE", "debug")
+
+	// AI预设模型配置（可选，如果未配置则用户需要自己配置）
+	DeepSeekAPIKey = getEnv("DEEPSEEK_API_KEY", "")
+	DoubaoAPIKey = getEnv("DOUBAO_API_KEY", "")
+	QwenAPIKey = getEnv("QWEN_API_KEY", "")
+	ZhipuaiAPIKey = getEnv("ZHIPUAI_API_KEY", "")
+	GeminiAPIKey = getEnv("OPENROUTER_API_KEY", "")
+	SparkAPIKey = getEnv("SPARK_API_PASSWORD", "")
+	HunyuanAPIKey = getEnv("HUNYUAN_API_KEY", "")
 
 	return nil
 }

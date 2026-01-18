@@ -11,6 +11,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/middleware"
 	"yaolight-workshop/backend/infrastructure/redis"
+	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	projectControllers "yaolight-workshop/backend/modules/project/controllers"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
@@ -48,8 +49,8 @@ func main() {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000", "http://127.0.0.1:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cache-Control"},
+		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
 		AllowCredentials: true,
 		MaxAge:           12 * 60 * 60, // 12 hours
 	}))
@@ -117,7 +118,18 @@ func main() {
 			auth.DELETE("/workflows/:id", workflowController.DeleteWorkflow)
 			auth.GET("/workflows/:id/nodes", workflowController.GetWorkflowNodes)
 			auth.PUT("/workflows/:id/nodes", workflowController.SaveWorkflowNodes)
+			auth.PUT("/workflows/:id/nodes/:nodeId", workflowController.SaveWorkflowNode)
 			auth.POST("/workflows/execute", workflowController.ExecuteWorkflow)
+			auth.POST("/workflows/execute/stream", workflowController.ExecuteWorkflowStream)
+
+			// AI模型相关路由
+			aiController := aiControllers.NewAIController()
+			auth.GET("/ai/providers/templates", aiController.GetProviderTemplates)
+			auth.GET("/ai/models/system", aiController.GetSystemPresetModels)
+			auth.GET("/ai/models", aiController.GetModels)
+			auth.POST("/ai/models", aiController.CreateModel)
+			auth.PUT("/ai/models/:id", aiController.UpdateModel)
+			auth.DELETE("/ai/models/:id", aiController.DeleteModel)
 		}
 	}
 

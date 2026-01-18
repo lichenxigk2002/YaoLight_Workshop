@@ -373,7 +373,7 @@ func (s *CrawlerService) executeSinglePage(config CrawlerConfig) (*CrawlerResult
 			Error:      errorMsg,
 			StatusCode: resp.StatusCode,
 			RawHTML:    rawHTML,
-		}, fmt.Errorf(errorMsg)
+		}, fmt.Errorf("%s", errorMsg)
 	}
 
 	// 检测是否为JavaScript渲染的页面（包含加载组件）

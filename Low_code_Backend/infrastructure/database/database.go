@@ -80,6 +80,7 @@ func AutoMigrate() error {
 		&nodeModels.NodeType{},
 		&systemModels.SystemConfig{},
 		&systemModels.Statistics{},
+		&aiModels.ProviderTemplate{},
 
 		// 依赖User的表
 		&projectModels.Project{},

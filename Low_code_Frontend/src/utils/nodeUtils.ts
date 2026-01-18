@@ -24,9 +24,12 @@ export function getDefaultConfig(type: string): any {
       };
     case 'ai':
       return {
-        model: '',
+        modelMode: 'system', // 默认使用系统预设
+        provider: 'deepseek',
+        modelName: 'deepseek-chat',
         prompt: '',
         temperature: 0.7,
+        maxTokens: 2000,
       };
     case 'condition':
       return {

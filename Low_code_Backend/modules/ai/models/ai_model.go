@@ -11,7 +11,7 @@ import (
 type AIModel struct {
 	ID               uint           `gorm:"primaryKey" json:"id"`
 	Name             string         `gorm:"type:varchar(100);uniqueIndex;not null" json:"name"`
-	Provider         string         `gorm:"type:varchar(50);not null;index;check:provider IN ('openai','azure','anthropic','google','custom')" json:"provider"`
+	Provider         string         `gorm:"type:varchar(50);not null;index;check:provider IN ('openai','azure','anthropic','google','custom','deepseek','doubao','qianwen','zhipuai')" json:"provider"`
 	ModelName        string         `gorm:"type:varchar(100);not null" json:"model_name"`
 	APIKeyEncrypted  string         `gorm:"type:text;not null" json:"-"`
 	Endpoint         *string        `gorm:"type:varchar(500)" json:"endpoint"`

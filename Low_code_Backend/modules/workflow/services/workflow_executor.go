@@ -1,13 +1,16 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
 
+	"yaolight-workshop/backend/infrastructure/database"
+	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
+	aiService "yaolight-workshop/backend/modules/ai/services"
 	crawlerService "yaolight-workshop/backend/modules/crawler/services"
 	datacleanService "yaolight-workshop/backend/modules/dataclean/services"
 )
@@ -16,6 +19,7 @@ import (
 type WorkflowExecutor struct {
 	crawlerService   *crawlerService.CrawlerService
 	datacleanService *datacleanService.DataCleanService
+	aiService        *aiService.AIService
 }
 
 // NodeConfig 节点配置
@@ -27,14 +31,17 @@ type NodeConfig struct {
 
 // EdgeConfig 边配置
 type EdgeConfig struct {
-	Source string `json:"source"`
-	Target string `json:"target"`
+	Source       string `json:"source"`
+	Target       string `json:"target"`
+	SourceHandle string `json:"sourceHandle,omitempty"` // 条件节点的输出端口：true 或 false
+	TargetHandle string `json:"targetHandle,omitempty"` // 合并节点的输入端口：input-0, input-1, input-2
 }
 
 // ExecutionRequest 执行请求
 type ExecutionRequest struct {
-	Nodes []NodeConfig `json:"nodes"`
-	Edges []EdgeConfig `json:"edges"`
+	Nodes  []NodeConfig `json:"nodes"`
+	Edges  []EdgeConfig `json:"edges"`
+	UserID uint         `json:"userID,omitempty"` // 用户ID，用于验证模型归属
 }
 
 // NodeExecutionResult 节点执行结果
@@ -55,19 +62,17 @@ type ExecutionResult struct {
 
 // NewWorkflowExecutor 创建工作流执行器
 func NewWorkflowExecutor() *WorkflowExecutor {
+	modelRepo := aiRepos.NewAIModelRepository(database.DB)
+	templateRepo := aiRepos.NewProviderTemplateRepository(database.DB)
 	return &WorkflowExecutor{
 		crawlerService:   crawlerService.NewCrawlerService(),
 		datacleanService: datacleanService.NewDataCleanService(),
+		aiService:        aiService.NewAIService(modelRepo, templateRepo),
 	}
 }
 
 // Execute 执行工作流
 func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, error) {
-	log.Printf("开始执行工作流，节点数: %d, 边数: %d", len(req.Nodes), len(req.Edges))
-	// 打印所有节点ID，用于调试
-	for _, node := range req.Nodes {
-		log.Printf("接收到的节点: ID=%s, Type=%s", node.ID, node.Type)
-	}
 
 	results := make([]NodeExecutionResult, 0)
 	// 使用数据流管理器
@@ -87,6 +92,8 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 
 	// 按拓扑顺序执行节点
 	executed := make(map[string]bool)
+	// 存储条件节点的结果，用于判断边是否应该执行
+	conditionResults := make(map[string]bool)
 	queue := make([]string, 0)
 
 	// 将起始节点加入队列
@@ -113,15 +120,14 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		}
 
 		if nodeConfig == nil {
-			log.Printf("未找到节点配置: %s", nodeID)
 			continue
 		}
 
 		// 设置节点类型到变量上下文
 		variableContext.SetNodeType(nodeID, nodeConfig.Type)
 
-		// 执行节点
-		result := e.executeNode(*nodeConfig, dataFlow, variableContext)
+		// 执行节点（传递userID用于AI节点验证）
+		result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
 		results = append(results, result)
 
 		// 保存节点输出数据到数据流和变量上下文
@@ -135,19 +141,77 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 
 		executed[nodeID] = true
 
-		// 找到下一个节点（出边指向的节点）
-		for _, edge := range req.Edges {
-			if edge.Source == nodeID && !executed[edge.Target] {
-				// 检查该节点的所有入边是否都已执行
-				allInputsReady := true
-				for _, e := range req.Edges {
-					if e.Target == edge.Target && !executed[e.Source] {
-						allInputsReady = false
-						break
+		// 如果是条件节点，需要根据条件结果选择正确的分支
+		if nodeConfig.Type == "condition" && result.Success {
+			// 获取条件判断结果
+			conditionResult := false
+			if resultData, ok := result.Data.(map[string]interface{}); ok {
+				if res, exists := resultData["result"]; exists {
+					if boolRes, ok := res.(bool); ok {
+						conditionResult = boolRes
 					}
 				}
-				if allInputsReady {
-					queue = append(queue, edge.Target)
+			}
+			// 保存条件节点的结果，供后续判断使用
+			conditionResults[nodeID] = conditionResult
+
+			// 只执行匹配条件结果的边
+			for _, edge := range req.Edges {
+				if edge.Source == nodeID && !executed[edge.Target] {
+					// 检查边的 sourceHandle 是否匹配条件结果
+					shouldExecute := false
+					if edge.SourceHandle == "true" && conditionResult {
+						shouldExecute = true
+					} else if edge.SourceHandle == "false" && !conditionResult {
+						shouldExecute = true
+					} else if edge.SourceHandle == "" {
+						// 兼容旧数据：如果没有 sourceHandle，默认执行所有边
+						shouldExecute = true
+					}
+
+					if shouldExecute {
+						// 检查该节点的所有入边是否都已执行
+						allInputsReady := true
+						for _, e := range req.Edges {
+							if e.Target == edge.Target && !executed[e.Source] {
+								allInputsReady = false
+								break
+							}
+						}
+						if allInputsReady {
+							queue = append(queue, edge.Target)
+						}
+					}
+				}
+			}
+		} else {
+			// 非条件节点，执行所有出边
+			for _, edge := range req.Edges {
+				if edge.Source == nodeID && !executed[edge.Target] {
+					// 检查该节点的所有入边是否都已执行
+					// 对于合并节点，需要特殊处理：只检查"应该执行"的边
+					allInputsReady := true
+					for _, e := range req.Edges {
+						if e.Target == edge.Target {
+							// 检查这个入边是否应该被执行
+							shouldWaitForThisEdge := true
+
+							// 如果源节点没有执行，检查它是否来自条件节点的未执行分支
+							if !executed[e.Source] {
+								// 递归检查：如果源节点没有执行，检查它的上游边是否来自条件节点的未执行分支
+								shouldWaitForThisEdge = isEdgeFromConditionBranch(e, req.Nodes, req.Edges, conditionResults, executed)
+							}
+
+							// 如果这个边应该被执行，但源节点还没执行，则不能继续
+							if shouldWaitForThisEdge && !executed[e.Source] {
+								allInputsReady = false
+								break
+							}
+						}
+					}
+					if allInputsReady {
+						queue = append(queue, edge.Target)
+					}
 				}
 			}
 		}
@@ -158,7 +222,6 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 	for _, node := range req.Nodes {
 		if !executed[node.ID] {
 			allExecuted = false
-			log.Printf("节点未执行: %s", node.ID)
 		}
 	}
 
@@ -166,6 +229,42 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		Success: allExecuted,
 		Results: results,
 	}, nil
+}
+
+// isEdgeFromConditionBranch 检查边是否来自条件节点的未执行分支
+// 如果源节点没有执行，递归检查它的上游边是否来自条件节点的未执行分支
+func isEdgeFromConditionBranch(edge EdgeConfig, nodes []NodeConfig, edges []EdgeConfig, conditionResults map[string]bool, executed map[string]bool) bool {
+	// 如果源节点已执行，需要等待
+	if executed[edge.Source] {
+		return true
+	}
+
+	// 检查这个边是否直接来自条件节点
+	for _, sourceNode := range nodes {
+		if sourceNode.ID == edge.Source && sourceNode.Type == "condition" {
+			if conditionResult, exists := conditionResults[edge.Source]; exists {
+				// 条件节点已执行，检查边的sourceHandle是否匹配
+				if edge.SourceHandle == "true" && !conditionResult {
+					return false // 条件为false，但边是true分支，不等待
+				} else if edge.SourceHandle == "false" && conditionResult {
+					return false // 条件为true，但边是false分支，不等待
+				}
+			}
+		}
+	}
+
+	// 如果源节点没有执行，递归检查它的上游边
+	for _, upstreamEdge := range edges {
+		if upstreamEdge.Target == edge.Source {
+			// 递归检查上游边是否来自条件节点的未执行分支
+			if !isEdgeFromConditionBranch(upstreamEdge, nodes, edges, conditionResults, executed) {
+				return false // 上游边来自未执行的分支，不等待
+			}
+		}
+	}
+
+	// 默认需要等待
+	return true
 }
 
 // findStartNodes 找到起始节点（没有入边的节点）
@@ -186,9 +285,7 @@ func (e *WorkflowExecutor) findStartNodes(nodes []NodeConfig, edges []EdgeConfig
 }
 
 // executeNode 执行单个节点
-func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext) NodeExecutionResult {
-	log.Printf("执行节点: ID=%s, Type=%s", node.ID, node.Type)
-
+func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, userID uint) NodeExecutionResult {
 	switch node.Type {
 	case "start":
 		return e.executeStartNode(node, dataFlow)
@@ -197,7 +294,7 @@ func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, vari
 	case "dataclean":
 		return e.executeDataCleanNode(node, dataFlow, variableContext)
 	case "ai":
-		return e.executeAINode(node, dataFlow, variableContext)
+		return e.executeAINode(node, dataFlow, variableContext, userID)
 	case "condition":
 		return e.executeConditionNode(node, dataFlow, variableContext)
 	case "transform":
@@ -243,12 +340,10 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 		// 提取变量路径（去除 {{}}）
 		varPath := strings.Trim(urlVariable, "{{}}")
 		varPath = strings.TrimSpace(varPath)
-		log.Printf("爬虫节点 %s: 解析URL变量，路径: %s", node.ID, varPath)
 
 		// 获取变量值
 		urlVar, err := variableContext.GetVariable(varPath)
 		if err == nil && urlVar != nil {
-			log.Printf("爬虫节点 %s: 获取到变量值，类型: %T, 值: %v", node.ID, urlVar, urlVar)
 			// 如果变量值是字符串，直接使用
 			if urlStr, ok := urlVar.(string); ok {
 				// 检查是否是有效的URL
@@ -279,11 +374,9 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 				finalURL = fmt.Sprintf("%v", urlVar)
 			}
 		} else {
-			log.Printf("爬虫节点 %s: 直接获取变量失败: %v，尝试使用ResolveTemplateToInterface", node.ID, err)
 			// 如果直接获取失败，尝试使用 ResolveTemplateToInterface（支持路径访问）
 			resolved, err := variableContext.ResolveTemplateToInterface(urlVariable)
 			if err == nil && resolved != nil {
-				log.Printf("爬虫节点 %s: ResolveTemplateToInterface成功，类型: %T, 值: %v", node.ID, resolved, resolved)
 				// 如果解析结果是字符串，直接使用
 				if urlStr, ok := resolved.(string); ok {
 					if strings.HasPrefix(urlStr, "http://") || strings.HasPrefix(urlStr, "https://") {
@@ -316,18 +409,12 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 					// 检查是否是未解析的模板字符串（仍然包含 {{}}）
 					if !strings.Contains(resolved, "{{") {
 						finalURL = resolved
-					} else {
-						// 如果仍然是模板字符串，说明变量不存在
-						log.Printf("警告: URL变量 %s 无法解析，变量可能不存在，尝试从输入数据中获取", urlVariable)
 					}
-				} else {
-					log.Printf("警告: URL变量 %s 解析失败: %v，尝试从输入数据中获取", urlVariable, err)
 				}
 			}
 
 			// 如果变量解析失败，尝试从输入数据中获取URL
 			if finalURL == "" && inputData != nil && inputData.Payload != nil {
-				log.Printf("爬虫节点 %s: 变量解析失败，尝试从输入数据中提取URL", node.ID)
 				// 提取变量路径（去除 {{}} 和节点ID）
 				varPath := strings.Trim(urlVariable, "{{}}")
 				varPath = strings.TrimSpace(varPath)
@@ -335,12 +422,10 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 				// 如果路径格式是 nodeId.variable.field，提取 variable.field
 				if len(parts) >= 2 {
 					variablePath := strings.Join(parts[1:], ".")
-					log.Printf("爬虫节点 %s: 从输入数据中提取路径: %s", node.ID, variablePath)
 					urlValue, err := GetDataByPath(inputData.Payload, variablePath)
 					if err == nil && urlValue != nil {
 						if urlStr, ok := urlValue.(string); ok && urlStr != "" {
 							finalURL = urlStr
-							log.Printf("爬虫节点 %s: 成功从输入数据中提取URL: %s", node.ID, finalURL)
 						} else if urlMap, ok := urlValue.(map[string]interface{}); ok {
 							// 如果是对象，尝试提取URL字段
 							urlFields := []string{"url", "link", "href", "src", "data"}
@@ -348,7 +433,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 								if val, exists := urlMap[field]; exists {
 									if urlStr, ok := val.(string); ok && urlStr != "" {
 										finalURL = urlStr
-										log.Printf("爬虫节点 %s: 成功从输入数据对象中提取URL: %s", node.ID, finalURL)
 										break
 									}
 								}
@@ -357,7 +441,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 					}
 					// 如果路径是 data.field 格式，但字段不存在，尝试从 data 对象中查找所有可能的URL字段
 					if finalURL == "" && len(parts) >= 3 && parts[1] == "data" {
-						log.Printf("爬虫节点 %s: 字段 %s 不存在，尝试从 data 对象中查找URL字段", node.ID, parts[2])
 						dataValue, err := GetDataByPath(inputData.Payload, "data")
 						if err == nil && dataValue != nil {
 							if dataMap, ok := dataValue.(map[string]interface{}); ok {
@@ -367,7 +450,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 									if val, exists := dataMap[field]; exists {
 										if urlStr, ok := val.(string); ok && urlStr != "" {
 											finalURL = urlStr
-											log.Printf("爬虫节点 %s: 从 data 对象中找到URL字段 %s: %s", node.ID, field, finalURL)
 											break
 										}
 									}
@@ -383,7 +465,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 								if val, exists := payloadMap[field]; exists {
 									if urlStr, ok := val.(string); ok && urlStr != "" {
 										finalURL = urlStr
-										log.Printf("爬虫节点 %s: 成功从输入数据中直接提取URL字段 %s: %s", node.ID, field, finalURL)
 										break
 									}
 								}
@@ -396,7 +477,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 
 		// 如果最终URL仍然包含模板字符串，说明解析失败
 		if finalURL != "" && strings.Contains(finalURL, "{{") {
-			log.Printf("错误: URL变量解析失败，最终URL包含未解析的模板: %s", finalURL)
 			return NodeExecutionResult{
 				NodeID:  node.ID,
 				Type:    "crawler",
@@ -407,7 +487,6 @@ func (e *WorkflowExecutor) executeCrawlerNode(node NodeConfig, dataFlow *DataFlo
 
 		// 如果用户选择了urlVariable但解析失败（finalURL为空），不应该回退到urlConfig，应该报错
 		if finalURL == "" {
-			log.Printf("错误: URL变量 %s 解析后为空值，请检查变量路径是否正确", urlVariable)
 			return NodeExecutionResult{
 				NodeID:  node.ID,
 				Type:    "crawler",
@@ -758,27 +837,55 @@ func (e *WorkflowExecutor) executeDataCleanNode(node NodeConfig, dataFlow *DataF
 		}
 	}
 
+	// 将清洗后的数据包装成符合变量定义的格式
+	// 变量定义中输出变量是 "cleaned"，所以需要包装成 { "cleaned": result.Data }
+	// 同时，如果清洗后的数据是对象，保留其原有结构以便直接访问字段
+	var cleanedData map[string]interface{}
+
+	if cleanedObj, ok := result.Data.(map[string]interface{}); ok {
+		// 如果清洗后的数据是对象，保留原有结构，同时添加 cleaned 字段
+		cleanedData = make(map[string]interface{})
+		for k, v := range cleanedObj {
+			cleanedData[k] = v
+		}
+		// 添加 cleaned 字段，指向整个清洗后的数据（用于变量访问）
+		cleanedData["cleaned"] = result.Data
+	} else {
+		// 如果清洗后的数据不是对象（是字符串、数组等），包装成对象
+		cleanedData = map[string]interface{}{
+			"cleaned": result.Data,
+		}
+	}
+
 	return NodeExecutionResult{
 		NodeID:  node.ID,
 		Type:    "dataclean",
 		Success: true,
-		Data:    result.Data,
+		Data:    cleanedData,
 	}
 }
 
-// executeAINode 执行AI节点（暂未实现）
-func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext) NodeExecutionResult {
+// executeAINode 执行AI节点
+func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, userID uint) NodeExecutionResult {
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
-		log.Printf("AI节点获取输入数据失败: %v", err)
 	}
 
 	// 获取提示词配置
 	prompt := getString(node.Config, "prompt", "")
+	if prompt == "" {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   "提示词不能为空",
+			Data:    ExtractPayload(inputData),
+		}
+	}
 
 	// 如果提示词包含变量，解析它
-	if prompt != "" && strings.Contains(prompt, "{{") {
+	if strings.Contains(prompt, "{{") {
 		resolved, err := variableContext.ResolveTemplate(prompt)
 		if err == nil && resolved != "" {
 			prompt = resolved
@@ -808,17 +915,291 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 		}
 	}
 
-	// TODO: 实现AI节点逻辑
-	// 这里应该调用AI服务，使用prompt和content
-	log.Printf("AI节点 - Prompt: %s, Content: %s", prompt, content)
+	// 获取模型模式
+	modelMode := getString(node.Config, "modelMode", "system")
+
+	// 获取模型配置
+	modelRepo := aiRepos.NewAIModelRepository(database.DB)
+	modelConfig, err := aiService.GetModelConfigForExecution(
+		modelMode,
+		getUint(node.Config, "modelId", 0),
+		userID,
+		node.Config,
+		modelRepo,
+	)
+	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   fmt.Sprintf("加载模型配置失败: %v", err),
+			Data:    ExtractPayload(inputData),
+		}
+	}
+
+	// 获取提供商
+	provider, err := e.aiService.GetProvider(modelConfig.Provider)
+	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   fmt.Sprintf("获取AI提供商失败: %v", err),
+			Data:    ExtractPayload(inputData),
+		}
+	}
+
+	// 构建提供商特定配置（DeepSeek特有参数）
+	providerConfig := make(map[string]interface{})
+	stream := false
+
+	// 如果使用已保存的模型，先从模型配置读取默认值
+	if modelMode == "saved" {
+		modelRepo := aiRepos.NewAIModelRepository(database.DB)
+		modelEntity, err := modelRepo.FindByIDAndUser(getUint(node.Config, "modelId", 0), userID)
+		if err == nil && modelEntity != nil {
+			// 从模型的 Params JSONB 字段读取默认配置
+			if modelEntity.Params.Data != nil {
+				if paramsMap, ok := modelEntity.Params.Data.(map[string]interface{}); ok {
+					// 将模型级别的默认配置合并到 providerConfig
+					for k, v := range paramsMap {
+						providerConfig[k] = v
+					}
+					// 读取模型默认的 stream 值
+					if s, ok := paramsMap["stream"].(bool); ok {
+						stream = s
+					}
+				}
+			}
+		}
+	}
+
+	// 节点配置可以覆盖模型默认值
+	// 支持 DeepSeek 和豆包（doubao）的流式和深度思考参数
+	if modelConfig.Provider == "deepseek" {
+		// DeepSeek 使用 thinking 布尔值
+		if thinking, ok := node.Config["thinking"].(bool); ok {
+			providerConfig["thinking"] = thinking
+		} else if _, exists := providerConfig["thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["thinking"] = false
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "doubao" {
+		// 豆包使用 thinkingLevel 字符串（minimal/low/medium/high）
+		if thinkingLevel, ok := node.Config["thinkingLevel"].(string); ok && thinkingLevel != "" {
+			providerConfig["thinkingLevel"] = thinkingLevel
+		} else {
+			// 如果没有指定，使用默认值 medium
+			providerConfig["thinkingLevel"] = "medium"
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "qwen" {
+		// 通义千问支持流式输出
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+		// 通义千问深度思考参数（enable_thinking）
+		// 注意：通义千问使用 enable_thinking 而不是 thinking
+		if enableThinking, ok := node.Config["enable_thinking"].(bool); ok {
+			providerConfig["enable_thinking"] = enableThinking
+		} else if _, exists := providerConfig["enable_thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["enable_thinking"] = false
+		}
+	} else if modelConfig.Provider == "zhipuai" {
+		// 智谱AI GLM 使用 thinking 布尔值（与 DeepSeek 相同）
+		if thinking, ok := node.Config["thinking"].(bool); ok {
+			providerConfig["thinking"] = thinking
+		} else if _, exists := providerConfig["thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["thinking"] = false
+		}
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "gemini" || modelConfig.Provider == "grok" {
+		// Gemini/Grok (via OpenRouter)
+		// 检查 thinking 参数 (OpenRouter 支持 reasoning)
+		if thinking, ok := node.Config["thinking"].(bool); ok {
+			providerConfig["thinking"] = thinking
+		} else if _, exists := providerConfig["thinking"]; !exists {
+			providerConfig["thinking"] = false
+		}
+		// 检查 reasoning 参数 (前端界面可能是这个名字)
+		if reasoning, ok := node.Config["reasoning"].(bool); ok {
+			providerConfig["reasoning"] = reasoning
+		}
+
+		// 检查 reasoning_effort 参数
+		if effort, ok := node.Config["reasoning_effort"].(string); ok && effort != "" {
+			providerConfig["reasoning_effort"] = effort
+		}
+		// 检查 frequency_penalty 和 presence_penalty
+		if fp, ok := node.Config["frequencyPenalty"].(float64); ok {
+			providerConfig["frequencyPenalty"] = fp
+		}
+		if pp, ok := node.Config["presencePenalty"].(float64); ok {
+			providerConfig["presencePenalty"] = pp
+		}
+
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
+	} else if modelConfig.Provider == "spark" {
+		if thinkingType, ok := node.Config["thinkingType"].(string); ok && thinkingType != "" {
+			providerConfig["thinkingType"] = thinkingType
+		} else if _, exists := providerConfig["thinkingType"]; !exists {
+			providerConfig["thinkingType"] = "enabled"
+		}
+
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
+
+		if user, ok := node.Config["user"].(string); ok && user != "" {
+			providerConfig["user"] = user
+		} else if _, exists := providerConfig["user"]; !exists {
+			providerConfig["user"] = fmt.Sprintf("%d", userID)
+		}
+	} else if modelConfig.Provider == "hunyuan" {
+		if v, ok := node.Config["enableEnhancement"].(bool); ok {
+			providerConfig["enableEnhancement"] = v
+		} else if _, exists := providerConfig["enableEnhancement"]; !exists {
+			providerConfig["enableEnhancement"] = true
+		}
+
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+		} else if _, exists := providerConfig["stream"]; !exists {
+			stream = false
+			providerConfig["stream"] = false
+		}
+	}
+
+	// 如果启用流式输出，使用流式方法（但需要等待完成）
+	if stream {
+		var fullContent strings.Builder
+		var fullReasoningContent strings.Builder
+
+		// 非流式执行路径，使用 Background context（不需要取消功能）
+		err := provider.ChatStream(context.Background(), modelConfig, prompt, content, providerConfig, func(deltaContent string, done bool, err error) {
+			if err != nil {
+				return
+			}
+			if deltaContent != "" {
+				// 解析内容类型标记
+				if strings.HasPrefix(deltaContent, "[REASONING_DELTA]") {
+					// 思考内容增量
+					reasoningDelta := strings.TrimPrefix(deltaContent, "[REASONING_DELTA]")
+					fullReasoningContent.WriteString(reasoningDelta)
+				} else if strings.HasPrefix(deltaContent, "[CONTENT_DELTA]") {
+					// 正式内容增量
+					contentDelta := strings.TrimPrefix(deltaContent, "[CONTENT_DELTA]")
+					fullContent.WriteString(contentDelta)
+				} else {
+					// 没有标记，向后兼容
+					fullContent.WriteString(deltaContent)
+				}
+			}
+		})
+		if err != nil {
+			return NodeExecutionResult{
+				NodeID:  node.ID,
+				Type:    "ai",
+				Success: false,
+				Error:   fmt.Sprintf("AI流式调用失败: %v", err),
+				Data:    ExtractPayload(inputData),
+			}
+		}
+		// 流式完成，返回完整内容
+		resultData := map[string]interface{}{
+			"result":            fullContent.String(),
+			"content":           fullContent.String(),
+			"reasoningContent":  fullReasoningContent.String(),
+			"reasoning_details": fullReasoningContent.String(), // 兼容 reasoning_details
+			"tokensUsed":        0,                             // 流式输出暂时无法获取token数
+			"model":             modelConfig.ModelName,
+		}
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: true,
+			Data:    resultData,
+		}
+	}
+
+	// 调用AI服务（非流式）
+	chatResp, err := provider.Chat(modelConfig, prompt, content, providerConfig)
+	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   fmt.Sprintf("AI调用失败: %v", err),
+			Data:    ExtractPayload(inputData),
+		}
+	}
+
+	// 返回结果
+	resultData := map[string]interface{}{
+		"result":            chatResp.Content, // AI节点的输出变量名是 result
+		"content":           chatResp.Content, // 保留 content 以兼容旧代码
+		"tokensUsed":        chatResp.TokensUsed,
+		"model":             chatResp.Model,
+		"reasoning_details": chatResp.ReasoningDetails, // 包含推理详情
+	}
+	if chatResp.ReasoningDetails != nil {
+		resultData["reasoningContent"] = chatResp.ReasoningDetails
+	}
 
 	return NodeExecutionResult{
 		NodeID:  node.ID,
 		Type:    "ai",
-		Success: false,
-		Error:   "AI节点功能暂未实现",
-		Data:    ExtractPayload(inputData),
+		Success: true,
+		Data:    resultData,
 	}
+}
+
+// getUint 从配置中获取uint值
+func getUint(m map[string]interface{}, key string, defaultValue uint) uint {
+	if v, ok := m[key].(float64); ok {
+		return uint(v)
+	}
+	return defaultValue
 }
 
 // executeStartNode 执行开始节点
@@ -1197,7 +1578,6 @@ func (e *WorkflowExecutor) executeDelayNode(node NodeConfig, dataFlow *DataFlow)
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
-		log.Printf("延迟节点获取输入数据失败: %v", err)
 	}
 
 	// 执行延迟
@@ -1225,7 +1605,6 @@ func (e *WorkflowExecutor) executeEndNode(node NodeConfig, dataFlow *DataFlow) N
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
-		log.Printf("结束节点获取输入数据失败: %v", err)
 	}
 
 	return NodeExecutionResult{
