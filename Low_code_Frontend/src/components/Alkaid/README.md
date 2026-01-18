@@ -81,6 +81,15 @@
 - 节点 I/O 输出变量名（用于 contentVariable/dataVariable/urlVariable 等引用）
 - 已知边界与推荐组合（例如避免 loop/transform 复杂逻辑）
 
+### 4.1.1 重要共识：仅靠 RAG 不足以稳定生成“可执行 JSON”
+即使未来所有节点都开发完整，也不建议“只靠向量检索（RAG）”来驱动工作流生成。原因：
+- RAG 只能提供参考上下文，无法强制模型严格遵守 JSON 结构、字段枚举、必填项与变量引用规则
+- 一次性生成容易出现：多输出解释文字、漏字段、字段拼写错误、枚举值不合法、变量引用不存在/来自错误上游
+
+推荐分工：
+- 结构化节点规格（NodeSpec / Capabilities）：负责“硬约束”（能配什么、必须配什么、变量名是什么）
+- RAG：负责“软知识”（最佳实践、模板、排错手册、场景范式），用于提升生成质量与泛化能力
+
 ### 4.2 分层知识来源（推荐实现）
 第一阶段（必做，静态内置）：
 - 节点类型与默认配置：`src/utils/nodeUtils.ts`
@@ -117,6 +126,27 @@
   }
 }
 ```
+
+### 4.4 NodeSpec / Capabilities（建议命名）应包含什么
+建议把“节点知识库”明确为一份可版本化的结构化规格（Capabilities），它是瑶光星生成可执行工作流的“真相来源”：
+- `capabilitiesVersion`：版本号（前后端对齐、便于回溯与复现）
+- `workflowSchema`：WorkflowExportData 的版本、顶层必填字段、边字段规则（condition 的 sourceHandle、merge 的 targetHandle 等）
+- `nodeTypes[]`：每个节点的规格（type/label/defaults/configSchema/io/constraints/examples）
+  - `defaults`：默认配置（优先来自 `getDefaultConfig(type)`）
+  - `configSchema`：字段白名单、必填字段、枚举、是否允许模板变量（例如 urlVariable/contentVariable/dataVariable）
+  - `io`：Inputs/Outputs 变量定义（以 `nodeIODefinitions` 为权威）
+  - `constraints`：节点级与组合级约束（例如第一阶段默认避免 loop/transform）
+  - `examples`：可运行最小片段 + 正确的变量引用写法
+
+### 4.5 现状提示：以“后端真实执行行为”为准
+生成工作流时，除了“前端默认配置”和“后端 NodeIO 定义”，还必须纳入后端执行器的真实行为与边界：
+- 变量抽取依赖“输出字段命名对齐”（输出结构与 NodeIO 不一致会导致变量取不到）
+- 部分节点实现可能是简化/占位（除 loop/transform 外，后续也可能新增类似边界）
+
+因此建议在 Capabilities 中加入 `stability` 标记：
+- `stable`：默认可用、可作为第一阶段模板的组成
+- `experimental`：可生成但需要更严格校验/提示
+- `stub`：暂不建议默认生成（除非用户显式要求）
 
 ## 5. 瑶光星生成器（从需求到工作流）的策略
 
@@ -169,6 +199,16 @@ output：
    - node.data.config 缺失：使用 `getDefaultConfig(type)`
    - edge.id 缺失：使用 `${source}-${target}`
 4. 再次校验 → 导入
+
+### 5.5 生成闭环（后端 AI 编排流水线：规划 → 产出 → 校验修复 → 可选试运行）
+瑶光星内部也需要一条“生成工作流的工作流”（AI 编排流水线），它不同于应用里的可视化工作流：
+- 规划（Planner）：把用户需求归一化为结构化意图，并选择合适的模板骨架
+- 产出（Generator）：在 Capabilities 约束下，输出单个 WorkflowExportData JSON（只输出 JSON）
+- 校验（Validator，确定性）：结构/必填字段/枚举/变量引用/图合法性（无环、节点数上限等）
+- 修复（Repairer）：将机器可读的错误列表喂给模型，产出修复后的 JSON（可循环 1~3 次）
+- 证明运行（Prover，可选但强烈建议）：调用后端执行器做一次试运行，失败则带上失败节点信息再次修复
+
+这样才能做到“生成即能导入，尽量一次跑通”，并在失败时给出可定位的修复路径。
 
 ## 6. Prompt 与输出规范（让 AI 稳定“只输出 JSON”）
 
@@ -225,6 +265,15 @@ await importWorkflow(repaired)
 
 ## 8. 后端接口（建议）
 
+### 8.0 获取能力与节点规格（建议新增，强烈推荐）
+`GET /api/alkaid/capabilities`
+- 用途：前端展示“支持哪些节点/字段/变量”，同时为生成请求提供权威上下文（Capabilities）
+- 返回建议包含：
+  - `capabilitiesVersion`
+  - `workflowSchema`
+  - `nodeTypes[]`（含 defaults/configSchema/io/constraints/examples）
+  - （第二阶段）系统可用的 provider/model 列表与能力开关（例如是否支持 stream/thinking）
+
 ### 8.1 生成工作流
 `POST /api/alkaid/generate-workflow`
 
@@ -252,6 +301,15 @@ await importWorkflow(repaired)
 `POST /api/alkaid/repair-workflow`
 - 输入：workflow + 校验/执行错误信息
 - 输出：修复后的 workflow
+
+### 8.3 校验工作流（建议新增，便于前后端一致）
+`POST /api/alkaid/validate-workflow`
+- 输入：workflow
+- 输出：机器可读的错误列表（errors[]），用于：
+  - 前端提示用户
+  - 后端 repair 流水线驱动模型做定向修复
+
+（可选）如果你已有前端 `validateWorkflowFile`，后端校验仍建议保留一份“以 Capabilities 为准”的实现，避免前后端规则漂移。
 
 ## 9. 安全与合规（必须）
 
@@ -394,4 +452,3 @@ await importWorkflow(repaired)
   ]
 }
 ```
-
