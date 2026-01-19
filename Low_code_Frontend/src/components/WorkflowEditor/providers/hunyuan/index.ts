@@ -1,11 +1,23 @@
 import { providerRegistry } from '../registry';
-import { HunyuanConfig } from './HunyuanConfig';
 import { HunyuanPreview } from './HunyuanPreview';
 
 providerRegistry.register({
   name: 'hunyuan',
   displayName: '腾讯混元',
-  ConfigComponent: HunyuanConfig,
+  configuration: [
+    { type: 'temperature', props: { defaultValue: 0.7 } },
+    { type: 'maxTokens', props: { defaultValue: 2000, max: 32768 } },
+    { type: 'topP', props: { defaultValue: 1.0 } },
+    { type: 'stream', props: { defaultValue: false } },
+    { 
+      type: 'switch', 
+      field: 'enableEnhancement', 
+      label: 'node.config.ai.enableEnhancement',
+      props: { defaultValue: true, tooltip: 'enable_enhancement' } 
+    },
+    { type: 'frequencyPenalty', props: { defaultValue: 0 } },
+    { type: 'presencePenalty', props: { defaultValue: 0 } },
+  ],
   PreviewComponent: HunyuanPreview,
   supportedConfig: {
     stream: true,
@@ -23,4 +35,3 @@ providerRegistry.register({
     baseUrl: 'https://api.hunyuan.cloud.tencent.com/v1',
   },
 });
-

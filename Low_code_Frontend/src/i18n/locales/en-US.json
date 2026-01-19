@@ -141,6 +141,28 @@
       "output": "Output",
       "end": "End"
     },
+    "variables": {
+      "selectVariable": "Select Variable",
+      "selectVariablePlaceholder": "Click to select variable...",
+      "insertVariable": "Insert Variable",
+      "noVariables": "No available variables",
+      "noVariablesTip": "Please connect upstream node first, or input variable expression directly:",
+      "searchVariables": "Search variables...",
+      "selectOrInput": "Select variable or input expression",
+      "availableVariables": "Available Variables",
+      "noVariablesInputTip": "No available variables. You can input URL or variable expression directly, e.g.:",
+      "fromNode": "From node \"{{node}}\" {{label}}",
+      "fields": {
+        "data": "Data",
+        "content": "Content",
+        "text": "Text",
+        "title": "Title",
+        "url": "URL",
+        "link": "Link",
+        "href": "Href",
+        "src": "Src"
+      }
+    },
     "config": {
       "title": "Configure Node",
       "nodeName": "Node Name",
@@ -156,27 +178,6 @@
       "outputFormat": "Output Format",
       "configSaved": "Configuration saved",
       "formValidationFailed": "Form validation failed",
-      "variables": {
-        "selectVariable": "Select Variable",
-        "insertVariable": "Insert Variable",
-        "noVariables": "No available variables",
-        "noVariablesTip": "Please connect upstream node first, or input variable expression directly:",
-        "searchVariables": "Search variables...",
-        "selectOrInput": "Select variable or input expression",
-        "availableVariables": "Available Variables",
-        "noVariablesInputTip": "No available variables. You can input URL or variable expression directly, e.g.:",
-        "fromNode": "From node \"{{node}}\" {{label}}",
-        "fields": {
-          "data": "Data",
-          "content": "Content",
-          "text": "Text",
-          "title": "Title",
-          "url": "URL",
-          "link": "Link",
-          "href": "Href",
-          "src": "Src"
-        }
-      },
       "condition": {
         "conditionType": "Condition Type",
         "equals": "Equals",
@@ -353,6 +354,7 @@
         "thinkingLevel": "Thinking Effort",
         "selectSystemPresetModel": "Select System Preset Model",
         "noSystemPresetModel": "No system preset models available",
+        "connectionConfig": "Connection Config",
         "modelName": "Model Name",
         "savedModelDesc": "Select from your saved model configurations, API Key is securely stored in database",
         "selectSavedModelRequired": "Please select a saved model",
@@ -376,8 +378,12 @@
         "advancedParams": "Advanced Parameters (Optional)",
         "maxTokens": "Max Tokens",
         "maxTokensTooltip": "Maximum number of tokens to generate",
+        "topP": "Top P",
+        "topPTooltip": "Control diversity via nucleus sampling: 0.5 means half of all likelihood-weighted options are considered.",
+        "enableEnhancement": "Enable Enhancement",
+        "enableEnhancementTooltip": "Enable model-specific enhancements (e.g., web search, code interpreter)",
         "stream": "Stream Output",
-        "streamTooltip": "Enable stream output to display AI-generated content in real-time (Can view output in real-time when testing nodes)",
+        "streamTooltip": "Enable streaming output for real-time generation, display AI-generated content in real-time (Can view output in real-time when testing nodes)",
         "thinking": "Deep Thinking/Reasoning",
         "thinkingTooltip": "Enable reasoning mode, AI will display its thinking process, suitable for tasks requiring complex reasoning",
         "thinkingEffort": "Thinking Effort",

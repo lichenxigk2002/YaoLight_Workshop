@@ -3,21 +3,26 @@
  */
 
 import { providerRegistry } from '../registry';
-import { DoubaoConfig } from './DoubaoConfig';
 import { DoubaoPreview } from './DoubaoPreview';
 
 providerRegistry.register({
   name: 'doubao',
   displayName: '豆包',
-  ConfigComponent: DoubaoConfig,
+  configuration: [
+    { type: 'temperature', props: { defaultValue: 0.7 } },
+    { type: 'maxTokens', props: { defaultValue: 2000, max: 32768 } },
+    { type: 'stream', props: { defaultValue: false } },
+    { type: 'thinkingLevel', props: { defaultValue: 'medium' } },
+  ],
   PreviewComponent: DoubaoPreview,
   supportedConfig: {
     stream: true,
-    thinkingLevel: true, // 豆包使用思考长度，而不是开关
+    thinkingLevel: true,
   },
   defaultConfig: {
     stream: false,
     thinkingLevel: 'medium',
+    temperature: 0.7,
+    maxTokens: 2000,
   },
 });
-

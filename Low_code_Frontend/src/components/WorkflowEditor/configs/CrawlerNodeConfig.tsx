@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Input, Select, Switch, Row, Col, Space } from 'antd';
+import { Form, Input, Select, Row, Col, Space } from 'antd';
 import {
   RobotOutlined,
   FileTextOutlined,
@@ -13,6 +13,7 @@ import { Node, Edge } from 'reactflow';
 import { VariableSelectField } from '../variables';
 import { CrawlerTooltips } from '../utils/configTooltips';
 import { jsonValidatorRule } from '../extensions/jsonValidator';
+import { SegmentedSwitch } from '../providers/parts/SwitchPart';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -80,10 +81,9 @@ export const CrawlerNodeConfig: React.FC<CrawlerNodeConfigProps> = ({
             label={t('node.config.crawler.pageType')}
             name="useHeadless"
             initialValue={false}
-            valuePropName="checked"
             tooltip={CrawlerTooltips.pageType(t)}
           >
-            <Switch
+            <SegmentedSwitch
               checkedChildren={t('node.config.crawler.spaApp')}
               unCheckedChildren={t('node.config.crawler.normalPage')}
             />
@@ -94,10 +94,9 @@ export const CrawlerNodeConfig: React.FC<CrawlerNodeConfigProps> = ({
             label={t('node.config.crawler.advanced')}
             name="useAdvanced"
             initialValue={false}
-            valuePropName="checked"
             tooltip={t('node.config.crawler.advancedTooltip')}
           >
-            <Switch checkedChildren={t('node.config.crawler.enable')} unCheckedChildren={t('node.config.crawler.disable')} />
+            <SegmentedSwitch checkedChildren={t('node.config.crawler.enable')} unCheckedChildren={t('node.config.crawler.disable')} />
           </Form.Item>
         </Col>
       </Row>
@@ -298,11 +297,13 @@ export const CrawlerNodeConfig: React.FC<CrawlerNodeConfigProps> = ({
       <Form.Item
         label={t('node.config.crawler.testCleanEnable')}
         name="testCleanEnable"
-        valuePropName="checked"
         initialValue={false}
         tooltip={t('node.config.crawler.testCleanTooltip')}
       >
-        <Switch />
+        <SegmentedSwitch
+          checkedChildren={t('node.config.crawler.enable')}
+          unCheckedChildren={t('node.config.crawler.disable')}
+        />
       </Form.Item>
       <Form.Item
         noStyle
@@ -316,18 +317,22 @@ export const CrawlerNodeConfig: React.FC<CrawlerNodeConfigProps> = ({
               <Form.Item
                 label={t('node.config.crawler.testCleanRemoveHTML')}
                 name="testCleanRemoveHTML"
-                valuePropName="checked"
                 initialValue={true}
               >
-                <Switch />
+                <SegmentedSwitch
+                  checkedChildren={t('node.config.crawler.enable')}
+                  unCheckedChildren={t('node.config.crawler.disable')}
+                />
               </Form.Item>
               <Form.Item
                 label={t('node.config.crawler.testCleanTrim')}
                 name="testCleanTrim"
-                valuePropName="checked"
                 initialValue={true}
               >
-                <Switch />
+                <SegmentedSwitch
+                  checkedChildren={t('node.config.crawler.enable')}
+                  unCheckedChildren={t('node.config.crawler.disable')}
+                />
               </Form.Item>
             </>
           );

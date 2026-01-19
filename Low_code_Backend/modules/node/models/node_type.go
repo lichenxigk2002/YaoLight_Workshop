@@ -11,7 +11,7 @@ import (
 type NodeType struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
 	Name          string         `gorm:"type:varchar(100);uniqueIndex;not null" json:"name"`
-	Category      string         `gorm:"type:varchar(50);not null;index;check:category IN ('crawler','ai','output','condition','transform','start','end','custom')" json:"category"`
+	Category      string         `gorm:"type:varchar(50);not null;index;check:category IN ('crawler','ai','output','condition','transform','start','end','dataclean','loop','merge','delay','custom')" json:"category"`
 	Icon          *string        `gorm:"type:varchar(100)" json:"icon"`
 	Color         *string        `gorm:"type:varchar(20)" json:"color"`
 	ConfigSchema  shared.JSONB   `gorm:"type:jsonb;default:'{}'" json:"config_schema"`

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, message, Descriptions, Avatar, Modal } from 'antd';
+import { Card, Form, Input, Button, Descriptions, Avatar, Modal, App } from 'antd';
 import { UserOutlined, EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/auth';
@@ -8,6 +8,7 @@ import styles from './index.module.scss';
 
 export default function Profile() {
   const { t, i18n } = useTranslation();
+  const { message } = App.useApp();
   const { user, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);

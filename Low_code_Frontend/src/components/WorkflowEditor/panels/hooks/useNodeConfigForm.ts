@@ -339,10 +339,15 @@ export function useNodeConfigForm({
   /**
    * 处理保存逻辑
    */
-  const handleSave = async (onSave: (nodeId: string, config: any) => void, onSaveToBackend?: () => Promise<boolean>, workflowId?: string) => {
+  const handleSave = async (
+    onSave: (nodeId: string, config: any) => void,
+    onSaveToBackend?: () => Promise<boolean>,
+    workflowId?: string,
+    validate: boolean = true,
+  ) => {
     try {
       // 使用 buildNodeConfig 构建配置（已经处理了所有配置逻辑，包括AI节点模型配置、JSON字段解析等）
-      const config = await buildNodeConfig(true);
+      const config = await buildNodeConfig(validate);
       if (!config || !node) {
         return false;
       }

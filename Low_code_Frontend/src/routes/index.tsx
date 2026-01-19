@@ -8,7 +8,6 @@ import WorkflowEditor from '../components/WorkflowEditor'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
 
-// 路由配置
 const router = createBrowserRouter([
   {
     path: '/login',
@@ -58,7 +57,11 @@ const router = createBrowserRouter([
     path: '*',
     element: <Navigate to="/" replace />,
   },
-])
+], {
+  future: {
+    v7_startTransition: true,
+  },
+})
 
 export default router
 

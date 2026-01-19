@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, message, Tabs, Typography, Select, Space, Divider } from 'antd';
+import { Form, Input, Button, Card, Tabs, Typography, Select, Space, Divider, App } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, ApiOutlined, GlobalOutlined, GithubOutlined, GoogleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
@@ -16,6 +16,7 @@ const { Option } = Select;
 export default function Login() {
   const navigate = useNavigate();
   const { login: loginStore, isAuthenticated } = useAuthStore();
+  const { message } = App.useApp();
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');

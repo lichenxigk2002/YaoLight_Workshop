@@ -1,11 +1,14 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { Form, Modal, InputNumber, Switch, Tooltip, Select } from 'antd';
-import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { Form, Modal, InputNumber, Tooltip, Select, Input, type FormInstance } from 'antd';
+import { InfoCircleOutlined, SettingOutlined, EyeInvisibleOutlined, KeyOutlined, LinkOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { ProviderIcon } from '../../Icons/ProviderIcon';
 import styles from './AIModelConfigPopup.module.scss';
 import { ProviderPickerOption } from './ProviderPicker';
 import { getModelConfigSupport } from './modelConfigSupport';
+import { providerRegistry } from '../providers';
+import { StandardProviderConfig } from '../providers/parts/StandardProviderConfig';
+import { SegmentedSwitch } from '../providers/parts/SwitchPart';
 
 const { Option } = Select;
 
@@ -47,6 +50,8 @@ interface AIModelConfigPopupProps {
   onModelChange: (model: string) => void;
   trigger?: React.ReactNode;
   onOpen?: () => void;
+  form: FormInstance;
+  showConnectionParams?: boolean;
 }
 
 export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
@@ -58,33 +63,37 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
   onModelChange,
   trigger,
   onOpen,
+  form,
+  showConnectionParams,
 }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
   const [modalStyle, setModalStyle] = useState<React.CSSProperties>({});
-  const [modalWidth, setModalWidth] = useState(420);
+  const [modalWidth, setModalWidth] = useState<number | undefined>(undefined);
 
   // 监听打开状态，计算水平位置（模仿 Popover left）但垂直居中
   useEffect(() => {
     if (open && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       
-      // 响应式宽度计算，与 SCSS 中的断点保持一致
-      const isSmallScreen = window.innerWidth <= 2560;
-      // 宽度与 SCSS 中 .popupContainer 的 width 保持一致
-      const width = isSmallScreen ? 320 : 420;
-      setModalWidth(width);
-
-      // Popover placement="left" 意味着在触发器左侧
-      // 间距 10px
       const gap = 12;
+      const margin = 10;
+      const maxWidth = 520;
+      const minWidth = 360;
+
+      let availableLeft = rect.left - gap - margin;
+      let width = Math.max(Math.min(availableLeft, maxWidth), minWidth);
+
       let left = rect.left - width - gap;
       
-      // 简单防溢出：如果左边放不下，就放右边
-      if (left < 10) {
+      if (left < margin) {
+        const availableRight = window.innerWidth - rect.right - gap - margin;
+        width = Math.max(Math.min(availableRight, maxWidth), minWidth);
         left = rect.right + gap;
       }
+
+      setModalWidth(width);
 
       setModalStyle({
         top: '50%',
@@ -98,6 +107,7 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
   }, [open]);
 
   // 获取当前选中提供商的配置支持情况
+  const providerReg = currentProvider ? providerRegistry.get(currentProvider) : null;
   const support = useMemo(() => getModelConfigSupport(currentProvider ?? null), [currentProvider]);
 
   // Popover 内容
@@ -133,11 +143,11 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
           <div className={styles.sectionTitle}>
             {t('node.config.ai.modelName') || '模型版本'}
           </div>
-          <div className={styles.modelGroup}>
+          <div className={styles.modelGrid}>
             {supportedModels.map((model) => (
               <div
                 key={model}
-                className={`${styles.modelBtn} ${currentModelName === model ? styles.active : ''}`}
+                className={`${styles.modelTag} ${currentModelName === model ? styles.active : ''}`}
                 onClick={() => onModelChange(model)}
               >
                 {model}
@@ -147,11 +157,55 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
         </div>
       )}
 
+      {/* 2.5 自定义连接参数 (API Key / Base URL) */}
+      {showConnectionParams && (
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>
+            {t('node.config.ai.connectionConfig') || '连接配置'}
+          </div>
+          <div className={styles.connectionForm}>
+            <div className={styles.paramItem}>
+              <div className={styles.paramLabel}>
+                <span>{t('node.config.ai.apiKey') || 'API Key'}</span>
+              </div>
+              <Form.Item
+                name="apiKey"
+                noStyle
+                rules={[{ required: true, message: t('node.config.ai.apiKeyRequired') }]}
+              >
+                <Input.Password
+                  size="small"
+                  placeholder="API Key"
+                  className={styles.paramInput}
+                />
+              </Form.Item>
+            </div>
+            <div className={styles.paramItem}>
+              <div className={styles.paramLabel}>
+                <span>{t('node.config.ai.baseUrl') || 'Base URL'}</span>
+              </div>
+              <Form.Item name="baseUrl" noStyle>
+                <Input 
+                  size="small" 
+                  placeholder="https://api.example.com" 
+                  className={styles.paramInput} 
+                />
+              </Form.Item>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 3. 高级参数配置 */}
       <div className={styles.section}>
         <div className={styles.sectionTitle}>
           {t('node.config.ai.advancedParams') || '高级参数'}
         </div>
+        {providerReg?.configuration ? (
+          <div className={styles.compactConfig}>
+            <StandardProviderConfig form={form} options={providerReg.configuration} />
+          </div>
+        ) : (
         <div className={styles.paramsGrid}>
           {/* Temperature */}
           <div className={styles.paramItem}>
@@ -196,8 +250,8 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
                <div className={styles.paramLabel}>
                  <span>{t('node.config.ai.stream') || '流式输出'}</span>
                </div>
-               <Form.Item name="stream" valuePropName="checked" noStyle>
-                 <Switch size="small" />
+               <Form.Item name="stream" initialValue={false} noStyle>
+                 <SegmentedSwitch />
                </Form.Item>
              </div>
           )}
@@ -213,10 +267,10 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
                </div>
                <Form.Item
                  name={currentProvider === 'qwen' ? 'enable_thinking' : 'thinking'}
-                 valuePropName="checked"
+                 initialValue={false}
                  noStyle
                >
-                 <Switch size="small" />
+                 <SegmentedSwitch />
                </Form.Item>
              </div>
           )}
@@ -273,6 +327,7 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
     </SmoothHeightWrapper>

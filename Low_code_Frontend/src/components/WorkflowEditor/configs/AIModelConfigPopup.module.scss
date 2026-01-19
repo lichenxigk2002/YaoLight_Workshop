@@ -1,13 +1,11 @@
 .popupContainer {
-  width: 420px;
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 12px;
   
   /* 响应式调整：笔记本/小屏幕 */
-  @media (max-width: 2560px) {
-    width: 320px;
+  @media (max-width: 1600px) {
     gap: 10px;
     padding: 8px;
   }
@@ -37,7 +35,7 @@
   flex-direction: column;
   gap: 8px;
   
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     gap: 4px;
   }
 }
@@ -54,7 +52,7 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
   
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     gap: 4px;
   }
 }
@@ -72,7 +70,7 @@
   border: 1px solid transparent;
   color: var(--text-secondary, rgba(0, 0, 0, 0.65));
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     padding: 4px 2px;
     gap: 2px;
   }
@@ -108,7 +106,7 @@
   align-items: center;
   justify-content: center;
   
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     font-size: 18px;
   }
 }
@@ -120,23 +118,23 @@
   text-overflow: ellipsis;
   max-width: 100%;
   
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     transform: scale(0.9); /* 稍微缩小字体 */
   }
 }
 
 /* Model Group (Buttons) */
-.modelGroup {
+.modelGrid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     gap: 4px;
   }
 }
 
-.modelBtn {
+.modelTag {
   font-size: 12px;
   padding: 4px 12px;
   border-radius: 6px;
@@ -146,9 +144,9 @@
   color: var(--text-secondary, rgba(0, 0, 0, 0.65));
   background: var(--bg-primary, #fff);
 
-  @media (max-width: 2560px) {
-    padding: 2px 6px;
-    font-size: 10px;
+  @media (max-width: 1600px) {
+    padding: 2px 8px;
+    font-size: 11px;
   }
 
   &:hover {
@@ -166,7 +164,7 @@
     background: #000000;
     color: #fff;
     border-color: #000000;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
     /* Dark mode override */
     :global([data-theme='dark']) & {
@@ -177,13 +175,25 @@
   }
 }
 
+/* Connection Form */
+.connectionForm {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  padding: 0 4px;
+
+  @media (max-width: 1600px) {
+    gap: 6px;
+  }
+}
+
 /* Params Grid */
 .paramsGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     gap: 6px;
   }
 }
@@ -200,102 +210,77 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  grid-column: span 2; /* 占据整行 */
-  padding: 4px 0;
-  animation: fadeIn 0.3s ease-in-out;
 }
 
-.paramLabel {
-  font-size: 12px;
-  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
-  display: flex;
-  align-items: center;
-  gap: 4px;
+/* 紧凑模式下的配置容器 */
+.compactConfig {
+  padding: 0 4px;
+
+  /* 覆盖 Ant Design Form Item 样式 */
+  :global(.ant-form-item) {
+    margin-bottom: 8px; /* 减小间距 */
+  }
+
+  :global(.ant-form-item-label) {
+    padding-bottom: 2px;
+    
+    label {
+      font-size: 12px;
+      color: var(--text-secondary, rgba(0, 0, 0, 0.65));
+      height: auto;
+    }
+  }
+
+  /* 让 switch 类型的配置项更加紧凑 */
+  :global(.ant-row) {
+    margin-bottom: 0;
+  }
 }
 
-.infoIcon {
-  color: var(--text-tertiary, rgba(0, 0, 0, 0.25));
-  font-size: 12px;
-}
-
-.paramInput {
-  width: 100%;
-  border-radius: 4px;
-}
-
-/* Trigger Styles */
 .defaultTrigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-primary, #d9d9d9);
-  border-radius: 6px;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--bg-secondary, #f5f5f5);
   cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
   transition: all 0.2s;
 
   &:hover {
-    border-color: #000000;
-    color: #000000;
+    background: var(--bg-tertiary, #e6e6e6);
+    color: var(--text-primary, rgba(0, 0, 0, 0.88));
   }
 }
 
-/* Popover/Modal Override */
 .configModal {
   :global(.ant-modal-content) {
-    padding: 0 !important;
+    padding: 0;
     border-radius: 12px;
-    box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
-    background: #fff;
     overflow: hidden;
-    
-    // Dark mode
-    :global([data-theme='dark']) & {
-      background: #1f1f1f;
-      border: 1px solid #303030;
-    }
-  }
-  
-  /* 去除 Modal 默认的关闭按钮（如果有） */
-  :global(.ant-modal-close) {
-    display: none;
-  }
-}
-
-.configPopover {
-  :global(.ant-popover-inner) {
-    padding: 0 !important; /* Remove padding to handle overflow correctly */
-    border-radius: 12px;
     box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
-    background: #fff;
-    overflow: hidden; /* Ensure content clips for border-radius */
-    
-    // Dark mode
-    :global([data-theme='dark']) & {
-      background: #1f1f1f;
-      border: 1px solid #303030;
-    }
+  }
+
+  :global(.ant-modal-body) {
+    padding: 0;
   }
 }
 
-/* Smooth Height Animation */
 .smoothContainer {
   transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
+  /* 确保初始渲染时不会闪烁 */
   will-change: height;
 }
 
 .smoothContent {
-  padding: 0; /* Remove padding here as it's now in popupContainer */
+  /* 确保内容撑开 */
+  overflow: hidden;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }

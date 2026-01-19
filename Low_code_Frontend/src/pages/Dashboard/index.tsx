@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, Modal, Form, Input, message, Popconfirm, Tag } from 'antd';
+import { Card, Button, Table, Space, Modal, Form, Input, App, Popconfirm, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ const { TextArea } = Input;
 export default function Dashboard() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const { message } = App.useApp();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
