@@ -179,15 +179,15 @@ func SeedAlkaidSpecs() error {
 	specs := []alkaidModels.AlkaidNodeSpec{
 		{
 			NodeTypeName: "爬虫节点",
-			InputSpec:    shared.JSONB(`{"url": "目标网页地址", "selectors": "CSS选择器列表"}`),
-			OutputSpec:   shared.JSONB(`{"data": "抓取到的网页文本或结构化数据"}`),
-			Constraints:  shared.JSONB(`["URL必须以 http 或 https 开头", "输出结果常用于后续 AI 处理"]`),
+			InputSpec:    shared.JSONB{Data: map[string]interface{}{"url": "目标网页地址", "selectors": "CSS选择器列表"}},
+			OutputSpec:   shared.JSONB{Data: map[string]interface{}{"data": "抓取到的网页文本或结构化数据"}},
+			Constraints:  shared.JSONB{Data: []interface{}{"URL必须以 http 或 https 开头", "输出结果常用于后续 AI 处理"}},
 		},
 		{
 			NodeTypeName: "AI处理节点",
-			InputSpec:    shared.JSONB(`{"prompt": "指令内容", "inputData": "引用的上游变量"}`),
-			OutputSpec:   shared.JSONB(`{"result": "AI 生成的文本内容"}`),
-			Constraints:  shared.JSONB(`["需要配置有效的 API Key", "支持上下文引用"]`),
+			InputSpec:    shared.JSONB{Data: map[string]interface{}{"prompt": "指令内容", "inputData": "引用的上游变量"}},
+			OutputSpec:   shared.JSONB{Data: map[string]interface{}{"result": "AI 生成的文本内容"}},
+			Constraints:  shared.JSONB{Data: []interface{}{"需要配置有效的 API Key", "支持上下文引用"}},
 		},
 	}
 
