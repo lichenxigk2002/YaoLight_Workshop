@@ -1,11 +1,16 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/database"
 	userModels "yaolight-workshop/backend/modules/user/models"
 	"yaolight-workshop/backend/modules/user/repositories"
@@ -478,5 +483,122 @@ func (c *AuthController) UpdateUsername(ctx *gin.Context) {
 		"code":    200,
 		"message": "用户名修改成功",
 		"data":    nil,
+	})
+}
+
+// UploadAvatar 上传头像
+// @Summary 上传头像
+// @Description 上传用户头像文件
+// @Tags 用户
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param avatar formData file true "头像文件"
+// @Success 200 {object} map[string]interface{} "上传成功"
+// @Failure 400 {object} map[string]interface{} "请求参数错误"
+// @Failure 401 {object} map[string]interface{} "未授权"
+// @Router /api/users/avatar [post]
+func (c *AuthController) UploadAvatar(ctx *gin.Context) {
+	// 从中间件获取用户ID
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未授权",
+			"data":    nil,
+		})
+		return
+	}
+
+	// 获取上传的文件
+	file, err := ctx.FormFile("avatar")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "请选择要上传的头像文件",
+			"data":    nil,
+		})
+		return
+	}
+
+	// 验证文件类型（只允许图片）
+	allowedTypes := map[string]bool{
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+		".gif":  true,
+		".webp": true,
+	}
+	ext := filepath.Ext(file.Filename)
+	if !allowedTypes[ext] {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "不支持的文件类型，仅支持 jpg、jpeg、png、gif、webp",
+			"data":    nil,
+		})
+		return
+	}
+
+	// 验证文件大小（限制为 5MB）
+	if file.Size > 5*1024*1024 {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "文件大小不能超过 5MB",
+			"data":    nil,
+		})
+		return
+	}
+
+	// 创建上传目录
+	uploadDir := filepath.Join(config.UploadPath, "avatars")
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		log.Printf("创建上传目录失败: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "创建上传目录失败",
+			"data":    nil,
+		})
+		return
+	}
+
+	// 生成唯一文件名：用户ID_时间戳_随机数.扩展名
+	timestamp := time.Now().Unix()
+	filename := fmt.Sprintf("%d_%d%s", userID.(uint), timestamp, ext)
+	filePath := filepath.Join(uploadDir, filename)
+
+	// 保存文件
+	if err := ctx.SaveUploadedFile(file, filePath); err != nil {
+		log.Printf("保存文件失败: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "保存文件失败",
+			"data":    nil,
+		})
+		return
+	}
+
+	// 生成相对路径（用于存储到数据库）
+	relativePath := filepath.Join("avatars", filename)
+
+	// 更新用户头像路径
+	err = c.authService.UpdateAvatar(userID.(uint), relativePath)
+	if err != nil {
+		// 如果更新失败，删除已上传的文件
+		os.Remove(filePath)
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "更新头像失败: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	// 返回文件路径
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "头像上传成功",
+		"data": gin.H{
+			"url": relativePath,
+		},
 	})
 }

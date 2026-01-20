@@ -61,7 +61,9 @@ type ResponseBody struct {
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
-		TotalTokens int `json:"total_tokens"`
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
 	} `json:"usage"`
 	Model string `json:"model"`
 }
@@ -76,8 +78,12 @@ type StreamResponseBody struct {
 		} `json:"delta"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
-	Usage *providers.TokenUsage `json:"usage,omitempty"`
-	Model string                `json:"model,omitempty"`
+	Usage *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage,omitempty"`
+	Model string `json:"model,omitempty"`
 }
 
 // Chat 聊天对话（非流式）
@@ -193,7 +199,12 @@ func (p *QwenProvider) Chat(config *providers.AIModelConfig, prompt string, cont
 	return &providers.ChatResponse{
 		Content:    response.Choices[0].Message.Content,
 		TokensUsed: response.Usage.TotalTokens,
-		Model:      modelName,
+		Usage: &providers.TokenUsage{
+			PromptTokens:     response.Usage.PromptTokens,
+			CompletionTokens: response.Usage.CompletionTokens,
+			TotalTokens:      response.Usage.TotalTokens,
+		},
+		Model: modelName,
 	}, nil
 }
 
@@ -325,7 +336,12 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 			}
 
 			if streamResponse.Usage != nil {
-				callback("", false, nil, streamResponse.Usage)
+				usage := &providers.TokenUsage{
+					PromptTokens:     streamResponse.Usage.PromptTokens,
+					CompletionTokens: streamResponse.Usage.CompletionTokens,
+					TotalTokens:      streamResponse.Usage.TotalTokens,
+				}
+				callback("", false, nil, usage)
 			}
 
 			if len(streamResponse.Choices) > 0 {

@@ -37,6 +37,20 @@ export default function Layout({ children }: LayoutProps) {
     i18n.changeLanguage(newLanguage);
   };
 
+  // 获取头像 URL
+  const getAvatarUrl = () => {
+    if (user?.avatar_url) {
+      // 如果是绝对路径（http/https），直接返回
+      if (user.avatar_url.startsWith('http')) {
+        return user.avatar_url;
+      }
+      // 如果是相对路径，拼接 API 基础路径
+      const baseURL = import.meta.env.VITE_BASE_URL || '/api';
+      return `${baseURL}/uploads/${user.avatar_url}`;
+    }
+    return undefined;
+  };
+
   const menuItems: MenuProps['items'] = [
     {
       key: 'profile',
@@ -71,6 +85,17 @@ export default function Layout({ children }: LayoutProps) {
             className={styles.logoImage}
           />
           <span className={styles.brandText}>{t('common.brandName')}</span>
+          {user && (
+            <div className={styles.userInfo}>
+              <Avatar
+                size="small"
+                src={getAvatarUrl()}
+                icon={<UserOutlined />}
+                className={styles.userAvatar}
+              />
+              <span className={styles.userName}>{user.username}</span>
+            </div>
+          )}
         </div>
         <Space>
           <Button
@@ -94,7 +119,8 @@ export default function Layout({ children }: LayoutProps) {
             placement="bottomRight"
           >
             <Avatar
-              style={{ backgroundColor: '#000', cursor: 'pointer' }}
+              src={getAvatarUrl()}
+              className={styles.headerAvatar}
               icon={<UserOutlined />}
             />
           </Dropdown>

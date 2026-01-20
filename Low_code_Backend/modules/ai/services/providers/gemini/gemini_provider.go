@@ -158,9 +158,15 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 				Content          string      `json:"content"`
 				ReasoningDetails interface{} `json:"reasoning_details,omitempty"`
 			} `json:"message"`
-		} `json:"choices"`
+		} `choices`
 		Usage struct {
-			TotalTokens int `json:"total_tokens"`
+			PromptTokens        int `json:"prompt_tokens"`
+			CompletionTokens    int `json:"completion_tokens"`
+			TotalTokens         int `json:"total_tokens"`
+			PromptTokensDetails struct {
+				CachedTokens int `json:"cached_tokens"`
+				AudioTokens  int `json:"audio_tokens"`
+			} `json:"prompt_tokens_details"`
 		} `json:"usage"`
 	}
 
@@ -172,9 +178,24 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 		return nil, fmt.Errorf("no choices in response")
 	}
 
+	usage := &providers.TokenUsage{
+		PromptTokens:     response.Usage.PromptTokens,
+		CompletionTokens: response.Usage.CompletionTokens,
+		TotalTokens:      response.Usage.TotalTokens,
+	}
+	if response.Usage.PromptTokensDetails.CachedTokens > 0 {
+		cached := response.Usage.PromptTokensDetails.CachedTokens
+		usage.CacheReadTokens = &cached
+	}
+	if response.Usage.PromptTokensDetails.AudioTokens > 0 {
+		audio := response.Usage.PromptTokensDetails.AudioTokens
+		usage.AudioTokens = &audio
+	}
+
 	return &providers.ChatResponse{
 		Content:          response.Choices[0].Message.Content,
 		TokensUsed:       response.Usage.TotalTokens,
+		Usage:            usage,
 		Model:            config.ModelName,
 		ReasoningDetails: response.Choices[0].Message.ReasoningDetails,
 	}, nil
@@ -214,6 +235,9 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 		"model":    config.ModelName,
 		"messages": messages,
 		"stream":   true,
+		"stream_options": map[string]interface{}{
+			"include_usage": true,
+		},
 	}
 
 	// 处理 providerConfig 中的参数
@@ -335,10 +359,38 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
+				Usage *struct {
+					PromptTokens        int `json:"prompt_tokens"`
+					CompletionTokens    int `json:"completion_tokens"`
+					TotalTokens         int `json:"total_tokens"`
+					PromptTokensDetails struct {
+						CachedTokens int `json:"cached_tokens"`
+						AudioTokens  int `json:"audio_tokens"`
+					} `json:"prompt_tokens_details"`
+				} `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 				continue
+			}
+
+			// 如果有Token使用信息，传递给回调
+			if streamResponse.Usage != nil {
+				usage := &providers.TokenUsage{
+					PromptTokens:     streamResponse.Usage.PromptTokens,
+					CompletionTokens: streamResponse.Usage.CompletionTokens,
+					TotalTokens:      streamResponse.Usage.TotalTokens,
+				}
+				if streamResponse.Usage.PromptTokensDetails.CachedTokens > 0 {
+					cached := streamResponse.Usage.PromptTokensDetails.CachedTokens
+					usage.CacheReadTokens = &cached
+				}
+				if streamResponse.Usage.PromptTokensDetails.AudioTokens > 0 {
+					audio := streamResponse.Usage.PromptTokensDetails.AudioTokens
+					usage.AudioTokens = &audio
+				}
+				callback("", true, nil, usage)
+				return nil
 			}
 
 			if len(streamResponse.Choices) > 0 {

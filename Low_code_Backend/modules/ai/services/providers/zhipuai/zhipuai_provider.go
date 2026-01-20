@@ -150,7 +150,9 @@ func (p *ZhipuaiProvider) Chat(config *providers.AIModelConfig, prompt string, c
 			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
-			TotalTokens int `json:"total_tokens"`
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
 		} `json:"usage"`
 	}
 
@@ -172,7 +174,12 @@ func (p *ZhipuaiProvider) Chat(config *providers.AIModelConfig, prompt string, c
 	return &providers.ChatResponse{
 		Content:    finalContent,
 		TokensUsed: response.Usage.TotalTokens,
-		Model:      config.ModelName,
+		Usage: &providers.TokenUsage{
+			PromptTokens:     response.Usage.PromptTokens,
+			CompletionTokens: response.Usage.CompletionTokens,
+			TotalTokens:      response.Usage.TotalTokens,
+		},
+		Model: config.ModelName,
 	}, nil
 }
 
@@ -309,7 +316,11 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
-				Usage *providers.TokenUsage `json:"usage"`
+				Usage *struct {
+					PromptTokens     int `json:"prompt_tokens"`
+					CompletionTokens int `json:"completion_tokens"`
+					TotalTokens      int `json:"total_tokens"`
+				} `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
@@ -317,7 +328,12 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 			}
 
 			if streamResponse.Usage != nil {
-				callback("", true, nil, streamResponse.Usage)
+				usage := &providers.TokenUsage{
+					PromptTokens:     streamResponse.Usage.PromptTokens,
+					CompletionTokens: streamResponse.Usage.CompletionTokens,
+					TotalTokens:      streamResponse.Usage.TotalTokens,
+				}
+				callback("", false, nil, usage)
 				return nil
 			}
 

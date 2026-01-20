@@ -142,7 +142,12 @@ func (p *GPTProvider) Chat(config *providers.AIModelConfig, prompt string, conte
 			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
-			TotalTokens int `json:"total_tokens"`
+			PromptTokens        int `json:"prompt_tokens"`
+			CompletionTokens    int `json:"completion_tokens"`
+			TotalTokens         int `json:"total_tokens"`
+			PromptTokensDetails struct {
+				CachedTokens int `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
 		} `json:"usage"`
 	}
 
@@ -154,9 +159,20 @@ func (p *GPTProvider) Chat(config *providers.AIModelConfig, prompt string, conte
 		return nil, fmt.Errorf("no choices in response")
 	}
 
+	usage := &providers.TokenUsage{
+		PromptTokens:     response.Usage.PromptTokens,
+		CompletionTokens: response.Usage.CompletionTokens,
+		TotalTokens:      response.Usage.TotalTokens,
+	}
+	if response.Usage.PromptTokensDetails.CachedTokens > 0 {
+		cached := response.Usage.PromptTokensDetails.CachedTokens
+		usage.CacheReadTokens = &cached
+	}
+
 	return &providers.ChatResponse{
 		Content:          response.Choices[0].Message.Content,
 		TokensUsed:       response.Usage.TotalTokens,
+		Usage:            usage,
 		Model:            config.ModelName,
 		ReasoningDetails: response.Choices[0].Message.ReasoningDetails,
 	}, nil
@@ -294,7 +310,14 @@ func (p *GPTProvider) ChatStream(ctx context.Context, config *providers.AIModelC
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
-				Usage *providers.TokenUsage `json:"usage"`
+				Usage *struct {
+					PromptTokens        int `json:"prompt_tokens"`
+					CompletionTokens    int `json:"completion_tokens"`
+					TotalTokens         int `json:"total_tokens"`
+					PromptTokensDetails struct {
+						CachedTokens int `json:"cached_tokens"`
+					} `json:"prompt_tokens_details"`
+				} `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
@@ -303,7 +326,16 @@ func (p *GPTProvider) ChatStream(ctx context.Context, config *providers.AIModelC
 
 			// 如果有Token使用信息，传递给回调
 			if streamResponse.Usage != nil {
-				callback("", true, nil, streamResponse.Usage)
+				usage := &providers.TokenUsage{
+					PromptTokens:     streamResponse.Usage.PromptTokens,
+					CompletionTokens: streamResponse.Usage.CompletionTokens,
+					TotalTokens:      streamResponse.Usage.TotalTokens,
+				}
+				if streamResponse.Usage.PromptTokensDetails.CachedTokens > 0 {
+					cached := streamResponse.Usage.PromptTokensDetails.CachedTokens
+					usage.CacheReadTokens = &cached
+				}
+				callback("", true, nil, usage)
 				return nil
 			}
 

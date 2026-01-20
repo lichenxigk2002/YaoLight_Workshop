@@ -22,19 +22,47 @@
     padding: 0;
     background: transparent;
 
-    .avatar {
-      background-color: #f5f5f7;
-      color: #000;
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      width: 100px !important;
-      height: 100px !important;
-      line-height: 100px !important;
-      font-size: 40px !important;
+    .avatarWrapper {
+      position: relative;
+      display: inline-block;
 
-      [data-theme='dark'] & {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: #fff;
-        border-color: rgba(255, 255, 255, 0.1);
+      .avatar {
+        background-color: #f5f5f7;
+        color: #000;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        width: 100px !important;
+        height: 100px !important;
+        line-height: 100px !important;
+        font-size: 40px !important;
+        cursor: pointer;
+        transition: opacity 0.3s;
+
+        &:hover {
+          opacity: 0.8;
+        }
+
+        [data-theme='dark'] & {
+          background-color: rgba(255, 255, 255, 0.1);
+          color: #fff;
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+      }
+
+      .avatarUploadBtn {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        border: 2px solid #fff;
+
+        [data-theme='dark'] & {
+          border-color: #1f1f1f;
+        }
       }
     }
 

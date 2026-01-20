@@ -10,7 +10,7 @@ import (
 // AIModel AI模型配置持久化实体
 type AIModel struct {
 	ID               uint           `gorm:"primaryKey" json:"id"`
-	Name             string         `gorm:"type:varchar(100);uniqueIndex;not null" json:"name"`
+	Name             string         `gorm:"type:varchar(100);not null;index:idx_name_user,unique" json:"name"`
 	Provider         string         `gorm:"type:varchar(50);not null;index" json:"provider"`
 	ModelName        string         `gorm:"type:varchar(100);not null" json:"model_name"`
 	APIKeyEncrypted  string         `gorm:"type:text;not null" json:"-"`
@@ -34,7 +34,7 @@ type AIModel struct {
 	LastUsedAt       *time.Time     `json:"last_used_at"`
 	ErrorCount       int            `gorm:"default:0" json:"error_count"`
 	AvgResponseTime  *int           `json:"avg_response_time"`
-	CreatedBy        *uint          `gorm:"index" json:"created_by"`
+	CreatedBy        *uint          `gorm:"index;index:idx_name_user,unique" json:"created_by"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`

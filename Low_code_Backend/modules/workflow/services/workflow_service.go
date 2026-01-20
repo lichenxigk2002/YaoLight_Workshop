@@ -323,9 +323,10 @@ func (s *WorkflowService) SaveWorkflowNode(workflowID uint, nodeID string, req *
 		Position:   shared.JSONB{Data: nodeData.Position},
 		Config:     shared.JSONB{Data: config},
 		IsEnabled:  true,
+		// 注意：不设置 Connections，让 CreateOrUpdate 方法保留现有的连接信息
 	}
 
-	// 保存节点（CreateOrUpdate 会自动处理创建或更新）
+	// 保存节点（CreateOrUpdate 会自动处理创建或更新，并保留现有的 Connections）
 	return s.workflowNodeRepo.CreateOrUpdate(node)
 }
 

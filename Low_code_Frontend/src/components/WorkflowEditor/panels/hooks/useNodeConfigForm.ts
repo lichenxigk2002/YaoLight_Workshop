@@ -166,14 +166,22 @@ export function useNodeConfigForm({
 
         // 对于已保存的模型，如果配置中没有 provider 和 modelName，尝试从节点配置中读取
         if (modelMode === 'saved' && modelId) {
+          // provider 应该已经在表单中设置了，如果没有则从现有配置读取
           if (!provider && existingConfig.provider) {
             provider = existingConfig.provider;
-            config.provider = provider;
           }
+          // modelName 应该已经在表单中设置了，如果没有则从现有配置读取
           if (!modelName && existingConfig.modelName) {
             modelName = existingConfig.modelName;
-            config.modelName = modelName;
           }
+        }
+        
+        // 确保 provider 和 modelName 被保存到配置中（用于更新节点图标和执行）
+        if (provider) {
+          config.provider = provider;
+        }
+        if (modelName) {
+          config.modelName = modelName;
         }
 
         // 获取当前模型配置键

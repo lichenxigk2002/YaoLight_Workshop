@@ -84,6 +84,9 @@ func main() {
 		imageProxyController := fileControllers.NewImageProxyController()
 		api.GET("/proxy/image", imageProxyController.ProxyImage)
 
+		// 静态文件服务（上传的文件）
+		api.Static("/uploads", config.UploadPath)
+
 		// 认证相关路由（无需JWT中间件）
 		authController := authControllers.NewAuthController()
 		api.POST("/auth/register", authController.Register)
@@ -101,6 +104,7 @@ func main() {
 			auth.GET("/users/current", authController.GetCurrentUser)
 			auth.PUT("/users/username", authController.UpdateUsername)
 			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
+			auth.POST("/users/avatar", authController.UploadAvatar)
 
 			// 项目相关路由
 			projectController := projectControllers.NewProjectController()

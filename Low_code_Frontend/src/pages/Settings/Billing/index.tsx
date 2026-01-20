@@ -3,7 +3,7 @@ import { App, Card, Table } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { userApi } from '@/api/user';
 import { useAuthStore } from '@/store/auth';
-import { ProviderIcon } from '@/components/Icons';
+import { ProviderIcon, StardustIcon } from '@/components/Icons';
 import type { TokenTransaction } from '@/types/user';
 import styles from './index.module.scss';
 
@@ -49,7 +49,7 @@ export default function Billing() {
   const columns = useMemo(
     () => [
       {
-        title: '时间',
+        title: t('settings.time'),
         dataIndex: 'created_at',
         key: 'created_at',
         width: 180,
@@ -59,7 +59,7 @@ export default function Billing() {
         },
       },
       {
-        title: '模型',
+        title: t('settings.model'),
         key: 'model',
         render: (_: any, record: TokenTransaction) => {
           const provider = record.provider || '';
@@ -74,14 +74,18 @@ export default function Billing() {
         },
       },
       {
-        title: '星尘消耗',
-        dataIndex: 'total_tokens',
-        key: 'total_tokens',
+        title: t('settings.stardustConsumption'),
+        dataIndex: 'amount',
+        key: 'amount',
         width: 120,
-        render: (value: number) => (typeof value === 'number' ? value.toLocaleString() : 0),
+        render: (value: number) => {
+          // amount 可能是负数（扣除），显示时取绝对值
+          const absValue = typeof value === 'number' ? Math.abs(value) : 0;
+          return absValue.toLocaleString();
+        },
       },
       {
-        title: '金额',
+        title: t('settings.amount'),
         key: 'cost',
         width: 160,
         render: (_: any, record: TokenTransaction) => {
@@ -96,7 +100,7 @@ export default function Billing() {
         },
       },
     ],
-    []
+    [t]
   );
 
   return (
@@ -104,7 +108,7 @@ export default function Billing() {
       <h2 className={styles.title}>{t('settings.billing')}</h2>
 
       <Card className={styles.summary}>
-        当前星尘余额：{user?.token_balance?.toLocaleString() || 0}
+        {t('settings.currentStardustBalance')}: {user?.token_balance?.toLocaleString() || 0} <StardustIcon size={16} style={{ marginLeft: '4px', verticalAlign: 'middle' }} />
       </Card>
 
       <Table

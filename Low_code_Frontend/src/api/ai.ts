@@ -18,6 +18,7 @@ const adaptAIModel = (raw: any): AIModel => ({
   baseUrl: raw?.baseUrl ?? raw?.base_url,
   endpoint: raw?.endpoint,
   params: raw?.params,
+  supportedModels: raw?.supportedModels, // 当 modelName 为 __provider_default__ 时的子模型列表
   createdAt: raw?.createdAt ?? raw?.created_at,
   updatedAt: raw?.updatedAt ?? raw?.updated_at,
 });

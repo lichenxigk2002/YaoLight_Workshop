@@ -19,14 +19,13 @@ import {
   QuestionCircleOutlined,
   RightOutlined,
   SearchOutlined,
-  CloudServerOutlined,
-  WalletOutlined
+  CloudServerOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { aiApi } from '@/api/ai';
 import { userApi } from '@/api/user';
 import { useAuthStore } from '@/store/auth';
-import { ProviderIcon } from '@/components/Icons';
+import { ProviderIcon, StardustIcon } from '@/components/Icons';
 import type { AIModel, ProviderTemplate, CreateModelRequest, SystemPresetModel } from '@/types/ai';
 import styles from './index.module.scss';
 
@@ -353,20 +352,15 @@ export default function ModelProviders() {
         />
       </div>
 
-      {/* 消息额度卡片 */}
+      {/* 星尘余额卡片 */}
       <div className={styles.quotaCard}>
         <div className={styles.quotaInfo}>
           <div className={styles.quotaLabel}>
-            {t('settings.quota')} <WalletOutlined />
+            {t('settings.quota')}
           </div>
           <div className={styles.quotaValue}>
-            {user?.token_balance?.toLocaleString() || 0} <span style={{fontSize: '14px', fontWeight: 'normal'}}>Stardust</span>
+            {user?.token_balance?.toLocaleString() || 0} <StardustIcon size={20} style={{ marginLeft: '8px', verticalAlign: 'middle' }} />
           </div>
-        </div>
-        <div className={styles.providerIcons}>
-          <ProviderIcon provider="openai" size={20} />
-          <ProviderIcon provider="gemini" size={20} />
-          <ProviderIcon provider="deepseek" size={20} />
         </div>
       </div>
 
