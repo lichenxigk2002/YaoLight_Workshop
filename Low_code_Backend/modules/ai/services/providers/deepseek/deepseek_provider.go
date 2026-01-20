@@ -277,7 +277,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			callback("", true, ctx.Err())
+			callback("", true, ctx.Err(), nil)
 			return ctx.Err()
 		default:
 			// 继续执行
@@ -300,25 +300,30 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				if fullContent.Len() > 0 {
 					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 				}
-				callback(finalContent, true, nil)
+				callback(finalContent, true, nil, nil)
 				return nil
 			}
 
 			var streamResponse struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
 				Choices []struct {
 					Delta struct {
+						Role             string `json:"role"`
 						Content          string `json:"content"`
 						ReasoningContent string `json:"reasoning_content"`
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
-				Usage struct {
-					TotalTokens int `json:"total_tokens"`
-				} `json:"usage"`
+				Usage *providers.TokenUsage `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 				continue
+			}
+
+			if streamResponse.Usage != nil {
+				callback("", false, nil, streamResponse.Usage)
 			}
 
 			if len(streamResponse.Choices) > 0 {
@@ -327,7 +332,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				if deltaReasoningContent != "" {
 					fullReasoningContent.WriteString(deltaReasoningContent)
 					// 发送带标记的思考内容
-					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil, nil)
 				}
 
 				// 处理正式内容
@@ -335,7 +340,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				if deltaContent != "" {
 					fullContent.WriteString(deltaContent)
 					// 发送带标记的正式内容
-					callback("[CONTENT_DELTA]"+deltaContent, false, nil)
+					callback("[CONTENT_DELTA]"+deltaContent, false, nil, nil)
 				}
 
 				if streamResponse.Choices[0].FinishReason != "" {
@@ -347,7 +352,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 					if fullContent.Len() > 0 {
 						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 					}
-					callback(finalContent, true, nil)
+					callback(finalContent, true, nil, nil)
 					return nil
 				}
 			}
@@ -366,7 +371,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 	if fullContent.Len() > 0 {
 		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 	}
-	callback(finalContent, true, nil)
+	callback(finalContent, true, nil, nil)
 	return nil
 }
 

@@ -38,11 +38,19 @@ type AIModelConfig struct {
 	StopSequences    []string
 }
 
+// TokenUsage Token使用统计
+type TokenUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 // StreamCallback 流式输出回调函数
 // content: 当前接收到的内容片段
 // done: 是否完成
 // err: 错误信息（如果有）
-type StreamCallback func(content string, done bool, err error)
+// usage: Token使用统计（通常在done=true时返回）
+type StreamCallback func(content string, done bool, err error, usage *TokenUsage)
 
 // AIProvider AI提供商接口
 type AIProvider interface {

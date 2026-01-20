@@ -6,12 +6,13 @@ interface NodePanelProps {
   nodes: Node[];
   onNodeSelect: (nodeId: string) => void;
   style?: React.CSSProperties;
+  className?: string;
 }
 
-const NodePanel: React.FC<NodePanelProps> = ({ nodes, onNodeSelect, style }) => {
+const NodePanel: React.FC<NodePanelProps> = ({ nodes, onNodeSelect, style, className }) => {
   if (nodes.length === 0) {
     return (
-      <Card title="节点列表" size="small" style={{ display: 'flex', flexDirection: 'column', ...style }}>
+      <Card title="节点列表" size="small" style={{ display: 'flex', flexDirection: 'column', ...style }} className={className}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100 }}>
           <Empty description="暂无节点" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         </div>
@@ -20,7 +21,7 @@ const NodePanel: React.FC<NodePanelProps> = ({ nodes, onNodeSelect, style }) => 
   }
 
   return (
-    <Card title="节点列表" size="small" style={{ display: 'flex', flexDirection: 'column', ...style }}>
+    <Card title="节点列表" size="small" style={{ display: 'flex', flexDirection: 'column', ...style }} className={className}>
       <List
         size="small"
         dataSource={nodes}

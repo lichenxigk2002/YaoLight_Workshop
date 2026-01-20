@@ -1,5 +1,5 @@
-import React from 'react';
-import { Form, Input, Button, message, Tag, Space } from 'antd';
+import React, { useEffect, useRef } from 'react';
+import { Form, Input, Button, Tag, Space, App } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
 import { Node, Edge } from 'reactflow';
 import { getNodeInputFormats, getNodeOutputFormat, nodeFormats } from '../utils/nodeFormats';
@@ -48,6 +48,7 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   onSaveToBackend,
 }) => {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [form] = Form.useForm();
 
   // 节点类型判断
@@ -66,6 +67,34 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   // 测试功能（使用 buildNodeConfig 和 handleSaveForm）
   const crawlerTest = useCrawlerTest(isCrawlerNode ? node : null, form, nodes, edges, buildNodeConfig, handleSaveForm, onSave);
   const aiTest = useAITest(isAINode ? node : null, form, nodes, edges, buildNodeConfig, handleSaveForm, onSave);
+
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const autoSaveInFlightRef = useRef(false);
+
+  const scheduleAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      if (autoSaveInFlightRef.current) return;
+      autoSaveInFlightRef.current = true;
+      try {
+        await handleSaveForm(onSave, onSaveToBackend, workflowId, false);
+      } finally {
+        autoSaveInFlightRef.current = false;
+      }
+    }, 300);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSave = async () => {
     const success = await handleSaveForm(onSave, onSaveToBackend, workflowId);
@@ -183,7 +212,16 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           )}
         </div>
 
-        <Form form={form} layout="vertical">
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={(_, changedValues) => {
+            const keys = Object.keys(changedValues || {});
+            if (keys.some((k) => typeof (changedValues as any)[k] === 'boolean')) {
+              scheduleAutoSave();
+            }
+          }}
+        >
           <Form.Item
             label={t('node.config.nodeName')}
             name="label"

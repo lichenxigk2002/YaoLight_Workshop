@@ -3,10 +3,11 @@
  */
 
 import React from 'react';
-import { Form, Switch } from 'antd';
+import { Form } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ProviderConfigProps } from '../types';
 import styles from './ZhipuaiConfig.module.scss';
+import { SegmentedSwitch } from '../parts/SwitchPart';
 
 export const ZhipuaiConfig: React.FC<ProviderConfigProps> = ({ form }) => {
   const { t } = useTranslation();
@@ -18,12 +19,11 @@ export const ZhipuaiConfig: React.FC<ProviderConfigProps> = ({ form }) => {
       <Form.Item
         label={t('node.config.ai.thinking')}
         name="thinking"
-        valuePropName="checked"
         initialValue={false}
         tooltip={t('node.config.ai.thinkingTooltip')}
         className={styles.formItem}
       >
-        <Switch />
+        <SegmentedSwitch />
       </Form.Item>
     </>
   );

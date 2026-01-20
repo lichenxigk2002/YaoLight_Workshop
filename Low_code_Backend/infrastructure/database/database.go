@@ -11,6 +11,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/shared"
 	aiModels "yaolight-workshop/backend/modules/ai/models"
+	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 	crawlerModels "yaolight-workshop/backend/modules/crawler/models"
 	fileModels "yaolight-workshop/backend/modules/file/models"
 	nodeModels "yaolight-workshop/backend/modules/node/models"
@@ -66,7 +67,24 @@ func InitDatabase() error {
 		return fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
+	EnsureAIModelsProviderConstraint()
+
+	// 初始化系统预置数据
+	if err := SeedNodeTypes(); err != nil {
+		log.Printf("⚠️ Warning: failed to seed node types: %v", err)
+	}
+
+	if err := SeedAlkaidSpecs(); err != nil {
+		log.Printf("⚠️ Warning: failed to seed alkaid specs: %v", err)
+	}
+
 	return nil
+}
+
+func EnsureAIModelsProviderConstraint() {
+	DB.Exec(`ALTER TABLE ai_models DROP CONSTRAINT IF EXISTS chk_ai_models_provider`)
+	DB.Exec(`ALTER TABLE ai_models DROP CONSTRAINT IF EXISTS ai_models_provider_check`)
+	DB.Exec(`ALTER TABLE ai_models ADD CONSTRAINT chk_ai_models_provider CHECK (provider IN ('openai','azure','anthropic','google','custom','deepseek','doubao','qwen','qianwen','spark','hunyuan','zhipuai','gemini','gpt','grok'))`)
 }
 
 // AutoMigrate 自动迁移所有模型
@@ -77,6 +95,7 @@ func AutoMigrate() error {
 	err := DB.AutoMigrate(
 		// 基础表（无外键依赖）
 		&userModels.User{},
+		&userModels.TokenTransaction{},
 		&nodeModels.NodeType{},
 		&systemModels.SystemConfig{},
 		&systemModels.Statistics{},
@@ -101,96 +120,98 @@ func AutoMigrate() error {
 		// 依赖Task的表
 		&taskModels.TaskNodeExecution{},
 		&taskModels.TaskLog{},
+
+		// Alkaid 对话与知识库
+		&alkaidModels.AlkaidSession{},
+		&alkaidModels.AlkaidMessage{},
+		&alkaidModels.AlkaidKnowledge{},
+		&alkaidModels.AlkaidNodeSpec{},
 	)
 
-	if err != nil {
-		return fmt.Errorf("auto migrate failed: %w", err)
-	}
-
-	log.Println("✅ Database migration completed successfully")
-
-	// 初始化默认数据
-	if err := initDefaultData(); err != nil {
-		log.Printf("⚠️  Warning: failed to init default data: %v", err)
-	}
-
-	return nil
+	return err
 }
 
-// initDefaultData 初始化默认数据
-func initDefaultData() error {
-	// 检查是否已有数据
-	var count int64
-	DB.Model(&userModels.User{}).Count(&count)
-	if count > 0 {
-		log.Println("ℹ️  Database already has data, skipping default data initialization")
-		return nil
+// SeedNodeTypes 初始化系统节点类型数据
+func SeedNodeTypes() error {
+	log.Println("🌱 Seeding system node types...")
+
+	// 强制更新约束以支持新分类
+	DB.Exec(`ALTER TABLE node_types DROP CONSTRAINT IF EXISTS chk_node_types_category`)
+	DB.Exec(`ALTER TABLE node_types ADD CONSTRAINT chk_node_types_category CHECK (category IN ('crawler','ai','output','condition','transform','start','end','dataclean','loop','merge','delay','custom'))`)
+
+	nodes := []nodeModels.NodeType{
+		{Name: "开始节点", Category: "start", Icon: shared.Ptr("PlayCircleOutlined"), Color: shared.Ptr("#52c41a"), IsSystem: true, IsActive: true},
+		{Name: "爬虫节点", Category: "crawler", Icon: shared.Ptr("CloudDownloadOutlined"), Color: shared.Ptr("#1890ff"), IsSystem: true, IsActive: true},
+		{Name: "AI处理节点", Category: "ai", Icon: shared.Ptr("RobotOutlined"), Color: shared.Ptr("#722ed1"), IsSystem: true, IsActive: true},
+		{Name: "结果输出节点", Category: "output", Icon: shared.Ptr("FileTextOutlined"), Color: shared.Ptr("#fa8c16"), IsSystem: true, IsActive: true},
+		{Name: "结束节点", Category: "end", Icon: shared.Ptr("StopOutlined"), Color: shared.Ptr("#f5222d"), IsSystem: true, IsActive: true},
+		// 新增缺失节点
+		{Name: "数据清洗节点", Category: "dataclean", Icon: shared.Ptr("ClearOutlined"), Color: shared.Ptr("#52c41a"), IsSystem: true, IsActive: true},
+		{Name: "条件分支节点", Category: "condition", Icon: shared.Ptr("BranchesOutlined"), Color: shared.Ptr("#faad14"), IsSystem: true, IsActive: true},
+		{Name: "数据转换节点", Category: "transform", Icon: shared.Ptr("SwapOutlined"), Color: shared.Ptr("#13c2c2"), IsSystem: true, IsActive: true},
+		{Name: "循环处理节点", Category: "loop", Icon: shared.Ptr("ReloadOutlined"), Color: shared.Ptr("#eb2f96"), IsSystem: true, IsActive: true},
+		{Name: "合并分支节点", Category: "merge", Icon: shared.Ptr("MergeCellsOutlined"), Color: shared.Ptr("#2f54eb"), IsSystem: true, IsActive: true},
+		{Name: "延迟等待节点", Category: "delay", Icon: shared.Ptr("ClockCircleOutlined"), Color: shared.Ptr("#fa8c16"), IsSystem: true, IsActive: true},
 	}
 
-	log.Println("🔄 Initializing default data...")
-
-	// 创建默认节点类型
-	defaultNodeTypes := []nodeModels.NodeType{
-		{
-			Name:         "开始节点",
-			Category:     "start",
-			Icon:         stringPtr("PlayCircleOutlined"),
-			Color:        stringPtr("#52c41a"),
-			IsSystem:     true,
-			IsActive:     true,
-			ConfigSchema: shared.JSONB{Data: map[string]interface{}{}},
-		},
-		{
-			Name:         "爬虫节点",
-			Category:     "crawler",
-			Icon:         stringPtr("CloudDownloadOutlined"),
-			Color:        stringPtr("#1890ff"),
-			IsSystem:     true,
-			IsActive:     true,
-			ConfigSchema: shared.JSONB{Data: map[string]interface{}{}},
-		},
-		{
-			Name:         "AI处理节点",
-			Category:     "ai",
-			Icon:         stringPtr("RobotOutlined"),
-			Color:        stringPtr("#722ed1"),
-			IsSystem:     true,
-			IsActive:     true,
-			ConfigSchema: shared.JSONB{Data: map[string]interface{}{}},
-		},
-		{
-			Name:         "结果输出节点",
-			Category:     "output",
-			Icon:         stringPtr("FileTextOutlined"),
-			Color:        stringPtr("#fa8c16"),
-			IsSystem:     true,
-			IsActive:     true,
-			ConfigSchema: shared.JSONB{Data: map[string]interface{}{}},
-		},
-		{
-			Name:         "结束节点",
-			Category:     "end",
-			Icon:         stringPtr("StopOutlined"),
-			Color:        stringPtr("#f5222d"),
-			IsSystem:     true,
-			IsActive:     true,
-			ConfigSchema: shared.JSONB{Data: map[string]interface{}{}},
-		},
-	}
-
-	for _, nodeType := range defaultNodeTypes {
-		if err := DB.Create(&nodeType).Error; err != nil {
-			log.Printf("⚠️  Failed to create node type %s: %v", nodeType.Name, err)
+	for _, node := range nodes {
+		var existing nodeModels.NodeType
+		err := DB.Where("name = ?", node.Name).First(&existing).Error
+		if err != nil {
+			// 如果不存在则创建
+			if err == gorm.ErrRecordNotFound {
+				if err := DB.Create(&node).Error; err != nil {
+					return fmt.Errorf("failed to create node type %s: %w", node.Name, err)
+				}
+				log.Printf("  + Created node type: %s", node.Name)
+			} else {
+				return fmt.Errorf("failed to check node type %s: %w", node.Name, err)
+			}
+		} else {
+			// 如果已存在，更新关键字段确保与前端同步
+			DB.Model(&existing).Updates(map[string]interface{}{
+				"category": node.Category,
+				"icon":     node.Icon,
+				"color":    node.Color,
+			})
 		}
 	}
 
-	log.Println("✅ Default data initialized")
+	log.Println("✅ Node types seeding completed")
 	return nil
 }
 
-// stringPtr 返回字符串指针
-func stringPtr(s string) *string {
-	return &s
+// SeedAlkaidSpecs 初始化瑶光星 AI 专用规格知识
+func SeedAlkaidSpecs() error {
+	log.Println("🌱 Seeding Alkaid node specs...")
+
+	specs := []alkaidModels.AlkaidNodeSpec{
+		{
+			NodeTypeName: "爬虫节点",
+			InputSpec:    shared.JSONB{Data: map[string]interface{}{"url": "目标网页地址", "selectors": "CSS选择器列表"}},
+			OutputSpec:   shared.JSONB{Data: map[string]interface{}{"data": "抓取到的网页文本或结构化数据"}},
+			Constraints:  shared.JSONB{Data: []interface{}{"URL必须以 http 或 https 开头", "输出结果常用于后续 AI 处理"}},
+		},
+		{
+			NodeTypeName: "AI处理节点",
+			InputSpec:    shared.JSONB{Data: map[string]interface{}{"prompt": "指令内容", "inputData": "引用的上游变量"}},
+			OutputSpec:   shared.JSONB{Data: map[string]interface{}{"result": "AI 生成的文本内容"}},
+			Constraints:  shared.JSONB{Data: []interface{}{"需要配置有效的 API Key", "支持上下文引用"}},
+		},
+	}
+
+	for _, spec := range specs {
+		var existing alkaidModels.AlkaidNodeSpec
+		err := DB.Where("node_type_name = ?", spec.NodeTypeName).First(&existing).Error
+		if err == gorm.ErrRecordNotFound {
+			DB.Create(&spec)
+		} else {
+			DB.Model(&existing).Updates(spec)
+		}
+	}
+
+	log.Println("✅ Alkaid specs seeding completed")
+	return nil
 }
 
 // CloseDatabase 关闭数据库连接

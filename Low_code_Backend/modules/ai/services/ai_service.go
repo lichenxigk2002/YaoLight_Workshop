@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	ErrModelNotFound    = errors.New("model not found")
-	ErrModelNotOwned    = errors.New("model does not belong to user")
-	ErrModelInactive    = errors.New("model is inactive")
-	ErrProviderNotFound = errors.New("provider template not found")
-	ErrInvalidAPIKey    = errors.New("invalid API key")
+	ErrModelNotFound       = errors.New("model not found")
+	ErrModelNotOwned       = errors.New("model does not belong to user")
+	ErrModelInactive       = errors.New("model is inactive")
+	ErrProviderNotFound    = errors.New("provider template not found")
+	ErrInvalidAPIKey       = errors.New("invalid API key")
+	ErrUnsupportedProvider = errors.New("unsupported provider")
 )
 
 // AIService AI服务
@@ -59,7 +60,7 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 			"name":            "豆包",
 			"description":     "字节跳动豆包AI模型",
 			"defaultBaseUrl":  "https://ark.cn-beijing.volces.com/api/v3",
-			"supportedModels": []string{"doubao-seed-1-6-251015", "doubao-seedream-4-5-251128"},
+			"supportedModels": []string{"doubao-seed-1-6-251015", "doubao-seed-1-8-251228", "doubao-seedream-4-5-251128"},
 			"defaultConfig": map[string]interface{}{
 				"temperature": 0.7,
 				"maxTokens":   2000,
@@ -340,6 +341,15 @@ func (s *AIService) GetModelByIDAndUser(id uint, userID uint) (*models.AIModel, 
 }
 
 // CreateModelRequest 创建模型请求
+func normalizeProvider(provider string) string {
+	switch provider {
+	case "qianwen":
+		return "qwen"
+	default:
+		return provider
+	}
+}
+
 type CreateModelRequest struct {
 	Name        string                 `json:"name" binding:"required"`
 	Provider    string                 `json:"provider" binding:"required"`
@@ -355,6 +365,8 @@ type CreateModelRequest struct {
 
 // CreateModel 创建模型配置
 func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error) {
+	req.Provider = normalizeProvider(req.Provider)
+
 	// 验证提供商是否支持
 	supportedProviders := map[string]bool{
 		"deepseek": true,
@@ -368,7 +380,7 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 		"grok":     true,
 	}
 	if !supportedProviders[req.Provider] {
-		return nil, fmt.Errorf("provider %s not supported yet", req.Provider)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, req.Provider)
 	}
 
 	// 加密API Key
@@ -521,14 +533,14 @@ func (s *AIService) DeleteModel(id uint, userID uint) error {
 	return s.modelRepo.Delete(id)
 }
 
-// toPersistenceModel 将领域实体转换为持久化实体
+// toPersistenceModel 将领域实体转换为持久化实体（用于返回给前端）
 func toPersistenceModel(e *entity.AIModel) *models.AIModel {
 	return &models.AIModel{
 		ID:               e.ID,
 		Name:             e.Name,
 		Provider:         e.Provider,
 		ModelName:        e.ModelName,
-		APIKeyEncrypted:  e.APIKeyEncrypted,
+		APIKeyEncrypted:  "", // 安全考虑：绝对不返回API Key给前端，即使是加密的
 		Endpoint:         e.Endpoint,
 		BaseURL:          e.BaseURL,
 		Params:           e.Params,

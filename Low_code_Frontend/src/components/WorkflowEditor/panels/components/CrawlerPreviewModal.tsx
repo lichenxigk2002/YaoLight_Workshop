@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, Tabs, Typography, Tag, Space, Collapse, Image, Empty } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Scrollbar } from '@/components/Scrollbar';
+import { CodeBlock } from '@/components/CodeBlock';
 import styles from './CrawlerPreviewModal.module.scss';
 
 const { Paragraph, Text } = Typography;
@@ -155,11 +156,15 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
                 </div>
               )}
           </div>
-          <Collapse defaultActiveKey={['summary']} size="small" ghost>
-            <Collapse.Panel
-              header={t('node.config.crawler.dataSummary')}
-              key="summary"
-            >
+          <Collapse 
+            defaultActiveKey={['summary']} 
+            size="small" 
+            ghost
+            items={[
+              {
+                key: 'summary',
+                label: t('node.config.crawler.dataSummary'),
+                children: (
               <div style={{ paddingLeft: 8 }}>
                 <Space direction="vertical" size={4} style={{ width: '100%' }}>
                   <div
@@ -243,9 +248,11 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
                   </div>
                 </div>
               </div>
-            </Collapse.Panel>
-          </Collapse>
-        </Scrollbar>
+            ),
+          },
+        ]}
+      />
+    </Scrollbar>
       ),
     },
     {
@@ -261,17 +268,11 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
                 {crawlerTest.previewData.dataclean.data}
               </Paragraph>
             ) : (
-              <pre
-                style={{
-                  margin: 0,
-                  fontSize: 12,
-                  fontFamily: 'Consolas, monospace',
-                  whiteSpace: 'pre-wrap',
-                  wordWrap: 'break-word',
-                }}
-              >
-                {JSON.stringify(crawlerTest.previewData.dataclean.data, null, 2)}
-              </pre>
+              <CodeBlock
+                value={crawlerTest.previewData.dataclean.data}
+                language="json"
+                defaultExpanded={false}
+              />
             )
           ) : (
             <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
@@ -286,9 +287,11 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
       label: t('node.config.crawler.rawJson'),
       children: (
         <Scrollbar className={styles.jsonViewer} axis="y" tone="contrast">
-          <pre className={styles.jsonPre}>
-            {JSON.stringify(crawlerTest.previewData, null, 2)}
-          </pre>
+          <CodeBlock
+            value={crawlerTest.previewData}
+            language="json"
+            defaultExpanded={false}
+          />
         </Scrollbar>
       ),
     },

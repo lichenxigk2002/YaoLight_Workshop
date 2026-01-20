@@ -3,6 +3,7 @@ import { Modal, Tabs, Typography, Tag, Button } from 'antd';
 import { MarkdownRenderer } from '../../utils/MarkdownRenderer';
 import { StreamingLoader } from './StreamingLoader';
 import { ProviderIcon } from '@/components/Icons';
+import { CodeBlock } from '@/components/CodeBlock';
 import styles from './AIPreviewModal.module.scss';
 
 const { Text } = Typography;
@@ -349,11 +350,17 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
       label: '原始数据',
       children: (
         <div className={styles.rawDataViewer}>
-          <pre className={styles.rawDataPre}>
-            {aiTest.previewData?.raw
-              ? JSON.stringify(aiTest.previewData.raw, null, 2)
-              : '暂无原始数据'}
-          </pre>
+          {aiTest.previewData?.raw ? (
+            <CodeBlock
+              value={aiTest.previewData.raw}
+              language="json"
+              defaultExpanded={false}
+            />
+          ) : (
+            <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
+              暂无原始数据
+            </div>
+          )}
         </div>
       ),
     },

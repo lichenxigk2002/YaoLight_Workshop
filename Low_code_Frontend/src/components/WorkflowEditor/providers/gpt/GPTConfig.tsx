@@ -1,8 +1,9 @@
 import React from 'react';
-import { Form, Switch, Select } from 'antd';
+import { Form, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ProviderConfigProps } from '../types';
 import styles from './GPTConfig.module.scss';
+import { SegmentedSwitch } from '../parts/SwitchPart';
 
 export const GPTConfig: React.FC<ProviderConfigProps> = ({ form }) => {
   const { t } = useTranslation();
@@ -14,12 +15,11 @@ export const GPTConfig: React.FC<ProviderConfigProps> = ({ form }) => {
       <Form.Item
         label={t('node.config.ai.thinking') || 'Enable Reasoning'}
         name="reasoning"
-        valuePropName="checked"
         initialValue={false}
         tooltip={t('node.config.ai.thinkingTooltip') || 'Enable reasoning capabilities (OpenRouter)'}
         className={styles.formItem}
       >
-        <Switch />
+        <SegmentedSwitch />
       </Form.Item>
 
       {reasoningEnabled && (

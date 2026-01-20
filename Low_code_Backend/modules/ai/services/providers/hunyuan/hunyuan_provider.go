@@ -160,6 +160,66 @@ func (p *HunyuanProvider) Chat(config *providers.AIModelConfig, prompt string, c
 	}, nil
 }
 
+// fetchUsageFromNonStreamRequest 通过非流式请求获取usage信息
+func fetchHunyuanUsageFromNonStreamRequest(ctx context.Context, client *http.Client, url string, apiKey string, modelName string, messages []map[string]interface{}) *providers.TokenUsage {
+	// 发送一个非流式请求来获取usage（只请求1个token，最小化消耗）
+	usageRequest := map[string]interface{}{
+		"model":      modelName,
+		"messages":   messages,
+		"stream":     false,
+		"max_tokens": 1, // 只请求1个token，最小化消耗
+	}
+
+	usageJsonData, err := json.Marshal(usageRequest)
+	if err != nil {
+		return nil
+	}
+
+	usageReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(usageJsonData))
+	if err != nil {
+		return nil
+	}
+
+	usageReq.Header.Set("Content-Type", "application/json")
+	usageReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	usageResp, err := client.Do(usageReq)
+	if err != nil {
+		return nil
+	}
+	defer usageResp.Body.Close()
+
+	if usageResp.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	body, err := io.ReadAll(usageResp.Body)
+	if err != nil {
+		return nil
+	}
+
+	var usageResponse struct {
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
+	}
+
+	if err := json.Unmarshal(body, &usageResponse); err != nil {
+		return nil
+	}
+
+	if usageResponse.Usage.TotalTokens > 0 {
+		return &providers.TokenUsage{
+			PromptTokens:     usageResponse.Usage.PromptTokens,
+			CompletionTokens: usageResponse.Usage.CompletionTokens,
+			TotalTokens:      usageResponse.Usage.TotalTokens,
+		}
+	}
+	return nil
+}
+
 func (p *HunyuanProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	baseURL := config.BaseURL
 	if baseURL == "" {
@@ -168,9 +228,12 @@ func (p *HunyuanProvider) ChatStream(ctx context.Context, config *providers.AIMo
 	baseURL = normalizeBaseURL(baseURL)
 	url := fmt.Sprintf("%s/chat/completions", baseURL)
 
+	// 构建消息列表（用于后续获取usage）
+	messages := buildMessages(config, prompt, content)
+
 	requestBody := map[string]interface{}{
 		"model":    config.ModelName,
-		"messages": buildMessages(config, prompt, content),
+		"messages": messages,
 		"stream":   true,
 	}
 
@@ -220,6 +283,10 @@ func (p *HunyuanProvider) ChatStream(ctx context.Context, config *providers.AIMo
 	}
 
 	reader := bufio.NewReader(resp.Body)
+	var lastUsage *providers.TokenUsage // 保存最后一次的usage信息
+	var fullContent strings.Builder
+	var fullReasoningContent strings.Builder
+
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
@@ -228,7 +295,7 @@ func (p *HunyuanProvider) ChatStream(ctx context.Context, config *providers.AIMo
 			}
 			select {
 			case <-ctx.Done():
-				callback("", true, ctx.Err())
+				callback("", true, ctx.Err(), nil)
 				return ctx.Err()
 			default:
 				return fmt.Errorf("failed to read stream: %w", err)
@@ -246,7 +313,21 @@ func (p *HunyuanProvider) ChatStream(ctx context.Context, config *providers.AIMo
 				continue
 			}
 			if data == "[DONE]" {
-				callback("", true, nil)
+				// 构造最终内容
+				finalContent := ""
+				if fullReasoningContent.Len() > 0 {
+					finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
+				}
+				if fullContent.Len() > 0 {
+					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
+				}
+
+				// **关键修复**：如果流结束时还没有收到usage，使用非流式请求获取usage
+				if lastUsage == nil {
+					lastUsage = fetchHunyuanUsageFromNonStreamRequest(ctx, p.client, url, config.APIKey, config.ModelName, messages)
+				}
+
+				callback(finalContent, true, nil, lastUsage)
 				return nil
 			}
 
@@ -256,26 +337,71 @@ func (p *HunyuanProvider) ChatStream(ctx context.Context, config *providers.AIMo
 						Content          string `json:"content"`
 						ReasoningContent string `json:"reasoning_content,omitempty"`
 					} `json:"delta"`
+					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
+				Usage *providers.TokenUsage `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 				continue
 			}
 
+			// **关键修复**：保存usage信息，但不立即返回，继续处理内容
+			if streamResponse.Usage != nil {
+				lastUsage = streamResponse.Usage
+				// 立即回调usage，确保计费逻辑能及时处理
+				callback("", false, nil, streamResponse.Usage)
+			}
+
 			if len(streamResponse.Choices) > 0 {
 				delta := streamResponse.Choices[0].Delta
 				if delta.ReasoningContent != "" {
-					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil)
+					fullReasoningContent.WriteString(delta.ReasoningContent)
+					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil, nil)
 				}
 				if delta.Content != "" {
-					callback("[CONTENT_DELTA]"+delta.Content, false, nil)
+					fullContent.WriteString(delta.Content)
+					callback("[CONTENT_DELTA]"+delta.Content, false, nil, nil)
+				}
+
+				// 检查是否有完成标志
+				if streamResponse.Choices[0].FinishReason != "" {
+					// 构造最终内容
+					finalContent := ""
+					if fullReasoningContent.Len() > 0 {
+						finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
+					}
+					if fullContent.Len() > 0 {
+						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
+					}
+
+					// **关键修复**：如果流结束时还没有收到usage，使用非流式请求获取usage
+					if lastUsage == nil {
+						lastUsage = fetchHunyuanUsageFromNonStreamRequest(ctx, p.client, url, config.APIKey, config.ModelName, messages)
+					}
+
+					callback(finalContent, true, nil, lastUsage)
+					return nil
 				}
 			}
 		}
 	}
 
-	callback("", true, nil)
+	// 最终回调（如果流正常结束但没有收到[DONE]）
+	finalContent := ""
+	if fullReasoningContent.Len() > 0 {
+		finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
+	}
+	if fullContent.Len() > 0 {
+		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
+	}
+
+	// **关键修复**：如果流结束时还没有收到usage，使用非流式请求获取usage
+	if lastUsage == nil {
+		lastUsage = fetchHunyuanUsageFromNonStreamRequest(ctx, p.client, url, config.APIKey, config.ModelName, messages)
+	}
+
+	callback(finalContent, true, nil, lastUsage)
 	return nil
 }
 

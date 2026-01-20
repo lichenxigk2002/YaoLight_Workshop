@@ -274,7 +274,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			callback("", true, ctx.Err())
+			callback("", true, ctx.Err(), nil)
 			return ctx.Err()
 		default:
 			// 继续执行
@@ -297,7 +297,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 				if fullContent.Len() > 0 {
 					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 				}
-				callback(finalContent, true, nil)
+				callback(finalContent, true, nil, nil)
 				return nil
 			}
 
@@ -309,13 +309,16 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
-				Usage struct {
-					TotalTokens int `json:"total_tokens"`
-				} `json:"usage"`
+				Usage *providers.TokenUsage `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 				continue
+			}
+
+			if streamResponse.Usage != nil {
+				callback("", true, nil, streamResponse.Usage)
+				return nil
 			}
 
 			if len(streamResponse.Choices) > 0 {
@@ -324,7 +327,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 				if deltaReasoningContent != "" {
 					fullReasoningContent.WriteString(deltaReasoningContent)
 					// 发送带标记的思考内容
-					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil, nil)
 				}
 
 				// 处理正式内容
@@ -332,7 +335,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 				if deltaContent != "" {
 					fullContent.WriteString(deltaContent)
 					// 发送带标记的正式内容
-					callback("[CONTENT_DELTA]"+deltaContent, false, nil)
+					callback("[CONTENT_DELTA]"+deltaContent, false, nil, nil)
 				}
 
 				if streamResponse.Choices[0].FinishReason != "" {
@@ -344,7 +347,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 					if fullContent.Len() > 0 {
 						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 					}
-					callback(finalContent, true, nil)
+					callback(finalContent, true, nil, nil)
 					return nil
 				}
 			}
@@ -363,7 +366,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 	if fullContent.Len() > 0 {
 		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 	}
-	callback(finalContent, true, nil)
+	callback(finalContent, true, nil, nil)
 	return nil
 }
 

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { message } from 'antd';
+import { App } from 'antd';
 import { workflowApi } from '@/api/workflow';
 import type { Node, Edge } from 'reactflow';
 
@@ -20,6 +20,7 @@ export function useAITest(
   handleSaveForm?: (onSave: (nodeId: string, config: any) => void, onSaveToBackend?: () => Promise<boolean>, workflowId?: string) => Promise<boolean>,
   onSave?: (nodeId: string, config: any) => void
 ) {
+  const { message } = App.useApp();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<AIPreviewState | null>(null);
   const [streamingContent, setStreamingContent] = useState<string>('');

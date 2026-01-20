@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, Modal, Form, Input, message, Popconfirm, Tag, Breadcrumb } from 'antd';
+import { Card, Button, Table, Space, Modal, Form, Input, Popconfirm, Tag, Breadcrumb, App } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,7 @@ const { TextArea } = Input;
 export default function ProjectDetail() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  const { message } = App.useApp();
   const { projectId } = useParams<{ projectId: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);

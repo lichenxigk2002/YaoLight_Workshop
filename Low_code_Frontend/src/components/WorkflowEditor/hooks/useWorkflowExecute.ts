@@ -1,12 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 import { Node, Edge } from 'reactflow';
-import { message, notification } from 'antd';
+import { App, Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { workflowApi } from '@/api/workflow';
 import { prepareExecutionData } from '@/utils/workflowTransformers';
 import { validateWorkflowBeforeExecute } from '@/utils/workflowValidators';
 import React from 'react';
-import { Button } from 'antd';
 
 /**
  * 工作流执行Hook
@@ -22,6 +21,7 @@ export function useWorkflowExecute(
   workflowId?: string
 ) {
   const { t } = useTranslation();
+  const { message, notification } = App.useApp();
   const cancelStreamRef = useRef<(() => void) | null>(null); // 保存当前流式执行的取消函数
   const [isExecuting, setIsExecuting] = useState(false); // 是否正在执行中
 
@@ -174,7 +174,7 @@ export function useWorkflowExecute(
                       placement: 'bottomRight',
                       icon: null,
                       onClick: showResultPanel,
-                      btn: viewButton,
+                      actions: [viewButton],
                       duration: 0, // 不自动关闭
                       key: 'workflow-stream-start', // 添加key，避免重复显示
                     });
@@ -239,7 +239,7 @@ export function useWorkflowExecute(
                   placement: 'bottomRight',
                   icon: null,
                   onClick: showResultPanel,
-                  btn: viewButton,
+                  actions: [viewButton],
                   duration: 0, // 不自动关闭
                   key: 'workflow-stream-start', // 添加key，避免重复显示
                 });
@@ -376,7 +376,7 @@ export function useWorkflowExecute(
             placement: 'bottomRight',
             icon: null,
             onClick: showResultPanel,
-            btn: resultButton,
+            actions: [resultButton],
             duration: 0,
             key: 'workflow-exec-success',
           });
@@ -387,7 +387,7 @@ export function useWorkflowExecute(
             placement: 'bottomRight',
             icon: null,
             onClick: showResultPanel,
-            btn: resultButton,
+            actions: [resultButton],
             duration: 0,
             key: 'workflow-exec-success',
           });
@@ -443,7 +443,7 @@ export function useWorkflowExecute(
             placement: 'bottomRight',
             icon: null,
             onClick: showResultPanel,
-            btn: resultButton,
+            actions: [resultButton],
           });
         } else {
           notification.warning({
@@ -452,7 +452,7 @@ export function useWorkflowExecute(
             placement: 'bottomRight',
             icon: null,
             onClick: showResultPanel,
-            btn: resultButton,
+            actions: [resultButton],
           });
         }
       }

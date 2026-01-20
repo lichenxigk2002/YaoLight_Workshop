@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { message } from 'antd';
+import { App } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { workflowApi } from '@/api/workflow';
 import type { Node, Edge } from 'reactflow';
@@ -20,6 +20,7 @@ export function useCrawlerTest(
   onSave?: (nodeId: string, config: any) => void
 ) {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewState | null>(null);
 

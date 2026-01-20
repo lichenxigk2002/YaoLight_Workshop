@@ -33,6 +33,7 @@ func NewProviderFactory() *ProviderFactory {
 	factory.RegisterProvider("grok", grok.NewGrokProvider())
 	factory.RegisterProvider("hunyuan", hunyuan.NewHunyuanProvider())
 	factory.RegisterProvider("qwen", qwen.NewQwenProvider())
+	factory.RegisterProvider("qianwen", qwen.NewQwenProvider())
 	factory.RegisterProvider("spark", spark.NewSparkProvider())
 	factory.RegisterProvider("zhipuai", zhipuai.NewZhipuaiProvider())
 

@@ -21,7 +21,7 @@
     }
   }
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     gap: 6px; /* 缩小间距 */
   }
 }
@@ -33,7 +33,7 @@
   border: 1px solid var(--border-secondary, #e8e8e8);
   box-shadow: 0 1px 2px var(--shadow-sm, rgba(0, 0, 0, 0.03));
   
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     padding: 8px; /* 缩小内边距 */
   }
 
@@ -53,7 +53,7 @@
   align-items: center;
   gap: 6px;
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     margin-bottom: 2px;
     font-size: 11px;
   }
@@ -65,115 +65,92 @@
   margin-bottom: 12px;
   line-height: 1.5;
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     margin-bottom: 6px;
     font-size: 10px;
     line-height: 1.4;
   }
 }
 
-.modeSelector {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 0;
-  width: 100%;
 
-  :global(.ant-radio-button-wrapper) {
-    flex: 1;
-    min-width: 0; /* 允许flex子元素收缩 */
-    border-radius: 6px !important;
-    border: 1px solid var(--border-primary, #d9d9d9) !important;
-    height: 32px;
-    padding: 0 10px; /* 减小padding */
-    display: flex;
-    align-items: center;
-    justify-content: flex-start; /* 左对齐 */
-    transition: all 0.3s ease;
-    overflow: hidden; /* 隐藏溢出内容 */
 
-    @media (max-width: 2560px) {
-      height: 24px; /* 缩小按钮高度 */
-      padding: 0 6px;
-    }
+.modeSegmented {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  padding: 4px;
 
-    &:before {
-      display: none !important;
-    }
+  :global(.ant-segmented-item) {
+    border-radius: 6px;
+    transition: none;
+    color: var(--text-secondary, rgba(0, 0, 0, 0.45));
 
-    &:hover {
-      border-color: var(--primary, #1677ff) !important;
-      color: var(--primary, #1677ff);
-      z-index: 1;
-    }
-
-    &:first-child {
-      border-radius: 6px !important;
-    }
-
-    &:last-child {
-      border-radius: 6px !important;
+    &:hover:not(.ant-segmented-item-selected) {
+      color: var(--text-primary, rgba(0, 0, 0, 0.88));
+      background: rgba(0, 0, 0, 0.04);
+      
+      :global([data-theme='dark']) & {
+        background: rgba(255, 255, 255, 0.08);
+      }
     }
   }
 
-  :global(.ant-radio-button-wrapper-checked) {
-    border-color: var(--primary, #1677ff) !important;
-    background: var(--bg-secondary, #e6f4ff) !important;
-    color: var(--primary, #1677ff) !important;
-    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+  :global(.ant-segmented-item-selected) {
+    background: #000000 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    z-index: 2;
 
-    &:hover {
-      border-color: var(--primary, #1677ff) !important;
-      background: var(--bg-secondary, #e6f4ff) !important;
-      color: var(--primary, #1677ff) !important;
-    }
-    
-    // 深色主题适配
     :global([data-theme='dark']) & {
-      background: var(--bg-tertiary, #262626) !important;
-      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+      background: #ffffff !important;
+      color: #000000 !important;
     }
+  }
+
+  :global(.ant-segmented-thumb) {
+    background: #000000 !important;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+    
+    :global([data-theme='dark']) & {
+      background: #ffffff !important;
+    }
+  }
+
+  /* 深色模式适配 */
+  :global([data-theme='dark']) & {
+    background: var(--bg-tertiary, #2a2a2a);
+  }
+
+  @media (max-width: 1600px) {
+    padding: 2px;
   }
 }
 
-.modeButton {
+.modeLabel {
   display: flex;
-  flex-direction: row;
-  /* 水平排列 */
   align-items: center;
-  justify-content: flex-start; /* 左对齐 */
-  gap: 5px;
-  width: 100%;
-  min-width: 0; /* 允许flex子元素收缩 */
-  overflow: hidden; /* 隐藏溢出内容 */
-  position: relative; /* 用于定位 */
-
-  .modeIcon {
-    font-size: 14px;
-    flex-shrink: 0; /* 图标不收缩 */
-    width: 14px; /* 固定图标宽度 */
-    height: 14px; /* 固定图标高度 */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  font-weight: 500;
+  
+  @media (max-width: 1600px) {
+    gap: 4px;
+    font-size: 11px;
+    padding: 2px 0;
   }
 
-  .modeText {
-    font-size: 12px;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  span {
     white-space: nowrap;
-    min-width: 0; /* 允许文本收缩 */
-    flex: 1; /* 占据剩余空间 */
-    text-align: left; /* 文本左对齐 */
-    line-height: 1; /* 确保行高一致 */
   }
 }
 
 .configForm {
   margin-top: 12px;
   
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     margin-top: 6px;
   }
 }
@@ -184,7 +161,7 @@
   :global(.ant-select-selector) {
     border-radius: 6px;
     
-    @media (max-width: 2560px) {
+    @media (max-width: 1600px) {
       height: 24px !important; /* 缩小选择器高度 */
       
       .ant-select-selection-item {
@@ -228,7 +205,7 @@
     line-height: 1.6;
     padding: 8px 12px;
 
-    @media (max-width: 2560px) {
+    @media (max-width: 1600px) {
       font-size: 11px;
       padding: 4px 6px;
     }
@@ -268,7 +245,7 @@
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
 
-    @media (max-width: 2560px) {
+    @media (max-width: 1600px) {
       padding: 4px 8px !important;
       font-size: 11px;
     }
@@ -301,7 +278,7 @@
   :global(.ant-collapse-content-box) {
     padding: 12px !important;
 
-    @media (max-width: 2560px) {
+    @media (max-width: 1600px) {
       padding: 8px !important;
     }
   }
@@ -310,7 +287,7 @@
 .formItem {
   margin-bottom: 12px;
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     margin-bottom: 6px;
   }
 
@@ -327,7 +304,7 @@
       color: var(--text-primary, rgba(0, 0, 0, 0.88));
       height: auto;
       
-      @media (max-width: 2560px) {
+      @media (max-width: 1600px) {
         font-size: 11px;
       }
 
@@ -343,8 +320,8 @@
 .triggerCard {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border: 1px solid var(--border-primary, #d9d9d9);
   border-radius: 8px;
   background: var(--bg-primary, #fff);
@@ -352,9 +329,9 @@
   transition: all 0.2s;
   user-select: none;
 
-  @media (max-width: 2560px) {
-    padding: 6px;
-    gap: 8px;
+  @media (max-width: 1600px) {
+    padding: 6px 8px;
+    gap: 6px;
     border-radius: 6px;
   }
 
@@ -369,19 +346,19 @@
 }
 
 .triggerCardIcon {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary, #f5f5f5);
-  border-radius: 8px;
+  border-radius: 6px;
   flex-shrink: 0;
 
-  @media (max-width: 2560px) {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
+  @media (max-width: 1600px) {
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
     
     // 假设内部有 svg 或 img，也需要缩小
     :global(svg), img {
@@ -407,7 +384,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     font-size: 11px;
   }
 }
@@ -419,7 +396,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     font-size: 10px;
   }
 }

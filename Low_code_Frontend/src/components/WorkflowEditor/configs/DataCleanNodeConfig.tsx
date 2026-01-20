@@ -1,9 +1,10 @@
 import React from 'react';
-import { Form, Input, Select, Switch } from 'antd';
+import { Form, Input, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Node, Edge } from 'reactflow';
 import { VariableSelectField } from '../variables';
 import { DataCleanTooltips } from '../utils/configTooltips';
+import { SegmentedSwitch } from '../providers/parts/SwitchPart';
 
 const { Option } = Select;
 
@@ -68,53 +69,47 @@ export const DataCleanNodeConfig: React.FC<DataCleanNodeConfigProps> = ({
                   label={t('node.config.dataclean.removeHTML')}
                   name="removeHTML"
                   initialValue={false}
-                  valuePropName="checked"
                   tooltip={t('node.config.dataclean.removeHTMLTooltip')}
                 >
-                  <Switch />
+                  <SegmentedSwitch />
                 </Form.Item>
                 <Form.Item
                   label={t('node.config.dataclean.trim')}
                   name="trim"
                   initialValue={true}
-                  valuePropName="checked"
                   tooltip={t('node.config.dataclean.trimTooltip')}
                 >
-                  <Switch />
+                  <SegmentedSwitch />
                 </Form.Item>
                 <Form.Item
                   label={t('node.config.dataclean.removeSpaces')}
                   name="removeSpaces"
                   initialValue={false}
-                  valuePropName="checked"
                   tooltip={t('node.config.dataclean.removeSpacesTooltip')}
                 >
-                  <Switch />
+                  <SegmentedSwitch />
                 </Form.Item>
                 <Form.Item
                   label={t('node.config.dataclean.toLowerCase')}
                   name="toLowerCase"
                   initialValue={false}
-                  valuePropName="checked"
                 >
-                  <Switch />
+                  <SegmentedSwitch />
                 </Form.Item>
                 <Form.Item
                   label={t('node.config.dataclean.toUpperCase')}
                   name="toUpperCase"
                   initialValue={false}
-                  valuePropName="checked"
                 >
-                  <Switch />
+                  <SegmentedSwitch />
                 </Form.Item>
                 <Form.Item
                   label={t('node.config.dataclean.deduplicate')}
                   name="deduplicate"
                   initialValue={false}
-                  valuePropName="checked"
                   tooltip={t('node.config.dataclean.deduplicateTooltip')}
                 >
-                  <Switch />
+                  <SegmentedSwitch />
                 </Form.Item>
               </>
             );
