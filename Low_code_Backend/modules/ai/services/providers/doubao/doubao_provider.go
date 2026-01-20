@@ -1,6 +1,8 @@
 package doubao
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,9 +12,7 @@ import (
 	"yaolight-workshop/backend/modules/ai/services/providers"
 
 	"github.com/volcengine/volcengine-go-sdk/service/arkruntime"
-	"github.com/volcengine/volcengine-go-sdk/service/arkruntime/model"
 	"github.com/volcengine/volcengine-go-sdk/service/arkruntime/model/responses"
-	"github.com/volcengine/volcengine-go-sdk/volcengine"
 )
 
 // findTextInMap 递归查找 JSON map 中的文本内容
@@ -208,144 +208,309 @@ func (p *DoubaoProvider) Chat(config *providers.AIModelConfig, prompt string, co
 	}, nil
 }
 
+// fetchUsageFromNonStreamRequest 通过非流式请求获取usage信息
+func fetchUsageFromNonStreamRequest(ctx context.Context, client *http.Client, url string, apiKey string, modelName string, messages []map[string]interface{}) *providers.TokenUsage {
+	// 发送一个非流式请求来获取usage（只请求1个token，最小化消耗）
+	usageRequest := map[string]interface{}{
+		"model":      modelName,
+		"messages":   messages,
+		"stream":     false,
+		"max_tokens": 1, // 只请求1个token，最小化消耗
+	}
+
+	usageJsonData, err := json.Marshal(usageRequest)
+	if err != nil {
+		return nil
+	}
+
+	usageReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(usageJsonData))
+	if err != nil {
+		return nil
+	}
+
+	usageReq.Header.Set("Content-Type", "application/json")
+	usageReq.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	usageResp, err := client.Do(usageReq)
+	if err != nil {
+		return nil
+	}
+	defer usageResp.Body.Close()
+
+	if usageResp.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	body, err := io.ReadAll(usageResp.Body)
+	if err != nil {
+		return nil
+	}
+
+	var usageResponse struct {
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
+	}
+
+	if err := json.Unmarshal(body, &usageResponse); err != nil {
+		return nil
+	}
+
+	if usageResponse.Usage.TotalTokens > 0 {
+		return &providers.TokenUsage{
+			PromptTokens:     usageResponse.Usage.PromptTokens,
+			CompletionTokens: usageResponse.Usage.CompletionTokens,
+			TotalTokens:      usageResponse.Usage.TotalTokens,
+		}
+	}
+	return nil
+}
+
 // ChatStream 流式聊天对话
-// 使用 Chat Completion API（类似 OpenAI 格式），支持流式输出
+// 使用 HTTP 流式请求（SSE格式），替代SDK实现，确保usage信息能正确返回用于计费
 func (p *DoubaoProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
-	// 构建BaseURL
+	// 构建BaseURL和API端点
 	baseURL := config.BaseURL
 	if baseURL == "" {
 		baseURL = "https://ark.cn-beijing.volces.com/api/v3"
 	}
-
-	// 创建客户端
-	client := arkruntime.NewClientWithApiKey(
-		config.APIKey,
-		arkruntime.WithBaseUrl(baseURL),
-	)
-
-	// 构建输入内容
-	userInput := prompt
-	if content != "" {
-		userInput = fmt.Sprintf("%s\n\n%s", prompt, content)
-	}
-
-	// 处理深度思考参数
-	// 豆包使用 thinkingLevel（minimal/low/medium/high），而不是 thinking 布尔值
-	// 注意：目前 SDK 的 Thinking 结构可能不支持 level 字段
-	// 暂时读取 thinkingLevel 参数（用于后续扩展），但当前不使用
-	// TODO: 当 SDK 支持 level 字段时，使用 thinkingLevel 设置思考长度
-	if _, ok := providerConfig["thinkingLevel"].(string); ok {
-		// thinkingLevel 已读取，后续扩展时使用
-	}
+	url := fmt.Sprintf("%s/chat/completions", baseURL)
 
 	// 构建消息列表
-	messages := []*model.ChatCompletionMessage{
-		{
-			Role: model.ChatMessageRoleUser,
-			Content: &model.ChatCompletionMessageContent{
-				StringValue: volcengine.String(userInput),
-			},
-		},
-	}
+	messages := []map[string]interface{}{}
 
-	// 如果有系统提示词，添加到消息列表开头
 	if config.SystemPrompt != "" {
-		messages = append([]*model.ChatCompletionMessage{
-			{
-				Role: model.ChatMessageRoleSystem,
-				Content: &model.ChatCompletionMessageContent{
-					StringValue: volcengine.String(config.SystemPrompt),
-				},
-			},
-		}, messages...)
+		messages = append(messages, map[string]interface{}{
+			"role":    "system",
+			"content": config.SystemPrompt,
+		})
 	}
 
-	// 构建请求
-	req := model.CreateChatCompletionRequest{
-		Model:    config.ModelName,
-		Messages: messages,
-		Stream:   volcengine.Bool(true),
+	userContent := prompt
+	if content != "" {
+		userContent = fmt.Sprintf("%s\n\n%s", prompt, content)
+	}
+	messages = append(messages, map[string]interface{}{
+		"role":    "user",
+		"content": userContent,
+	})
+
+	// 处理深度思考参数（豆包可能使用thinkingLevel）
+	thinkingLevel := ""
+	if v, ok := providerConfig["thinkingLevel"].(string); ok {
+		thinkingLevel = v
 	}
 
-	// 深度思考参数：豆包默认开启思考，通过 level 控制思考长度
-	// 注意：需要根据实际 SDK 的 Thinking 结构来设置 level
-	// 如果 SDK 支持，可以设置 Thinking.Level 字段
+	// 构建请求体（启用流式输出）
+	requestBody := map[string]interface{}{
+		"model":    config.ModelName,
+		"messages": messages,
+		"stream":   true,
+	}
 
-	// 添加可选参数（注意类型转换）
+	// 添加可选参数
 	if config.Temperature != nil {
-		temp := float32(*config.Temperature)
-		req.Temperature = &temp
+		requestBody["temperature"] = *config.Temperature
 	}
 	if config.MaxTokens != nil {
-		req.MaxTokens = volcengine.Int(*config.MaxTokens)
+		requestBody["max_tokens"] = *config.MaxTokens
 	}
 	if config.TopP != nil {
-		topP := float32(*config.TopP)
-		req.TopP = &topP
+		requestBody["top_p"] = *config.TopP
 	}
 
-	// 调用流式 API
-	resp, err := client.CreateChatCompletionStream(ctx, req)
+	// 处理深度思考参数（如果支持）
+	// 注意：豆包可能使用不同的参数格式，这里先尝试OpenAI兼容格式
+	if thinkingLevel != "" {
+		// 如果豆包支持thinking参数，可以在这里添加
+		// 目前先保留，等待确认豆包的具体参数格式
+	}
+
+	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		// 检查是否是 429 错误（账户限制）
-		if strings.Contains(err.Error(), "429") || strings.Contains(err.Error(), "SetLimitExceeded") || strings.Contains(err.Error(), "TooManyRequests") {
-			return fmt.Errorf("豆包 API 调用失败: 账户已达到推理限制，请访问豆包控制台的 'Model Activation' 页面，关闭 'Safe Experience Mode'（安全体验模式）以继续使用模型。错误详情: %w", err)
-		}
-		return fmt.Errorf("豆包流式 API 调用失败: %w", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
 	}
-	defer resp.Close()
 
+	// 创建HTTP请求（使用 context）
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.APIKey))
+
+	// 发送请求
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		// 检查是否是 429 错误（账户限制）
+		if resp.StatusCode == 429 || strings.Contains(string(body), "SetLimitExceeded") || strings.Contains(string(body), "TooManyRequests") {
+			return fmt.Errorf("豆包 API 调用失败: 账户已达到推理限制，请访问豆包控制台的 'Model Activation' 页面，关闭 'Safe Experience Mode'（安全体验模式）以继续使用模型。错误详情: %s", string(body))
+		}
+		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// 读取流式响应（SSE格式）
+	scanner := bufio.NewScanner(resp.Body)
 	var fullContent strings.Builder
 	var fullReasoningContent strings.Builder
+	var lastUsage *providers.TokenUsage // 保存最后一次的usage信息
 
-	// 读取流式响应
-	for {
-		chunk, err := resp.Recv()
-		if err != nil {
-			if err == io.EOF {
-				// 流结束
-				break
-			}
-			// 检查 context 是否已取消
-			select {
-			case <-ctx.Done():
-				callback("", true, ctx.Err())
-				return ctx.Err()
-			default:
-				return fmt.Errorf("读取流式响应失败: %w", err)
-			}
+	for scanner.Scan() {
+		// 检查 context 是否已取消
+		select {
+		case <-ctx.Done():
+			callback("", true, ctx.Err(), nil)
+			return ctx.Err()
+		default:
+			// 继续执行
 		}
 
-		if len(chunk.Choices) == 0 {
+		line := scanner.Text()
+		if line == "" {
 			continue
 		}
 
-		choice := chunk.Choices[0]
+		// SSE格式: data: {...}
+		if strings.HasPrefix(line, "data: ") {
+			data := strings.TrimPrefix(line, "data: ")
+			if data == "[DONE]" {
+				// 构造最终内容：如果有思考内容，格式为 [REASONING]...[/REASONING][CONTENT]...[/CONTENT]
+				finalContent := ""
+				if fullReasoningContent.Len() > 0 {
+					finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
+				}
+				if fullContent.Len() > 0 {
+					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
+				}
 
-		// 处理思考内容（如果有）
-		// 注意：ReasoningContent 是 *string 类型，需要先检查 nil
-		if choice.Delta.ReasoningContent != nil && *choice.Delta.ReasoningContent != "" {
-			reasoningContent := *choice.Delta.ReasoningContent
-			fullReasoningContent.WriteString(reasoningContent)
-			// 发送带标记的思考内容（与 DeepSeek 格式一致）
-			callback("[REASONING_DELTA]"+reasoningContent, false, nil)
+				// **关键修复**：如果流结束时还没有收到usage，使用非流式请求获取usage
+				if lastUsage == nil {
+					lastUsage = fetchUsageFromNonStreamRequest(ctx, p.client, url, config.APIKey, config.ModelName, messages)
+				}
+				callback(finalContent, true, nil, lastUsage)
+				return nil
+			}
+
+			var streamResponse struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+				Choices []struct {
+					Delta struct {
+						Role             string `json:"role"`
+						Content          string `json:"content"`
+						ReasoningContent string `json:"reasoning_content"`
+					} `json:"delta"`
+					FinishReason string `json:"finish_reason"`
+				} `json:"choices"`
+				// 尝试多种可能的usage字段名
+				Usage *providers.TokenUsage `json:"usage"`
+				// 有些API可能使用不同的字段名
+				UsageInfo map[string]interface{} `json:"usage,omitempty"`
+			}
+
+			// 先解析为通用map，以便检查所有可能的usage字段
+			var rawMap map[string]interface{}
+			if err := json.Unmarshal([]byte(data), &rawMap); err != nil {
+				continue
+			}
+
+			// **关键修复**：豆包的流式响应中，usage字段在每个chunk中都是null
+			// 但是可能有一个最后的chunk只包含usage而没有choices，或者usage在流结束后的单独响应中
+			// 先检查是否有choices，如果没有choices但有usage，说明这是usage专用chunk
+			choicesRaw, hasChoices := rawMap["choices"]
+			usageRaw, hasUsage := rawMap["usage"]
+
+			// 如果这个chunk没有choices，只有usage（或usage不为null），说明这是usage专用chunk
+			if (!hasChoices || choicesRaw == nil) && hasUsage && usageRaw != nil {
+				if usageMap, ok := usageRaw.(map[string]interface{}); ok {
+					parsedUsage := &providers.TokenUsage{}
+					if promptTokens, ok := usageMap["prompt_tokens"].(float64); ok {
+						parsedUsage.PromptTokens = int(promptTokens)
+					}
+					if completionTokens, ok := usageMap["completion_tokens"].(float64); ok {
+						parsedUsage.CompletionTokens = int(completionTokens)
+					}
+					if totalTokens, ok := usageMap["total_tokens"].(float64); ok {
+						parsedUsage.TotalTokens = int(totalTokens)
+					}
+					// 如果没有total_tokens，尝试计算
+					if parsedUsage.TotalTokens == 0 {
+						parsedUsage.TotalTokens = parsedUsage.PromptTokens + parsedUsage.CompletionTokens
+					}
+					if parsedUsage.TotalTokens > 0 {
+						lastUsage = parsedUsage
+						// 立即回调usage，确保计费逻辑能及时处理
+						callback("", false, nil, parsedUsage)
+						// 继续处理，等待流结束
+						continue
+					}
+				}
+			}
+
+			// 解析为结构体
+			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
+				continue
+			}
+
+			// 检查是否有usage信息（但usage不为null的情况）
+			if streamResponse.Usage != nil {
+				lastUsage = streamResponse.Usage
+				// 立即回调usage，确保计费逻辑能及时处理
+				callback("", false, nil, streamResponse.Usage)
+			}
+
+			if len(streamResponse.Choices) > 0 {
+				// 处理思考内容
+				deltaReasoningContent := streamResponse.Choices[0].Delta.ReasoningContent
+				if deltaReasoningContent != "" {
+					fullReasoningContent.WriteString(deltaReasoningContent)
+					// 发送带标记的思考内容
+					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil, nil)
+				}
+
+				// 处理正式内容
+				deltaContent := streamResponse.Choices[0].Delta.Content
+				if deltaContent != "" {
+					fullContent.WriteString(deltaContent)
+					// 发送带标记的正式内容
+					callback("[CONTENT_DELTA]"+deltaContent, false, nil, nil)
+				}
+
+				if streamResponse.Choices[0].FinishReason != "" {
+					// 构造最终内容
+					finalContent := ""
+					if fullReasoningContent.Len() > 0 {
+						finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
+					}
+					if fullContent.Len() > 0 {
+						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
+					}
+
+					// **关键修复**：如果流结束时还没有收到usage，使用非流式请求获取usage
+					if lastUsage == nil {
+						lastUsage = fetchUsageFromNonStreamRequest(ctx, p.client, url, config.APIKey, config.ModelName, messages)
+					}
+					callback(finalContent, true, nil, lastUsage)
+					return nil
+				}
+			}
 		}
-
-		// 处理正式内容
-		// 注意：Content 是 string 类型
-		if choice.Delta.Content != "" {
-			content := choice.Delta.Content
-			fullContent.WriteString(content)
-			// 发送带标记的正式内容（与 DeepSeek 格式一致）
-			callback("[CONTENT_DELTA]"+content, false, nil)
-		}
-
-		// 检查是否有完成标志（类似 DeepSeek 的 FinishReason 处理）
-		// 注意：豆包 SDK 可能使用不同的字段名，这里先检查常见的字段
-		// 如果流结束，会在 EOF 时处理
 	}
 
-	// 构造最终内容
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("failed to read stream: %w", err)
+	}
+
+	// 最终回调（如果流正常结束但没有收到[DONE]）
 	finalContent := ""
 	if fullReasoningContent.Len() > 0 {
 		finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
@@ -353,7 +518,13 @@ func (p *DoubaoProvider) ChatStream(ctx context.Context, config *providers.AIMod
 	if fullContent.Len() > 0 {
 		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 	}
-	callback(finalContent, true, nil)
+
+	// **关键修复**：如果流结束时还没有收到usage，使用非流式请求获取usage
+	// 豆包的流式API在流式响应中不返回usage信息，需要在流结束后通过非流式请求获取
+	if lastUsage == nil {
+		lastUsage = fetchUsageFromNonStreamRequest(ctx, p.client, url, config.APIKey, config.ModelName, messages)
+	}
+	callback(finalContent, true, nil, lastUsage)
 	return nil
 }
 

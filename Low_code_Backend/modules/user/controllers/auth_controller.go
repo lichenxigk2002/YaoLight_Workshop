@@ -3,9 +3,11 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"yaolight-workshop/backend/infrastructure/database"
+	userModels "yaolight-workshop/backend/modules/user/models"
 	"yaolight-workshop/backend/modules/user/repositories"
 	"yaolight-workshop/backend/modules/user/services"
 )
@@ -164,6 +166,80 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 		"code":    200,
 		"message": "获取成功",
 		"data":    user,
+	})
+}
+
+// GetTokenTransactions 获取当前用户Token计费清单
+// @Summary 获取当前用户Token计费清单
+// @Description 获取当前登录用户的Token消耗与金额流水
+// @Tags 用户
+// @Security BearerAuth
+// @Produce json
+// @Param page query int false "页码" default(1)
+// @Param pageSize query int false "每页数量" default(20)
+// @Success 200 {object} map[string]interface{} "获取成功"
+// @Failure 401 {object} map[string]interface{} "未授权"
+// @Router /api/users/token-transactions [get]
+func (c *AuthController) GetTokenTransactions(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未授权",
+			"data":    nil,
+		})
+		return
+	}
+
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "20"))
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	var total int64
+	if err := database.DB.Model(&userModels.TokenTransaction{}).
+		Where("user_id = ?", userID.(uint)).
+		Count(&total).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取计费清单失败",
+			"data":    nil,
+		})
+		return
+	}
+
+	var list []userModels.TokenTransaction
+	offset := (page - 1) * pageSize
+	if err := database.DB.
+		Where("user_id = ?", userID.(uint)).
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&list).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取计费清单失败",
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "获取成功",
+		"data": gin.H{
+			"list":     list,
+			"total":    total,
+			"page":     page,
+			"pageSize": pageSize,
+		},
 	})
 }
 

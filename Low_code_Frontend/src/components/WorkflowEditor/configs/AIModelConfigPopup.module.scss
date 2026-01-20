@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: 16px;
   padding: 12px;
-  
+
   /* 响应式调整：笔记本/小屏幕 */
   @media (max-width: 1600px) {
     gap: 10px;
@@ -13,20 +13,24 @@
 
 /* 滚动条样式 mixin */
 @mixin custom-scrollbar {
+
   /* Hide scrollbar for Chrome, Safari and Opera */
   &::-webkit-scrollbar {
     display: none;
   }
-  
+
   /* Hide scrollbar for IE, Edge and Firefox */
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .popupContainer {
   @include custom-scrollbar;
   overflow-y: auto;
-  max-height: 80vh; /* 防止过高 */
+  max-height: 80vh;
+  /* 防止过高 */
 
 }
 
@@ -34,7 +38,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  
+
   @media (max-width: 1600px) {
     gap: 4px;
   }
@@ -51,7 +55,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  
+
   @media (max-width: 1600px) {
     gap: 4px;
   }
@@ -87,8 +91,10 @@
   }
 
   &.active {
-    background: #000000; /* Light mode: Black background */
-    color: #ffffff; /* Light mode: White text */
+    background: #000000;
+    /* Light mode: Black background */
+    color: #ffffff;
+    /* Light mode: White text */
     border-color: #000000;
 
     /* Dark mode override: White background for visibility */
@@ -105,7 +111,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   @media (max-width: 1600px) {
     font-size: 18px;
   }
@@ -117,9 +123,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
-  
+
   @media (max-width: 1600px) {
-    transform: scale(0.9); /* 稍微缩小字体 */
+    transform: scale(0.9);
+    /* 稍微缩小字体 */
   }
 }
 
@@ -128,7 +135,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  
+
   @media (max-width: 1600px) {
     gap: 4px;
   }
@@ -161,16 +168,16 @@
   }
 
   &.active {
-    background: #000000;
-    color: #fff;
-    border-color: #000000;
+    background: #000000 !important;
+    color: #ffffff !important;
+    border-color: #000000 !important;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
     /* Dark mode override */
     :global([data-theme='dark']) & {
-      background: #ffffff;
-      color: #000000;
-      border-color: #ffffff;
+      background: #ffffff !important;
+      color: #000000 !important;
+      border-color: #ffffff !important;
     }
   }
 }
@@ -192,7 +199,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  
+
   @media (max-width: 1600px) {
     gap: 6px;
   }
@@ -218,12 +225,13 @@
 
   /* 覆盖 Ant Design Form Item 样式 */
   :global(.ant-form-item) {
-    margin-bottom: 8px; /* 减小间距 */
+    margin-bottom: 8px;
+    /* 减小间距 */
   }
 
   :global(.ant-form-item-label) {
     padding-bottom: 2px;
-    
+
     label {
       font-size: 12px;
       color: var(--text-secondary, rgba(0, 0, 0, 0.65));
@@ -281,6 +289,13 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

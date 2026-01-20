@@ -271,8 +271,11 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
     // AI节点，支持流式内容显示
     if (nodeType === 'ai') {
       const content = data.content || data.result || '';
-      const reasoningContent = data.reasoningContent || '';
-      const hasReasoning = reasoningContent && reasoningContent.trim() !== '';
+      // 确保 reasoningContent 是字符串类型
+      const reasoningContent = typeof data.reasoningContent === 'string' 
+        ? data.reasoningContent 
+        : (data.reasoningContent ? String(data.reasoningContent) : '');
+      const hasReasoning = reasoningContent && typeof reasoningContent === 'string' && reasoningContent.trim() !== '';
 
       // 获取当前节点的展开状态（默认都展开）
       const currentNodeId = nodeId || (data as any).node_id || '';

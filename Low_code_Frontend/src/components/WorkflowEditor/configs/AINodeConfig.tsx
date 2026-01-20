@@ -270,7 +270,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
         ]);
         setSystemModels(models);
         setProviderTemplates(templates);
-      } catch (error) {}
+      } catch (error) { }
     };
     loadData();
   }, []);
@@ -369,7 +369,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                           }}
                         />
                       </Form.Item>
-                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.provider !== curr?.provider}>
+                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.provider !== curr?.provider || prev?.modelName !== curr?.modelName}>
                         {({ getFieldValue }) => {
                           const selectedProvider = getFieldValue('provider');
                           const selectedSystemModel = systemModels.find(m => m.provider === selectedProvider);

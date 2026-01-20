@@ -76,10 +76,8 @@ type StreamResponseBody struct {
 		} `json:"delta"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
-	Usage struct {
-		TotalTokens int `json:"total_tokens"`
-	} `json:"usage,omitempty"`
-	Model string `json:"model,omitempty"`
+	Usage *providers.TokenUsage `json:"usage,omitempty"`
+	Model string                `json:"model,omitempty"`
 }
 
 // Chat 聊天对话（非流式）
@@ -293,7 +291,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			callback("", true, ctx.Err())
+			callback("", true, ctx.Err(), nil)
 			return ctx.Err()
 		default:
 			// 继续执行
@@ -316,7 +314,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 				if fullContent.Len() > 0 {
 					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 				}
-				callback(finalContent, true, nil)
+				callback(finalContent, true, nil, nil)
 				return nil
 			}
 
@@ -326,13 +324,17 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 				continue
 			}
 
+			if streamResponse.Usage != nil {
+				callback("", false, nil, streamResponse.Usage)
+			}
+
 			if len(streamResponse.Choices) > 0 {
 				// 处理思考内容（reasoning_content）
 				deltaReasoningContent := streamResponse.Choices[0].Delta.ReasoningContent
 				if deltaReasoningContent != "" {
 					fullReasoningContent.WriteString(deltaReasoningContent)
 					// 发送带标记的思考内容
-					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil, nil)
 				}
 
 				// 处理正式内容
@@ -340,7 +342,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 				if deltaContent != "" {
 					fullContent.WriteString(deltaContent)
 					// 发送带标记的正式内容
-					callback("[CONTENT_DELTA]"+deltaContent, false, nil)
+					callback("[CONTENT_DELTA]"+deltaContent, false, nil, nil)
 				}
 
 				// 检查是否完成
@@ -353,7 +355,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 					if fullContent.Len() > 0 {
 						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 					}
-					callback(finalContent, true, nil)
+					callback(finalContent, true, nil, nil)
 					return nil
 				}
 			}
@@ -372,7 +374,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 	if fullContent.Len() > 0 {
 		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 	}
-	callback(finalContent, true, nil)
+	callback(finalContent, true, nil, nil)
 	return nil
 }
 

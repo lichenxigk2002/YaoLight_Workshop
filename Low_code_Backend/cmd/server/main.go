@@ -100,6 +100,7 @@ func main() {
 			// 用户相关路由
 			auth.GET("/users/current", authController.GetCurrentUser)
 			auth.PUT("/users/username", authController.UpdateUsername)
+			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
 
 			// 项目相关路由
 			projectController := projectControllers.NewProjectController()

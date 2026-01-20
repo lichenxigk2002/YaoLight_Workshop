@@ -232,7 +232,7 @@ func (p *MoonshotProvider) ChatStream(ctx context.Context, config *providers.AIM
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			callback("", true, ctx.Err())
+			callback("", true, ctx.Err(), nil)
 			return ctx.Err()
 		default:
 			// 继续执行
@@ -247,7 +247,7 @@ func (p *MoonshotProvider) ChatStream(ctx context.Context, config *providers.AIM
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
 			if data == "[DONE]" {
-				callback(fullContent.String(), true, nil)
+				callback(fullContent.String(), true, nil, nil)
 				return nil
 			}
 
@@ -267,13 +267,13 @@ func (p *MoonshotProvider) ChatStream(ctx context.Context, config *providers.AIM
 				deltaContent := streamResponse.Choices[0].Delta.Content
 				if deltaContent != "" {
 					fullContent.WriteString(deltaContent)
-					callback("[CONTENT_DELTA]"+deltaContent, false, nil)
+					callback("[CONTENT_DELTA]"+deltaContent, false, nil, nil)
 				}
 
 				if streamResponse.Choices[0].Delta.Content != "" {
 					// 检查 finish_reason
 					// 完成后发送完整内容
-					callback(fullContent.String(), true, nil)
+					callback(fullContent.String(), true, nil, nil)
 					return nil
 				}
 			}
@@ -285,7 +285,7 @@ func (p *MoonshotProvider) ChatStream(ctx context.Context, config *providers.AIM
 	}
 
 	// 最终回调
-	callback(fullContent.String(), true, nil)
+	callback(fullContent.String(), true, nil, nil)
 	return nil
 }
 

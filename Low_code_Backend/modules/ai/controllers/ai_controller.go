@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -129,6 +130,22 @@ func (c *AIController) CreateModel(ctx *gin.Context) {
 
 	model, err := c.aiService.CreateModel(&req)
 	if err != nil {
+		if errors.Is(err, services.ErrUnsupportedProvider) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"message": "创建模型失败: " + err.Error(),
+				"data":    nil,
+			})
+			return
+		}
+		if errors.Is(err, services.ErrInvalidAPIKey) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"message": "创建模型失败: " + err.Error(),
+				"data":    nil,
+			})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": "创建模型失败: " + err.Error(),

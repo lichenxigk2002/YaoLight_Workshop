@@ -9,6 +9,9 @@
     "execute": "执行",
     "ok": "确定",
     "cancel": "取消",
+    "confirm": "确定",
+    "deleteConfirm": "删除确认",
+    "search": "搜索",
     "operationFailed": "操作失败"
   },
   "login": {
@@ -45,6 +48,39 @@
   "layout": {
     "userCenter": "个人中心",
     "logout": "退出登录"
+  },
+  "settings": {
+    "title": "设置",
+    "groupWorkspace": "工作空间",
+    "groupGeneral": "通用",
+    "profile": "个人信息",
+    "modelProviders": "模型供应商",
+    "modelList": "模型列表",
+    "toBeConfigured": "待配置",
+    "installProvider": "安装模型供应商",
+    "authorized": "已授权",
+    "providerAuthorized": "已通过供应商授权",
+    "unauthorized": "未授权",
+    "showModels": "显示模型",
+    "addModel": "添加模型",
+    "setup": "设置",
+    "configure": "配置",
+    "apiKeyPlaceholder": "若不修改请留空",
+    "removeConfiguration": "移除配置",
+    "enableProvider": "启用此供应商",
+    "quota": "额度",
+    "messageQuota": "消息额度",
+    "members": "成员",
+    "billing": "账单",
+    "datasources": "数据来源",
+    "extensions": "API 扩展",
+    "customization": "定制",
+    "language": "语言",
+    "modelType": "模型类型",
+    "modelTypeRequired": "请选择模型类型",
+    "allModels": "所有模型 (供应商级别)",
+    "providerLevelTooltip": "选择“所有模型”将为此供应商的所有子模型配置统一的 API Key",
+    "deleteModelWarning": "确定要删除此模型配置吗？删除后，使用该配置的工作流节点可能无法正常工作。"
   },
   "dashboard": {
     "title": "我的项目",
@@ -112,7 +148,24 @@
     "saved": "已保存",
     "saveSuccess": "工作流已保存",
     "saveFailed": "保存工作流失败",
-    "workflowIdMissing": "工作流ID不存在，无法保存"
+    "workflowIdMissing": "工作流ID不存在，无法保存",
+    "ai": {
+      "systemPreset": "系统预设",
+      "modelName": "模型名称",
+      "modelNameRequired": "请输入模型名称",
+      "modelType": "模型类型",
+      "selectModel": "选择模型",
+      "apiKey": "API Key",
+    "apiKeyRequired": "请输入API Key",
+    "apiKeyPlaceholder": "若不修改请留空",
+    "baseUrl": "Base URL",
+      "baseUrlTooltip": "API的基础URL，通常以 http:// 或 https:// 开头",
+      "temperature": "Temperature",
+      "maxTokens": "最大消耗",
+      "llm": "大语言模型",
+      "noSystemModels": "暂无系统预设模型",
+      "loadUserModelsFailed": "加载用户模型失败"
+    }
   },
   "node": {
     "types": {
@@ -367,7 +420,7 @@
         "apiKeyRequired": "请输入API Key",
         "apiKeyTooltip": "临时使用，不会保存到数据库",
         "baseUrl": "Base URL",
-        "baseUrlTooltip": "API基础地址（可选）",
+        "baseUrlTooltip": "API的基础URL，通常以 http:// 或 https:// 开头",
         "aiProcessingConfig": "AI处理配置",
         "aiProcessingDesc": "AI节点输出处理后的数据（JSON格式）",
         "promptTooltip": "提示词内容，支持变量引用。可以在提示词中使用 {{变量名}} 来引用上游节点的数据。",
@@ -398,7 +451,8 @@
         "presencePenaltyTooltip": "鼓励模型谈论新话题。值越高，越倾向于生成新内容。范围 -2.0 到 2.0。",
         "reasoningInvisible": "该模型的推理过程不可见 (Reasoning not exposed)",
         "loadSystemModelsFailed": "加载系统预设模型失败",
-        "loadUserModelsFailed": "加载用户模型失败"
+        "loadUserModelsFailed": "加载用户模型失败",
+        "noSystemModels": "暂无系统预设模型"
       },
       "output": {
         "format": "输出格式",

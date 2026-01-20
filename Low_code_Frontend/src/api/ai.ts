@@ -7,6 +7,21 @@ import type {
   UpdateModelRequest,
 } from '@/types/ai';
 
+const adaptAIModel = (raw: any): AIModel => ({
+  id: raw?.id,
+  name: raw?.name,
+  provider: raw?.provider,
+  modelName: raw?.modelName ?? raw?.model_name,
+  status: raw?.status,
+  temperature: raw?.temperature,
+  maxTokens: raw?.maxTokens ?? raw?.max_tokens,
+  baseUrl: raw?.baseUrl ?? raw?.base_url,
+  endpoint: raw?.endpoint,
+  params: raw?.params,
+  createdAt: raw?.createdAt ?? raw?.created_at,
+  updatedAt: raw?.updatedAt ?? raw?.updated_at,
+});
+
 /**
  * AI API
  */
@@ -20,16 +35,25 @@ export const aiApi = {
     http.get<SystemPresetModel[]>('/ai/models/system'),
 
   // 获取用户模型列表
-  getModels: (params?: { page?: number; pageSize?: number }): Promise<{ list: AIModel[]; total: number; page: number; pageSize: number }> =>
-    http.get('/ai/models', params),
+  getModels: async (params?: { page?: number; pageSize?: number }): Promise<{ list: AIModel[]; total: number; page: number; pageSize: number }> => {
+    const res = await http.get<{ list: any[]; total: number; page: number; pageSize: number }>('/ai/models', params);
+    return {
+      ...res,
+      list: Array.isArray(res?.list) ? res.list.map(adaptAIModel) : [],
+    };
+  },
 
   // 创建模型配置
-  createModel: (data: CreateModelRequest): Promise<AIModel> =>
-    http.post<AIModel>('/ai/models', data),
+  createModel: async (data: CreateModelRequest): Promise<AIModel> => {
+    const res = await http.post<any>('/ai/models', data);
+    return adaptAIModel(res);
+  },
 
   // 更新模型配置
-  updateModel: (id: number, data: UpdateModelRequest): Promise<AIModel> =>
-    http.put<AIModel>(`/ai/models/${id}`, data),
+  updateModel: async (id: number, data: UpdateModelRequest): Promise<AIModel> => {
+    const res = await http.put<any>(`/ai/models/${id}`, data);
+    return adaptAIModel(res);
+  },
 
   // 删除模型配置
   deleteModel: (id: number): Promise<void> =>

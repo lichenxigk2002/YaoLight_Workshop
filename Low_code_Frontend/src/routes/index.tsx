@@ -7,6 +7,11 @@ import Profile from '../pages/Profile'
 import WorkflowEditor from '../components/WorkflowEditor'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
+import Settings from '../pages/Settings'
+import ProfileInfo from '../pages/Settings/Profile'
+import ModelProviders from '../pages/Settings/Models'
+import Billing from '../pages/Settings/Billing'
+import Payment from '../pages/Payment'
 
 const router = createBrowserRouter([
   {
@@ -44,11 +49,39 @@ const router = createBrowserRouter([
     ),
   },
   {
-    path: '/profile',
+    path: '/settings',
     element: (
       <ProtectedRoute>
         <Layout>
-          <Profile />
+          <Settings />
+        </Layout>
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: '',
+        element: <Navigate to="profile" replace />,
+      },
+      {
+        path: 'profile',
+        element: <ProfileInfo />,
+      },
+      {
+        path: 'models',
+        element: <ModelProviders />,
+      },
+      {
+        path: 'billing',
+        element: <Billing />,
+      },
+    ],
+  },
+  {
+    path: '/payment',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <Payment />
         </Layout>
       </ProtectedRoute>
     ),
@@ -64,4 +97,3 @@ const router = createBrowserRouter([
 })
 
 export default router
-

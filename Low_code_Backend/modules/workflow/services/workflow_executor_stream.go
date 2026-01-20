@@ -11,6 +11,8 @@ import (
 	"yaolight-workshop/backend/infrastructure/database"
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
 	aiService "yaolight-workshop/backend/modules/ai/services"
+	"yaolight-workshop/backend/modules/ai/services/providers"
+	userModels "yaolight-workshop/backend/modules/user/models"
 )
 
 // StreamCallback 流式执行回调函数
@@ -73,12 +75,13 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 
 	// 获取模型模式
 	modelMode := getString(node.Config, "modelMode", "system")
+	modelID := getUint(node.Config, "modelId", 0)
 
 	// 获取模型配置
 	modelRepo := aiRepos.NewAIModelRepository(database.DB)
 	modelConfig, err := aiService.GetModelConfigForExecution(
 		modelMode,
-		getUint(node.Config, "modelId", 0),
+		modelID,
 		userID,
 		node.Config,
 		modelRepo,
@@ -99,11 +102,30 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 	// 构建提供商特定配置
 	providerConfig := make(map[string]interface{})
 	stream := false
+	var costPerToken float64
+	var billingModelID *uint
 
-	// 如果使用已保存的模型，先从模型配置读取默认值
+	// **计费逻辑**：
+	// - system模式：使用系统API Key，需要扣费（从计费文档读取价格）
+	// - saved模式：使用用户自己的API Key，不扣费（只记录使用量）
+	// - custom模式：使用临时API Key，不扣费（只记录使用量）
+
+	// 只有system模式需要计费
+	if modelMode == "system" {
+		// TODO: 从计费文档或配置中获取对应模型的计费标准
+		// 目前暂时使用默认值，后续需要根据provider+modelName获取精确价格
+		// 这里需要实现根据provider和modelName获取计费配置的逻辑
+		// costPerToken = getPricingFromConfig(modelConfig.Provider, modelConfig.ModelName)
+	}
+
+	// 如果使用已保存的模型，从模型配置读取默认值（但不用于计费）
 	if modelMode == "saved" {
-		modelEntity, err := modelRepo.FindByIDAndUser(getUint(node.Config, "modelId", 0), userID)
+		if modelID > 0 {
+			billingModelID = &modelID
+		}
+		modelEntity, err := modelRepo.FindByIDAndUser(modelID, userID)
 		if err == nil && modelEntity != nil {
+			// saved模式不使用CostPerToken计费，因为使用的是用户自己的API Key
 			// 从模型的 Params JSONB 字段读取默认配置
 			if modelEntity.Params.Data != nil {
 				if paramsMap, ok := modelEntity.Params.Data.(map[string]interface{}); ok {
@@ -269,8 +291,10 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 	if stream {
 		var fullContent strings.Builder
 		var fullReasoningContent strings.Builder
+		var tokenDeducted bool
+
 		// 创建适配器，将 providers.StreamCallback 转换为 services.StreamCallback
-		providerCallback := func(deltaContent string, done bool, err error) {
+		providerCallback := func(deltaContent string, done bool, err error, usage *providers.TokenUsage) {
 			// 检查 context 是否已取消
 			select {
 			case <-ctx.Done():
@@ -278,6 +302,86 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 				return
 			default:
 				// 继续执行
+			}
+
+			// **计费逻辑**：只有system模式才扣费和扣除token余额
+			// saved和custom模式使用用户自己的API Key，不扣费不扣token，只记录使用量
+			if usage != nil && !tokenDeducted {
+				tokenDeducted = true
+
+				// 只有system模式需要扣费和扣除token余额
+				if modelMode == "system" {
+					log.Printf("[%s] Processing system model billing: userID=%d, provider=%s, totalTokens=%d, done=%v",
+						nodeID, userID, modelConfig.Provider, usage.TotalTokens, done)
+
+					// 扣除用户Token余额（因为使用的是系统的API Key，系统需要向服务商付费）
+					deductErr := e.userRepo.DeductTokens(userID, int64(usage.TotalTokens))
+					if deductErr != nil {
+						log.Printf("[%s] Token deduction failed for user %d: %v", nodeID, userID, deductErr)
+					} else {
+						log.Printf("[%s] Deducted %d tokens for user %d, provider: %s, model: %s",
+							nodeID, usage.TotalTokens, userID, modelConfig.Provider, modelConfig.ModelName)
+					}
+
+					// 计算费用（TODO: 需要根据provider+modelName从计费文档获取精确价格）
+					// 目前使用costPerToken，后续需要实现精确的计费逻辑（分离计费、分段计费等）
+					cost := float64(usage.TotalTokens) * costPerToken
+
+					transaction := userModels.TokenTransaction{
+						UserID:           userID,
+						Amount:           -int64(usage.TotalTokens),
+						Type:             "consumption",
+						RelatedID:        nodeID,
+						Description:      "AI节点消耗（系统预设模型）",
+						Provider:         modelConfig.Provider,
+						ModelName:        modelConfig.ModelName,
+						ModelMode:        modelMode,
+						ModelID:          billingModelID,
+						PromptTokens:     usage.PromptTokens,
+						CompletionTokens: usage.CompletionTokens,
+						TotalTokens:      usage.TotalTokens,
+						Cost:             cost,
+						Currency:         "USD",
+					}
+					if createErr := database.DB.Create(&transaction).Error; createErr != nil {
+						log.Printf("[%s] Create token transaction failed for user %d: %v", nodeID, userID, createErr)
+					} else {
+						log.Printf("[%s] Token transaction created successfully: provider=%s, tokens=%d, cost=%f",
+							nodeID, modelConfig.Provider, usage.TotalTokens, cost)
+					}
+				} else {
+					// saved或custom模式：使用用户自己的API Key，只记录使用量，不扣费不扣token
+					log.Printf("[%s] Recording usage (no billing, user's own API Key): userID=%d, mode=%s, provider=%s, totalTokens=%d",
+						nodeID, userID, modelMode, modelConfig.Provider, usage.TotalTokens)
+
+					transaction := userModels.TokenTransaction{
+						UserID:           userID,
+						Amount:           0,              // 不扣除token余额
+						Type:             "usage_record", // 仅记录使用量
+						RelatedID:        nodeID,
+						Description:      fmt.Sprintf("AI节点使用记录（%s模式，用户自己的API Key）", modelMode),
+						Provider:         modelConfig.Provider,
+						ModelName:        modelConfig.ModelName,
+						ModelMode:        modelMode,
+						ModelID:          billingModelID,
+						PromptTokens:     usage.PromptTokens,
+						CompletionTokens: usage.CompletionTokens,
+						TotalTokens:      usage.TotalTokens,
+						Cost:             0, // 不产生费用
+						Currency:         "USD",
+					}
+					if createErr := database.DB.Create(&transaction).Error; createErr != nil {
+						log.Printf("[%s] Create usage record failed for user %d: %v", nodeID, userID, createErr)
+					} else {
+						log.Printf("[%s] Usage record created successfully: provider=%s, tokens=%d (no billing)",
+							nodeID, modelConfig.Provider, usage.TotalTokens)
+					}
+				}
+			} else if usage != nil && tokenDeducted {
+				log.Printf("[%s] Usage received but token already deducted, skipping", nodeID)
+			} else if done && !tokenDeducted && usage == nil {
+				log.Printf("[%s] WARNING: Stream done but no usage info received! provider=%s",
+					nodeID, modelConfig.Provider)
 			}
 
 			if err != nil {
@@ -368,6 +472,62 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			return
 		}
 
+		if chatResp.TokensUsed > 0 {
+			// **计费逻辑**：只有system模式才扣费和扣除token余额
+			if modelMode == "system" {
+				// 扣除用户Token余额（因为使用的是系统的API Key，系统需要向服务商付费）
+				deductErr := e.userRepo.DeductTokens(userID, int64(chatResp.TokensUsed))
+				if deductErr != nil {
+					log.Printf("[%s] Token deduction failed for user %d: %v", nodeID, userID, deductErr)
+				} else {
+					log.Printf("[%s] Deducted %d tokens for user %d (Non-Stream Mode, system model)", nodeID, chatResp.TokensUsed, userID)
+				}
+
+				// 计算费用（TODO: 需要根据provider+modelName从计费文档获取精确价格）
+				cost := float64(chatResp.TokensUsed) * costPerToken
+
+				transaction := userModels.TokenTransaction{
+					UserID:      userID,
+					Amount:      -int64(chatResp.TokensUsed),
+					Type:        "consumption",
+					RelatedID:   nodeID,
+					Description: "AI节点消耗（系统预设模型）",
+					Provider:    modelConfig.Provider,
+					ModelName:   modelConfig.ModelName,
+					ModelMode:   modelMode,
+					ModelID:     billingModelID,
+					TotalTokens: chatResp.TokensUsed,
+					Cost:        cost,
+					Currency:    "USD",
+				}
+				if createErr := database.DB.Create(&transaction).Error; createErr != nil {
+					log.Printf("[%s] Create token transaction failed for user %d: %v", nodeID, userID, createErr)
+				}
+			} else {
+				// saved或custom模式：使用用户自己的API Key，只记录使用量，不扣费不扣token
+				log.Printf("[%s] Recording usage (no billing, user's own API Key): userID=%d, mode=%s, provider=%s, totalTokens=%d",
+					nodeID, userID, modelMode, modelConfig.Provider, chatResp.TokensUsed)
+
+				transaction := userModels.TokenTransaction{
+					UserID:      userID,
+					Amount:      0,              // 不扣除token余额
+					Type:        "usage_record", // 仅记录使用量
+					RelatedID:   nodeID,
+					Description: fmt.Sprintf("AI节点使用记录（%s模式，用户自己的API Key）", modelMode),
+					Provider:    modelConfig.Provider,
+					ModelName:   modelConfig.ModelName,
+					ModelMode:   modelMode,
+					ModelID:     billingModelID,
+					TotalTokens: chatResp.TokensUsed,
+					Cost:        0, // 不产生费用
+					Currency:    "USD",
+				}
+				if createErr := database.DB.Create(&transaction).Error; createErr != nil {
+					log.Printf("[%s] Create usage record failed for user %d: %v", nodeID, userID, createErr)
+				}
+			}
+		}
+
 		// 保存AI节点的输出数据到数据流和变量上下文
 		resultData := map[string]interface{}{
 			"result":     chatResp.Content, // AI节点的输出变量名是 result
@@ -397,18 +557,37 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		return fmt.Errorf("工作流节点为空")
 	}
 
-	// 检查是否有AI节点启用了流式输出
-	var aiNode *NodeConfig
-	var hasStreamingAI bool
-	for i := range req.Nodes {
-		if req.Nodes[i].Type == "ai" {
-			aiNode = &req.Nodes[i]
-			// 检查是否启用了流式输出
-			if stream, ok := aiNode.Config["stream"].(bool); ok && stream {
-				hasStreamingAI = true
-				break
+	// 辅助函数：检查AI节点是否启用流式输出（考虑provider的默认行为）
+	checkStreamEnabled := func(node NodeConfig, modelConfig *providers.AIModelConfig) bool {
+		// 检查节点配置中的 stream 设置
+		if stream, ok := node.Config["stream"].(bool); ok {
+			return stream
+		}
+
+		// 如果节点配置没有指定，检查模型默认配置
+		if modelMode := getString(node.Config, "modelMode", "system"); modelMode == "saved" {
+			modelID := getUint(node.Config, "modelId", 0)
+			if modelID > 0 {
+				modelRepo := aiRepos.NewAIModelRepository(database.DB)
+				modelEntity, err := modelRepo.FindByIDAndUser(modelID, req.UserID)
+				if err == nil && modelEntity != nil && modelEntity.Params.Data != nil {
+					if paramsMap, ok := modelEntity.Params.Data.(map[string]interface{}); ok {
+						if s, ok := paramsMap["stream"].(bool); ok {
+							return s
+						}
+					}
+				}
 			}
 		}
+
+		// 根据provider的默认行为判断
+		// 豆包默认开启流式
+		if modelConfig != nil && modelConfig.Provider == "doubao" {
+			return true
+		}
+
+		// 其他provider默认不开启流式
+		return false
 	}
 
 	// 创建数据流和变量上下文
@@ -510,23 +689,55 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		// 设置节点类型到变量上下文
 		variableContext.SetNodeType(nodeConfig.ID, nodeConfig.Type)
 
-		// 如果是AI节点且启用了流式输出，使用流式执行
-		if nodeConfig.Type == "ai" && hasStreamingAI && nodeConfig.ID == aiNode.ID {
-			// 使用流式执行AI节点
-			// 创建一个包装的callback来跟踪执行状态
-			originalCallback := callback
-			wrappedCallback := func(nodeID string, content string, done bool, contentType string, err error) {
-				// 调用原始callback
-				originalCallback(nodeID, content, done, contentType, err)
+		// 如果是AI节点，检查是否启用流式输出
+		if nodeConfig.Type == "ai" {
+			// 获取模型配置以判断是否启用流式
+			modelMode := getString(nodeConfig.Config, "modelMode", "system")
+			modelRepo := aiRepos.NewAIModelRepository(database.DB)
+			modelConfig, err := aiService.GetModelConfigForExecution(
+				modelMode,
+				getUint(nodeConfig.Config, "modelId", 0),
+				req.UserID,
+				nodeConfig.Config,
+				modelRepo,
+			)
+
+			// 检查是否启用流式输出
+			shouldUseStream := false
+			if err == nil && modelConfig != nil {
+				shouldUseStream = checkStreamEnabled(*nodeConfig, modelConfig)
 			}
 
-			e.ExecuteAINodeStream(ctx, *nodeConfig, dataFlow, variableContext, req.UserID, wrappedCallback)
+			if shouldUseStream {
+				// 使用流式执行AI节点（包含完整计费逻辑）
+				originalCallback := callback
+				wrappedCallback := func(nodeID string, content string, done bool, contentType string, err error) {
+					// 调用原始callback
+					originalCallback(nodeID, content, done, contentType, err)
+				}
 
-			// 标记AI节点为已执行（无论成功或失败）
-			executed[nodeConfig.ID] = true
+				e.ExecuteAINodeStream(ctx, *nodeConfig, dataFlow, variableContext, req.UserID, wrappedCallback)
 
-			// 继续执行下游节点（无论AI节点成功或失败）
-			// 注意：这里不continue，让代码继续执行到"找到下一个节点"的逻辑
+				// 标记AI节点为已执行（无论成功或失败）
+				executed[nodeConfig.ID] = true
+
+				// 继续执行下游节点（无论AI节点成功或失败）
+				// 注意：这里不continue，让代码继续执行到"找到下一个节点"的逻辑
+			} else {
+				// 非流式AI节点，使用普通执行（包含计费逻辑）
+				result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
+				if result.Success {
+					nodeData := NewNodeData(result.Data)
+					dataFlow.SetNodeOutput(nodeConfig.ID, nodeData)
+					variableContext.SetNodeOutput(nodeConfig.ID, nodeData)
+					resultJSON, _ := json.Marshal(result)
+					callback(nodeConfig.ID, string(resultJSON), false, "node_result", nil)
+				} else {
+					resultJSON, _ := json.Marshal(result)
+					callback(nodeConfig.ID, string(resultJSON), false, "node_result", fmt.Errorf("节点执行失败: %s", result.Error))
+				}
+				executed[nodeConfig.ID] = true
+			}
 		} else {
 			// 普通节点或非流式AI节点，使用普通执行
 			result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)

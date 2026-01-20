@@ -26,7 +26,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     if (key === 'profile') {
-      navigate('/profile');
+      navigate('/settings');
     } else if (key === 'logout') {
       handleLogout();
     }

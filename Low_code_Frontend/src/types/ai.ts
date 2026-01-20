@@ -26,9 +26,11 @@ export interface AIModel {
 export interface ProviderTemplate {
   provider: string;
   name: string;
+  icon?: string;
   description?: string;
   defaultBaseUrl?: string;
   supportedModels: string[];
+  capabilities?: string[]; // 例如: ['LLM', 'TEXT EMBEDDING', 'TTS']
   defaultConfig: {
     temperature?: number;
     maxTokens?: number;

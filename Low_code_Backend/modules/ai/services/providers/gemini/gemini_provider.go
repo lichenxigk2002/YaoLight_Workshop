@@ -302,7 +302,7 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 			// 检查 context 是否已取消
 			select {
 			case <-ctx.Done():
-				callback("", true, ctx.Err())
+				callback("", true, ctx.Err(), nil)
 				return ctx.Err()
 			default:
 				// 如果是其他错误，返回错误
@@ -321,7 +321,7 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 			if data == "[DONE]" {
 				// 流式完成时，不需要发送完整内容（已经在增量中发送了）
 				// 只发送完成信号
-				callback("", true, nil)
+				callback("", true, nil, nil)
 				return nil
 			}
 
@@ -353,24 +353,24 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 				if delta.Reasoning != nil {
 					if rStr, ok := delta.Reasoning.(string); ok && rStr != "" {
 						fullReasoningContent.WriteString(rStr)
-						callback("[REASONING_DELTA]"+rStr, false, nil)
+						callback("[REASONING_DELTA]"+rStr, false, nil, nil)
 					}
 				} else if delta.ReasoningDetails != nil {
 					// 2. Check reasoning_details (Gemini 原生或其他)
 					if rStr, ok := delta.ReasoningDetails.(string); ok && rStr != "" {
 						fullReasoningContent.WriteString(rStr)
-						callback("[REASONING_DELTA]"+rStr, false, nil)
+						callback("[REASONING_DELTA]"+rStr, false, nil, nil)
 					}
 				} else if delta.ReasoningContent != "" {
 					// 3. Check reasoning_content (DeepSeek R1 style)
 					fullReasoningContent.WriteString(delta.ReasoningContent)
-					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil, nil)
 				}
 
 				// 处理正常内容
 				if delta.Content != "" {
 					fullContent.WriteString(delta.Content)
-					callback("[CONTENT_DELTA]"+delta.Content, false, nil)
+					callback("[CONTENT_DELTA]"+delta.Content, false, nil, nil)
 				}
 			}
 		}

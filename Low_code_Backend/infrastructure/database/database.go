@@ -67,6 +67,8 @@ func InitDatabase() error {
 		return fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
+	EnsureAIModelsProviderConstraint()
+
 	// 初始化系统预置数据
 	if err := SeedNodeTypes(); err != nil {
 		log.Printf("⚠️ Warning: failed to seed node types: %v", err)
@@ -79,6 +81,12 @@ func InitDatabase() error {
 	return nil
 }
 
+func EnsureAIModelsProviderConstraint() {
+	DB.Exec(`ALTER TABLE ai_models DROP CONSTRAINT IF EXISTS chk_ai_models_provider`)
+	DB.Exec(`ALTER TABLE ai_models DROP CONSTRAINT IF EXISTS ai_models_provider_check`)
+	DB.Exec(`ALTER TABLE ai_models ADD CONSTRAINT chk_ai_models_provider CHECK (provider IN ('openai','azure','anthropic','google','custom','deepseek','doubao','qwen','qianwen','spark','hunyuan','zhipuai','gemini','gpt','grok'))`)
+}
+
 // AutoMigrate 自动迁移所有模型
 func AutoMigrate() error {
 	log.Println("🔄 Starting database migration...")
@@ -87,6 +95,7 @@ func AutoMigrate() error {
 	err := DB.AutoMigrate(
 		// 基础表（无外键依赖）
 		&userModels.User{},
+		&userModels.TokenTransaction{},
 		&nodeModels.NodeType{},
 		&systemModels.SystemConfig{},
 		&systemModels.Statistics{},

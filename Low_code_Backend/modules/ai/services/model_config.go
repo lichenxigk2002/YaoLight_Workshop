@@ -34,7 +34,7 @@ func GetModelConfigForExecution(
 // getSystemPresetConfig 获取系统预设模型配置
 func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIModelConfig, error) {
 	// 从customConfig获取provider
-	provider := getString(customConfig, "provider", "deepseek")
+	provider := normalizeProvider(getString(customConfig, "provider", "deepseek"))
 
 	// 根据provider获取预设API Key
 	var apiKey string
@@ -138,6 +138,13 @@ func getSavedModelConfig(modelID uint, userID uint, customConfig map[string]inte
 		SystemPrompt:     getStringValue(entity.SystemPrompt),
 	}
 
+	// 处理供应商级别配置：如果数据库中存的是 __provider_default__，则必须由 customConfig 提供实际模型名
+	if config.ModelName == "__provider_default__" {
+		if actualModel := getString(customConfig, "modelName", ""); actualModel != "" {
+			config.ModelName = actualModel
+		}
+	}
+
 	// 允许节点配置覆盖部分参数
 	if temp := getFloat64Ptr(customConfig, "temperature"); temp != nil {
 		config.Temperature = temp
@@ -154,7 +161,7 @@ func getSavedModelConfig(modelID uint, userID uint, customConfig map[string]inte
 
 // getCustomModelConfig 获取自定义模型配置
 func getCustomModelConfig(customConfig map[string]interface{}) (*providers.AIModelConfig, error) {
-	provider := getString(customConfig, "provider", "")
+	provider := normalizeProvider(getString(customConfig, "provider", ""))
 	modelName := getString(customConfig, "modelName", "")
 	apiKey := getString(customConfig, "apiKey", "")
 

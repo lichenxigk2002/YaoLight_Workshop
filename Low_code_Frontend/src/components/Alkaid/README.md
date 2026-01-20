@@ -176,6 +176,33 @@ start → crawler → dataclean → ai → output → end
 - `experimental`：可生成但需要更严格校验/提示
 - `stub`：暂不建议默认生成（除非用户显式要求）
 
+### 4.6 后端逻辑摄入方案：如何让 AI 掌握"真实代码执行逻辑"
+
+为了让瑶光星不仅仅是生成"看起来对"的 JSON，而是生成"逻辑上完全符合后端执行器"的工作流，必须建立从后端代码到 AI 上下文的自动化链路。推荐采用以下三级演进方案：
+
+#### L1（模式驱动）：JSON Schema 强制对齐
+- **实现**：后端为每个 `NodeConfig` 定义严格的 JSON Schema。
+- **价值**：AI 通过阅读 Schema 掌握字段类型、必填项、枚举值（如 `extractMode` 只能是 `smart` 或 `regex`）。
+- **同步方式**：后端启动时生成 `nodes_schema.json`，前端 `alkaidApi` 导入并注入 Prompt。
+
+#### L2（代码反射）：自动提取 Struct Tags 与逻辑描述
+- **实现**：利用 Go 反射（Reflection）遍历 `WorkflowExecutor` 中的节点结构体。
+- **深度信息**：
+  - 提取 `json` tag 确定字段名。
+  - 提取自定义 tag（如 `alkaid:"用于配置抓取的 URL"`）作为 AI 的字段描述。
+  - 提取 `validate` tag（如 `required,url`）作为生成约束。
+- **自动化**：后端提供 `/api/alkaid/capabilities` 接口，动态返回由代码直接生成的“节点能力说明书”。
+
+#### L3（校验闭环）："生成-验证-反馈"的 Trial-and-Error 循环
+- **实现**：AI 生成 JSON 后，不直接交付，而是先由后端 `WorkflowExecutor.Validate()` 进行“干跑”校验。
+- **反馈闭环**：
+  1. AI 生成工作流。
+  2. 后端返回详细错误（如：“node-2 的 url 格式不正确”或“node-4 引用了 node-1 不存在的输出变量”）。
+  3. AI 根据错误信息进行自我修正（Self-Correction），直到校验通过。
+- **价值**：即使后端逻辑发生变更（如新增了一个必填参数），AI 也能通过校验失败的反馈即时“学会”新逻辑，无需手动更新 Prompt。
+
+通过上述方案，可以确保 AI 的生成能力与后端执行逻辑保持**强一致性**，真正实现“生成即运行”。
+
 ## 5. 瑶光星生成器（从需求到工作流）的策略
 
 ### 5.1 生成目标（必须满足）

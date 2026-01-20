@@ -192,6 +192,9 @@ func (p *GPTProvider) ChatStream(ctx context.Context, config *providers.AIModelC
 		"model":    config.ModelName,
 		"messages": messages,
 		"stream":   true,
+		"stream_options": map[string]interface{}{
+			"include_usage": true,
+		},
 	}
 
 	if val, ok := providerConfig["reasoning"]; ok {
@@ -262,7 +265,7 @@ func (p *GPTProvider) ChatStream(ctx context.Context, config *providers.AIModelC
 			}
 			select {
 			case <-ctx.Done():
-				callback("", true, ctx.Err())
+				callback("", true, ctx.Err(), nil)
 				return ctx.Err()
 			default:
 				return fmt.Errorf("failed to read stream: %w", err)
@@ -277,7 +280,7 @@ func (p *GPTProvider) ChatStream(ctx context.Context, config *providers.AIModelC
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
 			if data == "[DONE]" {
-				callback("", true, nil)
+				callback("", true, nil, nil)
 				return nil
 			}
 
@@ -291,10 +294,17 @@ func (p *GPTProvider) ChatStream(ctx context.Context, config *providers.AIModelC
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
+				Usage *providers.TokenUsage `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 				continue
+			}
+
+			// 如果有Token使用信息，传递给回调
+			if streamResponse.Usage != nil {
+				callback("", true, nil, streamResponse.Usage)
+				return nil
 			}
 
 			if len(streamResponse.Choices) > 0 {
@@ -302,18 +312,18 @@ func (p *GPTProvider) ChatStream(ctx context.Context, config *providers.AIModelC
 
 				if delta.Reasoning != nil {
 					if rStr, ok := delta.Reasoning.(string); ok && rStr != "" {
-						callback("[REASONING_DELTA]"+rStr, false, nil)
+						callback("[REASONING_DELTA]"+rStr, false, nil, nil)
 					}
 				} else if delta.ReasoningDetails != nil {
 					if rStr, ok := delta.ReasoningDetails.(string); ok && rStr != "" {
-						callback("[REASONING_DELTA]"+rStr, false, nil)
+						callback("[REASONING_DELTA]"+rStr, false, nil, nil)
 					}
 				} else if delta.ReasoningContent != "" {
-					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil, nil)
 				}
 
 				if delta.Content != "" {
-					callback("[CONTENT_DELTA]"+delta.Content, false, nil)
+					callback("[CONTENT_DELTA]"+delta.Content, false, nil, nil)
 				}
 			}
 		}
