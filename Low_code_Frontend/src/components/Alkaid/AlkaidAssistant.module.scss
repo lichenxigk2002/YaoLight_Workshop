@@ -1,0 +1,553 @@
+.floatingButton {
+  position: absolute;
+  top: 60px; // 在保存状态下方（如果保存状态高度约40px）
+  left: 16px;
+  z-index: 100;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: scale(1.1);
+  }
+}
+
+.alkaidButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--text-primary);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  outline: none;
+
+  &:hover {
+    background: var(--bg-secondary);
+    border-color: var(--text-primary);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  svg {
+    color: var(--text-primary);
+  }
+}
+
+.chatWindow {
+  position: absolute;
+  top: 120px; // 在悬浮按钮下方
+  left: 16px;
+  width: 420px;
+  height: 600px;
+  max-height: calc(100vh - 160px);
+  z-index: 101;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chatCard {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+
+  :global(.ant-card-head) {
+    border-bottom: 1px solid var(--border-secondary);
+    padding: 12px 16px;
+    min-height: 48px;
+    flex-shrink: 0;
+  }
+
+  :global(.ant-card-body) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+  }
+}
+
+.messagesContainer {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-secondary);
+
+  // 自定义滚动条
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-secondary);
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--text-tertiary);
+    }
+  }
+}
+
+.sessionOverlay {
+  position: absolute;
+  left: 0;
+  top: 0; // 相对于 card body，从顶部开始
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.sessionSidebar {
+  position: absolute;
+  left: 0;
+  top: 0; // 相对于 card body，从顶部开始
+  width: 280px;
+  height: 100%; // 占满整个 body 高度
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-secondary);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15); // 侧边栏在左侧，阴影只在右侧
+  animation: slideInLeft 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.sidebarHeader {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-secondary);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sidebarContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+
+  // 自定义滚动条
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-secondary);
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--text-tertiary);
+    }
+  }
+}
+
+.sessionItem {
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: var(--bg-secondary);
+  }
+
+  &.active {
+    background-color: var(--bg-secondary);
+    border-left: 3px solid var(--primary);
+  }
+
+  :global(.ant-list-item) {
+    border-bottom: 1px solid var(--border-secondary);
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 32px;
+  color: var(--text-tertiary);
+}
+
+.message {
+  display: flex;
+  margin-bottom: 12px; // 减小间距
+  width: 100%;
+
+  &.user {
+    justify-content: flex-end;
+
+    .messageContent {
+      flex-direction: row; // 头像在右，内容在左
+    }
+
+    .messageBubble {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border-radius: 12px 12px 2px 12px;
+      border: 1px solid var(--border-secondary);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+      // 减小用户消息中 p 标签的上下间距
+      p {
+        margin: 2px 0 !important;
+
+        &:first-child {
+          margin-top: 0 !important;
+        }
+
+        &:last-child {
+          margin-bottom: 0 !important;
+        }
+      }
+    }
+
+    .avatarWrapper {
+      margin-left: 8px;
+      align-self: flex-start; // 顶部对齐
+      margin-top: 0; // 确保顶部无额外间距
+    }
+  }
+
+  &.assistant {
+    justify-content: flex-start;
+
+    .messageContent {
+      flex-direction: row;
+    }
+
+    .messageBubble {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-secondary);
+      border-radius: 12px 12px 12px 2px; // 左下角圆角小
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    // 移除 avatarWrapper 相关样式，因为 AI 没有头像了
+  }
+}
+
+.messageContent {
+  display: flex;
+  align-items: flex-start; // 顶部对齐
+  max-width: 90%;
+  width: fit-content; // 宽度自适应内容
+}
+
+.avatarWrapper {
+  flex-shrink: 0;
+  // margin-top: 2px; // 移除顶部对齐
+}
+
+.avatar,
+.userAvatar {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-secondary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0; // 防止头像被压缩
+}
+
+.avatar {
+  background: var(--primary);
+  color: var(--bg-primary);
+  font-size: 14px;
+}
+
+.userAvatar {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+
+  :global(.anticon) {
+    font-size: 14px;
+  }
+}
+
+.messageBubble {
+  padding: 8px 8px;
+  word-wrap: break-word;
+  word-break: break-word;
+  font-size: 13px; // 缩小字体
+  line-height: 1.5;
+  position: relative;
+  min-height: 28px; // 缩小最小高度
+  display: flex;
+  align-items: center;
+  width: fit-content; // 宽度自适应内容
+  max-width: 100%; // 确保不超过容器
+}
+
+.messageText {
+  width: 100%;
+  font-size: 13px; // 缩小字体
+  line-height: 1.5;
+  // white-space: pre-wrap; // 移除，因为Markdown渲染器会处理
+
+  // 复用 MarkdownRenderer 的样式并做微调
+  :global(.markdown-container) {
+    font-size: 13px;
+    line-height: 1.5;
+    color: inherit; // 继承父级颜色（在用户消息中是白色，在助手消息中是默认色）
+
+    p {
+      margin-bottom: 8px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    ul,
+    ol {
+      padding-left: 20px;
+      margin-bottom: 8px;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    code {
+      background: rgba(0, 0, 0, 0.06);
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      color: inherit;
+    }
+
+    pre {
+      background: rgba(0, 0, 0, 0.04);
+      padding: 8px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 8px 0;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+
+      code {
+        background: none;
+        padding: 0;
+        border: none;
+        font-size: 12px;
+        color: inherit;
+      }
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      margin-top: 12px;
+      margin-bottom: 6px;
+      font-weight: 600;
+      line-height: 1.4;
+
+      &:first-child {
+        margin-top: 0;
+      }
+    }
+  }
+}
+
+.processStepsWrapper {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.workflowFileCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  width: fit-content;
+  max-width: 100%;
+
+  &:hover {
+    border-color: var(--primary);
+    background: var(--bg-primary);
+  }
+}
+
+.workflowFileIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  border: 1px solid var(--border-secondary);
+}
+
+.workflowFileInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.inputContainer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-secondary);
+  background: var(--bg-primary);
+  flex-shrink: 0;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.input {
+  flex: 1;
+
+  :global(.ant-input) {
+    border-radius: 12px;
+    resize: none;
+    border: 1px solid var(--border-secondary);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    transition: all 0.2s ease;
+    box-shadow: none !important;
+    outline: none !important;
+
+    &:focus,
+    &:focus-visible,
+    &:focus-within,
+    &.ant-input-focused {
+      border-color: var(--border-secondary);
+      box-shadow: none !important;
+      outline: none !important;
+    }
+
+    &::placeholder {
+      color: var(--text-tertiary);
+    }
+  }
+
+  // 覆盖 Ant Design 的 focus 样式
+  :global(.ant-input-focused) {
+    box-shadow: none !important;
+    outline: none !important;
+    border-color: var(--border-secondary) !important;
+  }
+}
+
+.sendButton {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--bg-primary);
+    transform: scale(1.02);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  :global(.anticon) {
+    font-size: 18px;
+  }
+}
+
+// 响应式设计
+@media (max-width: 768px) {
+  .chatWindow {
+    width: calc(100vw - 32px);
+    height: calc(100vh - 160px);
+    left: 16px;
+    right: 16px;
+  }
+}

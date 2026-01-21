@@ -161,9 +161,9 @@
       "modelType": "模型类型",
       "selectModel": "选择模型",
       "apiKey": "API Key",
-    "apiKeyRequired": "请输入API Key",
-    "apiKeyPlaceholder": "若不修改请留空",
-    "baseUrl": "Base URL",
+      "apiKeyRequired": "请输入API Key",
+      "apiKeyPlaceholder": "若不修改请留空",
+      "baseUrl": "Base URL",
       "baseUrlTooltip": "API的基础URL，通常以 http:// 或 https:// 开头",
       "temperature": "Temperature",
       "maxTokens": "最大消耗",
@@ -171,6 +171,30 @@
       "noSystemModels": "暂无系统预设模型",
       "loadUserModelsFailed": "加载用户模型失败"
     }
+  },
+  "alkaid": {
+    "sessionHistory": "会话历史",
+    "newChat": "新建对话",
+    "noSessions": "暂无会话",
+    "sessionDeleted": "会话已删除",
+    "deleteSessionFailed": "删除会话失败",
+    "title": "瑶光星助手",
+    "emptyState": "你好！我是瑶光星助手，可以帮助你生成工作流。试试说：\"帮我生成一个抓取网页并总结的工作流\"",
+    "inputPlaceholder": "输入你的需求...",
+    "send": "发送",
+    "createSessionFailed": "创建会话失败",
+    "sendMessageFailed": "发送消息失败",
+    "workflowExtracted": "工作流已提取，正在导入...",
+    "workflowImported": "工作流已导入",
+    "importFailed": "导入失败",
+    "workflowFile": "工作流文件",
+    "clickToImport": "点击导入到工作流编辑器",
+    "importWorkflow": "导入工作流",
+    "import": "导入",
+    "download": "下载",
+    "hasExistingWorkflow": "工作流编辑器中已有节点，导入将替换现有工作流。请先清空后再导入。",
+    "workflowDownloaded": "工作流已下载",
+    "downloadFailed": "下载失败"
   },
   "node": {
     "types": {

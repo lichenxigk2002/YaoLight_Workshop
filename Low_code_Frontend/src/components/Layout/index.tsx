@@ -85,17 +85,6 @@ export default function Layout({ children }: LayoutProps) {
             className={styles.logoImage}
           />
           <span className={styles.brandText}>{t('common.brandName')}</span>
-          {user && (
-            <div className={styles.userInfo}>
-              <Avatar
-                size="small"
-                src={getAvatarUrl()}
-                icon={<UserOutlined />}
-                className={styles.userAvatar}
-              />
-              <span className={styles.userName}>{user.username}</span>
-            </div>
-          )}
         </div>
         <Space>
           <Button

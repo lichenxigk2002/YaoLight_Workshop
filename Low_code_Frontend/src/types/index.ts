@@ -1,6 +1,7 @@
 // 统一导出所有类型定义
 export * from './api';
 export * from './ai';
+export * from './alkaid';
 export * from './user';
 export * from './workflow';
 

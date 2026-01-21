@@ -34,6 +34,8 @@ import styles from './index.module.scss';
 import { useThemeStore } from '@/store/theme';
 import { isCommentNode } from '@/utils/nodeUtils';
 import { exportWorkflow, importWorkflow } from '@/utils/workflowImportExport';
+import { AlkaidAssistant } from '@/components/Alkaid';
+import { transformNodesFromLoadFormat, transformEdgesFromLoadFormat } from '@/utils/workflowTransformers';
 
 // 导入自定义Hooks
 import { useWorkflowNodes } from './hooks/useWorkflowNodes';
@@ -91,6 +93,7 @@ const WorkflowEditor: React.FC = () => {
   const hasInitialized = useRef(false);
   const [autoTestNodeId, setAutoTestNodeId] = useState<string | null>(null);
   const [nodeListVisible, setNodeListVisible] = useState(false);
+  const shouldFitViewAfterLoad = useRef(false); // 用于标记是否需要在加载后自动居中
 
   const defaultViewport = React.useMemo(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0, zoom: 1 };
@@ -373,9 +376,27 @@ const WorkflowEditor: React.FC = () => {
   // 加载工作流节点和边
   useEffect(() => {
     if (workflowId) {
+      shouldFitViewAfterLoad.current = true; // 标记需要自动居中
       loadWorkflowNodes();
     }
   }, [workflowId, loadWorkflowNodes]);
+
+  // 节点加载完成后自动居中显示
+  useEffect(() => {
+    if (
+      nodes.length > 0 &&
+      reactFlowInstance &&
+      hasInitialized.current &&
+      shouldFitViewAfterLoad.current
+    ) {
+      // 延迟执行以确保节点已经渲染
+      const timer = setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
+        shouldFitViewAfterLoad.current = false; // 重置标记，避免重复触发
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [nodes, reactFlowInstance]);
 
   // 键盘快捷键：Delete键删除选中节点
   useEffect(() => {
@@ -474,6 +495,44 @@ const WorkflowEditor: React.FC = () => {
               </span>
             </div>
           )}
+
+          {/* 瑶光星助手 */}
+          <AlkaidAssistant
+            workflowId={workflowId}
+            hasExistingNodes={nodes.length > 0 || edges.length > 0}
+            onWorkflowGenerated={async (workflowData) => {
+              try {
+                // 转换节点数据
+                const importedNodes = transformNodesFromLoadFormat(workflowData.nodes, getNodeLabel);
+                // 转换边数据
+                const importedEdges = transformEdgesFromLoadFormat(workflowData.edges);
+
+                // 如果当前有节点，询问是否替换
+                if (nodes.length > 0 || edges.length > 0) {
+                  // 直接替换（可以根据需要改为确认对话框）
+                  setNodes(importedNodes);
+                  setEdges(importedEdges);
+                  updateNodeIdCounter(importedNodes);
+                  message.success(t('alkaid.workflowImported') || '工作流已导入');
+                } else {
+                  setNodes(importedNodes);
+                  setEdges(importedEdges);
+                  updateNodeIdCounter(importedNodes);
+                  message.success(t('alkaid.workflowImported') || '工作流已导入');
+                }
+
+                // 自动适配视图
+                setTimeout(() => {
+                  if (reactFlowInstance) {
+                    reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
+                  }
+                }, 100);
+              } catch (error: any) {
+                message.error(t('alkaid.importFailed') || '导入失败: ' + (error.message || '未知错误'));
+                console.error('Import workflow error:', error);
+              }
+            }}
+          />
 
           {/* 悬浮操作按钮 */}
           <div className={styles.actionButtons}>
