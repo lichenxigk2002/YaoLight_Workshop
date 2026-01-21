@@ -18,6 +18,7 @@ type WorkflowExecutor struct {
 	datacleanService *datacleanService.DataCleanService
 	aiService        *aiService.AIService
 	userRepo         repository.UserRepository
+	pricingService   *aiService.PricingService
 }
 
 // NodeConfig 节点配置
@@ -63,11 +64,13 @@ func NewWorkflowExecutor() *WorkflowExecutor {
 	modelRepo := aiRepos.NewAIModelRepository(database.DB)
 	templateRepo := aiRepos.NewProviderTemplateRepository(database.DB)
 	userRepo := userRepos.NewUserRepository(database.DB)
+	pricingRepo := aiRepos.NewPricingConfigRepository(database.DB)
 	return &WorkflowExecutor{
 		crawlerService:   crawlerService.NewCrawlerService(),
 		datacleanService: datacleanService.NewDataCleanService(),
-		aiService:        aiService.NewAIService(modelRepo, templateRepo),
+		aiService:        aiService.NewAIService(modelRepo, templateRepo, pricingRepo),
 		userRepo:         userRepo,
+		pricingService:   aiService.NewPricingService(pricingRepo),
 	}
 }
 

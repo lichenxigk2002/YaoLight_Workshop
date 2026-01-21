@@ -16,6 +16,7 @@ export interface AIModel {
   baseUrl?: string;
   endpoint?: string;
   params?: Record<string, any>; // 模型级别的自定义配置（JSONB），例如 DeepSeek 的 stream 和 thinking
+  supportedModels?: string[]; // 当 modelName 为 __provider_default__ 时，该供应商的所有子模型列表
   createdAt: string;
   updatedAt: string;
 }

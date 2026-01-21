@@ -101,19 +101,13 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	// 构建提供商特定配置（DeepSeek特有参数）
 	providerConfig := make(map[string]interface{})
 	stream := false
-	var costPerToken float64
 	var billingModelID *uint
 
 	// **计费逻辑说明**：
 	// - system模式：使用系统API Key，需要扣费和扣除token余额（系统需要向服务商付费）
 	// - saved模式：使用用户自己的API Key，不扣费不扣token（用户自己向服务商付费，只记录使用量）
 	// - custom模式：使用临时API Key，不扣费不扣token（用户自己向服务商付费，只记录使用量）
-
-	// 只有system模式需要计费，TODO: 后续从计费文档中获取精确价格
-	if modelMode == "system" {
-		// 暂时使用默认值，后续需要根据provider+modelName获取精确价格
-		costPerToken = 0.000001 // 每token的价格（USD），后续会从计费文档读取
-	}
+	// 费用计算现在使用 PricingService 从数据库读取计费配置
 
 	// 如果使用已保存的模型，从模型配置读取默认值（但不用于计费，因为用的是用户自己的API Key）
 	if modelMode == "saved" {
@@ -298,23 +292,50 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 
 				// 只有system模式需要扣费和扣除token余额
 				if modelMode == "system" {
-					// 扣除用户Token余额（因为使用的是系统的API Key，系统需要向服务商付费）
+					// 使用 PricingService 计算等效Token数（星尘消耗）
+					// 以DeepSeek为基准，其他模型按价格倍数计算等效Token
+					equivalentTokens, err := e.pricingService.CalculateEquivalentTokens(usage, modelConfig.Provider, modelConfig.ModelName)
+					if err != nil {
+						log.Printf("Failed to calculate equivalent tokens: %v, using actual tokens", err)
+						equivalentTokens = int64(usage.TotalTokens)
+					}
+
+					// 扣除用户星尘余额（等效Token数）
 					deductErr := database.DB.Model(&userModels.User{}).
 						Where("id = ?", userID).
-						Update("token_balance", gorm.Expr("token_balance - ?", usage.TotalTokens)).Error
+						Update("token_balance", gorm.Expr("token_balance - ?", equivalentTokens)).Error
 					if deductErr != nil {
 						log.Printf("Token deduction failed for user %d: %v", userID, deductErr)
 					} else {
-						log.Printf("Deducted %d tokens for user %d (Stream Mode in executeAINode, system model)", usage.TotalTokens, userID)
+						log.Printf("Deducted %d stardust (equivalent tokens) for user %d, actual tokens: %d (Stream Mode in executeAINode, system model)",
+							equivalentTokens, userID, usage.TotalTokens)
 					}
 
-					// 计算费用（TODO: 需要根据provider+modelName从计费文档获取精确价格）
-					cost := float64(usage.TotalTokens) * costPerToken
+					// 计算费用（仅用于记录）
+					cost, err := e.pricingService.CalculateCost(usage, modelConfig.Provider, modelConfig.ModelName)
+					if err != nil {
+						log.Printf("Failed to calculate cost: %v", err)
+						cost = 0
+					}
+					// 从数据库获取货币单位（USD或CNY）
+					currency := e.pricingService.GetCurrency(modelConfig.Provider, modelConfig.ModelName)
+
+					// 提取扩展Token信息
+					var cacheRead, cacheWrite, audio int
+					if usage.CacheReadTokens != nil {
+						cacheRead = *usage.CacheReadTokens
+					}
+					if usage.CacheWriteTokens != nil {
+						cacheWrite = *usage.CacheWriteTokens
+					}
+					if usage.AudioTokens != nil {
+						audio = *usage.AudioTokens
+					}
 
 					// 创建计费记录
 					transaction := userModels.TokenTransaction{
 						UserID:           userID,
-						Amount:           -int64(usage.TotalTokens),
+						Amount:           -equivalentTokens, // 扣除等效Token数（星尘）
 						Type:             "consumption",
 						RelatedID:        node.ID,
 						Description:      "AI节点消耗（系统预设模型）",
@@ -324,9 +345,12 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 						ModelID:          billingModelID,
 						PromptTokens:     usage.PromptTokens,
 						CompletionTokens: usage.CompletionTokens,
-						TotalTokens:      usage.TotalTokens,
-						Cost:             cost,
-						Currency:         "USD",
+						TotalTokens:      usage.TotalTokens, // 实际Token数用于记录
+						CacheReadTokens:  cacheRead,
+						CacheWriteTokens: cacheWrite,
+						AudioTokens:      audio,
+						Cost:             cost, // 费用仅用于记录
+						Currency:         currency,
 					}
 					if createErr := database.DB.Create(&transaction).Error; createErr != nil {
 						log.Printf("Create token transaction failed for user %d: %v", userID, createErr)
@@ -421,27 +445,60 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 
 	// **计费逻辑**：只有system模式才扣费和扣除token余额
 	// saved和custom模式使用用户自己的API Key，不扣费不扣token，只记录使用量
-	if chatResp.TokensUsed > 0 {
+	if chatResp.TokensUsed > 0 || (chatResp.Usage != nil && chatResp.Usage.TotalTokens > 0) {
+		// 优先使用详细的 Usage 信息
+		usage := chatResp.Usage
+		if usage == nil {
+			usage = &providers.TokenUsage{
+				TotalTokens: chatResp.TokensUsed,
+			}
+		}
+
 		// 只有system模式需要扣费和扣除token余额
 		if modelMode == "system" {
-			// 扣除用户Token余额（因为使用的是系统的API Key，系统需要向服务商付费）
+			// 使用 PricingService 计算等效Token数（星尘消耗）
+			equivalentTokens, err := e.pricingService.CalculateEquivalentTokens(usage, modelConfig.Provider, modelConfig.ModelName)
+			if err != nil {
+				log.Printf("Failed to calculate equivalent tokens: %v, using actual tokens", err)
+				equivalentTokens = int64(usage.TotalTokens)
+			}
+
+			// 扣除用户星尘余额（等效Token数）
 			deductErr := database.DB.Model(&userModels.User{}).
 				Where("id = ?", userID).
-				Update("token_balance", gorm.Expr("token_balance - ?", chatResp.TokensUsed)).Error
+				Update("token_balance", gorm.Expr("token_balance - ?", equivalentTokens)).Error
 			if deductErr != nil {
 				log.Printf("Token deduction failed for user %d: %v", userID, deductErr)
 			} else {
-				log.Printf("Deducted %d tokens for user %d (Non-Stream Mode, system model)", chatResp.TokensUsed, userID)
+				log.Printf("Deducted %d stardust (equivalent tokens) for user %d, actual tokens: %d (Non-Stream Mode, system model)",
+					equivalentTokens, userID, usage.TotalTokens)
 			}
 
-			// 计算费用（TODO: 需要根据provider+modelName从计费文档获取精确价格）
-			cost := float64(chatResp.TokensUsed) * costPerToken
+			// 计算费用（仅用于记录）
+			cost, err := e.pricingService.CalculateCost(usage, modelConfig.Provider, modelConfig.ModelName)
+			if err != nil {
+				log.Printf("Failed to calculate cost: %v", err)
+				cost = 0
+			}
+			// 从数据库获取货币单位（USD或CNY）
+			currency := e.pricingService.GetCurrency(modelConfig.Provider, modelConfig.ModelName)
+
+			// 提取扩展Token信息
+			var cacheRead, cacheWrite, audio int
+			if usage.CacheReadTokens != nil {
+				cacheRead = *usage.CacheReadTokens
+			}
+			if usage.CacheWriteTokens != nil {
+				cacheWrite = *usage.CacheWriteTokens
+			}
+			if usage.AudioTokens != nil {
+				audio = *usage.AudioTokens
+			}
 
 			// 创建计费记录
-			// 注意：ChatResponse 只有 TokensUsed，没有详细的 PromptTokens 和 CompletionTokens
 			transaction := userModels.TokenTransaction{
 				UserID:           userID,
-				Amount:           -int64(chatResp.TokensUsed),
+				Amount:           -equivalentTokens, // 扣除等效Token数（星尘）
 				Type:             "consumption",
 				RelatedID:        node.ID,
 				Description:      "AI节点消耗（系统预设模型）",
@@ -449,11 +506,14 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 				ModelName:        modelConfig.ModelName,
 				ModelMode:        modelMode,
 				ModelID:          billingModelID,
-				PromptTokens:     0, // ChatResponse 不提供详细信息
-				CompletionTokens: 0, // ChatResponse 不提供详细信息
-				TotalTokens:      chatResp.TokensUsed,
-				Cost:             cost,
-				Currency:         "USD",
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens, // 实际Token数用于记录
+				CacheReadTokens:  cacheRead,
+				CacheWriteTokens: cacheWrite,
+				AudioTokens:      audio,
+				Cost:             cost, // 费用仅用于记录
+				Currency:         currency,
 			}
 			if createErr := database.DB.Create(&transaction).Error; createErr != nil {
 				log.Printf("Create token transaction failed for user %d: %v", userID, createErr)
@@ -461,9 +521,20 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 		} else {
 			// saved或custom模式：使用用户自己的API Key，只记录使用量，不扣费不扣token
 			log.Printf("Recording usage (no billing, user's own API Key): userID=%d, mode=%s, provider=%s, totalTokens=%d",
-				userID, modelMode, modelConfig.Provider, chatResp.TokensUsed)
+				userID, modelMode, modelConfig.Provider, usage.TotalTokens)
 
-			// 注意：ChatResponse 只有 TokensUsed，没有详细的 PromptTokens 和 CompletionTokens
+			// 提取扩展Token信息
+			var cacheRead, cacheWrite, audio int
+			if usage.CacheReadTokens != nil {
+				cacheRead = *usage.CacheReadTokens
+			}
+			if usage.CacheWriteTokens != nil {
+				cacheWrite = *usage.CacheWriteTokens
+			}
+			if usage.AudioTokens != nil {
+				audio = *usage.AudioTokens
+			}
+
 			transaction := userModels.TokenTransaction{
 				UserID:           userID,
 				Amount:           0,              // 不扣除token余额
@@ -474,9 +545,12 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 				ModelName:        modelConfig.ModelName,
 				ModelMode:        modelMode,
 				ModelID:          billingModelID,
-				PromptTokens:     0, // ChatResponse 不提供详细信息
-				CompletionTokens: 0, // ChatResponse 不提供详细信息
-				TotalTokens:      chatResp.TokensUsed,
+				PromptTokens:     usage.PromptTokens,
+				CompletionTokens: usage.CompletionTokens,
+				TotalTokens:      usage.TotalTokens,
+				CacheReadTokens:  cacheRead,
+				CacheWriteTokens: cacheWrite,
+				AudioTokens:      audio,
 				Cost:             0, // 不产生费用
 				Currency:         "USD",
 			}

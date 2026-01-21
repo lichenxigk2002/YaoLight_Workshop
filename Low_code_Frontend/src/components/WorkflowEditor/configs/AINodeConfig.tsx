@@ -282,6 +282,22 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
     try {
       const response = await aiApi.getModels({ page: 1, pageSize: 100 });
       setUserModels(response.list || []);
+      
+      // 如果节点已配置了已保存模型，自动设置 provider 和 modelName
+      const modelId = form.getFieldValue('modelId');
+      if (modelId) {
+        const selectedModel = response.list?.find(m => m.id === modelId);
+        if (selectedModel) {
+          // 设置 provider（用于更新节点图标）
+          if (!form.getFieldValue('provider')) {
+            form.setFieldValue('provider', selectedModel.provider);
+          }
+          // 如果模型不是 __provider_default__，设置 modelName
+          if (selectedModel.modelName !== '__provider_default__' && !form.getFieldValue('modelName')) {
+            form.setFieldValue('modelName', selectedModel.modelName);
+          }
+        }
+      }
     } catch (error) {
       message.error(t('node.config.ai.loadUserModelsFailed'));
     } finally {
@@ -473,11 +489,22 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                       {t('node.config.ai.savedModelDesc')}
                     </div>
                     <div className={styles.configForm}>
+                      <Form.Item label={t('node.config.ai.displayMode') || '展示方式'} className={styles.formItem}>
+                        <Segmented
+                          block
+                          motion={false}
+                          value={providerPickerMode}
+                          onChange={(val) => setProviderPickerMode(val as ProviderPickerMode)}
+                          className={partsStyles.segmentedControl}
+                          options={displayModeOptions}
+                        />
+                      </Form.Item>
                       <Form.Item
                         label={t('node.config.ai.selectModel')}
                         name="modelId"
                         rules={[{ required: true, message: t('node.config.ai.selectSavedModelRequired') }]}
                         className={styles.formItem}
+                        style={providerPickerMode === 'cards' ? { display: 'none' } : {}}
                       >
                         <Select
                           placeholder={t('node.config.ai.selectSavedModel')}
@@ -492,6 +519,20 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                             const searchText = `${model.name} ${model.provider} ${model.modelName}`.toLowerCase();
                             return searchText.includes(input.toLowerCase());
                           }}
+                          onChange={(value) => {
+                            form.setFieldValue('modelId', value);
+                            // 保存 provider 到配置中，以便更新节点图标
+                            const selectedModel = userModels.find(m => m.id === value);
+                            if (selectedModel) {
+                              form.setFieldValue('provider', selectedModel.provider);
+                              // 如果选择的模型是 __provider_default__，清空 modelName 让用户重新选择
+                              if (selectedModel.modelName === '__provider_default__') {
+                                form.setFieldValue('modelName', undefined);
+                              } else {
+                                form.setFieldValue('modelName', selectedModel.modelName);
+                              }
+                            }
+                          }}
                           onFocus={() => {
                             // 当聚焦时，如果列表为空，重新加载
                             if (userModels.length === 0 && !loading) {
@@ -502,6 +543,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                           {userModels.map((model) => (
                             <Option key={model.id} value={model.id}>
                               <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
+                                <ProviderIcon provider={model.provider} size={16} />
                                 <Tag color="green" className={styles.optionTag} title={model.name}>
                                   {model.name}
                                 </Tag>
@@ -522,6 +564,118 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                             </Option>
                           )}
                         </Select>
+                      </Form.Item>
+                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.modelId !== curr?.modelId || prev?.modelName !== curr?.modelName}>
+                        {({ getFieldValue }) => {
+                          const selectedModelId = getFieldValue('modelId');
+                          const selectedModel = userModels.find(m => m.id === selectedModelId);
+                          const isProviderDefault = selectedModel?.modelName === '__provider_default__';
+                          const supportedModels = selectedModel?.supportedModels || [];
+                          const currentModelName = getFieldValue('modelName');
+                          const providerTemplate = providerTemplates.find(t => t.provider === selectedModel?.provider);
+
+                          // 调试信息（开发环境）
+                          if (process.env.NODE_ENV === 'development' && selectedModel) {
+                            console.log('Selected model:', selectedModel);
+                            console.log('Is provider default:', isProviderDefault);
+                            console.log('Supported models:', supportedModels);
+                          }
+
+                          return (
+                            <>
+                              {providerPickerMode === 'cards' && selectedModel ? (
+                                <>
+                                  <div className={styles.label}>{t('node.config.ai.modelName')}</div>
+                                  <AIModelConfigPopup
+                                    form={form}
+                                    value={selectedModel.provider}
+                                    onChange={(val) => {
+                                      // 卡片模式下，用户选择的是已保存的模型，不应该改变 provider
+                                      // 这里只是为了兼容 AIModelConfigPopup 的接口
+                                      // 但确保 provider 被设置
+                                      form.setFieldValue('provider', selectedModel.provider);
+                                    }}
+                                    options={[{
+                                      value: selectedModel.provider,
+                                      title: selectedModel.name,
+                                      icon: <ProviderIcon provider={selectedModel.provider} size={18} />
+                                    }]}
+                                    supportedModels={isProviderDefault ? supportedModels : []}
+                                    currentModelName={currentModelName || selectedModel.modelName}
+                                    onModelChange={(val) => {
+                                      form.setFieldValue('modelName', val);
+                                      // 确保 provider 也被设置
+                                      form.setFieldValue('provider', selectedModel.provider);
+                                    }}
+                                    onOpen={() => {
+                                      restoreModelConfig();
+                                      // 打开时确保 provider 被设置
+                                      if (selectedModel) {
+                                        form.setFieldValue('provider', selectedModel.provider);
+                                        if (!isProviderDefault && selectedModel.modelName) {
+                                          form.setFieldValue('modelName', selectedModel.modelName);
+                                        }
+                                      }
+                                    }}
+                                    trigger={
+                                      <div className={styles.triggerCard}>
+                                        <div className={styles.triggerCardIcon}>
+                                          <ProviderIcon provider={selectedModel.provider} size={24} />
+                                        </div>
+                                        <div className={styles.triggerCardContent}>
+                                          <div className={styles.triggerCardTitle}>
+                                            {selectedModel.name}
+                                          </div>
+                                          <div className={styles.triggerCardDesc}>
+                                            {isProviderDefault
+                                              ? (currentModelName || '请选择模型版本')
+                                              : (selectedModel.modelName || '请选择模型')}
+                                          </div>
+                                        </div>
+                                        <div className={styles.triggerCardAction}>
+                                          <SettingOutlined />
+                                        </div>
+                                      </div>
+                                    }
+                                  />
+                                  {/* 隐藏字段以确保 Form 数据同步 */}
+                                  <Form.Item name="provider" style={{ display: 'none' }}>
+                                    <Input />
+                                  </Form.Item>
+                                  <Form.Item name="modelName" style={{ display: 'none' }} rules={[{ required: true }]}>
+                                    <Input />
+                                  </Form.Item>
+                                </>
+                              ) : (
+                                <>
+                                  {/* 当选择的模型是 __provider_default__ 时，显示子模型选择器 */}
+                                  {isProviderDefault && supportedModels.length > 0 && (
+                                    <Form.Item
+                                      label={t('node.config.ai.modelName') || '模型版本'}
+                                      name="modelName"
+                                      rules={[{ required: true, message: t('node.config.ai.modelNameRequired') || '请选择模型版本' }]}
+                                      className={styles.formItem}
+                                    >
+                                      <Select
+                                        className={styles.modelSelect}
+                                        placeholder={t('node.config.ai.selectModelVersion') || '请选择模型版本'}
+                                        onChange={(value) => {
+                                          form.setFieldValue('modelName', value);
+                                        }}
+                                      >
+                                        {supportedModels.map((modelName) => (
+                                          <Option key={modelName} value={modelName}>
+                                            {modelName}
+                                          </Option>
+                                        ))}
+                                      </Select>
+                                    </Form.Item>
+                                  )}
+                                </>
+                              )}
+                            </>
+                          );
+                        }}
                       </Form.Item>
                     </div>
                   </>

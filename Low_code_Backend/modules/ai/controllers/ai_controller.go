@@ -20,8 +20,9 @@ type AIController struct {
 func NewAIController() *AIController {
 	modelRepo := repositories.NewAIModelRepository(database.DB)
 	templateRepo := repositories.NewProviderTemplateRepository(database.DB)
+	pricingRepo := repositories.NewPricingConfigRepository(database.DB)
 	return &AIController{
-		aiService: services.NewAIService(modelRepo, templateRepo),
+		aiService: services.NewAIService(modelRepo, templateRepo, pricingRepo),
 	}
 }
 
@@ -91,6 +92,60 @@ func (c *AIController) GetModels(ctx *gin.Context) {
 		return
 	}
 
+	// 为 __provider_default__ 模型添加 supportedModels 字段
+	// 获取所有供应商的子模型列表
+	pricingRepo := repositories.NewPricingConfigRepository(database.DB)
+	allPricingConfigs, err := pricingRepo.FindAll()
+	if err == nil {
+		// 按 provider 分组模型
+		modelsByProvider := make(map[string][]string)
+		for _, config := range allPricingConfigs {
+			if config.IsActive {
+				modelsByProvider[config.Provider] = append(modelsByProvider[config.Provider], config.ModelName)
+			}
+		}
+
+		// 构建包含 supportedModels 的模型列表
+		modelsWithSupported := make([]map[string]interface{}, len(models))
+		for i, model := range models {
+			modelMap := map[string]interface{}{
+				"id":          model.ID,
+				"name":        model.Name,
+				"provider":    model.Provider,
+				"modelName":   model.ModelName,
+				"status":      model.Status,
+				"temperature": model.Temperature,
+				"maxTokens":   model.MaxTokens,
+				"baseUrl":     model.BaseURL,
+				"endpoint":    model.Endpoint,
+				"params":      model.Params,
+				"createdAt":   model.CreatedAt,
+				"updatedAt":   model.UpdatedAt,
+			}
+			// 如果是 __provider_default__，添加 supportedModels
+			if model.ModelName == "__provider_default__" {
+				if supportedModels, exists := modelsByProvider[model.Provider]; exists {
+					modelMap["supportedModels"] = supportedModels
+				} else {
+					modelMap["supportedModels"] = []string{}
+				}
+			}
+			modelsWithSupported[i] = modelMap
+		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"code":    200,
+			"message": "获取成功",
+			"data": gin.H{
+				"list":     modelsWithSupported,
+				"total":    total,
+				"page":     page,
+				"pageSize": pageSize,
+			},
+		})
+		return
+	}
+
+	// 如果查询失败，返回原始数据
 	ctx.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "获取成功",

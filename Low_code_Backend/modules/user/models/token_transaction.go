@@ -19,6 +19,9 @@ type TokenTransaction struct {
 	PromptTokens     int       `gorm:"default:0" json:"prompt_tokens"`
 	CompletionTokens int       `gorm:"default:0" json:"completion_tokens"`
 	TotalTokens      int       `gorm:"default:0" json:"total_tokens"`
+	CacheReadTokens  int       `gorm:"default:0" json:"cache_read_tokens"`
+	CacheWriteTokens int       `gorm:"default:0" json:"cache_write_tokens"`
+	AudioTokens      int       `gorm:"default:0" json:"audio_tokens"`
 	Cost             float64   `gorm:"type:decimal(12,6);default:0" json:"cost"`
 	Currency         string    `gorm:"type:varchar(10);default:'USD'" json:"currency"`
 	CreatedAt        time.Time `json:"created_at"`

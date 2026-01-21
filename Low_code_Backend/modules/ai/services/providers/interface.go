@@ -6,6 +6,7 @@ import "context"
 type ChatResponse struct {
 	Content          string      `json:"content"`
 	TokensUsed       int         `json:"tokens_used"`
+	Usage            *TokenUsage `json:"usage,omitempty"`
 	Model            string      `json:"model"`
 	ReasoningDetails interface{} `json:"reasoning_details,omitempty"` // 用于存储推理模型的详细推理过程
 }
@@ -40,9 +41,12 @@ type AIModelConfig struct {
 
 // TokenUsage Token使用统计
 type TokenUsage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
+	PromptTokens     int  `json:"prompt_tokens"`
+	CompletionTokens int  `json:"completion_tokens"`
+	TotalTokens      int  `json:"total_tokens"`
+	CacheReadTokens  *int `json:"cache_read_tokens,omitempty"`  // 缓存读取token数
+	CacheWriteTokens *int `json:"cache_write_tokens,omitempty"` // 缓存写入token数
+	AudioTokens      *int `json:"audio_tokens,omitempty"`       // 音频token数
 }
 
 // StreamCallback 流式输出回调函数

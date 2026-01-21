@@ -31,7 +31,15 @@ func (r *WorkflowNodeRepository) CreateOrUpdate(node *models.WorkflowNode) error
 
 	// 存在，更新
 	node.ID = existing.ID
-	return r.db.Save(node).Error
+	// 如果新节点没有设置 Connections（Data == nil），保留现有的 Connections（避免清空边的连接信息）
+	// 这是关键：当保存单个节点时，不会传递 Connections，所以 Data 是 nil，我们需要保留现有的
+	if node.Connections.Data == nil {
+		node.Connections = existing.Connections
+		// 不更新 Connections 字段
+		return r.db.Model(node).Select("node_type", "label", "position", "config", "is_enabled", "updated_at").Updates(node).Error
+	}
+	// 如果新节点明确设置了 Connections，则更新它（这种情况通常发生在批量保存时）
+	return r.db.Model(node).Select("node_type", "label", "position", "config", "connections", "is_enabled", "updated_at").Updates(node).Error
 }
 
 // BatchCreateOrUpdate 批量创建或更新节点
