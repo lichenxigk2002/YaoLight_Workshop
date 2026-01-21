@@ -12,6 +12,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/middleware"
 	"yaolight-workshop/backend/infrastructure/redis"
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
+	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	projectControllers "yaolight-workshop/backend/modules/project/controllers"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
@@ -135,6 +136,17 @@ func main() {
 			auth.POST("/ai/models", aiController.CreateModel)
 			auth.PUT("/ai/models/:id", aiController.UpdateModel)
 			auth.DELETE("/ai/models/:id", aiController.DeleteModel)
+
+			// 瑶光星（Alkaid）对话相关路由
+			alkaidController := alkaidControllers.NewAlkaidController()
+			auth.POST("/alkaid/sessions", alkaidController.CreateSession)
+			auth.GET("/alkaid/sessions", alkaidController.GetSessions)
+			auth.GET("/alkaid/sessions/:id", alkaidController.GetSession)
+			auth.PUT("/alkaid/sessions/:id/title", alkaidController.UpdateSessionTitle)
+			auth.DELETE("/alkaid/sessions/:id", alkaidController.DeleteSession)
+			auth.POST("/alkaid/messages", alkaidController.SendMessage)
+			auth.POST("/alkaid/messages/stream", alkaidController.SendMessageStream) // 新增流式接口
+			auth.GET("/alkaid/sessions/:id/messages", alkaidController.GetMessages)
 		}
 	}
 

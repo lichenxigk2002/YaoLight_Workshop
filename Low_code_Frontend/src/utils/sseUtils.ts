@@ -38,6 +38,15 @@ function parseSSEContent(dataStr: string): {
       return { content: '', error: parsed.error, parsed };
     }
 
+    // 适配 Alkaid 流式消息格式 { content, step, done }
+    if (parsed.step !== undefined) {
+      return { 
+        content: parsed.content || '', 
+        contentType: parsed.step, // 将 step 映射为 contentType
+        parsed 
+      };
+    }
+
     if (parsed.nodeId && parsed.content !== undefined) {
       let content = parsed.content || '';
       let contentType: 'reasoning' | 'content' | 'node_complete' | 'node_result' | undefined = parsed.contentType || undefined;
@@ -109,12 +118,15 @@ function processSSEData(dataStr: string, callbacks: SSECallbacks): void {
   }
 
   // 正常处理
-  if (result.parsed && result.parsed.nodeId && result.parsed.content !== undefined) {
+  if (result.parsed) {
+    // 兼容 Alkaid 格式 (没有 nodeId)
+    const nodeId = result.parsed.nodeId || 'alkaid';
+    
     callbacks.onMessage(
-      result.parsed.nodeId,
+      nodeId,
       result.content,
       result.parsed.done || false,
-      result.contentType
+      result.contentType as any
     );
   }
 }
@@ -206,4 +218,3 @@ export function createSSEReader(
     reader.cancel();
   };
 }
-

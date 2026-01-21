@@ -38,11 +38,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
           strong: ({ node, ...props }) => <strong className={styles.strong} {...props} />,
           em: ({ node, ...props }) => <em className={styles.em} {...props} />,
           // 代码
-          code: ({ node, inline, ...props }: any) => {
+          code: ({ node, inline, className, children, ...props }: any) => {
             if (inline) {
-              return <code className={styles.inlineCode} {...props} />;
+              return <code className={styles.inlineCode} {...props}>{children}</code>;
             }
-            return <code className={styles.codeBlock} {...props} />;
+            return <code className={styles.codeBlock} {...props}>{children}</code>;
           },
           pre: ({ node, ...props }) => <pre className={styles.pre} {...props} />,
           // 引用

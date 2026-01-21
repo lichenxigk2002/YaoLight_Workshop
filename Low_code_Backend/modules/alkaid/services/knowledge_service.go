@@ -58,3 +58,14 @@ func (s *KnowledgeService) SearchKnowledge(query string) ([]alkaidModels.AlkaidK
 		true, "%"+query+"%", "%"+query+"%").Limit(5).Find(&results).Error
 	return results, err
 }
+
+// GetKnowledgeByTarget 根据目标节点类型获取相关知识
+// 用于当用户提到特定节点时，加载该节点的使用说明和最佳实践
+func (s *KnowledgeService) GetKnowledgeByTarget(target string, userID uint) ([]alkaidModels.AlkaidKnowledge, error) {
+	var results []alkaidModels.AlkaidKnowledge
+	err := database.DB.Where("is_active = ? AND target = ? AND (user_id IS NULL OR user_id = ?)",
+		true, target, userID).
+		Order("category ASC").
+		Find(&results).Error
+	return results, err
+}

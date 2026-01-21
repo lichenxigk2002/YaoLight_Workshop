@@ -163,9 +163,9 @@
       "modelType": "Model Type",
       "selectModel": "Select Model",
       "apiKey": "API Key",
-    "apiKeyRequired": "Please enter API Key",
-    "apiKeyPlaceholder": "Leave empty if not modifying",
-    "baseUrl": "Base URL",
+      "apiKeyRequired": "Please enter API Key",
+      "apiKeyPlaceholder": "Leave empty if not modifying",
+      "baseUrl": "Base URL",
       "baseUrlTooltip": "API Base URL, usually starts with http:// or https://",
       "temperature": "Temperature",
       "maxTokens": "Max Tokens",
@@ -173,6 +173,25 @@
       "noSystemModels": "No system preset models",
       "loadUserModelsFailed": "Failed to load user models"
     }
+  },
+  "alkaid": {
+    "title": "Alkaid Assistant",
+    "emptyState": "Hello! I'm Alkaid Assistant, I can help you generate workflows. Try saying: \"Generate a workflow to crawl a webpage and summarize it\"",
+    "inputPlaceholder": "Enter your requirements...",
+    "send": "Send",
+    "createSessionFailed": "Failed to create session",
+    "sendMessageFailed": "Failed to send message",
+    "workflowExtracted": "Workflow extracted, importing...",
+    "workflowImported": "Workflow imported",
+    "importFailed": "Import failed",
+    "workflowFile": "Workflow File",
+    "clickToImport": "Click to import to workflow editor",
+    "importWorkflow": "Import Workflow",
+    "import": "Import",
+    "download": "Download",
+    "hasExistingWorkflow": "The workflow editor already contains nodes. Importing will replace the existing workflow. Please clear it first before importing.",
+    "workflowDownloaded": "Workflow downloaded",
+    "downloadFailed": "Download failed"
   },
   "node": {
     "types": {

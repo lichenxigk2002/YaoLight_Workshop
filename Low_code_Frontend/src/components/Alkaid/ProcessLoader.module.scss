@@ -1,0 +1,108 @@
+.processLoader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  opacity: 0.6;
+  transition: all 0.3s ease;
+
+  &.loading,
+  &.completed,
+  &.failed {
+    opacity: 1;
+  }
+
+  .iconWrapper {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    flex-shrink: 0;
+  }
+
+  .circleIcon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid;
+    background: transparent;
+
+    :global(.anticon) {
+      font-size: 10px;
+    }
+  }
+
+  &.completed {
+    .circleIcon {
+      border-color: #000;
+    }
+
+    .completedIcon {
+      color: #000;
+    }
+  }
+
+  &.failed {
+    .circleIcon {
+      border-color: #ff4d4f;
+    }
+
+    .failedIcon {
+      color: #ff4d4f;
+    }
+  }
+
+  &.loading {
+    .circleIcon {
+      border-color: var(--primary-color);
+    }
+
+    .loadingIcon {
+      color: var(--primary-color);
+    }
+  }
+
+  &.pending {
+    .circleIcon {
+      border-color: #8c8c8c;
+    }
+
+    .pendingIcon {
+      color: #8c8c8c;
+    }
+  }
+
+  .label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .line {
+    position: absolute;
+    left: 7px;
+    top: 18px;
+    width: 2px;
+    height: 6px;
+    background: var(--border-color);
+    transition: background 0.3s ease;
+
+    &.active {
+      background: #52c41a;
+    }
+  }
+}
