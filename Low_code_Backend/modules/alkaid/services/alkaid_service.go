@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"yaolight-workshop/backend/infrastructure/config"
@@ -172,47 +173,123 @@ func (s *AlkaidService) SendMessageStream(req SendMessageRequest, callback SendM
 	// 通知前端：正在生成工作流
 	callback("", "generating", false, nil)
 
-	// 7. 调用AI生成回复
-	aiResponse, err := s.aiProvider.Chat(
+	// 7. 调用AI流式生成回复（强制启用流式输出）
+	var fullContent strings.Builder
+	var fullReasoningContent strings.Builder
+	var streamErr error
+	var assistantMessage *alkaidModels.AlkaidMessage
+
+	// 使用 context 来支持取消操作
+	ctx := context.Background()
+
+	err = s.aiProvider.ChatStream(
+		ctx,
 		aiConfig,
 		systemPrompt,
 		userPrompt,
 		map[string]interface{}{
-			"stream":   false,
+			"stream":   true,  // 强制启用流式输出
 			"thinking": false, // 关闭thinking模式以提高速度
 		},
+		func(content string, done bool, err error, usage *providers.TokenUsage) {
+			if err != nil {
+				streamErr = err
+				callback("", "", true, fmt.Errorf("AI流式调用失败: %w", err))
+				return
+			}
+
+			// 处理流式内容
+			if strings.HasPrefix(content, "[REASONING_DELTA]") {
+				// 思考内容增量
+				delta := strings.TrimPrefix(content, "[REASONING_DELTA]")
+				fullReasoningContent.WriteString(delta)
+				// 暂时不发送思考内容到前端，只累积
+			} else if strings.HasPrefix(content, "[CONTENT_DELTA]") {
+				// 正式内容增量
+				delta := strings.TrimPrefix(content, "[CONTENT_DELTA]")
+				fullContent.WriteString(delta)
+				// 实时发送内容增量到前端
+				callback(delta, "generating", false, nil)
+			} else if strings.HasPrefix(content, "[REASONING]") && strings.Contains(content, "[/REASONING]") {
+				// 完整的思考内容
+				reasoningStart := strings.Index(content, "[REASONING]") + len("[REASONING]")
+				reasoningEnd := strings.Index(content, "[/REASONING]")
+				if reasoningEnd > reasoningStart {
+					reasoning := content[reasoningStart:reasoningEnd]
+					fullReasoningContent.WriteString(reasoning)
+				}
+			} else if strings.HasPrefix(content, "[CONTENT]") && strings.Contains(content, "[/CONTENT]") {
+				// 完整的内容（通常在done=true时收到）
+				// 注意：此时不应该再发送内容，因为内容已经在流式过程中通过[CONTENT_DELTA]逐字发送过了
+				// fullContent中已经包含了所有内容，所以这里直接跳过
+				// 如果fullContent为空（理论上不应该发生），才提取内容
+				if fullContent.Len() == 0 {
+					contentStart := strings.Index(content, "[CONTENT]") + len("[CONTENT]")
+					contentEnd := strings.Index(content, "[/CONTENT]")
+					if contentEnd > contentStart {
+						actualContent := content[contentStart:contentEnd]
+						fullContent.WriteString(actualContent)
+					}
+				}
+				// 不发送给前端，因为内容已经在流式过程中发送过了
+			} else if content != "" {
+				// 普通内容增量（没有标记）
+				fullContent.WriteString(content)
+				callback(content, "generating", false, nil)
+			}
+
+			// 如果完成，保存完整回复
+			if done {
+				finalContent := fullContent.String()
+
+				// 保存AI回复
+				assistantMessage = &alkaidModels.AlkaidMessage{
+					SessionID: req.SessionID,
+					Role:      "assistant",
+					Content:   finalContent,
+					Type:      "text",
+				}
+				if err := s.repo.CreateMessage(assistantMessage); err != nil {
+					streamErr = fmt.Errorf("保存AI回复失败: %w", err)
+					callback("", "", true, streamErr)
+					return
+				}
+
+				// 更新会话标题（如果是首次对话，从用户消息生成标题）
+				if session.Title == "" || session.Title == "新对话" {
+					title := s.generateSessionTitle(req.Content)
+					// 使用rune来正确处理UTF-8字符，避免截断导致编码错误
+					titleRunes := []rune(title)
+					if len(titleRunes) > 200 {
+						title = string(titleRunes[:200])
+					}
+					session.Title = title
+					s.repo.UpdateSession(session)
+				}
+
+				// 通知前端：完成
+				callback("", "completed", true, nil)
+			}
+		},
 	)
+
 	if err != nil {
 		callback("", "", true, fmt.Errorf("AI调用失败: %w", err))
 		return nil, fmt.Errorf("AI调用失败: %w", err)
 	}
 
-	// 7. 保存AI回复
-	assistantMessage := &alkaidModels.AlkaidMessage{
-		SessionID: req.SessionID,
-		Role:      "assistant",
-		Content:   aiResponse.Content,
-		Type:      "text",
-	}
-	if err := s.repo.CreateMessage(assistantMessage); err != nil {
-		callback("", "", true, fmt.Errorf("保存AI回复失败: %w", err))
-		return nil, fmt.Errorf("保存AI回复失败: %w", err)
+	if streamErr != nil {
+		return nil, streamErr
 	}
 
-	// 8. 更新会话标题（如果是首次对话，从用户消息生成标题）
-	if session.Title == "" || session.Title == "新对话" {
-		title := s.generateSessionTitle(req.Content)
-		// 使用rune来正确处理UTF-8字符，避免截断导致编码错误
-		titleRunes := []rune(title)
-		if len(titleRunes) > 200 {
-			title = string(titleRunes[:200])
+	// 如果流式回调中没有创建消息，尝试获取最后保存的助手消息
+	if assistantMessage == nil {
+		messages, err := s.repo.GetLatestMessages(req.SessionID, 1)
+		if err != nil || len(messages) == 0 {
+			return nil, fmt.Errorf("获取AI回复失败")
 		}
-		session.Title = title
-		s.repo.UpdateSession(session)
+		assistantMessage = &messages[0]
 	}
-
-	// 通知前端：完成
-	callback(aiResponse.Content, "completed", true, nil)
 
 	return assistantMessage, nil
 }
