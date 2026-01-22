@@ -6,6 +6,7 @@ import "context"
 type ChatResponse struct {
 	Content          string      `json:"content"`
 	TokensUsed       int         `json:"tokens_used"`
+	Usage            *TokenUsage `json:"usage,omitempty"`
 	Model            string      `json:"model"`
 	ReasoningDetails interface{} `json:"reasoning_details,omitempty"` // 用于存储推理模型的详细推理过程
 }
@@ -38,11 +39,22 @@ type AIModelConfig struct {
 	StopSequences    []string
 }
 
+// TokenUsage Token使用统计
+type TokenUsage struct {
+	PromptTokens     int  `json:"prompt_tokens"`
+	CompletionTokens int  `json:"completion_tokens"`
+	TotalTokens      int  `json:"total_tokens"`
+	CacheReadTokens  *int `json:"cache_read_tokens,omitempty"`  // 缓存读取token数
+	CacheWriteTokens *int `json:"cache_write_tokens,omitempty"` // 缓存写入token数
+	AudioTokens      *int `json:"audio_tokens,omitempty"`       // 音频token数
+}
+
 // StreamCallback 流式输出回调函数
 // content: 当前接收到的内容片段
 // done: 是否完成
 // err: 错误信息（如果有）
-type StreamCallback func(content string, done bool, err error)
+// usage: Token使用统计（通常在done=true时返回）
+type StreamCallback func(content string, done bool, err error, usage *TokenUsage)
 
 // AIProvider AI提供商接口
 type AIProvider interface {

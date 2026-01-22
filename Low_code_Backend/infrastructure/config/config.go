@@ -36,8 +36,11 @@ var (
 	QwenAPIKey     string // 通义千问预设API Key
 	ZhipuaiAPIKey  string // 智谱AI预设API Key
 	GeminiAPIKey   string // Gemini预设API Key
-	SparkAPIKey    string // 讯飞星火预设APIpassword
+	SparkAPIKey    string // 讯飞星火预设API Key
 	HunyuanAPIKey  string // 腾讯混元预设API Key
+
+	// 文件上传配置
+	UploadPath string // 文件上传路径
 )
 
 // LoadConfig 加载配置
@@ -76,6 +79,9 @@ func LoadConfig() error {
 	GeminiAPIKey = getEnv("OPENROUTER_API_KEY", "")
 	SparkAPIKey = getEnv("SPARK_API_PASSWORD", "")
 	HunyuanAPIKey = getEnv("HUNYUAN_API_KEY", "")
+
+	// 文件上传配置
+	UploadPath = getEnv("UPLOAD_PATH", "./uploads")
 
 	return nil
 }

@@ -61,7 +61,9 @@ type ResponseBody struct {
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
-		TotalTokens int `json:"total_tokens"`
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
 	} `json:"usage"`
 	Model string `json:"model"`
 }
@@ -76,8 +78,10 @@ type StreamResponseBody struct {
 		} `json:"delta"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
-	Usage struct {
-		TotalTokens int `json:"total_tokens"`
+	Usage *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
 	} `json:"usage,omitempty"`
 	Model string `json:"model,omitempty"`
 }
@@ -195,7 +199,12 @@ func (p *QwenProvider) Chat(config *providers.AIModelConfig, prompt string, cont
 	return &providers.ChatResponse{
 		Content:    response.Choices[0].Message.Content,
 		TokensUsed: response.Usage.TotalTokens,
-		Model:      modelName,
+		Usage: &providers.TokenUsage{
+			PromptTokens:     response.Usage.PromptTokens,
+			CompletionTokens: response.Usage.CompletionTokens,
+			TotalTokens:      response.Usage.TotalTokens,
+		},
+		Model: modelName,
 	}, nil
 }
 
@@ -293,7 +302,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			callback("", true, ctx.Err())
+			callback("", true, ctx.Err(), nil)
 			return ctx.Err()
 		default:
 			// 继续执行
@@ -316,7 +325,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 				if fullContent.Len() > 0 {
 					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 				}
-				callback(finalContent, true, nil)
+				callback(finalContent, true, nil, nil)
 				return nil
 			}
 
@@ -326,13 +335,22 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 				continue
 			}
 
+			if streamResponse.Usage != nil {
+				usage := &providers.TokenUsage{
+					PromptTokens:     streamResponse.Usage.PromptTokens,
+					CompletionTokens: streamResponse.Usage.CompletionTokens,
+					TotalTokens:      streamResponse.Usage.TotalTokens,
+				}
+				callback("", false, nil, usage)
+			}
+
 			if len(streamResponse.Choices) > 0 {
 				// 处理思考内容（reasoning_content）
 				deltaReasoningContent := streamResponse.Choices[0].Delta.ReasoningContent
 				if deltaReasoningContent != "" {
 					fullReasoningContent.WriteString(deltaReasoningContent)
 					// 发送带标记的思考内容
-					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil, nil)
 				}
 
 				// 处理正式内容
@@ -340,7 +358,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 				if deltaContent != "" {
 					fullContent.WriteString(deltaContent)
 					// 发送带标记的正式内容
-					callback("[CONTENT_DELTA]"+deltaContent, false, nil)
+					callback("[CONTENT_DELTA]"+deltaContent, false, nil, nil)
 				}
 
 				// 检查是否完成
@@ -353,7 +371,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 					if fullContent.Len() > 0 {
 						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 					}
-					callback(finalContent, true, nil)
+					callback(finalContent, true, nil, nil)
 					return nil
 				}
 			}
@@ -372,7 +390,7 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 	if fullContent.Len() > 0 {
 		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 	}
-	callback(finalContent, true, nil)
+	callback(finalContent, true, nil, nil)
 	return nil
 }
 

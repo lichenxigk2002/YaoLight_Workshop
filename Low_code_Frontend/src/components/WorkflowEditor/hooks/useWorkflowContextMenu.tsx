@@ -1,7 +1,7 @@
 import { useCallback, useState, useRef } from 'react';
 import { Node } from 'reactflow';
 import { ReactFlowInstance } from 'reactflow';
-import { message } from 'antd';
+import { App } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { MenuProps } from 'antd';
 import {
@@ -42,6 +42,7 @@ export function useWorkflowContextMenu(
   setAutoTestNodeId: (nodeId: string | null) => void
 ) {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;

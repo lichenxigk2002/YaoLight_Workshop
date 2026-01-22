@@ -21,40 +21,42 @@ func NewUserRepository(db *gorm.DB) repository.UserRepository {
 // toDomainEntity 将持久化实体转换为领域实体
 func toDomainEntity(m *models.User) *entity.User {
 	return &entity.User{
-		ID:          m.ID,
-		Username:    m.Username,
-		Email:       m.Email,
-		Password:    m.Password,
-		Phone:       m.Phone,
-		RealName:    m.RealName,
-		AvatarURL:   m.AvatarURL,
-		Role:        m.Role,
-		Status:      m.Status,
-		LastLoginAt: m.LastLoginAt,
-		LastLoginIP: m.LastLoginIP,
-		LoginCount:  m.LoginCount,
-		CreatedAt:   m.CreatedAt,
-		UpdatedAt:   m.UpdatedAt,
+		ID:           m.ID,
+		Username:     m.Username,
+		Email:        m.Email,
+		Password:     m.Password,
+		Phone:        m.Phone,
+		RealName:     m.RealName,
+		AvatarURL:    m.AvatarURL,
+		Role:         m.Role,
+		Status:       m.Status,
+		LastLoginAt:  m.LastLoginAt,
+		LastLoginIP:  m.LastLoginIP,
+		LoginCount:   m.LoginCount,
+		TokenBalance: m.TokenBalance,
+		CreatedAt:    m.CreatedAt,
+		UpdatedAt:    m.UpdatedAt,
 	}
 }
 
 // toPersistenceEntity 将领域实体转换为持久化实体
 func toPersistenceEntity(e *entity.User) *models.User {
 	return &models.User{
-		ID:          e.ID,
-		Username:    e.Username,
-		Email:       e.Email,
-		Password:    e.Password,
-		Phone:       e.Phone,
-		RealName:    e.RealName,
-		AvatarURL:   e.AvatarURL,
-		Role:        e.Role,
-		Status:      e.Status,
-		LastLoginAt: e.LastLoginAt,
-		LastLoginIP: e.LastLoginIP,
-		LoginCount:  e.LoginCount,
-		CreatedAt:   e.CreatedAt,
-		UpdatedAt:   e.UpdatedAt,
+		ID:           e.ID,
+		Username:     e.Username,
+		Email:        e.Email,
+		Password:     e.Password,
+		Phone:        e.Phone,
+		RealName:     e.RealName,
+		AvatarURL:    e.AvatarURL,
+		Role:         e.Role,
+		Status:       e.Status,
+		LastLoginAt:  e.LastLoginAt,
+		LastLoginIP:  e.LastLoginIP,
+		LoginCount:   e.LoginCount,
+		TokenBalance: e.TokenBalance,
+		CreatedAt:    e.CreatedAt,
+		UpdatedAt:    e.UpdatedAt,
 	}
 }
 
@@ -116,4 +118,9 @@ func (r *userRepository) Update(user *entity.User) error {
 // Delete 删除用户（软删除）
 func (r *userRepository) Delete(id uint) error {
 	return r.db.Delete(&models.User{}, id).Error
+}
+
+// DeductTokens 扣除用户Token
+func (r *userRepository) DeductTokens(userID uint, amount int64) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("token_balance", gorm.Expr("token_balance - ?", amount)).Error
 }

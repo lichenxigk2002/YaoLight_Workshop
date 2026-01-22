@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react'
 import { Node, Edge } from 'reactflow'
 import { workflowApi } from '../api/workflow'
-import { message } from 'antd'
+import { App } from 'antd'
 
 // 工作流相关Hook
 export const useWorkflow = () => {
+  const { message } = App.useApp()
   const [loading, setLoading] = useState(false)
 
   // 执行工作流

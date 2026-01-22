@@ -2,6 +2,7 @@ import http from '@/http';
 import type { PageRequest, PageResponse } from '@/types/api';
 import type {
   User,
+  TokenTransaction,
   LoginRequest,
   LoginResponse,
   RegisterRequest,
@@ -66,6 +67,9 @@ export const userApi = {
    */
   getCurrentUser: () =>
     http.get<User>('/users/current'),
+
+  getTokenTransactions: (params?: { page?: number; pageSize?: number }) =>
+    http.get<{ list: TokenTransaction[]; total: number; page: number; pageSize: number }>('/users/token-transactions', params),
 
   /**
    * 获取用户列表（分页）

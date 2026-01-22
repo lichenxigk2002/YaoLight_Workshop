@@ -150,7 +150,9 @@ func (p *ZhipuaiProvider) Chat(config *providers.AIModelConfig, prompt string, c
 			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
-			TotalTokens int `json:"total_tokens"`
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
 		} `json:"usage"`
 	}
 
@@ -172,7 +174,12 @@ func (p *ZhipuaiProvider) Chat(config *providers.AIModelConfig, prompt string, c
 	return &providers.ChatResponse{
 		Content:    finalContent,
 		TokensUsed: response.Usage.TotalTokens,
-		Model:      config.ModelName,
+		Usage: &providers.TokenUsage{
+			PromptTokens:     response.Usage.PromptTokens,
+			CompletionTokens: response.Usage.CompletionTokens,
+			TotalTokens:      response.Usage.TotalTokens,
+		},
+		Model: config.ModelName,
 	}, nil
 }
 
@@ -274,7 +281,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			callback("", true, ctx.Err())
+			callback("", true, ctx.Err(), nil)
 			return ctx.Err()
 		default:
 			// 继续执行
@@ -297,7 +304,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 				if fullContent.Len() > 0 {
 					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 				}
-				callback(finalContent, true, nil)
+				callback(finalContent, true, nil, nil)
 				return nil
 			}
 
@@ -309,13 +316,25 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
-				Usage struct {
-					TotalTokens int `json:"total_tokens"`
+				Usage *struct {
+					PromptTokens     int `json:"prompt_tokens"`
+					CompletionTokens int `json:"completion_tokens"`
+					TotalTokens      int `json:"total_tokens"`
 				} `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 				continue
+			}
+
+			if streamResponse.Usage != nil {
+				usage := &providers.TokenUsage{
+					PromptTokens:     streamResponse.Usage.PromptTokens,
+					CompletionTokens: streamResponse.Usage.CompletionTokens,
+					TotalTokens:      streamResponse.Usage.TotalTokens,
+				}
+				callback("", false, nil, usage)
+				return nil
 			}
 
 			if len(streamResponse.Choices) > 0 {
@@ -324,7 +343,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 				if deltaReasoningContent != "" {
 					fullReasoningContent.WriteString(deltaReasoningContent)
 					// 发送带标记的思考内容
-					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil, nil)
 				}
 
 				// 处理正式内容
@@ -332,7 +351,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 				if deltaContent != "" {
 					fullContent.WriteString(deltaContent)
 					// 发送带标记的正式内容
-					callback("[CONTENT_DELTA]"+deltaContent, false, nil)
+					callback("[CONTENT_DELTA]"+deltaContent, false, nil, nil)
 				}
 
 				if streamResponse.Choices[0].FinishReason != "" {
@@ -344,7 +363,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 					if fullContent.Len() > 0 {
 						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 					}
-					callback(finalContent, true, nil)
+					callback(finalContent, true, nil, nil)
 					return nil
 				}
 			}
@@ -363,7 +382,7 @@ func (p *ZhipuaiProvider) ChatStream(ctx context.Context, config *providers.AIMo
 	if fullContent.Len() > 0 {
 		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 	}
-	callback(finalContent, true, nil)
+	callback(finalContent, true, nil, nil)
 	return nil
 }
 

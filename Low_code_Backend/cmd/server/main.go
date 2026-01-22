@@ -12,6 +12,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/middleware"
 	"yaolight-workshop/backend/infrastructure/redis"
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
+	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	projectControllers "yaolight-workshop/backend/modules/project/controllers"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
@@ -84,6 +85,9 @@ func main() {
 		imageProxyController := fileControllers.NewImageProxyController()
 		api.GET("/proxy/image", imageProxyController.ProxyImage)
 
+		// 静态文件服务（上传的文件）
+		api.Static("/uploads", config.UploadPath)
+
 		// 认证相关路由（无需JWT中间件）
 		authController := authControllers.NewAuthController()
 		api.POST("/auth/register", authController.Register)
@@ -100,6 +104,8 @@ func main() {
 			// 用户相关路由
 			auth.GET("/users/current", authController.GetCurrentUser)
 			auth.PUT("/users/username", authController.UpdateUsername)
+			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
+			auth.POST("/users/avatar", authController.UploadAvatar)
 
 			// 项目相关路由
 			projectController := projectControllers.NewProjectController()
@@ -130,6 +136,17 @@ func main() {
 			auth.POST("/ai/models", aiController.CreateModel)
 			auth.PUT("/ai/models/:id", aiController.UpdateModel)
 			auth.DELETE("/ai/models/:id", aiController.DeleteModel)
+
+			// 瑶光星（Alkaid）对话相关路由
+			alkaidController := alkaidControllers.NewAlkaidController()
+			auth.POST("/alkaid/sessions", alkaidController.CreateSession)
+			auth.GET("/alkaid/sessions", alkaidController.GetSessions)
+			auth.GET("/alkaid/sessions/:id", alkaidController.GetSession)
+			auth.PUT("/alkaid/sessions/:id/title", alkaidController.UpdateSessionTitle)
+			auth.DELETE("/alkaid/sessions/:id", alkaidController.DeleteSession)
+			auth.POST("/alkaid/messages", alkaidController.SendMessage)
+			auth.POST("/alkaid/messages/stream", alkaidController.SendMessageStream) // 新增流式接口
+			auth.GET("/alkaid/sessions/:id/messages", alkaidController.GetMessages)
 		}
 	}
 

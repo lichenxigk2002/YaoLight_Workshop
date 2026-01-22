@@ -364,6 +364,11 @@ func GetNodeIODefinition(nodeType string) (NodeIODefinition, bool) {
 	return def, exists
 }
 
+// GetNodeIODefinitions 获取节点输入输出定义映射
+func GetNodeIODefinitions() map[string]NodeIODefinition {
+	return nodeIODefinitions
+}
+
 // nodeIODefinitions 节点输入输出定义映射
 var nodeIODefinitions = map[string]NodeIODefinition{
 	"start": {

@@ -137,17 +137,17 @@ func (p *OpenAIProvider) Chat(config *providers.AIModelConfig, prompt string, co
 func (p *OpenAIProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	select {
 	case <-ctx.Done():
-		callback("", true, ctx.Err())
+		callback("", true, ctx.Err(), nil)
 		return ctx.Err()
 	default:
 	}
 
 	chatResp, err := p.Chat(config, prompt, content, providerConfig)
 	if err != nil {
-		callback("", true, err)
+		callback("", true, err, nil)
 		return err
 	}
-	callback(chatResp.Content, true, nil)
+	callback(chatResp.Content, true, nil, nil)
 	return nil
 }
 

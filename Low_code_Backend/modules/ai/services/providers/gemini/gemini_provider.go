@@ -158,9 +158,15 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 				Content          string      `json:"content"`
 				ReasoningDetails interface{} `json:"reasoning_details,omitempty"`
 			} `json:"message"`
-		} `json:"choices"`
+		} `choices`
 		Usage struct {
-			TotalTokens int `json:"total_tokens"`
+			PromptTokens        int `json:"prompt_tokens"`
+			CompletionTokens    int `json:"completion_tokens"`
+			TotalTokens         int `json:"total_tokens"`
+			PromptTokensDetails struct {
+				CachedTokens int `json:"cached_tokens"`
+				AudioTokens  int `json:"audio_tokens"`
+			} `json:"prompt_tokens_details"`
 		} `json:"usage"`
 	}
 
@@ -172,9 +178,24 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 		return nil, fmt.Errorf("no choices in response")
 	}
 
+	usage := &providers.TokenUsage{
+		PromptTokens:     response.Usage.PromptTokens,
+		CompletionTokens: response.Usage.CompletionTokens,
+		TotalTokens:      response.Usage.TotalTokens,
+	}
+	if response.Usage.PromptTokensDetails.CachedTokens > 0 {
+		cached := response.Usage.PromptTokensDetails.CachedTokens
+		usage.CacheReadTokens = &cached
+	}
+	if response.Usage.PromptTokensDetails.AudioTokens > 0 {
+		audio := response.Usage.PromptTokensDetails.AudioTokens
+		usage.AudioTokens = &audio
+	}
+
 	return &providers.ChatResponse{
 		Content:          response.Choices[0].Message.Content,
 		TokensUsed:       response.Usage.TotalTokens,
+		Usage:            usage,
 		Model:            config.ModelName,
 		ReasoningDetails: response.Choices[0].Message.ReasoningDetails,
 	}, nil
@@ -214,6 +235,9 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 		"model":    config.ModelName,
 		"messages": messages,
 		"stream":   true,
+		"stream_options": map[string]interface{}{
+			"include_usage": true,
+		},
 	}
 
 	// 处理 providerConfig 中的参数
@@ -302,7 +326,7 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 			// 检查 context 是否已取消
 			select {
 			case <-ctx.Done():
-				callback("", true, ctx.Err())
+				callback("", true, ctx.Err(), nil)
 				return ctx.Err()
 			default:
 				// 如果是其他错误，返回错误
@@ -321,7 +345,7 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 			if data == "[DONE]" {
 				// 流式完成时，不需要发送完整内容（已经在增量中发送了）
 				// 只发送完成信号
-				callback("", true, nil)
+				callback("", true, nil, nil)
 				return nil
 			}
 
@@ -335,10 +359,38 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
+				Usage *struct {
+					PromptTokens        int `json:"prompt_tokens"`
+					CompletionTokens    int `json:"completion_tokens"`
+					TotalTokens         int `json:"total_tokens"`
+					PromptTokensDetails struct {
+						CachedTokens int `json:"cached_tokens"`
+						AudioTokens  int `json:"audio_tokens"`
+					} `json:"prompt_tokens_details"`
+				} `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 				continue
+			}
+
+			// 如果有Token使用信息，传递给回调
+			if streamResponse.Usage != nil {
+				usage := &providers.TokenUsage{
+					PromptTokens:     streamResponse.Usage.PromptTokens,
+					CompletionTokens: streamResponse.Usage.CompletionTokens,
+					TotalTokens:      streamResponse.Usage.TotalTokens,
+				}
+				if streamResponse.Usage.PromptTokensDetails.CachedTokens > 0 {
+					cached := streamResponse.Usage.PromptTokensDetails.CachedTokens
+					usage.CacheReadTokens = &cached
+				}
+				if streamResponse.Usage.PromptTokensDetails.AudioTokens > 0 {
+					audio := streamResponse.Usage.PromptTokensDetails.AudioTokens
+					usage.AudioTokens = &audio
+				}
+				callback("", true, nil, usage)
+				return nil
 			}
 
 			if len(streamResponse.Choices) > 0 {
@@ -353,24 +405,24 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 				if delta.Reasoning != nil {
 					if rStr, ok := delta.Reasoning.(string); ok && rStr != "" {
 						fullReasoningContent.WriteString(rStr)
-						callback("[REASONING_DELTA]"+rStr, false, nil)
+						callback("[REASONING_DELTA]"+rStr, false, nil, nil)
 					}
 				} else if delta.ReasoningDetails != nil {
 					// 2. Check reasoning_details (Gemini 原生或其他)
 					if rStr, ok := delta.ReasoningDetails.(string); ok && rStr != "" {
 						fullReasoningContent.WriteString(rStr)
-						callback("[REASONING_DELTA]"+rStr, false, nil)
+						callback("[REASONING_DELTA]"+rStr, false, nil, nil)
 					}
 				} else if delta.ReasoningContent != "" {
 					// 3. Check reasoning_content (DeepSeek R1 style)
 					fullReasoningContent.WriteString(delta.ReasoningContent)
-					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil, nil)
 				}
 
 				// 处理正常内容
 				if delta.Content != "" {
 					fullContent.WriteString(delta.Content)
-					callback("[CONTENT_DELTA]"+delta.Content, false, nil)
+					callback("[CONTENT_DELTA]"+delta.Content, false, nil, nil)
 				}
 			}
 		}

@@ -8,22 +8,25 @@ import (
 	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/shared"
 	"yaolight-workshop/backend/modules/ai/models"
+	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
 	"yaolight-workshop/backend/modules/ai/services/providers"
 	"yaolight-workshop/backend/modules/ai/utils"
 )
 
 var (
-	ErrModelNotFound    = errors.New("model not found")
-	ErrModelNotOwned    = errors.New("model does not belong to user")
-	ErrModelInactive    = errors.New("model is inactive")
-	ErrProviderNotFound = errors.New("provider template not found")
-	ErrInvalidAPIKey    = errors.New("invalid API key")
+	ErrModelNotFound       = errors.New("model not found")
+	ErrModelNotOwned       = errors.New("model does not belong to user")
+	ErrModelInactive       = errors.New("model is inactive")
+	ErrProviderNotFound    = errors.New("provider template not found")
+	ErrInvalidAPIKey       = errors.New("invalid API key")
+	ErrUnsupportedProvider = errors.New("unsupported provider")
 )
 
 // AIService AI服务
 type AIService struct {
 	modelRepo       repository.AIModelRepository
 	templateRepo    repository.ProviderTemplateRepository
+	pricingRepo     aiRepos.PricingConfigRepository
 	providerFactory *ProviderFactory
 }
 
@@ -31,102 +34,75 @@ type AIService struct {
 func NewAIService(
 	modelRepo repository.AIModelRepository,
 	templateRepo repository.ProviderTemplateRepository,
+	pricingRepo aiRepos.PricingConfigRepository,
 ) *AIService {
 	return &AIService{
 		modelRepo:       modelRepo,
 		templateRepo:    templateRepo,
+		pricingRepo:     pricingRepo,
 		providerFactory: NewProviderFactory(),
 	}
 }
 
-// GetProviderTemplates 获取所有供应商模板（暂时返回硬编码的列表）
+// GetProviderTemplates 获取所有供应商模板（从数据库动态获取模型列表）
 func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
-	// 暂时返回硬编码的提供商列表，后续可以从数据库读取
-	return []map[string]interface{}{
-		{
-			"provider":        "deepseek",
-			"name":            "DeepSeek",
-			"description":     "DeepSeek AI模型",
-			"defaultBaseUrl":  "https://api.deepseek.com",
-			"supportedModels": []string{"deepseek-chat", "deepseek-coder"},
+	// Provider 基本信息（硬编码，因为这些是固定的配置）
+	providerBaseInfo := map[string]map[string]interface{}{
+		"deepseek": {
+			"provider":       "deepseek",
+			"name":           "DeepSeek",
+			"description":    "DeepSeek AI模型",
+			"defaultBaseUrl": "https://api.deepseek.com",
 			"defaultConfig": map[string]interface{}{
 				"temperature": 0.7,
 				"maxTokens":   2000,
 			},
 		},
-		{
-			"provider":        "doubao",
-			"name":            "豆包",
-			"description":     "字节跳动豆包AI模型",
-			"defaultBaseUrl":  "https://ark.cn-beijing.volces.com/api/v3",
-			"supportedModels": []string{"doubao-seed-1-6-251015", "doubao-seedream-4-5-251128"},
+		"doubao": {
+			"provider":       "doubao",
+			"name":           "豆包",
+			"description":    "字节跳动豆包AI模型",
+			"defaultBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
 			"defaultConfig": map[string]interface{}{
 				"temperature": 0.7,
 				"maxTokens":   2000,
 			},
 		},
-		{
+		"qwen": {
 			"provider":       "qwen",
 			"name":           "通义千问",
 			"description":    "阿里云通义千问AI模型（OpenAI兼容模式）",
 			"defaultBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-			"supportedModels": []string{
-				// 通义千问模型列表（已升级至Qwen3系列，支持深度思考）
-				"qwen-max",             // 通义千问Max：效果最好，适合复杂任务（支持深度思考）
-				"qwen-plus",            // 通义千问Plus：效果、速度、成本均衡（支持深度思考）
-				"qwen-flash",           // 通义千问Flash：速度最快、成本最低（支持深度思考）
-				"qwen-turbo",           // 通义千问Turbo（推荐使用Flash替代）
-				"qwen-max-longcontext", // 通义千问Max长上下文版本
-				"qwen-vl-plus",         // 通义千问VL视觉语言模型
-				"qwen-coder",           // 通义千问Coder代码模型
-			},
 			"defaultConfig": map[string]interface{}{
 				"temperature": 0.7,
 				"maxTokens":   2000,
 			},
 		},
-		{
+		"zhipuai": {
 			"provider":       "zhipuai",
 			"name":           "智谱AI GLM",
 			"description":    "智谱AI GLM系列模型（支持深度思考和流式输出）",
 			"defaultBaseUrl": "https://open.bigmodel.cn/api/paas/v4",
-			"supportedModels": []string{
-				// 智谱AI GLM模型列表
-				"glm-4.7",             // 最新旗舰模型，支持复杂推理、超长上下文
-				"glm-4.6",             // 旗舰模型，支持深度思考
-				"glm-4.5-air",         // 轻量级模型
-				"glm-4.5-airx",        // 增强版轻量模型
-				"glm-4.5-flash",       // 快速响应模型
-				"glm-4-flash-250414",  // 快速模型
-				"glm-4-flashx-250414", // 增强版快速模型
-			},
 			"defaultConfig": map[string]interface{}{
 				"temperature": 1.0,
 				"maxTokens":   1024,
 			},
 		},
-		{
+		"gpt": {
 			"provider":       "gpt",
 			"name":           "GPT",
 			"description":    "OpenAI GPT 系列模型（通过 OpenRouter 访问）",
 			"defaultBaseUrl": "https://openrouter.ai/api/v1",
-			"supportedModels": []string{
-				"openai/gpt-oss-20b",
-				"openai/gpt-oss-120b",
-				"openai/gpt-4o-mini",
-				"openai/gpt-4o",
-			},
 			"defaultConfig": map[string]interface{}{
 				"temperature": 0.7,
 				"maxTokens":   4096,
 			},
 		},
-		{
-			"provider":        "spark",
-			"name":            "讯飞星火",
-			"description":     "讯飞星火深度推理模型（OpenAI兼容接口）",
-			"defaultBaseUrl":  "https://spark-api-open.xf-yun.com/v2",
-			"supportedModels": []string{"spark-x"},
+		"spark": {
+			"provider":       "spark",
+			"name":           "讯飞星火",
+			"description":    "讯飞星火深度推理模型（OpenAI兼容接口）",
+			"defaultBaseUrl": "https://spark-api-open.xf-yun.com/v2",
 			"defaultConfig": map[string]interface{}{
 				"temperature":  1.2,
 				"topP":         0.95,
@@ -134,54 +110,77 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 				"thinkingType": "enabled",
 			},
 		},
-		{
-			"provider":        "hunyuan",
-			"name":            "腾讯混元",
-			"description":     "腾讯混元大模型（OpenAI兼容接口）",
-			"defaultBaseUrl":  "https://api.hunyuan.cloud.tencent.com/v1",
-			"supportedModels": []string{"hunyuan-turbos-latest"},
+		"hunyuan": {
+			"provider":       "hunyuan",
+			"name":           "腾讯混元",
+			"description":    "腾讯混元大模型（OpenAI兼容接口）",
+			"defaultBaseUrl": "https://api.hunyuan.cloud.tencent.com/v1",
 			"defaultConfig": map[string]interface{}{
 				"temperature":       0.7,
 				"maxTokens":         2000,
 				"enableEnhancement": true,
 			},
 		},
-		{
+		"gemini": {
 			"provider":       "gemini",
 			"name":           "Google Gemini",
 			"description":    "Google Gemini 系列模型（通过 OpenRouter 访问）",
 			"defaultBaseUrl": "https://openrouter.ai/api/v1",
-			"supportedModels": []string{
-				"google/gemini-pro-1.5",
-				"google/gemini-flash-1.5",
-				"google/gemini-3-pro-preview",
-			},
 			"defaultConfig": map[string]interface{}{
 				"temperature": 0.7,
 				"maxTokens":   2000,
 			},
 		},
-		{
+		"grok": {
 			"provider":       "grok",
 			"name":           "Grok",
 			"description":    "xAI Grok 系列模型（通过 OpenRouter 访问）",
 			"defaultBaseUrl": "https://openrouter.ai/api/v1",
-			"supportedModels": []string{
-				"x-ai/grok-4.1-fast",
-				"x-ai/grok-4-fast",
-				"x-ai/grok-code-fast-1",
-				"x-ai/grok-4",
-				"x-ai/grok-3-mini",
-				"x-ai/grok-3",
-				"x-ai/grok-3-mini-beta",
-				"x-ai/grok-3-beta",
-			},
 			"defaultConfig": map[string]interface{}{
 				"temperature": 0.7,
 				"maxTokens":   4096,
 			},
 		},
-	}, nil
+	}
+
+	// 从数据库获取所有活跃的计费配置
+	allPricingConfigs, err := s.pricingRepo.FindAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch pricing configs: %w", err)
+	}
+
+	// 按 provider 分组模型
+	modelsByProvider := make(map[string][]string)
+	for _, config := range allPricingConfigs {
+		if config.IsActive {
+			modelsByProvider[config.Provider] = append(modelsByProvider[config.Provider], config.ModelName)
+		}
+	}
+
+	// 构建结果列表
+	result := []map[string]interface{}{}
+	for provider, baseInfo := range providerBaseInfo {
+		// 从数据库获取该 provider 的模型列表
+		supportedModels, exists := modelsByProvider[provider]
+		if !exists || len(supportedModels) == 0 {
+			// 如果数据库中没有该 provider 的计费配置，使用空列表
+			// 注意：这不会影响用户使用自己的 API Key 配置该 provider
+			// 计费配置仅用于系统预设模型的星尘计费，用户自己的 API Key 不通过星尘计费
+			supportedModels = []string{}
+		}
+
+		// 复制基础信息
+		template := make(map[string]interface{})
+		for k, v := range baseInfo {
+			template[k] = v
+		}
+		// 添加从数据库获取的模型列表（可能为空）
+		template["supportedModels"] = supportedModels
+
+		result = append(result, template)
+	}
+
+	return result, nil
 }
 
 // GetProvider 获取提供商实例
@@ -340,6 +339,15 @@ func (s *AIService) GetModelByIDAndUser(id uint, userID uint) (*models.AIModel, 
 }
 
 // CreateModelRequest 创建模型请求
+func normalizeProvider(provider string) string {
+	switch provider {
+	case "qianwen":
+		return "qwen"
+	default:
+		return provider
+	}
+}
+
 type CreateModelRequest struct {
 	Name        string                 `json:"name" binding:"required"`
 	Provider    string                 `json:"provider" binding:"required"`
@@ -355,6 +363,8 @@ type CreateModelRequest struct {
 
 // CreateModel 创建模型配置
 func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error) {
+	req.Provider = normalizeProvider(req.Provider)
+
 	// 验证提供商是否支持
 	supportedProviders := map[string]bool{
 		"deepseek": true,
@@ -368,7 +378,7 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 		"grok":     true,
 	}
 	if !supportedProviders[req.Provider] {
-		return nil, fmt.Errorf("provider %s not supported yet", req.Provider)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, req.Provider)
 	}
 
 	// 加密API Key
@@ -521,14 +531,14 @@ func (s *AIService) DeleteModel(id uint, userID uint) error {
 	return s.modelRepo.Delete(id)
 }
 
-// toPersistenceModel 将领域实体转换为持久化实体
+// toPersistenceModel 将领域实体转换为持久化实体（用于返回给前端）
 func toPersistenceModel(e *entity.AIModel) *models.AIModel {
 	return &models.AIModel{
 		ID:               e.ID,
 		Name:             e.Name,
 		Provider:         e.Provider,
 		ModelName:        e.ModelName,
-		APIKeyEncrypted:  e.APIKeyEncrypted,
+		APIKeyEncrypted:  "", // 安全考虑：绝对不返回API Key给前端，即使是加密的
 		Endpoint:         e.Endpoint,
 		BaseURL:          e.BaseURL,
 		Params:           e.Params,

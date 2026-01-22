@@ -264,7 +264,7 @@ func (p *SparkProvider) ChatStream(ctx context.Context, config *providers.AIMode
 			}
 			select {
 			case <-ctx.Done():
-				callback("", true, ctx.Err())
+				callback("", true, ctx.Err(), nil)
 				return ctx.Err()
 			default:
 				return fmt.Errorf("failed to read stream: %w", err)
@@ -286,7 +286,7 @@ func (p *SparkProvider) ChatStream(ctx context.Context, config *providers.AIMode
 		}
 
 		if payload == "[DONE]" {
-			callback("", true, nil)
+			callback("", true, nil, nil)
 			return nil
 		}
 
@@ -304,9 +304,7 @@ func (p *SparkProvider) ChatStream(ctx context.Context, config *providers.AIMode
 					ReasoningContent string `json:"reasoning_content"`
 				} `json:"delta"`
 			} `json:"choices"`
-			Usage struct {
-				TotalTokens int `json:"total_tokens"`
-			} `json:"usage"`
+			Usage *providers.TokenUsage `json:"usage"`
 		}
 
 		if err := json.Unmarshal([]byte(payload), &streamResponse); err != nil {
@@ -314,8 +312,12 @@ func (p *SparkProvider) ChatStream(ctx context.Context, config *providers.AIMode
 		}
 
 		if streamResponse.Code != 0 {
-			callback("", true, fmt.Errorf("Spark API error %d: %s", streamResponse.Code, streamResponse.Message))
+			callback("", true, fmt.Errorf("Spark API error %d: %s", streamResponse.Code, streamResponse.Message), nil)
 			return fmt.Errorf("Spark API error %d: %s", streamResponse.Code, streamResponse.Message)
+		}
+
+		if streamResponse.Usage != nil {
+			callback("", false, nil, streamResponse.Usage)
 		}
 
 		if len(streamResponse.Choices) == 0 {
@@ -324,14 +326,14 @@ func (p *SparkProvider) ChatStream(ctx context.Context, config *providers.AIMode
 
 		delta := streamResponse.Choices[0].Delta
 		if delta.ReasoningContent != "" {
-			callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil)
+			callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil, nil)
 		}
 		if delta.Content != "" {
-			callback("[CONTENT_DELTA]"+delta.Content, false, nil)
+			callback("[CONTENT_DELTA]"+delta.Content, false, nil, nil)
 		}
 	}
 
-	callback("", true, nil)
+	callback("", true, nil, nil)
 	return nil
 }
 

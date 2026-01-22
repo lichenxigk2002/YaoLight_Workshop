@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Node, Edge } from 'reactflow';
-import { message } from 'antd';
+import { App } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { workflowApi } from '@/api/workflow';
 import {
@@ -25,6 +25,7 @@ export function useWorkflowSave(
   updateNodeIdCounter: (nodes: Node[]) => void
 ) {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
 

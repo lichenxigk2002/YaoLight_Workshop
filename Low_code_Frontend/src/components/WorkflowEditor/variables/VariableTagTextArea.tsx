@@ -756,6 +756,9 @@ export const VariableTagTextArea: React.FC<VariableTagTextAreaProps> = ({
           className={styles.insertButton}
           title={t('node.variables.insertVariable') || '插入变量'}
         >
+          {/* 这里只保留图标，移除文字，或者确保文字已正确翻译 */}
+          {/* 如果需要显示文字，使用 Tooltip 或者确保按钮够宽 */}
+          {/* 根据用户反馈，可能文字没显示出来，这里直接显示内容 */}
           {t('node.variables.insertVariable') || '插入变量'}
         </Button>
       </Popover>

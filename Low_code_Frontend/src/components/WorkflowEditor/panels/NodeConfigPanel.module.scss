@@ -31,7 +31,7 @@
   align-items: center;
   flex-shrink: 0;
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     padding: 12px 16px; /* 缩小内边距 */
   }
 }
@@ -41,7 +41,7 @@
   font-weight: 500;
   color: var(--text-primary);
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     font-size: 14px; /* 缩小标题字号 */
   }
 }
@@ -62,7 +62,7 @@
     background: transparent !important;
   }
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     padding: 16px; /* 缩小内容区内边距 */
   }
 }
@@ -76,7 +76,7 @@
   flex-shrink: 0;
   background: var(--bg-primary);
 
-  @media (max-width: 2560px) {
+  @media (max-width: 1600px) {
     padding: 12px 16px; /* 缩小底部内边距 */
   }
 }
@@ -105,4 +105,3 @@
   color: var(--text-disabled);
   font-size: 11px;
 }
-

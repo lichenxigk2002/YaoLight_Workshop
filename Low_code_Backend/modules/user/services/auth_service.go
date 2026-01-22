@@ -12,9 +12,10 @@ import (
 	"yaolight-workshop/backend/domain/entity"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/cache"
+	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/email"
 	"yaolight-workshop/backend/infrastructure/jwt"
-	"yaolight-workshop/backend/modules/user/models"
+	userModels "yaolight-workshop/backend/modules/user/models"
 )
 
 var (
@@ -74,12 +75,12 @@ type SendCodeRequest struct {
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	Token string       `json:"token"`
-	User  *models.User `json:"user"`
+	Token string           `json:"token"`
+	User  *userModels.User `json:"user"`
 }
 
 // Register 用户注册
-func (s *AuthService) Register(req *RegisterRequest) (*models.User, error) {
+func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 	// 检查用户名是否已存在
 	_, err := s.userRepo.FindByUsernameOrEmail(req.Username, req.Email)
 	if err == nil {
@@ -100,12 +101,15 @@ func (s *AuthService) Register(req *RegisterRequest) (*models.User, error) {
 	}
 
 	// 创建用户领域实体
+	// 注册赠送200万星尘
+	const registerBonusStardust = 2000000 // 200万星尘
 	user := &entity.User{
-		Username: req.Username,
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Role:     "user",
-		Status:   "active",
+		Username:     req.Username,
+		Email:        req.Email,
+		Password:     string(hashedPassword),
+		Role:         "user",
+		Status:       "active",
+		TokenBalance: registerBonusStardust, // 注册赠送200万星尘
 	}
 
 	if req.Phone != "" {
@@ -115,6 +119,23 @@ func (s *AuthService) Register(req *RegisterRequest) (*models.User, error) {
 	// 通过仓储创建用户
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, err
+	}
+
+	// 记录注册赠送星尘的流水
+	transaction := userModels.TokenTransaction{
+		UserID:      user.ID,
+		Amount:      registerBonusStardust, // 增加星尘
+		Type:        "bonus",               // 类型：奖励/赠送
+		RelatedID:   fmt.Sprintf("register_%d", user.ID),
+		Description: "注册赠送200万星尘",
+		Cost:        0, // 赠送无费用
+		Currency:    "CNY",
+	}
+	if err := database.DB.Create(&transaction).Error; err != nil {
+		// 记录流水失败不影响注册流程，只记录日志
+		log.Printf("⚠️ Failed to create register bonus transaction for user %d: %v", user.ID, err)
+	} else {
+		log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus", user.ID, user.Username)
 	}
 
 	// 转换为持久化实体返回（保持向后兼容）
@@ -164,7 +185,7 @@ func (s *AuthService) Login(req *LoginRequest) (*LoginResponse, error) {
 }
 
 // GetUserByID 根据 ID 获取用户
-func (s *AuthService) GetUserByID(userID uint) (*models.User, error) {
+func (s *AuthService) GetUserByID(userID uint) (*userModels.User, error) {
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return nil, ErrUserNotFound
@@ -277,17 +298,36 @@ func (s *AuthService) EmailLogin(req *EmailLoginRequest) (*LoginResponse, error)
 		username := generateRandomUsername()
 
 		// 创建新用户
+		// 注册赠送200万星尘
+		const registerBonusStardust = 2000000 // 200万星尘
 		user = &entity.User{
-			Username: username,
-			Email:    req.Email,
-			Password: "", // 邮箱注册无密码
-			Role:     "user",
-			Status:   "active",
+			Username:     username,
+			Email:        req.Email,
+			Password:     "", // 邮箱注册无密码
+			Role:         "user",
+			Status:       "active",
+			TokenBalance: registerBonusStardust, // 注册赠送200万星尘
 		}
 
 		// 创建用户
 		if err := s.userRepo.Create(user); err != nil {
 			return nil, fmt.Errorf("自动注册失败: %v", err)
+		}
+
+		// 记录注册赠送星尘的流水
+		transaction := userModels.TokenTransaction{
+			UserID:      user.ID,
+			Amount:      registerBonusStardust, // 增加星尘
+			Type:        "bonus",               // 类型：奖励/赠送
+			RelatedID:   fmt.Sprintf("email_login_%d", user.ID),
+			Description: "注册赠送200万星尘",
+			Cost:        0, // 赠送无费用
+			Currency:    "CNY",
+		}
+		if err := database.DB.Create(&transaction).Error; err != nil {
+			log.Printf("⚠️ Failed to create register bonus transaction for user %d: %v", user.ID, err)
+		} else {
+			log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus via email login", user.ID, user.Username)
 		}
 
 		log.Printf("用户自动注册成功: %s (%s)", user.Username, user.Email)
@@ -354,17 +394,36 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 	username := generateRandomUsername()
 
 	// 创建用户（无需密码）
+	// 注册赠送200万星尘
+	const registerBonusStardust = 2000000 // 200万星尘
 	user := &entity.User{
-		Username: username,
-		Email:    req.Email,
-		Password: "", // 邮箱注册无密码
-		Role:     "user",
-		Status:   "active",
+		Username:     username,
+		Email:        req.Email,
+		Password:     "", // 邮箱注册无密码
+		Role:         "user",
+		Status:       "active",
+		TokenBalance: registerBonusStardust, // 注册赠送200万星尘
 	}
 
 	// 通过仓储创建用户
 	if err := s.userRepo.Create(user); err != nil {
 		return nil, err
+	}
+
+	// 记录注册赠送星尘的流水
+	transaction := userModels.TokenTransaction{
+		UserID:      user.ID,
+		Amount:      registerBonusStardust, // 增加星尘
+		Type:        "bonus",               // 类型：奖励/赠送
+		RelatedID:   fmt.Sprintf("email_register_%d", user.ID),
+		Description: "注册赠送200万星尘",
+		Cost:        0, // 赠送无费用
+		Currency:    "CNY",
+	}
+	if err := database.DB.Create(&transaction).Error; err != nil {
+		log.Printf("⚠️ Failed to create register bonus transaction for user %d: %v", user.ID, err)
+	} else {
+		log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus via email register", user.ID, user.Username)
 	}
 
 	// 删除已使用的验证码
@@ -430,22 +489,36 @@ func (s *AuthService) UpdateUsername(userID uint, newUsername string) error {
 	return s.userRepo.Update(user)
 }
 
+// UpdateAvatar 更新用户头像
+func (s *AuthService) UpdateAvatar(userID uint, avatarPath string) error {
+	// 获取用户
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+
+	// 更新头像路径
+	user.AvatarURL = &avatarPath
+	return s.userRepo.Update(user)
+}
+
 // toPersistenceModel 将领域实体转换为持久化模型（用于返回给 Controller）
-func toPersistenceModel(user *entity.User) *models.User {
-	return &models.User{
-		ID:          user.ID,
-		Username:    user.Username,
-		Email:       user.Email,
-		Password:    user.Password,
-		Phone:       user.Phone,
-		RealName:    user.RealName,
-		AvatarURL:   user.AvatarURL,
-		Role:        user.Role,
-		Status:      user.Status,
-		LastLoginAt: user.LastLoginAt,
-		LastLoginIP: user.LastLoginIP,
-		LoginCount:  user.LoginCount,
-		CreatedAt:   user.CreatedAt,
-		UpdatedAt:   user.UpdatedAt,
+func toPersistenceModel(user *entity.User) *userModels.User {
+	return &userModels.User{
+		ID:           user.ID,
+		Username:     user.Username,
+		Email:        user.Email,
+		Password:     user.Password,
+		Phone:        user.Phone,
+		RealName:     user.RealName,
+		AvatarURL:    user.AvatarURL,
+		Role:         user.Role,
+		Status:       user.Status,
+		LastLoginAt:  user.LastLoginAt,
+		LastLoginIP:  user.LastLoginIP,
+		LoginCount:   user.LoginCount,
+		TokenBalance: user.TokenBalance,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
 	}
 }

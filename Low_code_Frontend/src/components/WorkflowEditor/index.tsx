@@ -15,7 +15,7 @@ import ReactFlow, {
   ReactFlowInstance,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Button, Space, message, Dropdown } from 'antd';
+import { Button, Space, Dropdown, App } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {
   SaveOutlined,
@@ -34,6 +34,8 @@ import styles from './index.module.scss';
 import { useThemeStore } from '@/store/theme';
 import { isCommentNode } from '@/utils/nodeUtils';
 import { exportWorkflow, importWorkflow } from '@/utils/workflowImportExport';
+import { AlkaidAssistant } from '@/components/Alkaid';
+import { transformNodesFromLoadFormat, transformEdgesFromLoadFormat } from '@/utils/workflowTransformers';
 
 // 导入自定义Hooks
 import { useWorkflowNodes } from './hooks/useWorkflowNodes';
@@ -78,6 +80,7 @@ const initialEdges: Edge[] = [];
 const WorkflowEditor: React.FC = () => {
   const { theme } = useThemeStore();
   const { t, i18n } = useTranslation();
+  const { message } = App.useApp();
   const { workflowId } = useParams<{ workflowId: string }>();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -90,6 +93,7 @@ const WorkflowEditor: React.FC = () => {
   const hasInitialized = useRef(false);
   const [autoTestNodeId, setAutoTestNodeId] = useState<string | null>(null);
   const [nodeListVisible, setNodeListVisible] = useState(false);
+  const shouldFitViewAfterLoad = useRef(false); // 用于标记是否需要在加载后自动居中
 
   const defaultViewport = React.useMemo(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0, zoom: 1 };
@@ -372,9 +376,27 @@ const WorkflowEditor: React.FC = () => {
   // 加载工作流节点和边
   useEffect(() => {
     if (workflowId) {
+      shouldFitViewAfterLoad.current = true; // 标记需要自动居中
       loadWorkflowNodes();
     }
   }, [workflowId, loadWorkflowNodes]);
+
+  // 节点加载完成后自动居中显示
+  useEffect(() => {
+    if (
+      nodes.length > 0 &&
+      reactFlowInstance &&
+      hasInitialized.current &&
+      shouldFitViewAfterLoad.current
+    ) {
+      // 延迟执行以确保节点已经渲染
+      const timer = setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
+        shouldFitViewAfterLoad.current = false; // 重置标记，避免重复触发
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [nodes, reactFlowInstance]);
 
   // 键盘快捷键：Delete键删除选中节点
   useEffect(() => {
@@ -446,37 +468,9 @@ const WorkflowEditor: React.FC = () => {
             attributionPosition="bottom-left"
             deleteKeyCode={configPanelVisible ? null : ['Delete', 'Backspace']}
           >
-            <style>
-              {`
-                .react-flow__controls {
-                  box-shadow: 0 0 2px 1px ${theme === 'dark' ? 'rgba(0, 0, 0, 0.3)' : 'rgba(0, 0, 0, 0.08)'};
-                  border-radius: 4px;
-                  overflow: hidden;
-                }
-                .react-flow__controls-button {
-                  background: ${theme === 'dark' ? '#1f1f1f' : '#fefefe'};
-                  border-bottom: 1px solid ${theme === 'dark' ? '#303030' : '#eee'};
-                  color: ${theme === 'dark' ? '#e0e0e0' : 'inherit'};
-                }
-                .react-flow__controls-button:hover {
-                  background: ${theme === 'dark' ? '#303030' : '#f4f4f4'};
-                }
-                .react-flow__controls-button svg {
-                  fill: ${theme === 'dark' ? '#e0e0e0' : 'currentColor'};
-                  max-width: 14px;
-                  max-height: 14px;
-                }
-                .react-flow__controls-button:last-child {
-                  border-bottom: none;
-                }
-              `}
-            </style>
             <Controls />
             <MiniMap
-              style={{
-                backgroundColor: theme === 'dark' ? '#141414' : '#fff',
-                border: `1px solid ${theme === 'dark' ? '#303030' : '#e8e8e8'}`,
-              }}
+              className={styles.miniMap}
               nodeColor={theme === 'dark' ? '#303030' : '#e8e8e8'}
               maskColor={theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(240, 240, 240, 0.6)'}
             />
@@ -485,19 +479,7 @@ const WorkflowEditor: React.FC = () => {
 
           {/* 保存状态显示 */}
           {lastSaveTime && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 16,
-                left: 16,
-                zIndex: 10,
-                fontSize: '12px',
-                color: 'var(--text-tertiary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
+            <div className={styles.saveStatus}>
               <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '14px' }} />
               <span>{t('workflowEditor.saved')}</span>
               <span>
@@ -514,15 +496,52 @@ const WorkflowEditor: React.FC = () => {
             </div>
           )}
 
+          {/* 瑶光星助手 */}
+          <AlkaidAssistant
+            workflowId={workflowId}
+            hasExistingNodes={nodes.length > 0 || edges.length > 0}
+            onWorkflowGenerated={async (workflowData) => {
+              try {
+                // 转换节点数据
+                const importedNodes = transformNodesFromLoadFormat(workflowData.nodes, getNodeLabel);
+                // 转换边数据
+                const importedEdges = transformEdgesFromLoadFormat(workflowData.edges);
+
+                // 如果当前有节点，询问是否替换
+                if (nodes.length > 0 || edges.length > 0) {
+                  // 直接替换（可以根据需要改为确认对话框）
+                  setNodes(importedNodes);
+                  setEdges(importedEdges);
+                  updateNodeIdCounter(importedNodes);
+                  message.success(t('alkaid.workflowImported') || '工作流已导入');
+                } else {
+                  setNodes(importedNodes);
+                  setEdges(importedEdges);
+                  updateNodeIdCounter(importedNodes);
+                  message.success(t('alkaid.workflowImported') || '工作流已导入');
+                }
+
+                // 自动适配视图
+                setTimeout(() => {
+                  if (reactFlowInstance) {
+                    reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
+                  }
+                }, 100);
+              } catch (error: any) {
+                message.error(t('alkaid.importFailed') || '导入失败: ' + (error.message || '未知错误'));
+                console.error('Import workflow error:', error);
+              }
+            }}
+          />
+
           {/* 悬浮操作按钮 */}
-          <div style={{ position: 'absolute', top: 16, right: 16, zIndex: 10 }}>
+          <div className={styles.actionButtons}>
             <Space size="small">
               <Button
                 size="small"
                 shape="round"
                 icon={<SaveOutlined />}
                 onClick={handleSave}
-                style={{ fontSize: '12px' }}
               >
                 {t('workflowEditor.save')}
               </Button>
@@ -532,7 +551,6 @@ const WorkflowEditor: React.FC = () => {
                 type="primary"
                 icon={<PlayCircleOutlined />}
                 onClick={handleRun}
-                style={{ fontSize: '12px' }}
               >
                 {t('workflowEditor.run')}
               </Button>
@@ -541,7 +559,6 @@ const WorkflowEditor: React.FC = () => {
                 shape="round"
                 icon={<ReloadOutlined />}
                 onClick={clearAllExecutionStatus}
-                style={{ fontSize: '12px' }}
               >
                 {t('workflowEditor.clearTaskStatus')}
               </Button>
@@ -550,7 +567,6 @@ const WorkflowEditor: React.FC = () => {
                 shape="round"
                 icon={<UnorderedListOutlined />}
                 onClick={() => setNodeListVisible(!nodeListVisible)}
-                style={{ fontSize: '12px' }}
               >
                 {t('workflowEditor.nodes')}
               </Button>
@@ -559,7 +575,6 @@ const WorkflowEditor: React.FC = () => {
                 shape="round"
                 icon={<DownloadOutlined />}
                 onClick={handleExportWorkflow}
-                style={{ fontSize: '12px' }}
               >
                 导出
               </Button>
@@ -568,28 +583,15 @@ const WorkflowEditor: React.FC = () => {
                 shape="round"
                 icon={<UploadOutlined />}
                 onClick={handleImportWorkflow}
-                style={{ fontSize: '12px' }}
               >
                 导入
               </Button>
             </Space>
             {nodeListVisible && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 40,
-                  right: 0,
-                  width: 250,
-                  maxHeight: '60vh',
-                  zIndex: 11,
-                  boxShadow:
-                    '0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05)',
-                  borderRadius: 8,
-                }}
-              >
+              <div className={styles.nodeListPopup}>
                 <NodePanel
                   nodes={nodes}
-                  style={{ maxHeight: '60vh', borderRadius: 8 }}
+                  className={styles.nodePanel}
                   onNodeSelect={(nodeId) => {
                     const node = nodes.find((n) => n.id === nodeId);
                     if (node) {
@@ -605,27 +607,9 @@ const WorkflowEditor: React.FC = () => {
         </div>
 
         <div
-          style={{
-            width: configPanelVisible || resultPanelVisible ? 320 : 0,
-            transition: 'width 0.3s cubic-bezier(0.2, 0, 0, 1)',
-            overflow: 'hidden',
-            flexShrink: 0,
-          }}
+          className={`${styles.configPanelContainer} ${(configPanelVisible || resultPanelVisible) ? styles.visible : ''}`}
         >
-          <div
-            style={{
-              width: 320,
-              height: '100%',
-              background: 'var(--bg-primary)',
-              borderRadius: '12px',
-              boxShadow:
-                '0 6px 16px -8px rgba(0,0,0,0.08), 0 9px 28px 0 rgba(0,0,0,0.05), 0 12px 48px 16px rgba(0,0,0,0.03)',
-              border: '1px solid var(--border-secondary)',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
+          <div className={styles.configPanelContent}>
             {resultPanelVisible ? (
               <ExecutionResultPanel
                 visible={resultPanelVisible}
@@ -663,11 +647,10 @@ const WorkflowEditor: React.FC = () => {
       {contextMenu && (
         <div
           ref={contextMenuRef}
+          className={styles.contextMenu}
           style={{
-            position: 'fixed',
             left: contextMenu.x,
             top: contextMenu.y,
-            zIndex: 1000,
           }}
         >
           <Dropdown
@@ -686,14 +669,7 @@ const WorkflowEditor: React.FC = () => {
       {/* 点击其他地方关闭右键菜单 */}
       {contextMenu && (
         <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 999,
-          }}
+          className={styles.contextMenuOverlay}
           onClick={() => setContextMenu(null)}
           onContextMenu={(e) => {
             e.preventDefault();

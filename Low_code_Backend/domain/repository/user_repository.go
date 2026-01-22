@@ -26,4 +26,7 @@ type UserRepository interface {
 
 	// Delete 删除用户（软删除）
 	Delete(id uint) error
+
+	// DeductTokens 扣除用户Token
+	DeductTokens(userID uint, amount int64) error
 }

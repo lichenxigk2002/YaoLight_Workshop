@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Node } from 'reactflow';
-import { message } from 'antd';
+import { App } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {
   getDefaultConfig,
@@ -17,6 +17,7 @@ export function useWorkflowNodes(
   getNodeLabel: (type: string) => string
 ) {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [nodeIdCounter, setNodeIdCounter] = useState(() => {
     // 初始化时计算最大ID
     return calculateMaxNodeId(nodes) + 1;

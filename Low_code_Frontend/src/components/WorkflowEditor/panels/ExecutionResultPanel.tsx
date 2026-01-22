@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Collapse, Empty, Tag, Typography, Button, Space, message, Modal } from 'antd';
+import { Collapse, Empty, Tag, Typography, Button, Space, Modal, App } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -16,7 +16,6 @@ import { AIPreviewModal } from './components/AIPreviewModal';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
 import styles from './ExecutionResultPanel.module.scss';
 
-const { Panel } = Collapse;
 const { Text, Paragraph } = Typography;
 
 interface NodeExecutionResult {
@@ -50,6 +49,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   isExecuting = false,
 }) => {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<string, { reasoning: boolean; content: boolean }>>({});
   const [previewTarget, setPreviewTarget] = useState<NodeExecutionResult | null>(null);
@@ -271,8 +271,11 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
     // AI节点，支持流式内容显示
     if (nodeType === 'ai') {
       const content = data.content || data.result || '';
-      const reasoningContent = data.reasoningContent || '';
-      const hasReasoning = reasoningContent && reasoningContent.trim() !== '';
+      // 确保 reasoningContent 是字符串类型
+      const reasoningContent = typeof data.reasoningContent === 'string' 
+        ? data.reasoningContent 
+        : (data.reasoningContent ? String(data.reasoningContent) : '');
+      const hasReasoning = reasoningContent && typeof reasoningContent === 'string' && reasoningContent.trim() !== '';
 
       // 获取当前节点的展开状态（默认都展开）
       const currentNodeId = nodeId || (data as any).node_id || '';
@@ -456,102 +459,104 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
             activeKey={activeKeys}
             onChange={(keys) => setActiveKeys(keys as string[])}
             className={styles.resultCollapse}
-          >
-            {result.results.map((nodeResult) => {
+            items={result.results.map((nodeResult) => {
               const nodeLabel = getNodeLabel(nodeResult.node_id);
-              return (
-                <Panel
-                  key={nodeResult.node_id}
-                  header={
-                    <div className={styles.panelHeader}>
-                      <div className={styles.headerLeft}>
-                        {nodeResult.success ? (
-                          <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                        ) : (
-                          <CloseCircleOutlined style={{ color: '#f5222d' }} />
-                        )}
-                        <span className={styles.nodeLabel} title={nodeLabel}>
-                          {nodeLabel}
-                        </span>
-                        <span className={styles.typeBadge}>
-                          {nodeResult.type === 'ai'
-                            ? (() => {
-                                const node = nodes.find((n) => n.id === nodeResult.node_id);
-                                const modelName =
-                                  nodeResult.data?.model || node?.data?.config?.modelName || '';
-                                let provider = '';
-                                if (modelName.toLowerCase().includes('deepseek')) {
-                                  provider = 'deepseek';
-                                } else if (
-                                  modelName.toLowerCase().includes('doubao') ||
-                                  modelName.toLowerCase().includes('seed')
-                                ) {
-                                  provider = 'doubao';
-                                } else if (modelName.toLowerCase().includes('qwen')) {
-                                  provider = 'qianwen';
-                                }
-                                if (!provider && node?.data?.config?.provider) {
-                                  provider = node.data.config.provider.toLowerCase();
-                                }
-                                return provider ? (
-                                  <ProviderIcon provider={provider} size={14} />
-                                ) : (
-                                  <Tag color={nodeResult.success ? 'success' : 'error'}>
-                                    {getNodeTypeLabel(nodeResult.type)}
-                                  </Tag>
-                                );
-                              })()
-                            : (
+              const header = (
+                <div className={styles.panelHeader}>
+                  <div className={styles.headerLeft}>
+                    {nodeResult.success ? (
+                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                    ) : (
+                      <CloseCircleOutlined style={{ color: '#f5222d' }} />
+                    )}
+                    <span className={styles.nodeLabel} title={nodeLabel}>
+                      {nodeLabel}
+                    </span>
+                    <span className={styles.typeBadge}>
+                      {nodeResult.type === 'ai'
+                        ? (() => {
+                            const node = nodes.find((n) => n.id === nodeResult.node_id);
+                            const modelName =
+                              nodeResult.data?.model || node?.data?.config?.modelName || '';
+                            let provider = '';
+                            if (modelName.toLowerCase().includes('deepseek')) {
+                              provider = 'deepseek';
+                            } else if (
+                              modelName.toLowerCase().includes('doubao') ||
+                              modelName.toLowerCase().includes('seed')
+                            ) {
+                              provider = 'doubao';
+                            } else if (modelName.toLowerCase().includes('qwen')) {
+                              provider = 'qianwen';
+                            }
+                            if (!provider && node?.data?.config?.provider) {
+                              provider = node.data.config.provider.toLowerCase();
+                            }
+                            return provider ? (
+                              <ProviderIcon provider={provider} size={14} />
+                            ) : (
                               <Tag color={nodeResult.success ? 'success' : 'error'}>
                                 {getNodeTypeLabel(nodeResult.type)}
                               </Tag>
-                            )}
-                        </span>
-                      </div>
-                    </div>
-                  }
-                extra={
-                  <Space onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EyeOutlined />}
-                      onClick={() => {
-                        setPreviewTarget(nodeResult);
-                        setPreviewOpen(true);
-                      }}
-                    />
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<CopyOutlined />}
-                      onClick={() => copyToClipboard(nodeResult.data)}
-                    />
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<DownloadOutlined />}
-                      onClick={() =>
-                        downloadAsJson(
-                          nodeResult.data,
-                          `${getNodeLabel(nodeResult.node_id)}_result.json`
-                        )
-                      }
-                    />
-                  </Space>
-                }
-              >
-                {nodeResult.success ? (
-                  renderDataPreview(nodeResult.data, nodeResult.type, nodeResult.node_id)
-                ) : (
-                  <div className={styles.errorMessage}>
-                    <Text type="danger">{nodeResult.error || t('node.execution.execFailed')}</Text>
+                            );
+                          })()
+                        : (
+                          <Tag color={nodeResult.success ? 'success' : 'error'}>
+                            {getNodeTypeLabel(nodeResult.type)}
+                          </Tag>
+                        )}
+                    </span>
                   </div>
-                )}
-              </Panel>
+                </div>
               );
+
+              const extra = (
+                <Space onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => {
+                      setPreviewTarget(nodeResult);
+                      setPreviewOpen(true);
+                    }}
+                  />
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={() => copyToClipboard(nodeResult.data)}
+                  />
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    onClick={() =>
+                      downloadAsJson(
+                        nodeResult.data,
+                        `${getNodeLabel(nodeResult.node_id)}_result.json`
+                      )
+                    }
+                  />
+                </Space>
+              );
+
+              const children = nodeResult.success ? (
+                renderDataPreview(nodeResult.data, nodeResult.type, nodeResult.node_id)
+              ) : (
+                <div className={styles.errorMessage}>
+                  <Text type="danger">{nodeResult.error || t('node.execution.execFailed')}</Text>
+                </div>
+              );
+
+              return {
+                key: nodeResult.node_id,
+                label: header,
+                extra,
+                children,
+              };
             })}
-          </Collapse>
+          />
         )}
       </div>
 

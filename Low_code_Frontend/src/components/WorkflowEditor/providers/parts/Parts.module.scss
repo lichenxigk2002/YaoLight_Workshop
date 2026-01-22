@@ -1,0 +1,95 @@
+.segmentedControl {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  padding: 4px;
+  width: 100%;
+
+  :global(.ant-segmented-item) {
+    border-radius: 6px;
+    transition: none;
+    color: var(--text-secondary, rgba(0, 0, 0, 0.45));
+
+    &:hover:not(.ant-segmented-item-selected) {
+      color: var(--text-primary, rgba(0, 0, 0, 0.88));
+      background: rgba(0, 0, 0, 0.04);
+      
+      :global([data-theme='dark']) & {
+        background: rgba(255, 255, 255, 0.08);
+      }
+    }
+  }
+
+  :global(.ant-segmented-item-selected) {
+    background: #000000 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    z-index: 2;
+
+    :global([data-theme='dark']) & {
+      background: #ffffff !important;
+      color: #000000 !important;
+    }
+  }
+
+  :global(.ant-segmented-thumb) {
+    background: #000000 !important;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+    
+    :global([data-theme='dark']) & {
+      background: #ffffff !important;
+    }
+  }
+
+  /* 深色模式适配 */
+  :global([data-theme='dark']) & {
+    background: var(--bg-tertiary, #2a2a2a);
+  }
+}
+
+/* 独立按钮样式 (Button Group) - 对应图中的"模型版本"样式 */
+.buttonGroupContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.buttonItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+  user-select: none;
+  border: 1px solid var(--border-primary, #d9d9d9);
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-secondary, rgba(0, 0, 0, 0.65));
+
+  &:hover {
+    border-color: #000000;
+    color: #000000;
+    
+    :global([data-theme='dark']) & {
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+  }
+
+  &.active {
+    background: #000000;
+    color: #ffffff;
+    border-color: #000000;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+
+    :global([data-theme='dark']) & {
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
+    }
+  }
+}

@@ -1,0 +1,93 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+
+  .title {
+    margin-bottom: 40px;
+    font-size: 32px;
+    font-weight: 600;
+    color: #000;
+    letter-spacing: -1px;
+
+    [data-theme='dark'] & {
+      color: #fff;
+    }
+  }
+
+  .summary {
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    border-radius: 16px;
+    padding: 0; // Card组件自带padding，这里设为0，由body控制
+    margin-bottom: 40px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+
+    [data-theme='dark'] & {
+      background: #000; // 纯黑背景
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    :global(.ant-card-body) {
+      background: transparent !important; // 强制去除body背景色
+      padding: 32px;
+      font-size: 24px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #000;
+
+      [data-theme='dark'] & {
+        color: #fff;
+      }
+    }
+  }
+
+  :global(.ant-table-wrapper) {
+    .ant-table {
+      background: transparent;
+      
+      .ant-table-container {
+        border-radius: 12px;
+        border: 1px solid #f0f0f0;
+        
+        [data-theme='dark'] & {
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+      }
+    }
+
+    .ant-table-thead > tr > th {
+      background: #f9f9f9;
+      color: #666;
+      font-weight: 600;
+      border-bottom: 1px solid #f0f0f0;
+
+      [data-theme='dark'] & {
+        background: rgba(255, 255, 255, 0.05);
+        color: #999;
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+      }
+    }
+
+    .ant-table-tbody > tr > td {
+      border-bottom: 1px solid #f0f0f0;
+      
+      [data-theme='dark'] & {
+        border-bottom-color: rgba(255, 255, 255, 0.05);
+        color: #fff;
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.05) !important;
+        }
+      }
+    }
+
+    .ant-table-tbody > tr:hover > td {
+      background: #fafafa !important;
+      [data-theme='dark'] & {
+        background: rgba(255, 255, 255, 0.08) !important;
+      }
+    }
+  }
+}

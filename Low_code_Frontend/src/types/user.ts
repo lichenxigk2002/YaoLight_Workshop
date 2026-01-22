@@ -16,8 +16,28 @@ export interface User {
   status: string; // 'active' | 'inactive' | 'suspended'
   last_login_at?: string | null;
   login_count?: number;
+  token_balance?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface TokenTransaction {
+  id: number;
+  user_id: number;
+  amount: number;
+  type: string;
+  related_id?: string | null;
+  description?: string | null;
+  provider?: string | null;
+  model_name?: string | null;
+  model_mode?: string | null;
+  model_id?: number | null;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  cost?: number;
+  currency?: string;
+  created_at: string;
 }
 
 /**

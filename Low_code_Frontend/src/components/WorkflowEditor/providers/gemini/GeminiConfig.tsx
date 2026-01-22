@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Switch, Select, InputNumber } from 'antd';
+import { Form, Select, InputNumber } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ProviderConfigProps } from '../types';
 import styles from './GeminiConfig.module.scss';
+import { SegmentedSwitch } from '../parts/SwitchPart';
 
 export const GeminiConfig: React.FC<ProviderConfigProps> = ({ form }) => {
   const { t } = useTranslation();
@@ -15,12 +16,11 @@ export const GeminiConfig: React.FC<ProviderConfigProps> = ({ form }) => {
       <Form.Item
         label={t('node.config.ai.thinking') || "Enable Reasoning"}
         name="reasoning"
-        valuePropName="checked"
         initialValue={false}
         tooltip={t('node.config.ai.thinkingTooltip') || "Enable Gemini thinking/reasoning capabilities"}
         className={styles.formItem}
       >
-        <Switch />
+        <SegmentedSwitch />
       </Form.Item>
 
       {reasoningEnabled && (

@@ -158,7 +158,11 @@ func (p *DeepSeekProvider) Chat(config *providers.AIModelConfig, prompt string, 
 			} `json:"message"`
 		} `json:"choices"`
 		Usage struct {
-			TotalTokens int `json:"total_tokens"`
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+			PromptCacheHit   int `json:"prompt_cache_hit_tokens"`
+			PromptCacheMiss  int `json:"prompt_cache_miss_tokens"`
 		} `json:"usage"`
 	}
 
@@ -173,7 +177,13 @@ func (p *DeepSeekProvider) Chat(config *providers.AIModelConfig, prompt string, 
 	return &providers.ChatResponse{
 		Content:    response.Choices[0].Message.Content,
 		TokensUsed: response.Usage.TotalTokens,
-		Model:      config.ModelName,
+		Usage: &providers.TokenUsage{
+			PromptTokens:     response.Usage.PromptTokens,
+			CompletionTokens: response.Usage.CompletionTokens,
+			TotalTokens:      response.Usage.TotalTokens,
+			CacheReadTokens:  &response.Usage.PromptCacheHit,
+		},
+		Model: config.ModelName,
 	}, nil
 }
 
@@ -277,7 +287,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 		// 检查 context 是否已取消
 		select {
 		case <-ctx.Done():
-			callback("", true, ctx.Err())
+			callback("", true, ctx.Err(), nil)
 			return ctx.Err()
 		default:
 			// 继续执行
@@ -300,25 +310,42 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				if fullContent.Len() > 0 {
 					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 				}
-				callback(finalContent, true, nil)
+				callback(finalContent, true, nil, nil)
 				return nil
 			}
 
 			var streamResponse struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
 				Choices []struct {
 					Delta struct {
+						Role             string `json:"role"`
 						Content          string `json:"content"`
 						ReasoningContent string `json:"reasoning_content"`
 					} `json:"delta"`
 					FinishReason string `json:"finish_reason"`
 				} `json:"choices"`
-				Usage struct {
-					TotalTokens int `json:"total_tokens"`
+				Usage *struct {
+					PromptTokens     int `json:"prompt_tokens"`
+					CompletionTokens int `json:"completion_tokens"`
+					TotalTokens      int `json:"total_tokens"`
+					PromptCacheHit   int `json:"prompt_cache_hit_tokens"`
+					PromptCacheMiss  int `json:"prompt_cache_miss_tokens"`
 				} `json:"usage"`
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 				continue
+			}
+
+			if streamResponse.Usage != nil {
+				usage := &providers.TokenUsage{
+					PromptTokens:     streamResponse.Usage.PromptTokens,
+					CompletionTokens: streamResponse.Usage.CompletionTokens,
+					TotalTokens:      streamResponse.Usage.TotalTokens,
+					CacheReadTokens:  &streamResponse.Usage.PromptCacheHit,
+				}
+				callback("", false, nil, usage)
 			}
 
 			if len(streamResponse.Choices) > 0 {
@@ -327,7 +354,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				if deltaReasoningContent != "" {
 					fullReasoningContent.WriteString(deltaReasoningContent)
 					// 发送带标记的思考内容
-					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil)
+					callback("[REASONING_DELTA]"+deltaReasoningContent, false, nil, nil)
 				}
 
 				// 处理正式内容
@@ -335,7 +362,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				if deltaContent != "" {
 					fullContent.WriteString(deltaContent)
 					// 发送带标记的正式内容
-					callback("[CONTENT_DELTA]"+deltaContent, false, nil)
+					callback("[CONTENT_DELTA]"+deltaContent, false, nil, nil)
 				}
 
 				if streamResponse.Choices[0].FinishReason != "" {
@@ -347,7 +374,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 					if fullContent.Len() > 0 {
 						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 					}
-					callback(finalContent, true, nil)
+					callback(finalContent, true, nil, nil)
 					return nil
 				}
 			}
@@ -366,7 +393,7 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 	if fullContent.Len() > 0 {
 		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
 	}
-	callback(finalContent, true, nil)
+	callback(finalContent, true, nil, nil)
 	return nil
 }
 

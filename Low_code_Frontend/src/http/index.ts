@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { message } from 'antd';
+import { message } from '@/utils/antdGlobal';
 import type { ApiResponse } from '@/types/api';
 import { StatusHandler } from './handlers';
 import { HttpError } from './core/error';

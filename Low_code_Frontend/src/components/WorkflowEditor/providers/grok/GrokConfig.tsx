@@ -1,8 +1,9 @@
 import React from 'react';
-import { Form, Switch, Select, Alert } from 'antd';
+import { Form, Select, Alert } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ProviderConfigProps } from '../types';
 import styles from './GrokConfig.module.scss';
+import { SegmentedSwitch } from '../parts/SwitchPart';
 
 export const GrokConfig: React.FC<ProviderConfigProps> = ({ form }) => {
   const { t } = useTranslation();
@@ -23,12 +24,11 @@ export const GrokConfig: React.FC<ProviderConfigProps> = ({ form }) => {
       <Form.Item
         label={t('node.config.ai.thinking') || "Enable Reasoning"}
         name="reasoning"
-        valuePropName="checked"
         initialValue={false}
         tooltip={t('node.config.ai.thinkingTooltip') || "Enable Grok thinking/reasoning capabilities"}
         className={styles.formItem}
       >
-        <Switch />
+        <SegmentedSwitch />
       </Form.Item>
 
       {reasoningEnabled && (
