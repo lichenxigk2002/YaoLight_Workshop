@@ -36,7 +36,9 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
         footer={null}
         width={700}
         centered
+        mask={false}
         maskClosable={false}
+        getContainer={false}
         styles={{ body: { padding: '0 24px 24px' } }}
       >
         <div style={{ padding: 48, textAlign: 'center', color: '#999' }}>
@@ -156,103 +158,103 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
                 </div>
               )}
           </div>
-          <Collapse 
-            defaultActiveKey={['summary']} 
-            size="small" 
+          <Collapse
+            defaultActiveKey={['summary']}
+            size="small"
             ghost
             items={[
               {
                 key: 'summary',
                 label: t('node.config.crawler.dataSummary'),
                 children: (
-              <div style={{ paddingLeft: 8 }}>
-                <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: 13,
-                    }}
-                  >
-                    <Text type="secondary">{t('node.config.crawler.mode')}</Text>
-                    <Text>
-                      {crawlerTest.previewData?.crawler?.data?.mode ||
-                        crawlerTest.previewData?.crawler?.data?.extractMode ||
-                        t('node.config.crawler.unknown')}
-                    </Text>
+                  <div style={{ paddingLeft: 8 }}>
+                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: 13,
+                        }}
+                      >
+                        <Text type="secondary">{t('node.config.crawler.mode')}</Text>
+                        <Text>
+                          {crawlerTest.previewData?.crawler?.data?.mode ||
+                            crawlerTest.previewData?.crawler?.data?.extractMode ||
+                            t('node.config.crawler.unknown')}
+                        </Text>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: 13,
+                        }}
+                      >
+                        <Text type="secondary">
+                          {t('node.config.crawler.selector')}
+                        </Text>
+                        <Text code>
+                          {crawlerTest.previewData?.crawler?.data?.selector_used ||
+                            crawlerTest.previewData?.crawler?.data?.selector ||
+                            t('node.config.crawler.notUsed')}
+                        </Text>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: 13,
+                        }}
+                      >
+                        <Text type="secondary">
+                          {t('node.config.crawler.resultCount')}
+                        </Text>
+                        <Text strong>
+                          {crawlerTest.previewData?.crawler?.data?.count ??
+                            (Array.isArray(rawData) ? rawData.length : 1)}
+                        </Text>
+                      </div>
+                    </Space>
+                    <div style={{ marginTop: 16 }}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {t('node.config.crawler.textSample')}
+                      </Text>
+                      <div
+                        style={{
+                          marginTop: 8,
+                          background: 'var(--bg-secondary)',
+                          padding: 12,
+                          borderRadius: 4,
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        <Paragraph ellipsis={{ rows: 8, expandable: true }} style={{ marginBottom: 0 }}>
+                          {crawlerTest.previewData?.dataclean?.data
+                            ? typeof crawlerTest.previewData.dataclean.data === 'string'
+                              ? crawlerTest.previewData.dataclean.data
+                              : JSON.stringify(
+                                crawlerTest.previewData.dataclean.data,
+                                null,
+                                2
+                              )
+                            : crawlerTest.previewData?.crawler?.data?.text ??
+                            JSON.stringify(
+                              crawlerTest.previewData?.crawler?.data?.value ||
+                              crawlerTest.previewData?.crawler?.data?.data ||
+                              crawlerTest.previewData?.crawler?.data,
+                              null,
+                              2
+                            )}
+                        </Paragraph>
+                      </div>
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: 13,
-                    }}
-                  >
-                    <Text type="secondary">
-                      {t('node.config.crawler.selector')}
-                    </Text>
-                    <Text code>
-                      {crawlerTest.previewData?.crawler?.data?.selector_used ||
-                        crawlerTest.previewData?.crawler?.data?.selector ||
-                        t('node.config.crawler.notUsed')}
-                    </Text>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: 13,
-                    }}
-                  >
-                    <Text type="secondary">
-                      {t('node.config.crawler.resultCount')}
-                    </Text>
-                    <Text strong>
-                      {crawlerTest.previewData?.crawler?.data?.count ??
-                        (Array.isArray(rawData) ? rawData.length : 1)}
-                    </Text>
-                  </div>
-                </Space>
-                <div style={{ marginTop: 16 }}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {t('node.config.crawler.textSample')}
-                  </Text>
-                  <div
-                    style={{
-                      marginTop: 8,
-                      background: 'var(--bg-secondary)',
-                      padding: 12,
-                      borderRadius: 4,
-                      fontSize: 12,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <Paragraph ellipsis={{ rows: 8, expandable: true }} style={{ marginBottom: 0 }}>
-                      {crawlerTest.previewData?.dataclean?.data
-                        ? typeof crawlerTest.previewData.dataclean.data === 'string'
-                          ? crawlerTest.previewData.dataclean.data
-                          : JSON.stringify(
-                            crawlerTest.previewData.dataclean.data,
-                            null,
-                            2
-                          )
-                        : crawlerTest.previewData?.crawler?.data?.text ??
-                        JSON.stringify(
-                          crawlerTest.previewData?.crawler?.data?.value ||
-                          crawlerTest.previewData?.crawler?.data?.data ||
-                          crawlerTest.previewData?.crawler?.data,
-                          null,
-                          2
-                        )}
-                    </Paragraph>
-                  </div>
-                </div>
-              </div>
-            ),
-          },
-        ]}
-      />
-    </Scrollbar>
+                ),
+              },
+            ]}
+          />
+        </Scrollbar>
       ),
     },
     {
@@ -363,7 +365,9 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
       footer={null}
       width={700}
       centered
+      mask={false}
       maskClosable={false}
+      getContainer={false}
       styles={{ body: { padding: '0 24px 24px' } }}
     >
       <Tabs
