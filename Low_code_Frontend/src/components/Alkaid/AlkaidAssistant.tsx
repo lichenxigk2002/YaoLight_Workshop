@@ -74,6 +74,8 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<any>(null);
   const isSendingFirstMessage = useRef(false); // 标记是否正在发送第一条消息
+  const accumulatedContentRef = useRef(''); // 用于累积流式内容
+  const isSendingMessage = useRef(false); // 标记是否正在发送消息（包括第一条和后续消息）
 
   // 滚动到底部
   const scrollToBottom = () => {
@@ -93,8 +95,8 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
   }, [visible]);
 
   useEffect(() => {
-    // 如果正在发送第一条消息，不要加载消息（避免覆盖本地状态）
-    if (isSendingFirstMessage.current) {
+    // 如果正在发送消息（包括第一条和后续消息），不要加载消息（避免覆盖本地状态）
+    if (isSendingMessage.current) {
       return;
     }
 
@@ -210,8 +212,13 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
   const handleSend = async () => {
     if (!inputValue.trim() || loading) return;
 
+    // 标记正在发送消息
+    isSendingMessage.current = true;
+
+    // 使用更精确的时间戳和随机数生成唯一ID，避免冲突
+    const now = Date.now();
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${now}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'user',
       content: inputValue.trim(),
       timestamp: new Date(),
@@ -224,10 +231,10 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
 
     // 初始化步骤
     setProcessSteps([
-      { id: 'understanding', label: '正在努力理解您的需求呢~ 💭', status: 'loading' },
-      { id: 'retrieving', label: '正在知识库里寻找答案呢 📖', status: 'pending' },
-      { id: 'generating', label: '正在为您精心编织工作流呢 ✨', status: 'pending' },
-      { id: 'completed', label: '完成啦！快来看看吧~ 🎉', status: 'pending' },
+      { id: 'understanding', label: '正在努力理解您的需求呢~ ', status: 'loading' },
+      { id: 'retrieving', label: '正在知识库里寻找答案呢 ', status: 'pending' },
+      { id: 'generating', label: '正在为您精心编织工作流呢 ', status: 'pending' },
+      { id: 'completed', label: '完成啦！快来看看吧~ ', status: 'pending' },
     ]);
 
     try {
@@ -245,9 +252,11 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
         await loadSessions();
       }
 
-      // 创建助手消息占位
-      const assistantMsgId = Date.now().toString();
+      // 创建助手消息占位（使用不同的ID前缀，确保不会与用户消息ID冲突）
+      const assistantMsgId = `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       setCurrentLoadingMessageId(assistantMsgId);
+      // 重置累积内容
+      accumulatedContentRef.current = '';
       setMessages(prev => [...prev, {
         id: assistantMsgId,
         role: 'assistant',
@@ -255,16 +264,20 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
         timestamp: new Date(),
       }]);
 
-      // 使用流式接口发送消息
+      // 使用流式接口发送消息（后端强制启用流式输出）
+
       const cancel = alkaidApi.sendMessageStream(
         currentSessionId,
         messageContent,
         (content, step, done) => {
-          // 更新消息内容
+          // 累加流式内容（后端发送的是增量内容）
           if (content) {
+            accumulatedContentRef.current += content;
+            // 更新消息内容（使用累加后的完整内容）
+            // 确保只更新助手消息，并且保持 role 为 'assistant'
             setMessages(prev => prev.map(msg =>
               msg.id === assistantMsgId
-                ? { ...msg, content }
+                ? { ...msg, role: 'assistant' as const, content: accumulatedContentRef.current }
                 : msg
             ));
           }
@@ -289,6 +302,9 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
             setCancelStream(null);
             setCurrentLoadingMessageId(null);
             isSendingFirstMessage.current = false;
+            isSendingMessage.current = false; // 标记消息发送完成
+            // 重置累积内容
+            accumulatedContentRef.current = '';
             // 延迟清除步骤显示
             setTimeout(() => setProcessSteps([]), 3000);
           }
@@ -299,6 +315,7 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
           setCancelStream(null);
           setCurrentLoadingMessageId(null);
           isSendingFirstMessage.current = false;
+          isSendingMessage.current = false; // 标记消息发送完成（即使失败）
           setProcessSteps([]);
         }
       );
@@ -313,6 +330,7 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
 
       // 发送失败也要清除标记
       isSendingFirstMessage.current = false;
+      isSendingMessage.current = false; // 标记消息发送完成（即使失败）
       setLoading(false);
       setCurrentLoadingMessageId(null);
       setProcessSteps([]);

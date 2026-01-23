@@ -326,6 +326,84 @@
   }
 }
 
+.codeBlock {
+  margin: 0;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  max-width: 100%;
+  max-height: 400px;
+  overflow-y: auto;
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-secondary) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-secondary);
+    border-radius: 3px;
+
+    &:hover {
+      background: var(--text-tertiary);
+    }
+  }
+}
+
+.errorStack {
+  margin: 8px 0 0 0;
+  padding: 12px;
+  background: rgba(255, 77, 79, 0.05);
+  border: 1px solid rgba(255, 77, 79, 0.2);
+  border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 77, 79, 0.3) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 77, 79, 0.3);
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba(255, 77, 79, 0.5);
+    }
+  }
+}
+
 @media (max-width: 1920px) {
   .resultCollapse {
     :global {

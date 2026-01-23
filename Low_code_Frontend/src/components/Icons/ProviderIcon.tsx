@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { DeepSeek, Doubao, Qwen, Zhipu, Gemini, Grok, OpenAI, Spark, Hunyuan } from '@lobehub/icons';
+import { DeepSeek, Doubao, Qwen, Zhipu, Gemini, Grok, OpenAI, Spark, Hunyuan, Claude } from '@lobehub/icons';
 
 // 检查图标组件是否正确加载
 const SafeIcon = ({ Component, ...props }: any) => {
@@ -72,6 +72,10 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({ provider, size = 16,
 
   if (providerLower === 'hunyuan') {
     return <SafeIcon Component={Hunyuan} size={size} className={className} />;
+  }
+
+  if (providerLower === 'claude' || providerLower === 'anthropic') {
+    return <SafeIcon Component={Claude} size={size} className={className} />;
   }
 
   // 默认返回空（未知提供商）

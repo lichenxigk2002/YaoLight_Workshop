@@ -204,8 +204,8 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 			stream = false
 			providerConfig["stream"] = false
 		}
-	} else if modelConfig.Provider == "gemini" || modelConfig.Provider == "grok" {
-		// Gemini/Grok (via OpenRouter)
+	} else if modelConfig.Provider == "claude" || modelConfig.Provider == "gemini" || modelConfig.Provider == "grok" {
+		// Claude/Gemini/Grok (via OpenRouter)
 		// 检查 thinking 参数 (OpenRouter 支持 reasoning)
 		if thinking, ok := node.Config["thinking"].(bool); ok {
 			providerConfig["thinking"] = thinking

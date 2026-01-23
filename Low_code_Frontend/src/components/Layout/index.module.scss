@@ -37,6 +37,13 @@
   font-size: 20px;
   font-weight: bold;
   color: var(--primary);
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+  user-select: none;
+
+  &:hover {
+    opacity: 0.8;
+  }
 
   .logoImage {
     width: 32px;
@@ -76,7 +83,7 @@
 .headerAvatar {
   cursor: pointer;
   border: none !important;
-  
+
   :global(.ant-avatar) {
     border: none !important;
   }
@@ -106,7 +113,7 @@
     transform: translateY(-2px);
     border-color: var(--border-primary);
     background: var(--bg-secondary);
-    
+
     :global(.anticon) {
       transform: scale(1.1);
     }
@@ -119,13 +126,14 @@
   // 亮色主题下的特殊样式
   [data-theme='light'] & {
     box-shadow: none;
-    
+
     :global(.anticon) {
       color: var(--text-primary);
     }
 
     &:hover {
       box-shadow: none;
+
       :global(.anticon) {
         color: var(--text-primary);
       }
@@ -139,14 +147,15 @@
   // 暗色主题下的特殊样式
   [data-theme='dark'] & {
     box-shadow: 0 2px 4px var(--shadow-sm);
-    
+
     :global(.anticon) {
       color: var(--text-primary);
     }
 
     &:hover {
-    box-shadow: 0 4px 12px var(--shadow-md);
+      box-shadow: 0 4px 12px var(--shadow-md);
       background: var(--bg-secondary);
+
       :global(.anticon) {
         color: var(--text-primary);
       }
@@ -167,10 +176,10 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
-  
+
   // 确保文字颜色正确
   color: var(--text-primary) !important;
-  
+
   &:hover {
     color: var(--text-primary) !important;
   }

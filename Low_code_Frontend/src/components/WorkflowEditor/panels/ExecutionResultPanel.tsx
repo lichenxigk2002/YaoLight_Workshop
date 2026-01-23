@@ -108,7 +108,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
         streamingReasoningContent: '',
         isStreaming: false,
         isReasoningStreaming: false,
-        cancelStream: () => {},
+        cancelStream: () => { },
       },
     };
   }, [previewOpen, previewTarget, result]);
@@ -271,11 +271,83 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
     // AI节点，支持流式内容显示
     if (nodeType === 'ai') {
       const content = data.content || data.result || '';
-      // 确保 reasoningContent 是字符串类型
-      const reasoningContent = typeof data.reasoningContent === 'string' 
-        ? data.reasoningContent 
-        : (data.reasoningContent ? String(data.reasoningContent) : '');
-      const hasReasoning = reasoningContent && typeof reasoningContent === 'string' && reasoningContent.trim() !== '';
+
+      // 智能处理 reasoningContent，避免显示 [object Object]
+      let reasoningContent = '';
+      if (data.reasoningContent) {
+        if (typeof data.reasoningContent === 'string') {
+          reasoningContent = data.reasoningContent;
+        } else if (Array.isArray(data.reasoningContent)) {
+          // 如果是数组，尝试提取字符串元素
+          const stringItems = data.reasoningContent
+            .filter((item: any) => typeof item === 'string')
+            .join('\n');
+          reasoningContent = stringItems;
+        } else if (typeof data.reasoningContent === 'object') {
+          // 如果是对象，尝试提取可能的文本字段
+          const obj = data.reasoningContent as any;
+          if (obj.text) {
+            reasoningContent = String(obj.text);
+          } else if (obj.content) {
+            reasoningContent = String(obj.content);
+          } else if (obj.message) {
+            reasoningContent = String(obj.message);
+          } else {
+            // 如果对象没有明显的文本字段，尝试 JSON 格式化
+            try {
+              const jsonStr = JSON.stringify(data.reasoningContent, null, 2);
+              // 如果 JSON 字符串太长或看起来不像文本内容，视为无效
+              if (jsonStr.length < 1000 && !jsonStr.includes('"type"') && !jsonStr.includes('"id"')) {
+                reasoningContent = jsonStr;
+              }
+            } catch (e) {
+              // JSON 序列化失败，视为无效
+              reasoningContent = '';
+            }
+          }
+        }
+      }
+
+      // 检查是否有有效的思考内容（排除 [object Object] 等无效字符串）
+      const invalidStrings = ['[object Object]', '[object Array]', 'null', 'undefined'];
+      const hasReasoning = reasoningContent &&
+        typeof reasoningContent === 'string' &&
+        reasoningContent.trim() !== '' &&
+        !invalidStrings.includes(reasoningContent.trim());
+
+      // 获取AI模型信息
+      const getModelInfo = () => {
+        const modelName = data.model || '';
+        if (!modelName) return null;
+
+        // 从模型名称推断提供商
+        const lowerModelName = modelName.toLowerCase();
+        let provider: string | null = null;
+
+        if (lowerModelName.includes('deepseek')) {
+          provider = 'deepseek';
+        } else if (lowerModelName.includes('doubao') || lowerModelName.includes('seed')) {
+          provider = 'doubao';
+        } else if (lowerModelName.includes('qwen')) {
+          provider = 'qwen';
+        } else if (lowerModelName.includes('zhipuai') || lowerModelName.includes('glm')) {
+          provider = 'zhipuai';
+        } else if (lowerModelName.includes('spark')) {
+          provider = 'spark';
+        } else if (lowerModelName.includes('hunyuan')) {
+          provider = 'hunyuan';
+        } else if (lowerModelName.includes('gpt') || lowerModelName.includes('openai')) {
+          provider = 'gpt';
+        } else if (lowerModelName.includes('gemini')) {
+          provider = 'gemini';
+        } else if (lowerModelName.includes('grok')) {
+          provider = 'grok';
+        }
+
+        return { modelName, provider };
+      };
+
+      const modelInfo = getModelInfo();
 
       // 获取当前节点的展开状态（默认都展开）
       const currentNodeId = nodeId || (data as any).node_id || '';
@@ -333,8 +405,19 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
               style={{ cursor: 'pointer', userSelect: 'none' }}
             >
               <Text strong className={styles.sectionTitle}>
-                <MessageIcon size={16} style={{ marginRight: 6 }} />
-                {hasReasoning ? '正式回答：' : '回答：'}
+                {modelInfo ? (
+                  <Space size={6} align="center">
+                    {modelInfo.provider && (
+                      <ProviderIcon provider={modelInfo.provider} size={16} />
+                    )}
+                    <span>{modelInfo.modelName}</span>
+                  </Space>
+                ) : (
+                  <>
+                    <MessageIcon size={16} style={{ marginRight: 6 }} />
+                    {hasReasoning ? '正式回答：' : '回答：'}
+                  </>
+                )}
               </Text>
               <CollapseIcon expanded={sectionState.content} size={16} />
             </div>
@@ -475,31 +558,31 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                     <span className={styles.typeBadge}>
                       {nodeResult.type === 'ai'
                         ? (() => {
-                            const node = nodes.find((n) => n.id === nodeResult.node_id);
-                            const modelName =
-                              nodeResult.data?.model || node?.data?.config?.modelName || '';
-                            let provider = '';
-                            if (modelName.toLowerCase().includes('deepseek')) {
-                              provider = 'deepseek';
-                            } else if (
-                              modelName.toLowerCase().includes('doubao') ||
-                              modelName.toLowerCase().includes('seed')
-                            ) {
-                              provider = 'doubao';
-                            } else if (modelName.toLowerCase().includes('qwen')) {
-                              provider = 'qianwen';
-                            }
-                            if (!provider && node?.data?.config?.provider) {
-                              provider = node.data.config.provider.toLowerCase();
-                            }
-                            return provider ? (
-                              <ProviderIcon provider={provider} size={14} />
-                            ) : (
-                              <Tag color={nodeResult.success ? 'success' : 'error'}>
-                                {getNodeTypeLabel(nodeResult.type)}
-                              </Tag>
-                            );
-                          })()
+                          const node = nodes.find((n) => n.id === nodeResult.node_id);
+                          const modelName =
+                            nodeResult.data?.model || node?.data?.config?.modelName || '';
+                          let provider = '';
+                          if (modelName.toLowerCase().includes('deepseek')) {
+                            provider = 'deepseek';
+                          } else if (
+                            modelName.toLowerCase().includes('doubao') ||
+                            modelName.toLowerCase().includes('seed')
+                          ) {
+                            provider = 'doubao';
+                          } else if (modelName.toLowerCase().includes('qwen')) {
+                            provider = 'qianwen';
+                          }
+                          if (!provider && node?.data?.config?.provider) {
+                            provider = node.data.config.provider.toLowerCase();
+                          }
+                          return provider ? (
+                            <ProviderIcon provider={provider} size={14} />
+                          ) : (
+                            <Tag color={nodeResult.success ? 'success' : 'error'}>
+                              {getNodeTypeLabel(nodeResult.type)}
+                            </Tag>
+                          );
+                        })()
                         : (
                           <Tag color={nodeResult.success ? 'success' : 'error'}>
                             {getNodeTypeLabel(nodeResult.type)}

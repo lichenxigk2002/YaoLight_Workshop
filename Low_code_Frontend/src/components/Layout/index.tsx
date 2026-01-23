@@ -19,6 +19,10 @@ export default function Layout({ children }: LayoutProps) {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useThemeStore();
 
+  const handleLogoClick = () => {
+    navigate('/');
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -78,7 +82,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <AntLayout className={styles.layout}>
       <Header className={styles.header}>
-        <div className={styles.logo}>
+        <div className={styles.logo} onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
           <img
             src={theme === 'dark' ? '/YaoLight_White.png' : '/YaoLight_Black.png'}
             alt="YaoLight"

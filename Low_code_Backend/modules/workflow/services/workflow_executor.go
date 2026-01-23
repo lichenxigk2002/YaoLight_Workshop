@@ -38,9 +38,10 @@ type EdgeConfig struct {
 
 // ExecutionRequest 执行请求
 type ExecutionRequest struct {
-	Nodes  []NodeConfig `json:"nodes"`
-	Edges  []EdgeConfig `json:"edges"`
-	UserID uint         `json:"userID,omitempty"` // 用户ID，用于验证模型归属
+	Nodes      []NodeConfig `json:"nodes"`
+	Edges      []EdgeConfig `json:"edges"`
+	UserID     uint         `json:"userID,omitempty"`     // 用户ID，用于验证模型归属
+	WorkflowID uint         `json:"workflowId,omitempty"` // 工作流ID，用于关联任务记录
 }
 
 // NodeExecutionResult 节点执行结果

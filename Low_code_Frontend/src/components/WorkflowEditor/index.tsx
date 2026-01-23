@@ -25,10 +25,16 @@ import {
   CheckCircleOutlined,
   DownloadOutlined,
   UploadOutlined,
+  HistoryOutlined,
+  DoubleRightOutlined,
+  DoubleLeftOutlined,
 } from '@ant-design/icons';
 import NodePanel from './panels/NodePanel';
 import NodeConfigPanel from './panels/NodeConfigPanel';
 import ExecutionResultPanel from './panels/ExecutionResultPanel';
+import TaskHistoryPanel from './panels/TaskHistoryPanel';
+import TaskExecutionDetailModal from './panels/TaskExecutionDetailModal';
+import type { Task, TaskNodeExecution } from '@/types/task';
 import { validateNodeConnection } from './utils/nodeFormats';
 import styles from './index.module.scss';
 import { useThemeStore } from '@/store/theme';
@@ -95,6 +101,15 @@ const WorkflowEditor: React.FC = () => {
   const [nodeListVisible, setNodeListVisible] = useState(false);
   const shouldFitViewAfterLoad = useRef(false); // 用于标记是否需要在加载后自动居中
 
+  // 任务历史记录相关状态
+  const [historyVisible, setHistoryVisible] = useState(false);
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskExecutions, setTaskExecutions] = useState<TaskNodeExecution[]>([]);
+
+  // 按钮组展开/收起状态
+  const [buttonsExpanded, setButtonsExpanded] = useState(true);
+
   const defaultViewport = React.useMemo(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0, zoom: 1 };
     const w = window.innerWidth;
@@ -132,17 +147,39 @@ const WorkflowEditor: React.FC = () => {
     updateNodeIdCounter
   );
 
+  // 包装 setConfigPanelVisible，在打开配置面板时关闭历史记录面板
+  const handleSetConfigPanelVisible = useCallback((visible: boolean) => {
+    setConfigPanelVisible(visible);
+    if (visible) {
+      setHistoryVisible(false);
+    }
+  }, []);
+
+  // 包装 setResultPanelVisible，在打开结果面板时关闭历史记录面板
+  const handleSetResultPanelVisible = useCallback((visible: boolean) => {
+    setResultPanelVisible(visible);
+    if (visible) {
+      setHistoryVisible(false);
+    }
+  }, []);
+
   // 使用执行Hook
-  const { handleRun, handleCancel, isExecuting } = useWorkflowExecute(
+  const { handleRun: originalHandleRun, handleCancel, isExecuting } = useWorkflowExecute(
     nodes,
     edges,
     setExecutionResult,
-    setResultPanelVisible,
-    setConfigPanelVisible,
+    handleSetResultPanelVisible,
+    handleSetConfigPanelVisible,
     setSelectedNode,
     updateNodesExecutionStatus,
     workflowId
   );
+
+  // 包装 handleRun，在执行时关闭历史记录面板
+  const handleRun = useCallback(() => {
+    setHistoryVisible(false);
+    originalHandleRun();
+  }, [originalHandleRun]);
 
   // 使用右键菜单Hook
   const {
@@ -161,7 +198,7 @@ const WorkflowEditor: React.FC = () => {
     deleteNodeFromHook,
     updateNodeConfig,
     setSelectedNode,
-    setConfigPanelVisible,
+    handleSetConfigPanelVisible,
     setResultPanelVisible,
     setAutoTestNodeId
   );
@@ -210,11 +247,12 @@ const WorkflowEditor: React.FC = () => {
         setSelectedNode(node);
         setConfigPanelVisible(false);
         setResultPanelVisible(false);
+        setHistoryVisible(false);
         setContextMenu(null);
         return;
       }
       setSelectedNode(node);
-      setConfigPanelVisible(true);
+      handleSetConfigPanelVisible(true);
       setResultPanelVisible(false);
       setContextMenu(null);
     },
@@ -320,21 +358,21 @@ const WorkflowEditor: React.FC = () => {
   // 导出工作流
   const handleExportWorkflow = useCallback(() => {
     if (nodes.length === 0 && edges.length === 0) {
-      message.warning('当前工作流为空，无法导出');
+      message.warning(t('workflowEditor.emptyWorkflowWarning'));
       return;
     }
     try {
       exportWorkflow(nodes, edges);
-      message.success('工作流已导出');
+      message.success(t('workflowEditor.exportSuccess'));
     } catch (error: any) {
-      message.error('导出失败: ' + (error.message || '未知错误'));
+      message.error(t('workflowEditor.exportFailed') + ': ' + (error.message || t('workflowEditor.unknownError')));
     }
-  }, [nodes, edges]);
+  }, [nodes, edges, t]);
 
   // 导入工作流
   const handleImportWorkflow = useCallback(() => {
     if (nodes.length > 0 || edges.length > 0) {
-      message.warning('请先清空当前工作流，再导入');
+      message.warning(t('workflowEditor.clearBeforeImport'));
       return;
     }
 
@@ -353,7 +391,7 @@ const WorkflowEditor: React.FC = () => {
         setNodes(importedNodes);
         setEdges(importedEdges);
         updateNodeIdCounter(importedNodes);
-        message.success('工作流已导入');
+        message.success(t('workflowEditor.importSuccess'));
 
         // 自动适配视图
         setTimeout(() => {
@@ -362,7 +400,7 @@ const WorkflowEditor: React.FC = () => {
           }
         }, 100);
       } catch (error: any) {
-        message.error('导入失败: ' + (error.message || '未知错误'));
+        message.error(t('workflowEditor.importFailed') + ': ' + (error.message || t('workflowEditor.unknownError')));
       } finally {
         // 清理
         document.body.removeChild(input);
@@ -371,7 +409,7 @@ const WorkflowEditor: React.FC = () => {
 
     document.body.appendChild(input);
     input.click();
-  }, [nodes, edges, setNodes, setEdges, updateNodeIdCounter, reactFlowInstance, getNodeLabel]);
+  }, [nodes, edges, setNodes, setEdges, updateNodeIdCounter, reactFlowInstance, getNodeLabel, t, message]);
 
   // 加载工作流节点和边
   useEffect(() => {
@@ -535,57 +573,100 @@ const WorkflowEditor: React.FC = () => {
           />
 
           {/* 悬浮操作按钮 */}
-          <div className={styles.actionButtons}>
-            <Space size="small">
-              <Button
-                size="small"
-                shape="round"
-                icon={<SaveOutlined />}
-                onClick={handleSave}
-              >
-                {t('workflowEditor.save')}
-              </Button>
-              <Button
-                size="small"
-                shape="round"
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                onClick={handleRun}
-              >
-                {t('workflowEditor.run')}
-              </Button>
-              <Button
-                size="small"
-                shape="round"
-                icon={<ReloadOutlined />}
-                onClick={clearAllExecutionStatus}
-              >
-                {t('workflowEditor.clearTaskStatus')}
-              </Button>
-              <Button
-                size="small"
-                shape="round"
-                icon={<UnorderedListOutlined />}
-                onClick={() => setNodeListVisible(!nodeListVisible)}
-              >
-                {t('workflowEditor.nodes')}
-              </Button>
-              <Button
-                size="small"
-                shape="round"
-                icon={<DownloadOutlined />}
-                onClick={handleExportWorkflow}
-              >
-                导出
-              </Button>
-              <Button
-                size="small"
-                shape="round"
-                icon={<UploadOutlined />}
-                onClick={handleImportWorkflow}
-              >
-                导入
-              </Button>
+          <div className={`${styles.actionButtons} ${buttonsExpanded ? styles.expanded : styles.collapsed}`}>
+            <Space size="small" key={buttonsExpanded ? 'expanded' : 'collapsed'}>
+              {buttonsExpanded ? (
+                <>
+                  <Button
+                    size="small"
+                    shape="round"
+                    type="primary"
+                    icon={<PlayCircleOutlined />}
+                    onClick={handleRun}
+                  >
+                    {t('workflowEditor.run')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
+                    icon={<SaveOutlined />}
+                    onClick={handleSave}
+                  >
+                    {t('workflowEditor.save')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
+                    icon={<ReloadOutlined />}
+                    onClick={clearAllExecutionStatus}
+                  >
+                    {t('workflowEditor.clearTaskStatus')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
+                    icon={<UnorderedListOutlined />}
+                    onClick={() => setNodeListVisible(!nodeListVisible)}
+                  >
+                    {t('workflowEditor.nodes')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
+                    icon={<HistoryOutlined />}
+                    onClick={() => {
+                      setHistoryVisible(true);
+                      setConfigPanelVisible(false);
+                      setResultPanelVisible(false);
+                      setSelectedNode(null);
+                    }}
+                  >
+                    {t('taskHistory.history')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
+                    icon={<DownloadOutlined />}
+                    onClick={handleExportWorkflow}
+                  >
+                    {t('workflowEditor.export')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
+                    icon={<UploadOutlined />}
+                    onClick={handleImportWorkflow}
+                  >
+                    {t('workflowEditor.import')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="circle"
+                    icon={<DoubleLeftOutlined />}
+                    onClick={() => setButtonsExpanded(false)}
+                    title="收起"
+                  />
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="small"
+                    shape="round"
+                    type="primary"
+                    icon={<PlayCircleOutlined />}
+                    onClick={handleRun}
+                  >
+                    {t('workflowEditor.run')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="circle"
+                    icon={<DoubleRightOutlined />}
+                    onClick={() => setButtonsExpanded(true)}
+                    title="展开"
+                  />
+                </>
+              )}
             </Space>
             {nodeListVisible && (
               <div className={styles.nodeListPopup}>
@@ -596,7 +677,7 @@ const WorkflowEditor: React.FC = () => {
                     const node = nodes.find((n) => n.id === nodeId);
                     if (node) {
                       setSelectedNode(node);
-                      setConfigPanelVisible(true);
+                      handleSetConfigPanelVisible(true);
                       setResultPanelVisible(false);
                     }
                   }}
@@ -607,10 +688,24 @@ const WorkflowEditor: React.FC = () => {
         </div>
 
         <div
-          className={`${styles.configPanelContainer} ${(configPanelVisible || resultPanelVisible) ? styles.visible : ''}`}
+          className={`${styles.configPanelContainer} ${(configPanelVisible || resultPanelVisible || historyVisible) ? styles.visible : ''}`}
         >
           <div className={styles.configPanelContent}>
-            {resultPanelVisible ? (
+            {historyVisible ? (
+              <TaskHistoryPanel
+                visible={historyVisible}
+                onClose={() => {
+                  setHistoryVisible(false);
+                }}
+                workflowId={workflowId ? parseInt(workflowId) : 0}
+                onViewExecutionDetail={(executions, task) => {
+                  setSelectedTask(task);
+                  setTaskExecutions(executions);
+                  setDetailVisible(true);
+                  // 保持历史记录面板打开，不关闭
+                }}
+              />
+            ) : resultPanelVisible ? (
               <ExecutionResultPanel
                 visible={resultPanelVisible}
                 onClose={() => setResultPanelVisible(false)}
@@ -677,6 +772,19 @@ const WorkflowEditor: React.FC = () => {
           }}
         />
       )}
+
+      {/* 任务执行详情弹窗 */}
+      <TaskExecutionDetailModal
+        visible={detailVisible}
+        onClose={() => {
+          setDetailVisible(false);
+          setSelectedTask(null);
+          setTaskExecutions([]);
+          // 保持历史记录面板打开状态，不关闭
+        }}
+        task={selectedTask}
+        executions={taskExecutions}
+      />
     </div>
   );
 };

@@ -224,7 +224,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
   const providerPickerOptionsCustom = React.useMemo<ProviderPickerOption[]>(
     () => {
       const allProviders = providerRegistry.getAll();
-      const priority = ['deepseek', 'doubao', 'qwen', 'hunyuan', 'spark', 'zhipuai', 'gemini', 'gpt', 'grok'];
+      const priority = ['deepseek', 'doubao', 'qwen', 'hunyuan', 'spark', 'zhipuai', 'claude', 'gemini', 'gpt', 'grok'];
       const sorted = [...allProviders].sort((a, b) => {
         const pA = a.name.toLowerCase();
         const pB = b.name.toLowerCase();
@@ -942,6 +942,8 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                             maxTokensLimit = 32768; // 豆包通常支持较大的 token 数
                           } else if (activeProvider === 'zhipuai') {
                             maxTokensLimit = 131072; // 智谱AI GLM-4.7/4.6 最大支持 128K
+                          } else if (activeProvider === 'claude') {
+                            maxTokensLimit = 131072; // Claude (OpenRouter) 通常支持更大的 token 数
                           } else if (activeProvider === 'gemini') {
                             maxTokensLimit = 32768; // Gemini 限制
                           } else if (activeProvider === 'gpt') {

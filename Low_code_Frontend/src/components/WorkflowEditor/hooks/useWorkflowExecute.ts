@@ -175,7 +175,7 @@ export function useWorkflowExecute(
                       icon: null,
                       onClick: showResultPanel,
                       actions: [viewButton],
-                      duration: 0, // 不自动关闭
+                      duration: 5, // 5秒后自动关闭
                       key: 'workflow-stream-start', // 添加key，避免重复显示
                     });
                   }
@@ -339,7 +339,7 @@ export function useWorkflowExecute(
         // 计算实际执行的节点总数（根据实际收到的 node_result 事件）
         // 过滤掉 pending 状态的节点和 workflow_complete 信号，只计算实际执行过的节点
         const executedNodeCount = Array.from(resultMap.entries())
-          .filter(([nodeId, status]) => 
+          .filter(([nodeId, status]) =>
             nodeId !== 'workflow_complete' && (status === 'success' || status === 'failed')
           ).length;
         const totalNodeCount = executedNodeCount > 0 ? executedNodeCount : result.results.length;
