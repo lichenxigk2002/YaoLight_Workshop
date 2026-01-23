@@ -121,6 +121,16 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 				"enableEnhancement": true,
 			},
 		},
+		"claude": {
+			"provider":       "claude",
+			"name":           "Claude",
+			"description":    "Anthropic Claude 系列模型（通过 OpenRouter 访问）",
+			"defaultBaseUrl": "https://openrouter.ai/api/v1",
+			"defaultConfig": map[string]interface{}{
+				"temperature": 0.7,
+				"maxTokens":   4096,
+			},
+		},
 		"gemini": {
 			"provider":       "gemini",
 			"name":           "Google Gemini",
@@ -270,8 +280,18 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 		})
 	}
 
-	// 检查是否有Gemini预设配置
+	// 检查是否有OpenRouter预设配置（Claude、Gemini、GPT、Grok都使用OpenRouter）
 	if config.GeminiAPIKey != "" {
+		models = append(models, map[string]interface{}{
+			"id":          "system_claude",
+			"name":        "Claude",
+			"provider":    "claude",
+			"modelName":   "anthropic/claude-sonnet-4.5",
+			"baseUrl":     "https://openrouter.ai/api/v1",
+			"isSystem":    true,
+			"description": "系统预设的Anthropic Claude模型，所有用户可用",
+		})
+
 		models = append(models, map[string]interface{}{
 			"id":          "system_gemini",
 			"name":        "Google Gemini",
@@ -404,7 +424,7 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 			defaultURL = "https://api.hunyuan.cloud.tencent.com/v1"
 		case "zhipuai":
 			defaultURL = "https://open.bigmodel.cn/api/paas/v4"
-		case "gemini", "gpt", "grok":
+		case "claude", "gemini", "gpt", "grok":
 			defaultURL = "https://openrouter.ai/api/v1"
 		default:
 			defaultURL = "https://api.deepseek.com"

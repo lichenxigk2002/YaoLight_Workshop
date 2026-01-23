@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
-  App, 
-  Typography, 
+import {
+  Button,
+  Modal,
+  Form,
+  Input,
+  App,
+  Typography,
   InputNumber,
   Row,
   Col,
@@ -13,8 +13,8 @@ import {
   Select,
   Tag
 } from 'antd';
-import { 
-  PlusOutlined, 
+import {
+  PlusOutlined,
   SettingOutlined,
   QuestionCircleOutlined,
   RightOutlined,
@@ -37,13 +37,13 @@ const PROVIDER_METADATA: Record<string, { icon: React.ReactNode, capabilities: s
     icon: <ProviderIcon provider="gpt" size={24} />,
     capabilities: ['LLM']
   },
-  openai: { 
-    icon: <ProviderIcon provider="openai" size={24} />, 
-    capabilities: ['LLM', 'TEXT EMBEDDING'] 
+  openai: {
+    icon: <ProviderIcon provider="openai" size={24} />,
+    capabilities: ['LLM', 'TEXT EMBEDDING']
   },
-  gemini: { 
-    icon: <ProviderIcon provider="gemini" size={24} />, 
-    capabilities: ['LLM'] 
+  gemini: {
+    icon: <ProviderIcon provider="gemini" size={24} />,
+    capabilities: ['LLM']
   },
   qwen: {
     icon: <ProviderIcon provider="qwen" size={24} />,
@@ -53,9 +53,9 @@ const PROVIDER_METADATA: Record<string, { icon: React.ReactNode, capabilities: s
     icon: <ProviderIcon provider="zhipuai" size={24} />,
     capabilities: ['LLM']
   },
-  deepseek: { 
-    icon: <ProviderIcon provider="deepseek" size={24} />, 
-    capabilities: ['LLM'] 
+  deepseek: {
+    icon: <ProviderIcon provider="deepseek" size={24} />,
+    capabilities: ['LLM']
   },
   doubao: {
     icon: <ProviderIcon provider="doubao" size={24} />,
@@ -71,6 +71,10 @@ const PROVIDER_METADATA: Record<string, { icon: React.ReactNode, capabilities: s
   },
   grok: {
     icon: <ProviderIcon provider="grok" size={24} />,
+    capabilities: ['LLM']
+  },
+  claude: {
+    icon: <ProviderIcon provider="claude" size={24} />,
     capabilities: ['LLM']
   },
 };
@@ -142,32 +146,32 @@ export default function ModelProviders() {
     fetchTemplates();
   }, []);
 
-    // 将供应商分类：已配置、待配置
-    const providerSections = useMemo(() => {
-      const configured: ProviderTemplate[] = [];
-      const toBeConfigured: ProviderTemplate[] = [];
+  // 将供应商分类：已配置、待配置
+  const providerSections = useMemo(() => {
+    const configured: ProviderTemplate[] = [];
+    const toBeConfigured: ProviderTemplate[] = [];
 
-      const filteredTemplates = templates.filter(t => 
-        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.provider.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+    const filteredTemplates = templates.filter(t =>
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.provider.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-      filteredTemplates.forEach(template => {
-        const isUserConfigured = models.some(m => m.provider === template.provider);
-        // 仅当用户自己配置了 Key 时，才算作“已配置”
-        // 业务逻辑：每个用户都可以配置自己的模型，最初都应该是待配置
-        const isConfigured = isUserConfigured;
-        
-        if (isConfigured) {
-          configured.push(template);
-        } else {
-          // 所有未配置的都放入待配置列表
-          toBeConfigured.push(template);
-        }
-      });
+    filteredTemplates.forEach(template => {
+      const isUserConfigured = models.some(m => m.provider === template.provider);
+      // 仅当用户自己配置了 Key 时，才算作“已配置”
+      // 业务逻辑：每个用户都可以配置自己的模型，最初都应该是待配置
+      const isConfigured = isUserConfigured;
 
-      return { configured, toBeConfigured };
-    }, [templates, models, systemModels, searchQuery]);
+      if (isConfigured) {
+        configured.push(template);
+      } else {
+        // 所有未配置的都放入待配置列表
+        toBeConfigured.push(template);
+      }
+    });
+
+    return { configured, toBeConfigured };
+  }, [templates, models, systemModels, searchQuery]);
 
   const handleOpenModal = (provider: string, modelName?: string) => {
     // 优先查找特定模型的配置，如果没有则查找供应商级别配置
@@ -176,24 +180,24 @@ export default function ModelProviders() {
     const existingModel = specificModel || providerDefault;
 
     setEditingProvider(provider);
-    
+
     if (existingModel) {
-        form.setFieldsValue({
-          ...existingModel,
-          modelName: modelName || (existingModel.modelName === '__provider_default__' ? '__provider_default__' : existingModel.modelName),
-          apiKey: '', // 不回显 API Key
-        });
-      } else {
-        const template = templates.find(t => t.provider === provider);
-        form.resetFields();
-        form.setFieldsValue({
-          provider,
-          baseUrl: template?.defaultBaseUrl,
-          name: template?.name,
-          modelName: modelName || '__provider_default__', // 默认使用供应商级别
-        });
-      }
-      setIsModalOpen(true);
+      form.setFieldsValue({
+        ...existingModel,
+        modelName: modelName || (existingModel.modelName === '__provider_default__' ? '__provider_default__' : existingModel.modelName),
+        apiKey: '', // 不回显 API Key
+      });
+    } else {
+      const template = templates.find(t => t.provider === provider);
+      form.resetFields();
+      form.setFieldsValue({
+        provider,
+        baseUrl: template?.defaultBaseUrl,
+        name: template?.name,
+        modelName: modelName || '__provider_default__', // 默认使用供应商级别
+      });
+    }
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -217,12 +221,12 @@ export default function ModelProviders() {
       setLoading(true);
       // 检查是否是供应商级别的配置（modelName 为空或特殊值）
       const isProviderConfig = !values.modelName || values.modelName === '__provider_default__';
-      
-      const existingModel = models.find(m => 
-        m.provider === editingProvider && 
+
+      const existingModel = models.find(m =>
+        m.provider === editingProvider &&
         (isProviderConfig ? m.modelName === '__provider_default__' : m.modelName === values.modelName)
       );
-      
+
       if (existingModel) {
         const updateData: any = {
           ...values,
@@ -285,8 +289,8 @@ export default function ModelProviders() {
               {isConfigured ? t('settings.authorized') : t('settings.unauthorized')}
               <div className={`${styles.dot} ${isConfigured ? styles.active : styles.error}`} />
             </div>
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               onClick={() => handleOpenModal(template.provider)}
               icon={<SettingOutlined />}
             >
@@ -308,9 +312,9 @@ export default function ModelProviders() {
 
   const handleDeleteModel = async () => {
     if (!editingProvider) return;
-    
+
     const modelToDelete = models.find(m => m.provider === editingProvider && m.modelName === currentModelName);
-    
+
     if (!modelToDelete) {
       message.warning(t('common.operationFailed'));
       return;
@@ -343,9 +347,9 @@ export default function ModelProviders() {
     <div className={styles.container}>
       <div className={styles.header}>
         <Title level={3} style={{ margin: 0 }}>{t('settings.modelProviders')}</Title>
-        <Input 
+        <Input
           className={styles.searchBox}
-          placeholder={t('common.search')} 
+          placeholder={t('common.search')}
           prefix={<SearchOutlined style={{ color: 'rgba(0,0,0,0.25)' }} />}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
@@ -368,8 +372,8 @@ export default function ModelProviders() {
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <h3>{t('settings.modelList')}</h3>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             icon={<SettingOutlined />}
             onClick={() => setIsSystemModelsOpen(true)}
           >
@@ -426,7 +430,7 @@ export default function ModelProviders() {
           <Form.Item name="provider" hidden>
             <Input />
           </Form.Item>
-          
+
           <Form.Item
             name="name"
             label={t('workflowEditor.ai.modelName')}
@@ -440,7 +444,7 @@ export default function ModelProviders() {
             label={t('workflowEditor.ai.modelType')}
             tooltip={t('settings.providerLevelTooltip')}
           >
-            <Select 
+            <Select
               placeholder={t('workflowEditor.ai.selectModel')}
               allowClear
             >
@@ -461,22 +465,22 @@ export default function ModelProviders() {
                 validator(_, value) {
                   const modelName = getFieldValue('modelName');
                   const isProviderConfig = !modelName || modelName === '__provider_default__';
-                  
+
                   // 尝试找到已存在的配置
-                  const existingModel = models.find(m => 
-                    m.provider === editingProvider && 
+                  const existingModel = models.find(m =>
+                    m.provider === editingProvider &&
                     (isProviderConfig ? m.modelName === '__provider_default__' : m.modelName === modelName)
                   );
 
                   // 如果是新建，必须填
                   if (!existingModel) {
                     if (!value) return Promise.reject(new Error(t('workflowEditor.ai.apiKeyRequired')));
-                  } 
+                  }
                   // 如果是编辑，且之前没有Key（不应该发生，但为了健壮性），或者用户想清空Key（也不允许空）
                   // 注意：后端返回的APIKeyEncrypted是空的，所以existingModel.apiKey是undefined/empty
                   // 这里的逻辑是：如果不填，就代表不修改Key；如果填了，就更新Key。
                   // 但是，如果是首次创建，必须填。
-                  
+
                   return Promise.resolve();
                 },
               }),
@@ -533,7 +537,7 @@ export default function ModelProviders() {
                 const providerDefault = models.find(m => m.provider === viewingProvider?.provider && m.modelName === '__provider_default__');
                 const systemModel = systemModels.find(sm => sm.provider === viewingProvider?.provider && sm.modelName === model);
                 const isConfigured = !!(specificModel || providerDefault || systemModel);
-                
+
                 return (
                   <List.Item className={styles.modelItem}>
                     <div className={styles.modelInfo}>
@@ -565,7 +569,7 @@ export default function ModelProviders() {
           </div>
         </div>
       </Modal>
-      
+
       {/* 系统预设模型模态框 */}
       <Modal
         title={t('workflowEditor.ai.systemPreset')}

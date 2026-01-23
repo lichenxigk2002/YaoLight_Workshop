@@ -53,21 +53,27 @@
         :global(.ant-menu-item-group-title) {
           padding-left: 12px;
           color: #999;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 500;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          margin-top: 16px;
+          margin-top: 12px;
+          margin-bottom: 4px;
         }
 
         :global(.ant-menu-item) {
-          margin: 4px 0 !important;
+          margin: 2px 0 !important;
           width: 100% !important;
-          border-radius: 12px;
-          height: 48px;
-          line-height: 48px;
+          border-radius: 8px;
+          height: 36px;
+          line-height: 36px;
+          font-size: 13px;
           color: #666;
           transition: all 0.2s;
+          
+          :global(.anticon) {
+            font-size: 14px;
+          }
           
           &:hover {
             background-color: #f5f5f7 !important;

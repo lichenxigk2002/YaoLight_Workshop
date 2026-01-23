@@ -39,8 +39,9 @@ export interface WorkflowEdge {
  * 执行工作流请求
  */
 export interface ExecuteWorkflowRequest {
-  nodes: WorkflowNode[];
-  edges: WorkflowEdge[];
+  workflowId?: number;  // 如果提供 workflowId，则从数据库加载配置，nodes 和 edges 可选
+  nodes?: WorkflowNode[];  // 如果 workflowId 为空，则必须提供 nodes
+  edges?: WorkflowEdge[];  // 如果 workflowId 为空，则必须提供 edges
 }
 
 /**

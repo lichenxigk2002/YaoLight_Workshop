@@ -6,6 +6,7 @@ export { providerRegistry } from './registry';
 export type { AIProviderRegistration, ProviderConfigProps, ProviderPreviewProps } from './types';
 
 // 注册所有提供商
+import './claude';
 import './deepseek';
 import './doubao';
 import './gemini';

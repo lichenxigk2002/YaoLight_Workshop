@@ -10,7 +10,8 @@ import {
   App,
   Descriptions,
   Divider,
-  Card
+  Card,
+  Tabs
 } from 'antd';
 import {
   CheckCircleOutlined,
@@ -19,13 +20,17 @@ import {
   CopyOutlined,
   DownloadOutlined,
   RightOutlined,
-  StopOutlined
+  StopOutlined,
+  FileTextOutlined,
+  CodeOutlined
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { Task, TaskNodeExecution, NodeExecutionStatus } from '@/types/task';
 import { workflowApi } from '@/api/workflow';
+import { MarkdownRenderer } from '../utils/MarkdownRenderer';
+import { ProviderIcon } from '@/components/Icons';
 import styles from './TaskExecutionDetailModal.module.scss';
 
 const { Text } = Typography;
@@ -44,13 +49,84 @@ const DataViewer: React.FC<{
   title: string;
   data: any;
   filename?: string;
-}> = ({ title, data, filename }) => {
+  nodeType?: string;  // 节点类型，用于判断是否显示文本预览
+}> = ({ title, data, filename, nodeType }) => {
   const { message } = App.useApp();
   const { t } = useTranslation();
 
-  const handleCopy = () => {
+  // 检查是否是AI节点，并且有content字段可以预览
+  const isAI = nodeType === 'ai';
+  const hasContent = data && typeof data === 'object' && (data.content || data.result);
+  const contentText = hasContent ? (data.content || data.result || '') : '';
+
+  // 智能处理 reasoningContent，避免显示 [object Object]
+  let reasoningText = '';
+  if (data && typeof data === 'object' && data.reasoningContent) {
+    if (typeof data.reasoningContent === 'string') {
+      reasoningText = data.reasoningContent;
+    } else if (Array.isArray(data.reasoningContent)) {
+      const stringItems = data.reasoningContent
+        .filter((item: any) => typeof item === 'string')
+        .join('\n');
+      reasoningText = stringItems;
+    } else if (typeof data.reasoningContent === 'object') {
+      const obj = data.reasoningContent as any;
+      if (obj.text) {
+        reasoningText = String(obj.text);
+      } else if (obj.content) {
+        reasoningText = String(obj.content);
+      } else if (obj.message) {
+        reasoningText = String(obj.message);
+      }
+    }
+  }
+
+  // 检查是否有有效的思考内容（排除 [object Object] 等无效字符串）
+  const invalidStrings = ['[object Object]', '[object Array]', 'null', 'undefined'];
+  const hasReasoning = reasoningText &&
+    reasoningText.trim() !== '' &&
+    !invalidStrings.includes(reasoningText.trim());
+
+  // 获取AI模型信息
+  const getModelInfo = () => {
+    if (!data || typeof data !== 'object') return null;
+
+    const modelName = data.model || '';
+    if (!modelName) return null;
+
+    // 从模型名称推断提供商
+    const lowerModelName = modelName.toLowerCase();
+    let provider: string | null = null;
+
+    if (lowerModelName.includes('deepseek')) {
+      provider = 'deepseek';
+    } else if (lowerModelName.includes('doubao') || lowerModelName.includes('seed')) {
+      provider = 'doubao';
+    } else if (lowerModelName.includes('qwen')) {
+      provider = 'qwen';
+    } else if (lowerModelName.includes('zhipuai') || lowerModelName.includes('glm')) {
+      provider = 'zhipuai';
+    } else if (lowerModelName.includes('spark')) {
+      provider = 'spark';
+    } else if (lowerModelName.includes('hunyuan')) {
+      provider = 'hunyuan';
+    } else if (lowerModelName.includes('gpt') || lowerModelName.includes('openai')) {
+      provider = 'gpt';
+    } else if (lowerModelName.includes('gemini')) {
+      provider = 'gemini';
+    } else if (lowerModelName.includes('grok')) {
+      provider = 'grok';
+    }
+
+    return { modelName, provider };
+  };
+
+  const modelInfo = getModelInfo();
+
+  const handleCopy = (text?: string) => {
     try {
-      navigator.clipboard.writeText(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+      const copyText = text || (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+      navigator.clipboard.writeText(copyText);
       message.success(t('taskHistory.executionDetail.copiedToClipboard'));
     } catch (error) {
       message.error(t('taskHistory.executionDetail.copyFailed'));
@@ -73,8 +149,115 @@ const DataViewer: React.FC<{
     }
   };
 
-  const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+  const jsonContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
 
+  // 如果支持文本预览，显示标签页切换
+  if (isAI && hasContent) {
+    const tabItems = [
+      {
+        key: 'preview',
+        label: (
+          <Space>
+            <FileTextOutlined />
+            <span>文本预览</span>
+          </Space>
+        ),
+        children: (
+          <div className={styles.markdownPreview}>
+            {hasReasoning && reasoningText && (
+              <div style={{ marginBottom: 24 }}>
+                <Text strong style={{ display: 'block', marginBottom: 12, fontSize: '13px' }}>思考过程：</Text>
+                <MarkdownRenderer content={reasoningText} />
+              </div>
+            )}
+            {contentText && (
+              <div>
+                {modelInfo && (
+                  <Space size={6} align="center" style={{ marginBottom: 12, display: 'flex' }}>
+                    {modelInfo.provider && (
+                      <ProviderIcon provider={modelInfo.provider} size={16} />
+                    )}
+                    <Text strong style={{ fontSize: '13px' }}>
+                      {modelInfo.modelName}
+                    </Text>
+                  </Space>
+                )}
+                <MarkdownRenderer content={contentText} />
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        key: 'json',
+        label: (
+          <Space>
+            <CodeOutlined />
+            <span>JSON数据</span>
+          </Space>
+        ),
+        children: (
+          <div className={styles.dataContent}>
+            <SyntaxHighlighter
+              language="json"
+              style={oneDark}
+              wrapLongLines={true}
+              customStyle={{
+                margin: 0,
+                padding: '12px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                maxHeight: '400px',
+                overflowY: 'auto',
+              }}
+            >
+              {jsonContent}
+            </SyntaxHighlighter>
+          </div>
+        ),
+      },
+    ];
+
+    return (
+      <div className={styles.dataViewer}>
+        <div className={styles.dataHeader}>
+          <Text strong>{title}</Text>
+          <Space size="small">
+            <Button
+              type="text"
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={() => handleCopy(contentText)}
+              title="复制文本内容"
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={() => handleCopy()}
+              title="复制JSON"
+            />
+            {filename && (
+              <Button
+                type="text"
+                size="small"
+                icon={<DownloadOutlined />}
+                onClick={handleDownload}
+                title={t('taskHistory.executionDetail.download')}
+              />
+            )}
+          </Space>
+        </div>
+        <Tabs
+          items={tabItems}
+          defaultActiveKey="preview"
+          size="small"
+        />
+      </div>
+    );
+  }
+
+  // 默认显示JSON格式
   return (
     <div className={styles.dataViewer}>
       <div className={styles.dataHeader}>
@@ -84,7 +267,7 @@ const DataViewer: React.FC<{
             type="text"
             size="small"
             icon={<CopyOutlined />}
-            onClick={handleCopy}
+            onClick={() => handleCopy()}
             title={t('taskHistory.executionDetail.copy')}
           />
           {filename && (
@@ -112,7 +295,7 @@ const DataViewer: React.FC<{
             overflowY: 'auto',
           }}
         >
-          {content}
+          {jsonContent}
         </SyntaxHighlighter>
       </div>
     </div>
@@ -239,6 +422,7 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
                 title={t('taskHistory.executionDetail.outputData')}
                 data={execution.outputData}
                 filename={`${execution.nodeId}_output.json`}
+                nodeType={execution.nodeType}
               />
             )}
 

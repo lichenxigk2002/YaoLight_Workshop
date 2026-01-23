@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, Button, Table, Space, Modal, Form, Input, Popconfirm, Tag, Breadcrumb, App } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { projectApi } from '@/api/project';
@@ -126,13 +126,10 @@ export default function ProjectDetail() {
   const handleExecute = async (workflow: Workflow) => {
     try {
       const hide = message.loading(t('workflow.executeWorkflow'), 0);
+      // 使用 workflowId 让后端从数据库加载配置，而不是从前端传递 nodes 和 edges
+      // 因为工作流列表接口可能不返回完整的 nodes 和 edges 数据
       await workflowApi.executeWorkflow({
-        nodes: (workflow.nodes || []).map(node => ({
-          id: node.id,
-          type: node.type,
-          config: node.config,
-        })),
-        edges: workflow.edges || [],
+        workflowId: workflow.id,  // 传递 workflowId，让后端从数据库加载配置
       });
       hide();
       message.success(t('workflow.execSuccess'));
@@ -221,15 +218,7 @@ export default function ProjectDetail() {
       />
 
       <Card
-        title={
-          <Space>
-            <ArrowLeftOutlined
-              onClick={() => navigate('/')}
-              style={{ cursor: 'pointer' }}
-            />
-            <span>{project?.name || t('dashboard.projectDetail')}</span>
-          </Space>
-        }
+        title={project?.name || t('dashboard.projectDetail')}
         extra={
           <Button
             type="primary"

@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"yaolight-workshop/backend/modules/ai/services/providers"
+	"yaolight-workshop/backend/modules/ai/services/providers/claude"
 	"yaolight-workshop/backend/modules/ai/services/providers/deepseek"
 	"yaolight-workshop/backend/modules/ai/services/providers/doubao"
 	"yaolight-workshop/backend/modules/ai/services/providers/gemini"
@@ -26,6 +27,7 @@ func NewProviderFactory() *ProviderFactory {
 	}
 
 	// 注册提供商
+	factory.RegisterProvider("claude", claude.NewClaudeProvider())
 	factory.RegisterProvider("deepseek", deepseek.NewDeepSeekProvider())
 	factory.RegisterProvider("doubao", doubao.NewDoubaoProvider())
 	factory.RegisterProvider("gemini", gemini.NewGeminiProvider())

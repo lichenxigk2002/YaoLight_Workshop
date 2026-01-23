@@ -71,6 +71,10 @@ const router = createBrowserRouter([
         element: <ModelProviders />,
       },
       {
+        path: 'recharge',
+        element: <Payment />,
+      },
+      {
         path: 'billing',
         element: <Billing />,
       },

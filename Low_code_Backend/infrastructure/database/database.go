@@ -373,6 +373,73 @@ func SeedModelPricingConfigs() error {
 		},
 
 		// ========================================
+		// Claude 系列 (via OpenRouter)
+		// ========================================
+		// Claude Sonnet 4.5 - 分段计费（基于上下文长度）
+		{
+			Provider:    "claude",
+			ModelName:   "anthropic/claude-sonnet-4.5",
+			PricingType: "segmented",
+			Currency:    "USD",
+			IsActive:    true,
+			Description: shared.Ptr("Claude Sonnet 4.5 - 分段计费（基于上下文长度，≤200K vs >200K）"),
+			PricingData: shared.JSONB{
+				Data: map[string]interface{}{
+					"segments": []map[string]interface{}{
+						{
+							"context_length_limit":          200000.0, // ≤200K tokens
+							"input_price_per_million":       3.0,
+							"output_price_per_million":      15.0,
+							"cache_read_price_per_million":  0.30,
+							"cache_write_price_per_million": 3.75,
+						},
+						{
+							"context_length_limit":          nil, // >200K tokens (无上限)
+							"input_price_per_million":       6.0,
+							"output_price_per_million":      22.50,
+							"cache_read_price_per_million":  0.60,
+							"cache_write_price_per_million": 7.50,
+						},
+					},
+				},
+			},
+		},
+		// Claude Opus 4.5 - 分离计费（200K上下文，统一价格）
+		{
+			Provider:    "claude",
+			ModelName:   "anthropic/claude-opus-4.5",
+			PricingType: "multi_type", // 支持输入、输出、缓存读取、缓存写入
+			Currency:    "USD",
+			IsActive:    true,
+			Description: shared.Ptr("Claude Opus 4.5 - 分离计费（200K上下文，支持缓存机制）"),
+			PricingData: shared.JSONB{
+				Data: map[string]interface{}{
+					"input_price_per_million":       5.0,
+					"output_price_per_million":      25.0,
+					"cache_read_price_per_million":  0.50,
+					"cache_write_price_per_million": 6.25,
+				},
+			},
+		},
+		// Claude Haiku 4.5 - 分离计费（200K上下文，统一价格）
+		{
+			Provider:    "claude",
+			ModelName:   "anthropic/claude-haiku-4.5",
+			PricingType: "multi_type", // 支持输入、输出、缓存读取、缓存写入
+			Currency:    "USD",
+			IsActive:    true,
+			Description: shared.Ptr("Claude Haiku 4.5 - 分离计费（200K上下文，支持缓存机制）"),
+			PricingData: shared.JSONB{
+				Data: map[string]interface{}{
+					"input_price_per_million":       1.0,
+					"output_price_per_million":      5.0,
+					"cache_read_price_per_million":  0.10,
+					"cache_write_price_per_million": 1.25,
+				},
+			},
+		},
+
+		// ========================================
 		// 通义千问 (Qwen) 系列
 		// ========================================
 		{

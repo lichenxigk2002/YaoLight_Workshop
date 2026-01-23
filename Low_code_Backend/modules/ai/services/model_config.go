@@ -69,10 +69,14 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置智谱AI API Key，请在.env中配置ZHIPUAI_API_KEY")
 		}
-	case "gemini", "gpt", "grok":
+	case "claude", "gemini", "gpt", "grok":
 		apiKey = config.GeminiAPIKey
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置OpenRouter API Key，请在.env中配置OPENROUTER_API_KEY")
+		}
+		// Claude 系统预设使用 anthropic/claude-sonnet-4.5
+		if provider == "claude" && getString(customConfig, "modelName", "") == "deepseek-chat" {
+			customConfig["modelName"] = "anthropic/claude-sonnet-4.5"
 		}
 		// Gemini 系统预设使用 google/gemini-3-pro-preview
 		if provider == "gemini" && getString(customConfig, "modelName", "") == "deepseek-chat" {
@@ -82,9 +86,9 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if provider == "gpt" && getString(customConfig, "modelName", "") == "deepseek-chat" {
 			customConfig["modelName"] = "openai/gpt-oss-20b"
 		}
-		// Grok 系统预设使用 x-ai/grok-2-1212
+		// Grok 系统预设使用 x-ai/grok-4.1-fast
 		if provider == "grok" && getString(customConfig, "modelName", "") == "deepseek-chat" {
-			customConfig["modelName"] = "x-ai/grok-2-1212"
+			customConfig["modelName"] = "x-ai/grok-4.1-fast"
 		}
 	default:
 		return nil, fmt.Errorf("不支持的预设提供商: %s", provider)
@@ -229,7 +233,7 @@ func getDefaultBaseURL(provider string) string {
 		return "https://open.bigmodel.cn/api/paas/v4"
 	case "hunyuan":
 		return "https://api.hunyuan.cloud.tencent.com/v1"
-	case "gemini", "gpt", "grok":
+	case "claude", "gemini", "gpt", "grok":
 		return "https://openrouter.ai/api/v1"
 	default:
 		return ""

@@ -8,6 +8,7 @@ import {
   ApiOutlined,
   SettingOutlined,
   GlobalOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
@@ -32,13 +33,13 @@ export default function Settings() {
           label: t('settings.modelProviders'),
         },
         {
-          key: 'members',
-          icon: <UserOutlined />,
-          label: t('settings.members'),
+          key: 'recharge',
+          icon: <CreditCardOutlined />,
+          label: t('settings.recharge'),
         },
         {
           key: 'billing',
-          icon: <CreditCardOutlined />,
+          icon: <FileTextOutlined />,
           label: t('settings.billing'),
         },
         {
