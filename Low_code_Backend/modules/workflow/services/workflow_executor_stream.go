@@ -7,11 +7,15 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
 	"yaolight-workshop/backend/infrastructure/database"
+	"yaolight-workshop/backend/infrastructure/shared"
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
 	aiService "yaolight-workshop/backend/modules/ai/services"
 	"yaolight-workshop/backend/modules/ai/services/providers"
+	taskModels "yaolight-workshop/backend/modules/task/models"
+	taskRepos "yaolight-workshop/backend/modules/task/repositories"
 	userModels "yaolight-workshop/backend/modules/user/models"
 )
 
@@ -648,6 +652,33 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		return fmt.Errorf("工作流节点为空")
 	}
 
+	// 创建任务记录
+	now := time.Now()
+	task := &taskModels.Task{
+		WorkflowID: req.WorkflowID,
+		UserID:     req.UserID,
+		Status:     "running",
+		Priority:   5,
+		Progress:   0,
+		RetryCount: 0,
+		MaxRetries: 3,
+		Tags:       shared.JSONB{Data: []interface{}{}},
+		StartedAt:  &now,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+
+	taskRepo := taskRepos.NewTaskRepository(database.DB)
+	nodeExecutionRepo := taskRepos.NewTaskNodeExecutionRepository(database.DB)
+
+	if err := taskRepo.CreateTask(task); err != nil {
+		log.Printf("创建任务记录失败: %v", err)
+		// 不影响执行，继续
+	}
+
+	// 记录任务开始时间，用于计算执行时长
+	taskStartTime := time.Now()
+
 	// 辅助函数：检查AI节点是否启用流式输出（考虑provider的默认行为）
 	checkStreamEnabled := func(node NodeConfig, modelConfig *providers.AIModelConfig) bool {
 		// 检查节点配置中的 stream 设置
@@ -685,8 +716,101 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	dataFlow := NewDataFlow(req.Edges)
 	variableContext := NewVariableContext()
 
+	// 保存节点执行记录的辅助函数
+	saveNodeExecution := func(nodeID string, nodeType string, result NodeExecutionResult, executionTime int64) {
+		if task.ID == 0 {
+			return // 任务未创建成功，跳过
+		}
+
+		// 重新获取任务状态，检查是否已被取消
+		updatedTask, err := taskRepo.GetTaskByID(task.ID)
+		isCancelled := false
+		if err == nil && updatedTask != nil {
+			isCancelled = updatedTask.Status == "cancelled" && updatedTask.CancelledBy != nil
+		}
+
+		nodeStartTime := time.Now().Add(-time.Duration(executionTime) * time.Millisecond)
+		nodeCompletedTime := time.Now()
+
+		status := "completed"
+		if !result.Success {
+			// 检查错误信息是否包含 context canceled（手动中止的标志）
+			isContextCanceled := false
+			if result.Error != "" {
+				errorLower := strings.ToLower(result.Error)
+				isContextCanceled = strings.Contains(errorLower, "context canceled") ||
+					strings.Contains(errorLower, "context cancelled")
+			}
+
+			// 如果任务已被手动中止，或者错误是 context canceled，节点应该标记为 cancelled 而不是 failed
+			if isCancelled || isContextCanceled {
+				status = "cancelled"
+			} else {
+				status = "failed"
+			}
+		}
+
+		// 将输入输出数据转换为 JSONB
+		var inputData *shared.JSONB
+		var outputData *shared.JSONB
+		if result.Data != nil {
+			outputData = &shared.JSONB{Data: result.Data}
+		}
+
+		// 将 int64 转换为 int
+		execTimeInt := int(executionTime)
+
+		// 检查是否已存在记录（可能是 running 状态）
+		existingExecution, err := nodeExecutionRepo.GetByTaskIDAndNodeID(task.ID, nodeID)
+		if err == nil && existingExecution != nil {
+			// 更新已存在的记录
+			existingExecution.Status = status
+			existingExecution.OutputData = outputData
+			existingExecution.ExecutionTime = &execTimeInt
+			existingExecution.CompletedAt = &nodeCompletedTime
+
+			if !result.Success {
+				errorMsg := result.Error
+				existingExecution.ErrorMessage = &errorMsg
+			} else {
+				existingExecution.ErrorMessage = nil
+			}
+
+			if err := nodeExecutionRepo.Update(existingExecution); err != nil {
+				log.Printf("更新节点执行记录失败: %v", err)
+			}
+		} else {
+			// 创建新记录
+			execution := &taskModels.TaskNodeExecution{
+				TaskID:        task.ID,
+				NodeID:        nodeID,
+				NodeType:      nodeType,
+				Status:        status,
+				InputData:     inputData,
+				OutputData:    outputData,
+				ExecutionTime: &execTimeInt,
+				RetryCount:    0,
+				StartedAt:     &nodeStartTime,
+				CompletedAt:   &nodeCompletedTime,
+				CreatedAt:     time.Now(),
+			}
+
+			if !result.Success {
+				errorMsg := result.Error
+				execution.ErrorMessage = &errorMsg
+			}
+
+			if err := nodeExecutionRepo.Create(execution); err != nil {
+				log.Printf("保存节点执行记录失败: %v", err)
+			}
+		}
+	}
+
 	// 执行上游节点（如果有）
 	executed := make(map[string]bool)
+
+	// 跟踪当前正在执行的节点ID（用于取消时更新状态）
+	var currentExecutingNodeID string
 
 	// 存储条件节点的结果，用于判断边是否应该执行
 	conditionResults := make(map[string]bool)
@@ -722,7 +846,16 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		variableContext.SetNodeType(nodeConfig.ID, nodeConfig.Type)
 
 		// 执行节点
+		nodeStartTime := time.Now()
 		result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
+		executionTime := time.Since(nodeStartTime).Milliseconds()
+
+		// 保存节点执行记录
+		saveNodeExecution(nodeConfig.ID, nodeConfig.Type, result, executionTime)
+
+		// 清除当前执行节点标记
+		currentExecutingNodeID = ""
+
 		if result.Success {
 			nodeData := NewNodeData(result.Data)
 			dataFlow.SetNodeOutput(nodeConfig.ID, nodeData)
@@ -750,6 +883,95 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 	// 执行所有节点
 	for len(queue) > 0 {
+		// 检查上下文是否已取消（手动中止）
+		select {
+		case <-ctx.Done():
+			// 上下文被取消，更新任务状态为已取消
+			if task.ID > 0 {
+				cancelledAt := time.Now()
+				actualDuration := int(time.Since(taskStartTime).Milliseconds())
+
+				task.Status = "cancelled"
+				task.CancelledAt = &cancelledAt
+				task.CancelledBy = &req.UserID
+				task.ActualDuration = &actualDuration
+				task.UpdatedAt = time.Now()
+
+				// 计算进度（已执行节点数 / 总节点数）
+				executedCount := 0
+				for _, exec := range executed {
+					if exec {
+						executedCount++
+					}
+				}
+				if len(req.Nodes) > 0 {
+					task.Progress = int(float64(executedCount) / float64(len(req.Nodes)) * 100)
+				}
+
+				if err := taskRepo.UpdateTask(task); err != nil {
+					log.Printf("更新任务状态为已取消失败: %v", err)
+				}
+
+				// 更新所有正在执行的节点状态为 cancelled
+				// 无论节点状态是 running 还是 failed，都应该更新为 cancelled（因为是手动中止）
+				executions, err := nodeExecutionRepo.GetByTaskID(task.ID)
+				if err == nil {
+					for i := range executions {
+						// 如果节点状态是 running 或 failed，都更新为 cancelled
+						// 特别处理当前正在执行的节点，或者所有 running 状态的节点
+						if executions[i].Status == "running" ||
+							(executions[i].Status == "failed" && executions[i].NodeID == currentExecutingNodeID) {
+							executions[i].Status = "cancelled"
+							cancelledAt := time.Now()
+							executions[i].CompletedAt = &cancelledAt
+							if err := nodeExecutionRepo.Update(&executions[i]); err != nil {
+								log.Printf("更新节点执行状态为已取消失败: %v", err)
+							}
+						}
+					}
+				}
+
+				// 为未执行的节点创建 pending 状态的记录
+				for _, node := range req.Nodes {
+					if !executed[node.ID] {
+						// 检查是否已经存在记录
+						executions, err := nodeExecutionRepo.GetByTaskID(task.ID)
+						exists := false
+						if err == nil {
+							for _, exec := range executions {
+								if exec.NodeID == node.ID {
+									exists = true
+									break
+								}
+							}
+						}
+
+						if !exists {
+							// 创建 pending 状态的记录
+							pendingExecution := &taskModels.TaskNodeExecution{
+								TaskID:     task.ID,
+								NodeID:     node.ID,
+								NodeType:   node.Type,
+								Status:     "pending",
+								RetryCount: 0,
+								CreatedAt:  time.Now(),
+							}
+							if err := nodeExecutionRepo.Create(pendingExecution); err != nil {
+								log.Printf("创建未执行节点记录失败: %v", err)
+							}
+						}
+					}
+				}
+
+				log.Printf("任务被手动中止，用户ID: %d", req.UserID)
+			}
+
+			// 返回取消错误
+			return ctx.Err()
+		default:
+			// 继续执行
+		}
+
 		nodeID := queue[0]
 		queue = queue[1:]
 
@@ -780,6 +1002,48 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		// 设置节点类型到变量上下文
 		variableContext.SetNodeType(nodeConfig.ID, nodeConfig.Type)
 
+		// 标记当前正在执行的节点
+		currentExecutingNodeID = nodeConfig.ID
+
+		// 在执行前创建 running 状态的记录（如果还没有）
+		if task.ID > 0 {
+			executions, err := nodeExecutionRepo.GetByTaskID(task.ID)
+			nodeExists := false
+			if err == nil {
+				for i := range executions {
+					if executions[i].NodeID == nodeConfig.ID {
+						nodeExists = true
+						// 如果状态是 pending，更新为 running
+						if executions[i].Status == "pending" {
+							executions[i].Status = "running"
+							now := time.Now()
+							executions[i].StartedAt = &now
+							if err := nodeExecutionRepo.Update(&executions[i]); err != nil {
+								log.Printf("更新节点状态为运行中失败: %v", err)
+							}
+						}
+						break
+					}
+				}
+			}
+			// 如果节点记录不存在，创建 running 状态的记录
+			if !nodeExists {
+				now := time.Now()
+				runningExecution := &taskModels.TaskNodeExecution{
+					TaskID:     task.ID,
+					NodeID:     nodeConfig.ID,
+					NodeType:   nodeConfig.Type,
+					Status:     "running",
+					RetryCount: 0,
+					StartedAt:  &now,
+					CreatedAt:  now,
+				}
+				if err := nodeExecutionRepo.Create(runningExecution); err != nil {
+					log.Printf("创建节点运行记录失败: %v", err)
+				}
+			}
+		}
+
 		// 如果是AI节点，检查是否启用流式输出
 		if nodeConfig.Type == "ai" {
 			// 获取模型配置以判断是否启用流式
@@ -801,22 +1065,65 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 			if shouldUseStream {
 				// 使用流式执行AI节点（包含完整计费逻辑）
+				nodeStartTime := time.Now()
+				var streamSuccess bool
+				var streamError error
+
 				originalCallback := callback
 				wrappedCallback := func(nodeID string, content string, done bool, contentType string, err error) {
+					// 记录执行结果
+					if done {
+						streamSuccess = err == nil
+						streamError = err
+					}
 					// 调用原始callback
 					originalCallback(nodeID, content, done, contentType, err)
 				}
 
 				e.ExecuteAINodeStream(ctx, *nodeConfig, dataFlow, variableContext, req.UserID, wrappedCallback)
 
+				// 计算执行时间并保存节点记录
+				executionTime := time.Since(nodeStartTime).Milliseconds()
+
+				// 从 dataFlow 获取输出数据
+				outputData := dataFlow.GetNodeOutput(nodeConfig.ID)
+
+				// 构建执行结果
+				result := NodeExecutionResult{
+					NodeID:  nodeConfig.ID,
+					Type:    nodeConfig.Type,
+					Success: streamSuccess,
+					Data:    nil,
+				}
+
+				if outputData != nil && outputData.Payload != nil {
+					result.Data = outputData.Payload
+				}
+
+				if streamError != nil {
+					result.Error = streamError.Error()
+				}
+
+				// 保存节点执行记录
+				saveNodeExecution(nodeConfig.ID, nodeConfig.Type, result, executionTime)
+
 				// 标记AI节点为已执行（无论成功或失败）
+				// 清除当前执行节点标记
+				currentExecutingNodeID = ""
+
 				executed[nodeConfig.ID] = true
 
 				// 继续执行下游节点（无论AI节点成功或失败）
 				// 注意：这里不continue，让代码继续执行到"找到下一个节点"的逻辑
 			} else {
 				// 非流式AI节点，使用普通执行（包含计费逻辑）
+				nodeStartTime := time.Now()
 				result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
+				executionTime := time.Since(nodeStartTime).Milliseconds()
+
+				// 保存节点执行记录
+				saveNodeExecution(nodeConfig.ID, nodeConfig.Type, result, executionTime)
+
 				if result.Success {
 					nodeData := NewNodeData(result.Data)
 					dataFlow.SetNodeOutput(nodeConfig.ID, nodeData)
@@ -827,11 +1134,26 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 					resultJSON, _ := json.Marshal(result)
 					callback(nodeConfig.ID, string(resultJSON), false, "node_result", fmt.Errorf("节点执行失败: %s", result.Error))
 				}
+				// 清除当前执行节点标记
+				currentExecutingNodeID = ""
+
+				// 清除当前执行节点标记
+				currentExecutingNodeID = ""
+
 				executed[nodeConfig.ID] = true
 			}
 		} else {
 			// 普通节点或非流式AI节点，使用普通执行
+			nodeStartTime := time.Now()
 			result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
+			executionTime := time.Since(nodeStartTime).Milliseconds()
+
+			// 保存节点执行记录
+			saveNodeExecution(nodeConfig.ID, nodeConfig.Type, result, executionTime)
+
+			// 清除当前执行节点标记
+			currentExecutingNodeID = ""
+
 			if result.Success {
 				nodeData := NewNodeData(result.Data)
 				dataFlow.SetNodeOutput(nodeConfig.ID, nodeData)
@@ -926,6 +1248,22 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	// 所有节点执行完成，发送最终完成信号
 	// 使用一个特殊的节点ID "workflow_complete" 来表示整个工作流完成
 	callback("workflow_complete", "", true, "workflow_complete", nil)
+
+	// 更新任务状态为完成
+	if task.ID > 0 {
+		completedAt := time.Now()
+		actualDuration := int(time.Since(taskStartTime).Milliseconds())
+
+		task.Status = "completed"
+		task.Progress = 100
+		task.CompletedAt = &completedAt
+		task.ActualDuration = &actualDuration
+		task.UpdatedAt = time.Now()
+
+		if err := taskRepo.UpdateTask(task); err != nil {
+			log.Printf("更新任务状态失败: %v", err)
+		}
+	}
 
 	return nil
 }

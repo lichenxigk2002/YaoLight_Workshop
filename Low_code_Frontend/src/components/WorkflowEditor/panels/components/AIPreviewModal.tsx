@@ -173,7 +173,9 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
         footer={null}
         width={700}
         centered
+        mask={false}
         maskClosable={false}
+        getContainer={false}
         styles={{ body: { padding: '0 24px 24px' } }}
       >
         <div style={{ padding: 48, textAlign: 'center', color: '#999' }}>

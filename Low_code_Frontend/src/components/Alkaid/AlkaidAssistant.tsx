@@ -231,10 +231,10 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
 
     // 初始化步骤
     setProcessSteps([
-      { id: 'understanding', label: '正在努力理解您的需求呢~ 💭', status: 'loading' },
-      { id: 'retrieving', label: '正在知识库里寻找答案呢 📖', status: 'pending' },
-      { id: 'generating', label: '正在为您精心编织工作流呢 ✨', status: 'pending' },
-      { id: 'completed', label: '完成啦！快来看看吧~ 🎉', status: 'pending' },
+      { id: 'understanding', label: '正在努力理解您的需求呢~ ', status: 'loading' },
+      { id: 'retrieving', label: '正在知识库里寻找答案呢 ', status: 'pending' },
+      { id: 'generating', label: '正在为您精心编织工作流呢 ', status: 'pending' },
+      { id: 'completed', label: '完成啦！快来看看吧~ ', status: 'pending' },
     ]);
 
     try {

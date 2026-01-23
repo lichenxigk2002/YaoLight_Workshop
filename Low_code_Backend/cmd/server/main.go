@@ -15,6 +15,7 @@ import (
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	projectControllers "yaolight-workshop/backend/modules/project/controllers"
+	taskControllers "yaolight-workshop/backend/modules/task/controllers"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
 	workflowControllers "yaolight-workshop/backend/modules/workflow/controllers"
 )
@@ -127,6 +128,14 @@ func main() {
 			auth.PUT("/workflows/:id/nodes/:nodeId", workflowController.SaveWorkflowNode)
 			auth.POST("/workflows/execute", workflowController.ExecuteWorkflow)
 			auth.POST("/workflows/execute/stream", workflowController.ExecuteWorkflowStream)
+
+			// 任务相关路由
+			taskController := taskControllers.NewTaskController()
+			auth.GET("/workflows/:id/tasks", taskController.GetWorkflowTasks)            // 获取工作流的任务历史列表
+			auth.GET("/workflows/:id/running-tasks", taskController.GetRunningTasks)     // 获取正在运行的任务
+			auth.GET("/tasks/:id", taskController.GetTaskDetail)                         // 获取任务详情
+			auth.GET("/tasks/:id/node-executions", taskController.GetTaskNodeExecutions) // 获取任务的节点执行记录
+			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs)                      // 获取任务日志
 
 			// AI模型相关路由
 			aiController := aiControllers.NewAIController()

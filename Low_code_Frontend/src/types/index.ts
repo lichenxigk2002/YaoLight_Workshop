@@ -2,6 +2,7 @@
 export * from './api';
 export * from './ai';
 export * from './alkaid';
+export * from './task';
 export * from './user';
 export * from './workflow';
 

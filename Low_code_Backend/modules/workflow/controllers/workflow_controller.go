@@ -129,6 +129,7 @@ func (c *WorkflowController) ExecuteWorkflow(ctx *gin.Context) {
 
 	// 如果提供了workflowId，从数据库加载配置
 	if execReq.WorkflowID != nil && *execReq.WorkflowID > 0 {
+		req.WorkflowID = *execReq.WorkflowID
 		workflowNodes, err := c.workflowService.GetWorkflowNodes(*execReq.WorkflowID)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -297,6 +298,7 @@ func (c *WorkflowController) ExecuteWorkflowStream(ctx *gin.Context) {
 
 	// 如果提供了workflowId，从数据库加载配置
 	if execReq.WorkflowID != nil && *execReq.WorkflowID > 0 {
+		req.WorkflowID = *execReq.WorkflowID
 		workflowNodes, err := c.workflowService.GetWorkflowNodes(*execReq.WorkflowID)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{

@@ -365,7 +365,8 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
         getContainer={false}
         destroyOnClose
         maskClosable={true}
-        maskStyle={{ backgroundColor: 'rgba(0, 0, 0, 0)' }}
+        mask={false}
+        centered
         className={styles.configModal}
         transitionName=""
         maskTransitionName=""
