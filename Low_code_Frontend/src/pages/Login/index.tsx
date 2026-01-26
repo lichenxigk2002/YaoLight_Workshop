@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Form, Input, Button, Card, Tabs, Typography, Select, Space, Divider, App } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, ApiOutlined, GlobalOutlined, GithubOutlined, GoogleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,9 @@ import { userApi } from '@/api/user';
 import { md5Hash } from '@/utils/crypto';
 import { useTranslation } from 'react-i18next';
 import type { LoginRequest } from '@/types/user';
+import LoginWorkflowCanvas from '@/components/LoginWorkflowCanvas';
+import SplitText from '@/components/SplitText';
+import CircularText from '@/components/CircularText';
 import styles from './index.module.scss';
 
 const { TabPane } = Tabs;
@@ -21,6 +24,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [countdown, setCountdown] = useState(0);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const circularTextRef = useRef<HTMLDivElement>(null);
 
   // 如果已登录，重定向到首页
   useEffect(() => {
@@ -36,6 +41,59 @@ export default function Login() {
       return () => clearTimeout(timer);
     }
   }, [countdown]);
+
+  // 动态更新圆圈文字位置，使其跟随定位锚点
+  useEffect(() => {
+    const updateCircularTextPosition = () => {
+      if (!anchorRef.current || !circularTextRef.current) return;
+
+      const anchor = anchorRef.current;
+      const circularText = circularTextRef.current;
+
+      // 找到 wrapper 元素
+      let wrapper = anchor.parentElement;
+      while (wrapper && !wrapper.classList.contains(styles.wrapper)) {
+        wrapper = wrapper.parentElement;
+      }
+
+      if (!wrapper) return;
+
+      const anchorRect = anchor.getBoundingClientRect();
+      const wrapperRect = wrapper.getBoundingClientRect();
+
+      // 计算相对于 wrapper 的位置，圆心与锚点对齐
+      const top = anchorRect.top - wrapperRect.top + anchorRect.height / 2;
+      const left = anchorRect.left - wrapperRect.left + anchorRect.width / 2;
+
+      circularText.style.top = `${top}px`;
+      circularText.style.left = `${left}px`;
+    };
+
+    // 延迟执行，确保 DOM 已渲染
+    const timer = setTimeout(() => {
+      updateCircularTextPosition();
+    }, 100);
+
+    // 监听窗口大小变化和滚动
+    window.addEventListener('resize', updateCircularTextPosition);
+    window.addEventListener('scroll', updateCircularTextPosition, true);
+
+    // 使用 ResizeObserver 监听锚点位置变化
+    let resizeObserver: ResizeObserver | null = null;
+    if (anchorRef.current) {
+      resizeObserver = new ResizeObserver(updateCircularTextPosition);
+      resizeObserver.observe(anchorRef.current);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateCircularTextPosition);
+      window.removeEventListener('scroll', updateCircularTextPosition, true);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, []);
 
   // 登录
   const onLogin = async (values: LoginRequest) => {
@@ -128,6 +186,16 @@ export default function Login() {
   return (
     <div className={styles.container}>
       <div className={styles.wrapper}>
+        {/* 圆形文字装饰 - 移到 wrapper 层级，不受容器层级限制，保持混合模式工作 */}
+        <div ref={circularTextRef} className={styles.circularTextWrapper}>
+          <CircularText
+            text="YaoLight Workshop ❤️"
+            spinDuration={30}
+            onHover="speedUp"
+            radius={55}
+            className={styles.circularText}
+          />
+        </div>
         {/* 左侧品牌展示区 */}
         <div className={styles.brandSection}>
           <div className={styles.brandHeader}>
@@ -135,58 +203,43 @@ export default function Login() {
             <span className={styles.brandName}>{t('common.brandName')}</span>
           </div>
           <div className={styles.brandContent}>
-            <Title level={1} className={styles.brandTitle}>
-              {i18n.language === 'zh-CN' ? (
-                <>构建未来的<br />智能工作流</>
-              ) : (
-                <>Build the Future of<br />Intelligent Workflows</>
-              )}
-            </Title>
-            <Text className={styles.brandSubtitle}>
-              {t('login.subtitle')}<br />
-              {t('login.description')}
-            </Text>
+            <SplitText
+              text={t('login.title').replace(/<br\s*\/?>/gi, '\n')}
+              className={styles.brandTitle}
+              delay={50}
+              duration={1.25}
+              ease="power3.out"
+              splitType="chars"
+              from={{ opacity: 0, y: 40 }}
+              to={{ opacity: 1, y: 0 }}
+              threshold={0.1}
+              rootMargin="-100px"
+              textAlign="left"
+              showCallback
+            />
+            <SplitText
+              text={t('login.subtitle').replace(/<br\s*\/?>/gi, '\n')}
+              className={styles.brandSubtitle}
+              delay={50}
+              duration={1.25}
+              ease="power3.out"
+              splitType="chars"
+              from={{ opacity: 0, y: 40 }}
+              to={{ opacity: 1, y: 0 }}
+              threshold={0.1}
+              rootMargin="-100px"
+              textAlign="left"
+            />
             <div className={styles.demoPreview}>
               {/* 装饰性背景元素 */}
               <div className={styles.decorationCircle1} />
               <div className={styles.decorationCircle2} />
 
-              <div className={styles.glassCard}>
-                <div className={styles.nodeItem}>
-                  <div className={styles.nodeIconBox}>
-                    <svg viewBox="0 0 24 24" fill="none" className={styles.nodeIconSvg}>
-                      <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                  <div className={styles.nodeText}>{i18n.language === 'zh-CN' ? 'AI 模型' : 'AI Model'}</div>
-                </div>
-                <div className={styles.connectionLine} />
-                <div className={styles.nodeItem}>
-                  <div className={styles.nodeIconBox}>
-                    <svg viewBox="0 0 24 24" fill="none" className={styles.nodeIconSvg}>
-                      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
-                      <path d="M12 1V4M12 20V23M23 12H20M4 12H1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M18.36 5.64L16.24 7.76M7.76 16.24L5.64 18.36M18.36 18.36L16.24 16.24M7.76 7.76L5.64 5.64" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  <div className={styles.nodeText}>{i18n.language === 'zh-CN' ? '逻辑处理' : 'Logic Process'}</div>
-                </div>
-                <div className={styles.connectionLine} />
-                <div className={styles.nodeItem}>
-                  <div className={styles.nodeIconBox}>
-                    <svg viewBox="0 0 24 24" fill="none" className={styles.nodeIconSvg}>
-                      <path d="M3 3V21H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M7 16L12 9L16 13L21 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <circle cx="7" cy="16" r="1.5" fill="currentColor" />
-                      <circle cx="12" cy="9" r="1.5" fill="currentColor" />
-                      <circle cx="16" cy="13" r="1.5" fill="currentColor" />
-                      <circle cx="21" cy="7" r="1.5" fill="currentColor" />
-                    </svg>
-                  </div>
-                  <div className={styles.nodeText}>{i18n.language === 'zh-CN' ? '数据分析' : 'Data Analytics'}</div>
-                </div>
+              {/* 可交互的工作流画布 */}
+              <div className={styles.workflowCanvasWrapper}>
+                {/* 1px 透明定位锚点，用于定位圆圈文字 */}
+                <div ref={anchorRef} className={styles.circularTextAnchor} />
+                <LoginWorkflowCanvas />
               </div>
             </div>
           </div>
@@ -345,7 +398,7 @@ export default function Login() {
                           </Button>
                         </Form.Item>
 
-                        <div style={{ textAlign: 'center', color: '#999', fontSize: '12px', marginTop: '16px' }}>
+                        <div style={{ textAlign: 'center', color: '#666666', fontSize: '14px', marginTop: '16px', lineHeight: '1.6' }}>
                           {t('login.firstTimeNote')}
                         </div>
                       </Form>

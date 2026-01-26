@@ -85,6 +85,9 @@ export const getThemeConfig = (mode: 'light' | 'dark'): ThemeConfig => {
       Card: {
         borderRadius: 16,
         colorBgContainer: isDark ? '#141414' : '#ffffff',
+        // 覆盖 filled 变体的背景色，使用与容器相同的背景色
+        colorFillSecondary: isDark ? '#141414' : '#ffffff',
+        colorFillTertiary: isDark ? '#141414' : '#ffffff',
       },
       Modal: {
         borderRadius: 16,

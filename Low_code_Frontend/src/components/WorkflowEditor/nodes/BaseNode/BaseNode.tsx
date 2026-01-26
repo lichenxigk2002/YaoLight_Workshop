@@ -88,6 +88,7 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
                 position={Position.Top}
                 id="input"
                 className={styles.handle}
+                style={{ left: '50%', transform: 'translateX(-50%)' }}
               />
             ) : (
               <Handle
@@ -95,6 +96,7 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
                 position={Position.Left}
                 id="input"
                 className={styles.handle}
+                style={{ top: '50%', transform: 'translateY(-50%)' }}
               />
             )
           ) : (
@@ -167,6 +169,7 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
                 position={Position.Bottom}
                 id="output"
                 className={styles.handle}
+                style={{ left: '50%', transform: 'translateX(-50%)' }}
               />
             ) : (
               <Handle
@@ -174,6 +177,7 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
                 position={Position.Right}
                 id="output"
                 className={styles.handle}
+                style={{ top: '50%', transform: 'translateY(-50%)' }}
               />
             )
           ) : (

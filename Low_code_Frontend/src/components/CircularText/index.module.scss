@@ -1,0 +1,22 @@
+.circularText {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  will-change: transform;
+  color: inherit;
+  /* 设置混合模式实现反转色效果 */
+  mix-blend-mode: difference;
+}
+
+.letter {
+  position: absolute;
+  display: inline-block;
+  white-space: pre;
+  user-select: none;
+  pointer-events: none;
+  color: inherit;
+  /* 确保每个字母也应用混合模式 */
+  mix-blend-mode: difference;
+}

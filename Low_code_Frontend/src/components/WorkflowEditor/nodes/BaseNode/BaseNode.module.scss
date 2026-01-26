@@ -2,9 +2,22 @@
   position: relative;
   border: none !important;
   outline: none !important;
+  // 确保 baseNode 容器本身没有背景色
+  background: transparent !important;
+  background-color: transparent !important;
+  // 确保节点容器宽度固定，避免影响 handle 定位
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 
   &.selected {
     z-index: 10;
+  }
+
+  // 确保 ReactFlow 节点容器没有白色背景
+  &>* {
+    background: transparent !important;
   }
 }
 
@@ -14,18 +27,31 @@
   width: 200px;
   border-radius: 8px !important;
   overflow: hidden !important;
+  // 强制覆盖 filled 变体的背景色，包括所有可能的背景层
   background: var(--bg-primary) !important;
+  background-color: var(--bg-primary) !important;
+
+  // 覆盖 Ant Design filled 变体的默认背景
+  &[class*="ant-card-filled"],
+  &:global(.ant-card-filled) {
+    background: var(--bg-primary) !important;
+    background-color: var(--bg-primary) !important;
+  }
 
   :global(.ant-card-head) {
     display: none !important;
     padding: 0 !important;
     min-height: 0 !important;
     border-bottom: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
   }
 
   :global(.ant-card-body) {
     border-radius: 8px !important;
     padding: 12px !important;
+    background: transparent !important;
+    background-color: transparent !important;
   }
 
   // 确保所有圆角统一
@@ -98,12 +124,15 @@
   pointer-events: none;
   z-index: 5;
 }
+
 .status_success {
   border-color: #52c41a;
 }
+
 .status_failed {
   border-color: #f5222d;
 }
+
 .status_pending {
   border-color: #bfbfbf;
 }
