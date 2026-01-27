@@ -1,44 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { Form, Select, InputNumber } from 'antd';
+import React from 'react';
+import { Form, InputNumber } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ProviderConfigProps } from '../types';
 import styles from './GeminiConfig.module.scss';
-import { SegmentedSwitch } from '../parts/SwitchPart';
 
-export const GeminiConfig: React.FC<ProviderConfigProps> = ({ form }) => {
+export const GeminiConfig: React.FC<ProviderConfigProps> = () => {
   const { t } = useTranslation();
   
-  // 监听 reasoning 开关状态，用于控制 effort 选项的显示
-  const reasoningEnabled = Form.useWatch('reasoning', form);
+  // 注意：Gemini 3 Pro Preview 默认就会思考，即使不设置 reasoning 参数
+  // 因此不提供思考开关，让模型使用默认行为
 
   return (
     <>
-      <Form.Item
-        label={t('node.config.ai.thinking') || "Enable Reasoning"}
-        name="reasoning"
-        initialValue={false}
-        tooltip={t('node.config.ai.thinkingTooltip') || "Enable Gemini thinking/reasoning capabilities"}
-        className={styles.formItem}
-      >
-        <SegmentedSwitch />
-      </Form.Item>
-
-      {reasoningEnabled && (
-        <Form.Item
-          label={t('node.config.ai.thinkingEffort') || "Reasoning Effort"}
-          name="reasoning_effort"
-          initialValue="medium"
-          tooltip={t('node.config.ai.thinkingEffortTooltip') || "Adjust the model's thinking effort"}
-          className={styles.formItem}
-        >
-          <Select>
-            <Select.Option value="low">{t('node.config.ai.thinkingEffortLow') || "Low"}</Select.Option>
-            <Select.Option value="medium">{t('node.config.ai.thinkingEffortMedium') || "Medium"}</Select.Option>
-            <Select.Option value="high">{t('node.config.ai.thinkingEffortHigh') || "High"}</Select.Option>
-          </Select>
-        </Form.Item>
-      )}
-
+      {/* 思考开关已移除：Gemini 3 Pro Preview 默认会思考，不需要开关 */}
+      
       <Form.Item
         label={t('node.config.ai.frequencyPenalty') || "Frequency Penalty"}
         name="frequencyPenalty"

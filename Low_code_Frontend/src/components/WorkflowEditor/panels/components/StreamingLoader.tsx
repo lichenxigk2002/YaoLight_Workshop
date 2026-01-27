@@ -1,4 +1,5 @@
 import React from 'react';
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
 import styles from './StreamingLoader.module.scss';
 
 interface StreamingLoaderProps {
@@ -9,7 +10,7 @@ interface StreamingLoaderProps {
 
 /**
  * 流式加载组件
- * 四个原点转圈动画，支持位置切换和大小变化
+ * 使用 Lottie 动画，支持位置切换和大小变化
  */
 export const StreamingLoader: React.FC<StreamingLoaderProps> = ({
   isStreaming,
@@ -24,15 +25,23 @@ export const StreamingLoader: React.FC<StreamingLoaderProps> = ({
 
   return (
     <div className={`${styles.loader} ${styles[positionClass]}`}>
-      {/* 四个原点转圈的加载动画 */}
+      {/* Lottie 加载动画 */}
       <div className={`${styles.animationContainer} ${styles[sizeClass]}`}>
+        <DotLottieReact
+          src="https://lottie.host/b1611882-6abe-4dc0-af25-ce47f9666c9b/mAQSgJPLVf.lottie"
+          loop
+          autoplay
+        />
+      </div>
+      {/* 原来的四个原点转圈动画（已注释） */}
+      {/* <div className={`${styles.animationContainer} ${styles[sizeClass]}`}>
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
             className={`${styles.dot} ${styles[`dot${i}`]} ${styles[sizeClass]}`}
           />
         ))}
-      </div>
+      </div> */}
       <span>{displayText}</span>
     </div>
   );

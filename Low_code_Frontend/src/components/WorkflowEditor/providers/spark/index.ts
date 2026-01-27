@@ -14,11 +14,11 @@ providerRegistry.register({
       field: 'thinkingType',
       label: '思考模式',
       props: {
-        defaultValue: 'enabled',
+        defaultValue: 'auto',
         options: [
-          { label: 'enabled', value: 'enabled' },
-          { label: 'auto', value: 'auto' },
-          { label: 'disabled', value: 'disabled' },
+          { label: 'enabled (强制思考)', value: 'enabled' },
+          { label: 'auto (自动判断)', value: 'auto' },
+          { label: 'disabled (不思考)', value: 'disabled' },
         ]
       }
     },
@@ -37,7 +37,7 @@ providerRegistry.register({
     topP: 0.95,
     maxTokens: 65535,
     stream: false,
-    thinkingType: 'enabled',
+    thinkingType: 'auto',
     modelName: 'spark-x',
     baseUrl: 'https://spark-api-open.xf-yun.com/v2',
   },

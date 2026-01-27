@@ -160,28 +160,66 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 		// 豆包使用 thinkingLevel 字符串（minimal/low/medium/high）
 		if thinkingLevel, ok := node.Config["thinkingLevel"].(string); ok && thinkingLevel != "" {
 			providerConfig["thinkingLevel"] = thinkingLevel
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s doubao thinkingLevel=%s (从节点配置读取)", nodeID, thinkingLevel)
 		} else {
 			// 如果没有指定，使用默认值 medium
 			providerConfig["thinkingLevel"] = "medium"
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s doubao thinkingLevel=medium (默认值)", nodeID)
 		}
 		// 豆包默认开启流式（因为豆包默认开启思考，会返回思考内容）
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s
 			providerConfig["stream"] = s
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s doubao stream=%v (从节点配置读取)", nodeID, s)
+		} else if s, exists := providerConfig["stream"].(bool); exists {
+			// 从模型配置中读取（saved 模式）
+			stream = s
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s doubao stream=%v (从模型配置读取)", nodeID, s)
 		} else {
 			// 如果节点配置没有指定，豆包默认使用流式
 			stream = true
 			providerConfig["stream"] = true
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s doubao stream=true (豆包默认值)", nodeID)
 		}
-	} else if modelConfig.Provider == "qianwen" {
-		// 通义千问支持流式输出
+	} else if modelConfig.Provider == "qwen" {
+		// 通义千问（qwen）支持流式输出
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s
 			providerConfig["stream"] = s
-		} else if _, exists := providerConfig["stream"]; !exists {
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s qwen stream=%v (从节点配置读取)", nodeID, s)
+		} else if s, exists := providerConfig["stream"].(bool); exists {
+			// 从 providerConfig 中读取（模型默认配置，saved 模式）
+			stream = s
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s qwen stream=%v (从模型配置读取)", nodeID, s)
+		} else {
 			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
 			stream = false
 			providerConfig["stream"] = false
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s qwen stream=false (默认值)", nodeID)
+		}
+		// 通义千问深度思考参数（enable_thinking）
+		// 注意：通义千问使用 enable_thinking 而不是 thinking
+		if enableThinking, ok := node.Config["enable_thinking"].(bool); ok {
+			providerConfig["enable_thinking"] = enableThinking
+		} else if _, exists := providerConfig["enable_thinking"]; !exists {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			providerConfig["enable_thinking"] = false
+		}
+	} else if modelConfig.Provider == "qianwen" {
+		// 通义千问（qianwen）支持流式输出
+		if s, ok := node.Config["stream"].(bool); ok {
+			stream = s
+			providerConfig["stream"] = s
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s qianwen stream=%v (从节点配置读取)", nodeID, s)
+		} else if s, exists := providerConfig["stream"].(bool); exists {
+			// 从 providerConfig 中读取（模型默认配置，saved 模式）
+			stream = s
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s qianwen stream=%v (从模型配置读取)", nodeID, s)
+		} else {
+			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
+			stream = false
+			providerConfig["stream"] = false
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s qianwen stream=false (默认值)", nodeID)
 		}
 		// 通义千问深度思考参数（enable_thinking）
 		// 注意：通义千问使用 enable_thinking 而不是 thinking
@@ -206,40 +244,58 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			// 如果节点配置没有指定，且模型配置也没有，使用默认值 false
 			stream = false
 		}
-	} else if modelConfig.Provider == "gemini" {
-		// Gemini (via OpenRouter)
+	} else if modelConfig.Provider == "claude" || modelConfig.Provider == "gemini" || modelConfig.Provider == "grok" || modelConfig.Provider == "gpt" {
+		// Claude/Gemini/Grok/GPT (via OpenRouter)
 		// OpenRouter 的 reasoning 参数是一个对象，例如：
 		// { "enabled": true } 或 { "max_tokens": 2000 }
+		log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 是Claude/Gemini/Grok/GPT provider", nodeID)
+		log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 节点配置中的reasoning: %v, thinking: %v", nodeID, node.Config["reasoning"], node.Config["thinking"])
+
 		// 检查 reasoning 参数 (前端使用布尔值)
 		if reasoning, ok := node.Config["reasoning"].(bool); ok {
 			if reasoning {
 				// 启用推理，使用默认配置
-				providerConfig["reasoning"] = map[string]interface{}{
+				reasoningConfig := map[string]interface{}{
 					"enabled": true,
 				}
-			} else {
-				// 禁用推理
-				providerConfig["reasoning"] = map[string]interface{}{
-					"enabled": false,
+				// 如果有 reasoning_effort，添加到配置中
+				if effort, ok := node.Config["reasoning_effort"].(string); ok && effort != "" {
+					reasoningConfig["effort"] = effort
+					log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 添加 reasoning_effort=%s", nodeID, effort)
 				}
+				providerConfig["reasoning"] = reasoningConfig
+				log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 启用推理 (从reasoning参数), reasoning=%+v", nodeID, reasoningConfig)
+			} else {
+				log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s reasoning=false, 不添加reasoning参数", nodeID)
 			}
+			// 注意：如果 reasoning=false，不添加reasoning参数（根据官方示例）
 		} else if reasoningMap, ok := node.Config["reasoning"].(map[string]interface{}); ok {
 			// 如果前端传递的是对象，直接使用
 			providerConfig["reasoning"] = reasoningMap
-		} else if _, exists := providerConfig["reasoning"]; !exists {
-			// 默认不启用推理
-			providerConfig["reasoning"] = map[string]interface{}{
-				"enabled": false,
-			}
-		}
-		// 兼容 thinking 参数 (DeepSeek 风格)
-		if thinking, ok := node.Config["thinking"].(bool); ok {
-			if thinking {
-				providerConfig["reasoning"] = map[string]interface{}{
-					"enabled": true,
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 使用推理配置对象, reasoning=%+v", nodeID, reasoningMap)
+		} else {
+			// 兼容 thinking 参数 (DeepSeek 风格)
+			if thinking, ok := node.Config["thinking"].(bool); ok {
+				if thinking {
+					reasoningConfig := map[string]interface{}{
+						"enabled": true,
+					}
+					// 如果有 reasoning_effort，添加到配置中
+					if effort, ok := node.Config["reasoning_effort"].(string); ok && effort != "" {
+						reasoningConfig["effort"] = effort
+						log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 添加 reasoning_effort=%s", nodeID, effort)
+					}
+					providerConfig["reasoning"] = reasoningConfig
+					log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 启用推理 (从thinking参数), reasoning=%+v", nodeID, reasoningConfig)
+				} else {
+					log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s thinking=false, 不添加reasoning参数", nodeID)
 				}
+			} else {
+				log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 未找到reasoning或thinking参数", nodeID)
 			}
 		}
+		// 注意：根据官方示例，如果不启用推理，不应该添加reasoning参数
+		// 只有当明确启用时才添加，不添加默认的 {"enabled": false}
 
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s
@@ -249,10 +305,18 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 			providerConfig["stream"] = false
 		}
 	} else if modelConfig.Provider == "spark" {
+		log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 是讯飞星火provider", nodeID)
+		log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 节点配置中的thinkingType: %v", nodeID, node.Config["thinkingType"])
 		if thinkingType, ok := node.Config["thinkingType"].(string); ok && thinkingType != "" {
 			providerConfig["thinkingType"] = thinkingType
-		} else if _, exists := providerConfig["thinkingType"]; !exists {
-			providerConfig["thinkingType"] = "enabled"
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s thinkingType=%s (从节点配置读取)", nodeID, thinkingType)
+		} else if thinkingType, exists := providerConfig["thinkingType"].(string); exists {
+			// 从模型配置中读取（saved 模式）
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s thinkingType=%s (从模型配置读取)", nodeID, thinkingType)
+		} else {
+			// 如果没有指定，使用默认值 "auto"（让模型自动判断）
+			providerConfig["thinkingType"] = "auto"
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s thinkingType=auto (默认值)", nodeID)
 		}
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s
@@ -284,7 +348,12 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 	}
 
 	// 如果启用流式输出，使用流式方法
+	log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s: stream=%v, provider=%s, modelName=%s",
+		nodeID, stream, modelConfig.Provider, modelConfig.ModelName)
+	log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s: providerConfig=%+v", nodeID, providerConfig)
+
 	if stream {
+		log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 开始流式执行", nodeID)
 		var fullContent strings.Builder
 		var fullReasoningContent strings.Builder
 		var tokenDeducted bool
@@ -499,11 +568,16 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 				callback(nodeID, "", true, "", nil)
 			}
 		}
+		log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 调用 provider.ChatStream", nodeID)
 		err := provider.ChatStream(ctx, modelConfig, prompt, content, providerConfig, providerCallback)
 		if err != nil {
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s ChatStream 失败: %v", nodeID, err)
 			callback(nodeID, "", true, "", err)
+		} else {
+			log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s ChatStream 成功完成", nodeID)
 		}
 	} else {
+		log.Printf("[流式调试-后端] ExecuteAINodeStream 节点 %s 使用非流式执行 (stream=false)", nodeID)
 		// 非流式输出
 		chatResp, err := provider.Chat(modelConfig, prompt, content, providerConfig)
 		if err != nil {
@@ -681,10 +755,15 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 	// 辅助函数：检查AI节点是否启用流式输出（考虑provider的默认行为）
 	checkStreamEnabled := func(node NodeConfig, modelConfig *providers.AIModelConfig) bool {
+		log.Printf("[流式调试-后端] checkStreamEnabled 开始检查节点 %s", node.ID)
+		log.Printf("[流式调试-后端] 节点配置: %+v", node.Config)
+
 		// 检查节点配置中的 stream 设置
 		if stream, ok := node.Config["stream"].(bool); ok {
+			log.Printf("[流式调试-后端] 节点 %s 配置中 stream=%v (从节点配置读取)", node.ID, stream)
 			return stream
 		}
+		log.Printf("[流式调试-后端] 节点 %s 配置中没有 stream 字段", node.ID)
 
 		// 如果节点配置没有指定，检查模型默认配置
 		if modelMode := getString(node.Config, "modelMode", "system"); modelMode == "saved" {
@@ -695,6 +774,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 				if err == nil && modelEntity != nil && modelEntity.Params.Data != nil {
 					if paramsMap, ok := modelEntity.Params.Data.(map[string]interface{}); ok {
 						if s, ok := paramsMap["stream"].(bool); ok {
+							log.Printf("[流式调试-后端] 节点 %s 从模型配置读取 stream=%v", node.ID, s)
 							return s
 						}
 					}
@@ -705,10 +785,17 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		// 根据provider的默认行为判断
 		// 豆包默认开启流式
 		if modelConfig != nil && modelConfig.Provider == "doubao" {
+			log.Printf("[流式调试-后端] 节点 %s 是豆包provider，默认开启流式", node.ID)
 			return true
 		}
 
 		// 其他provider默认不开启流式
+		log.Printf("[流式调试-后端] 节点 %s provider=%s，默认不开启流式", node.ID, func() string {
+			if modelConfig != nil {
+				return modelConfig.Provider
+			}
+			return "unknown"
+		}())
 		return false
 	}
 
@@ -1060,10 +1147,17 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			// 检查是否启用流式输出
 			shouldUseStream := false
 			if err == nil && modelConfig != nil {
+				log.Printf("[流式调试-后端] 节点 %s 开始检查流式配置, provider=%s, modelName=%s",
+					nodeConfig.ID, modelConfig.Provider, modelConfig.ModelName)
 				shouldUseStream = checkStreamEnabled(*nodeConfig, modelConfig)
+				log.Printf("[流式调试-后端] 节点 %s 流式检查结果: shouldUseStream=%v", nodeConfig.ID, shouldUseStream)
+			} else {
+				log.Printf("[流式调试-后端] 节点 %s 无法检查流式配置: err=%v, modelConfig=%v",
+					nodeConfig.ID, err, modelConfig != nil)
 			}
 
 			if shouldUseStream {
+				log.Printf("[流式调试-后端] 节点 %s 使用流式执行", nodeConfig.ID)
 				// 使用流式执行AI节点（包含完整计费逻辑）
 				nodeStartTime := time.Now()
 				var streamSuccess bool
@@ -1116,6 +1210,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 				// 继续执行下游节点（无论AI节点成功或失败）
 				// 注意：这里不continue，让代码继续执行到"找到下一个节点"的逻辑
 			} else {
+				log.Printf("[流式调试-后端] 节点 %s 使用非流式执行", nodeConfig.ID)
 				// 非流式AI节点，使用普通执行（包含计费逻辑）
 				nodeStartTime := time.Now()
 				result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"yaolight-workshop/backend/modules/ai/services/providers"
@@ -264,6 +265,12 @@ func (p *QwenProvider) ChatStream(ctx context.Context, config *providers.AIModel
 	}
 	if len(config.StopSequences) > 0 {
 		requestBody.Stop = config.StopSequences
+	}
+
+	// 处理通义千问深度思考参数（enable_thinking）
+	if enableThinking, ok := providerConfig["enable_thinking"].(bool); ok {
+		requestBody.EnableThinking = &enableThinking
+		log.Printf("[流式调试-千问] ChatStream enable_thinking=%v", enableThinking)
 	}
 
 	jsonData, err := json.Marshal(requestBody)

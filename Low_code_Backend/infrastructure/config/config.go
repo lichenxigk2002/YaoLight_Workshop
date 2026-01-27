@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -41,13 +43,74 @@ var (
 
 	// 文件上传配置
 	UploadPath string // 文件上传路径
+
+	// 支付宝支付配置
+	AlipayAppID      string // 支付宝应用ID
+	AlipayPID        string // 支付宝商户PID
+	AlipayGateway    string // 支付宝网关地址
+	AlipayPrivateKey string // 应用私钥
+	AlipayPublicKey  string // 支付宝公钥
+	AlipayNotifyURL  string // 异步通知地址
+	AlipayReturnURL  string // 同步跳转地址
+	AlipaySignType   string // 签名方式
+	AlipayCharset    string // 字符编码
+	AlipayFormat     string // 数据格式
 )
 
 // LoadConfig 加载配置
 func LoadConfig() error {
-	// 尝试加载.env文件（如果存在）
-	if err := godotenv.Load(); err != nil {
+	// 获取当前工作目录
+	wd, err := os.Getwd()
+	if err != nil {
+		wd = "unknown"
+	}
+
+	// 尝试从多个位置加载.env文件
+	envPaths := []string{
+		".env",                    // 当前工作目录
+		filepath.Join(wd, ".env"), // 当前工作目录的绝对路径
+		"../.env",                 // 上级目录
+		"../../.env",              // 再上一级
+	}
+
+	var loaded bool
+	var loadedPath string
+	for _, path := range envPaths {
+		// 检查文件是否存在
+		if _, err := os.Stat(path); err == nil {
+			// 文件存在，尝试加载
+			// 使用 godotenv.Load 的变体，支持多行值
+			if err := godotenv.Load(path); err == nil {
+				loadedPath = path
+				loaded = true
+				break
+			} else {
+				// 如果标准加载失败，尝试手动解析（处理多行和特殊字符）
+				if err := loadEnvFileManually(path); err == nil {
+					loadedPath = path
+					loaded = true
+					break
+				} else {
+					log.Printf("⚠️  Found .env at %s but failed to load: %v", path, err)
+				}
+			}
+		}
+	}
+
+	if loaded {
+		log.Printf("✅ Loaded .env file from: %s", loadedPath)
+	} else {
 		log.Println("⚠️  .env file not found, using environment variables")
+		log.Printf("   Current working directory: %s", wd)
+		log.Println("   Searched paths:")
+		for _, path := range envPaths {
+			absPath, _ := filepath.Abs(path)
+			if _, err := os.Stat(path); err == nil {
+				log.Printf("     ✓ %s (exists)", absPath)
+			} else {
+				log.Printf("     ✗ %s (not found)", absPath)
+			}
+		}
 	}
 
 	// 数据库配置
@@ -83,6 +146,64 @@ func LoadConfig() error {
 	// 文件上传配置
 	UploadPath = getEnv("UPLOAD_PATH", "./uploads")
 
+	// 支付宝支付配置
+	AlipayAppID = getEnv("ALIPAY_APP_ID", "")
+	AlipayPID = getEnv("ALIPAY_PID", "")
+	AlipayGateway = getEnv("ALIPAY_GATEWAY", "https://openapi-sandbox.dl.alipaydev.com/gateway.do")
+	AlipayPrivateKey = getEnv("ALIPAY_PRIVATE_KEY", "")
+	AlipayPublicKey = getEnv("ALIPAY_PUBLIC_KEY", "")
+	AlipayNotifyURL = getEnv("ALIPAY_NOTIFY_URL", "")
+	AlipayReturnURL = getEnv("ALIPAY_RETURN_URL", "")
+	AlipaySignType = getEnv("ALIPAY_SIGN_TYPE", "RSA2")
+	AlipayCharset = getEnv("ALIPAY_CHARSET", "utf-8")
+	AlipayFormat = getEnv("ALIPAY_FORMAT", "JSON")
+
+	// 输出支付宝配置信息（用于调试）
+	log.Println("=== 支付宝配置信息 ===")
+	log.Printf("APP_ID: %s", AlipayAppID)
+	log.Printf("PID: %s", AlipayPID)
+	log.Printf("Gateway: %s", AlipayGateway)
+	log.Printf("SignType: %s", AlipaySignType)
+	log.Printf("Charset: %s", AlipayCharset)
+	log.Printf("Format: %s", AlipayFormat)
+	log.Printf("NotifyURL: %s", AlipayNotifyURL)
+	log.Printf("ReturnURL: %s", AlipayReturnURL)
+
+	// 私钥信息（敏感信息，只显示部分）
+	if AlipayPrivateKey != "" {
+		log.Printf("PrivateKey长度: %d 字符", len(AlipayPrivateKey))
+		// 检查是否包含PEM标记
+		hasBegin := strings.Contains(AlipayPrivateKey, "BEGIN")
+		hasEnd := strings.Contains(AlipayPrivateKey, "END")
+		log.Printf("PrivateKey包含BEGIN标记: %v", hasBegin)
+		log.Printf("PrivateKey包含END标记: %v", hasEnd)
+		if len(AlipayPrivateKey) > 50 {
+			log.Printf("PrivateKey前50字符: %s", AlipayPrivateKey[:50])
+			log.Printf("PrivateKey后50字符: %s", AlipayPrivateKey[len(AlipayPrivateKey)-50:])
+		} else {
+			log.Printf("PrivateKey内容: %s", AlipayPrivateKey)
+		}
+		// 检查换行符
+		hasNewline := strings.Contains(AlipayPrivateKey, "\n")
+		hasEscapedNewline := strings.Contains(AlipayPrivateKey, "\\n")
+		log.Printf("PrivateKey包含实际换行符(\\n): %v", hasNewline)
+		log.Printf("PrivateKey包含转义换行符(\\\\n): %v", hasEscapedNewline)
+	} else {
+		log.Println("⚠️  PrivateKey为空！")
+	}
+
+	// 公钥信息
+	if AlipayPublicKey != "" {
+		log.Printf("PublicKey长度: %d 字符", len(AlipayPublicKey))
+		hasBegin := strings.Contains(AlipayPublicKey, "BEGIN")
+		hasEnd := strings.Contains(AlipayPublicKey, "END")
+		log.Printf("PublicKey包含BEGIN标记: %v", hasBegin)
+		log.Printf("PublicKey包含END标记: %v", hasEnd)
+	} else {
+		log.Println("⚠️  PublicKey为空！")
+	}
+	log.Println("====================")
+
 	return nil
 }
 
@@ -105,4 +226,114 @@ func getEnvInt(key string, defaultValue int) int {
 		return defaultValue
 	}
 	return result
+}
+
+// loadEnvFileManually 手动加载 .env 文件（处理多行值和特殊字符）
+func loadEnvFileManually(path string) error {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(content), "\n")
+	var currentKey string
+	var currentValue strings.Builder
+	inQuotes := false
+	quoteChar := byte(0)
+
+	for i, line := range lines {
+		line = strings.TrimRight(line, "\r")
+
+		// 跳过注释和空行
+		if strings.HasPrefix(strings.TrimSpace(line), "#") || strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		// 检查是否在引号内（继续上一行的值）
+		if currentKey != "" && !inQuotes {
+			// 检查是否是新的键值对
+			if strings.Contains(line, "=") && !strings.HasPrefix(strings.TrimSpace(line), "#") {
+				// 保存之前的值
+				value := strings.TrimSpace(currentValue.String())
+				if value != "" {
+					os.Setenv(currentKey, value)
+				}
+				currentKey = ""
+				currentValue.Reset()
+			}
+		}
+
+		// 解析键值对
+		if idx := strings.Index(line, "="); idx > 0 {
+			key := strings.TrimSpace(line[:idx])
+			valuePart := line[idx+1:]
+
+			// 检查值是否以引号开始
+			valuePart = strings.TrimSpace(valuePart)
+			if len(valuePart) > 0 {
+				if valuePart[0] == '"' || valuePart[0] == '\'' {
+					inQuotes = true
+					quoteChar = valuePart[0]
+					valuePart = valuePart[1:]
+				}
+			}
+
+			// 检查值是否以引号结束
+			if inQuotes && len(valuePart) > 0 && valuePart[len(valuePart)-1] == quoteChar {
+				inQuotes = false
+				valuePart = valuePart[:len(valuePart)-1]
+			}
+
+			if currentKey == "" {
+				currentKey = key
+				currentValue.Reset()
+			}
+
+			if valuePart != "" {
+				if currentValue.Len() > 0 {
+					currentValue.WriteString("\n")
+				}
+				currentValue.WriteString(valuePart)
+			}
+		} else if currentKey != "" {
+			// 继续上一行的值（多行值）
+			if currentValue.Len() > 0 {
+				currentValue.WriteString("\n")
+			}
+			currentValue.WriteString(line)
+
+			// 检查是否结束引号
+			if inQuotes && strings.HasSuffix(line, string(quoteChar)) {
+				inQuotes = false
+				// 移除末尾的引号
+				val := currentValue.String()
+				if len(val) > 0 && val[len(val)-1] == quoteChar {
+					currentValue.Reset()
+					currentValue.WriteString(val[:len(val)-1])
+				}
+			}
+		}
+
+		// 如果不在引号内且遇到空行或注释，保存当前值
+		if !inQuotes && currentKey != "" {
+			if i == len(lines)-1 || strings.TrimSpace(lines[i+1]) == "" || strings.HasPrefix(strings.TrimSpace(lines[i+1]), "#") {
+				value := strings.TrimSpace(currentValue.String())
+				if value != "" {
+					os.Setenv(currentKey, value)
+				}
+				currentKey = ""
+				currentValue.Reset()
+			}
+		}
+	}
+
+	// 保存最后一个值
+	if currentKey != "" {
+		value := strings.TrimSpace(currentValue.String())
+		if value != "" {
+			os.Setenv(currentKey, value)
+		}
+	}
+
+	return nil
 }

@@ -10,15 +10,16 @@ export const SparkConfig: React.FC<ProviderConfigProps> = () => {
   return (
     <>
       <Form.Item
-        label={t('node.config.ai.thinking') || 'Thinking Mode'}
+        label={t('node.config.ai.thinking') || '思考模式'}
         name="thinkingType"
-        initialValue="enabled"
+        initialValue="auto"
         className={styles.formItem}
+        tooltip="enabled: 强制思考 | auto: 自动判断 | disabled: 不思考"
       >
         <Select>
-          <Select.Option value="enabled">enabled</Select.Option>
-          <Select.Option value="auto">auto</Select.Option>
-          <Select.Option value="disabled">disabled</Select.Option>
+          <Select.Option value="enabled">enabled (强制思考)</Select.Option>
+          <Select.Option value="auto">auto (自动判断)</Select.Option>
+          <Select.Option value="disabled">disabled (不思考)</Select.Option>
         </Select>
       </Form.Item>
     </>
