@@ -175,7 +175,7 @@ export function useNodeConfigForm({
             modelName = existingConfig.modelName;
           }
         }
-        
+
         // 确保 provider 和 modelName 被保存到配置中（用于更新节点图标和执行）
         if (provider) {
           config.provider = provider;

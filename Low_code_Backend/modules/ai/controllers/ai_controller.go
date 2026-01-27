@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/modules/ai/repositories"
 	"yaolight-workshop/backend/modules/ai/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 // AIController AI控制器

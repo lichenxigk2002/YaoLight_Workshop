@@ -117,11 +117,25 @@ export function useAITest(
 
       // 检查是否启用流式输出
       const enableStream = config.stream === true;
+      console.log('[流式调试-前端] 节点配置:', {
+        nodeId: node.id,
+        stream: config.stream,
+        enableStream,
+        thinkingLevel: config.thinkingLevel,
+        provider: config.provider,
+        modelName: config.modelName,
+      });
 
       // 对于豆包，即使配置中没有 stream，也应该使用流式（因为豆包默认开启思考，会返回思考内容）
       // 通过检查 thinkingLevel 字段来判断是否是豆包（只有豆包有这个字段）
       const isDoubao = config.thinkingLevel !== undefined;
       const shouldUseStream = enableStream || isDoubao;
+      console.log('[流式调试-前端] 流式决策:', {
+        nodeId: node.id,
+        enableStream,
+        isDoubao,
+        shouldUseStream,
+      });
 
       if (shouldUseStream) {
         // 流式执行

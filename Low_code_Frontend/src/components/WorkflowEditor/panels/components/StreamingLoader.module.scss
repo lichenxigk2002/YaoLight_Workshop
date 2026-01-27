@@ -31,13 +31,15 @@
 // 加载动画容器
 .animationContainer {
   position: relative;
-  animation: containerRotate 1.2s linear infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: width 0.5s ease, height 0.5s ease;
 
   // 大尺寸（居中时）
   &.large {
-    width: 32px;
-    height: 32px;
+    width: 48px;
+    height: 48px;
   }
 
   // 小尺寸（右下角时）
@@ -45,85 +47,94 @@
     width: 24px;
     height: 24px;
   }
-}
 
-// 加载点
-.dot {
-  position: absolute;
-  border-radius: 50%;
-  background-color: var(--text-tertiary);
-  left: 50%;
-  top: 50%;
-  animation: dotFade 1.2s ease-in-out infinite;
-  transition: width 0.5s ease, height 0.5s ease, transform 0.5s ease;
-
-  // 大尺寸（居中时）
-  &.large {
-    width: 8px;
-    height: 8px;
-  }
-
-  // 小尺寸（右下角时）
-  &.small {
-    width: 6px;
-    height: 6px;
-  }
-
-  // 四个点的位置
-  &.dot0 {
-    transform: translate(-50%, -50%) translate(12px, 0);
-    animation-delay: 0s;
-
-    &.small {
-      transform: translate(-50%, -50%) translate(9px, 0);
-    }
-  }
-
-  &.dot1 {
-    transform: translate(-50%, -50%) translate(0, 12px);
-    animation-delay: 0.15s;
-
-    &.small {
-      transform: translate(-50%, -50%) translate(0, 9px);
-    }
-  }
-
-  &.dot2 {
-    transform: translate(-50%, -50%) translate(-12px, 0);
-    animation-delay: 0.3s;
-
-    &.small {
-      transform: translate(-50%, -50%) translate(-9px, 0);
-    }
-  }
-
-  &.dot3 {
-    transform: translate(-50%, -50%) translate(0, -12px);
-    animation-delay: 0.45s;
-
-    &.small {
-      transform: translate(-50%, -50%) translate(0, -9px);
+  // Lottie 动画容器样式
+  :global {
+    dotlottie-player,
+    dotlottie-react {
+      width: 100%;
+      height: 100%;
     }
   }
 }
 
-// 动画定义
-@keyframes containerRotate {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes dotFade {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
-}
+// 原来的四个点动画相关样式（已注释）
+// .dot {
+//   position: absolute;
+//   border-radius: 50%;
+//   background-color: var(--text-tertiary);
+//   left: 50%;
+//   top: 50%;
+//   animation: dotFade 1.2s ease-in-out infinite;
+//   transition: width 0.5s ease, height 0.5s ease, transform 0.5s ease;
+//
+//   // 大尺寸（居中时）
+//   &.large {
+//     width: 8px;
+//     height: 8px;
+//   }
+//
+//   // 小尺寸（右下角时）
+//   &.small {
+//     width: 6px;
+//     height: 6px;
+//   }
+//
+//   // 四个点的位置
+//   &.dot0 {
+//     transform: translate(-50%, -50%) translate(12px, 0);
+//     animation-delay: 0s;
+//
+//     &.small {
+//       transform: translate(-50%, -50%) translate(9px, 0);
+//     }
+//   }
+//
+//   &.dot1 {
+//     transform: translate(-50%, -50%) translate(0, 12px);
+//     animation-delay: 0.15s;
+//
+//     &.small {
+//       transform: translate(-50%, -50%) translate(0, 9px);
+//     }
+//   }
+//
+//   &.dot2 {
+//     transform: translate(-50%, -50%) translate(-12px, 0);
+//     animation-delay: 0.3s;
+//
+//     &.small {
+//       transform: translate(-50%, -50%) translate(-9px, 0);
+//     }
+//   }
+//
+//   &.dot3 {
+//     transform: translate(-50%, -50%) translate(0, -12px);
+//     animation-delay: 0.45s;
+//
+//     &.small {
+//       transform: translate(-50%, -50%) translate(0, -9px);
+//     }
+//   }
+// }
+//
+// // 动画定义
+// @keyframes containerRotate {
+//   0% {
+//     transform: rotate(0deg);
+//   }
+//   100% {
+//     transform: rotate(360deg);
+//   }
+// }
+//
+// @keyframes dotFade {
+//   0%,
+//   100% {
+//     opacity: 0.3;
+//   }
+//   50% {
+//     opacity: 1;
+//   }
+// }
 

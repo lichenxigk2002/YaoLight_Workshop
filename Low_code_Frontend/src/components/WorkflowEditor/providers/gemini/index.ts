@@ -9,19 +9,15 @@ providerRegistry.register({
     { type: 'maxTokens', props: { defaultValue: 2000, max: 32768 } },
     { type: 'topP', props: { defaultValue: 1 } }, // Gemini usually supports topP
     { type: 'stream', props: { defaultValue: false } },
-    { 
-      type: 'thinking', 
-      field: 'reasoning', 
-      label: 'node.config.ai.thinking',
-      props: { defaultValue: false } 
-    },
+    // 注意：Gemini 3 Pro Preview 默认就会思考，即使不设置 reasoning 参数
+    // 因此不提供思考开关，让模型使用默认行为
     { type: 'frequencyPenalty', props: { defaultValue: 0 } },
     { type: 'presencePenalty', props: { defaultValue: 0 } },
   ],
   PreviewComponent: GeminiPreview,
   supportedConfig: {
     stream: true,
-    thinking: true,
+    // thinking: false, // Gemini 默认会思考，不需要开关
     frequencyPenalty: true,
     presencePenalty: true,
     stopSequences: true,
@@ -29,7 +25,7 @@ providerRegistry.register({
   defaultConfig: {
     temperature: 0.7,
     maxTokens: 2000,
-    reasoning: false,
+    // reasoning: false, // 不设置 reasoning 参数，让模型使用默认行为
     stream: false,
   },
 });

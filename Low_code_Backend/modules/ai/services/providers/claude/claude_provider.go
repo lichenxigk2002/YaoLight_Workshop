@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"yaolight-workshop/backend/modules/ai/services/providers"
@@ -269,6 +270,8 @@ func (p *ClaudeProvider) ChatStream(ctx context.Context, config *providers.AIMod
 	}
 
 	// 处理 providerConfig 中的参数
+	log.Printf("[流式调试-Claude] ChatStream 开始执行")
+	log.Printf("[流式调试-Claude] providerConfig=%+v", providerConfig)
 	if val, ok := providerConfig["reasoning"]; ok {
 		if enabled, ok := val.(bool); ok && enabled {
 			reasoningConfig := map[string]interface{}{
@@ -278,8 +281,10 @@ func (p *ClaudeProvider) ChatStream(ctx context.Context, config *providers.AIMod
 				reasoningConfig["effort"] = effort
 			}
 			requestBody["reasoning"] = reasoningConfig
+			log.Printf("[流式调试-Claude] 启用推理, reasoning=%+v", reasoningConfig)
 		} else if reasoningMap, ok := val.(map[string]interface{}); ok {
 			requestBody["reasoning"] = reasoningMap
+			log.Printf("[流式调试-Claude] 使用推理配置对象, reasoning=%+v", reasoningMap)
 		}
 	} else if val, ok := providerConfig["thinking"]; ok {
 		if enabled, ok := val.(bool); ok && enabled {
@@ -290,7 +295,10 @@ func (p *ClaudeProvider) ChatStream(ctx context.Context, config *providers.AIMod
 				reasoningConfig["effort"] = effort
 			}
 			requestBody["reasoning"] = reasoningConfig
+			log.Printf("[流式调试-Claude] 通过thinking参数启用推理, reasoning=%+v", reasoningConfig)
 		}
+	} else {
+		log.Printf("[流式调试-Claude] 未启用推理")
 	}
 
 	if config.Temperature != nil {
@@ -316,6 +324,7 @@ func (p *ClaudeProvider) ChatStream(ctx context.Context, config *providers.AIMod
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
+	log.Printf("[流式调试-Claude] 请求体JSON: %s", string(jsonData))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -367,7 +376,21 @@ func (p *ClaudeProvider) ChatStream(ctx context.Context, config *providers.AIMod
 		if strings.HasPrefix(line, "data: ") {
 			data := strings.TrimPrefix(line, "data: ")
 			if data == "[DONE]" {
-				callback("", true, nil, nil)
+				// 构造最终内容：如果有思考内容，格式为 [REASONING]...[/REASONING][CONTENT]...[/CONTENT]
+				finalContent := ""
+				if fullReasoningContent.Len() > 0 {
+					finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
+					log.Printf("[流式调试-Claude] 流结束, 推理内容总长度=%d", fullReasoningContent.Len())
+				}
+				if fullContent.Len() > 0 {
+					finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
+					log.Printf("[流式调试-Claude] 流结束, 正式内容总长度=%d", fullContent.Len())
+				}
+				if finalContent != "" {
+					callback(finalContent, true, nil, nil)
+				} else {
+					callback("", true, nil, nil)
+				}
 				return nil
 			}
 
@@ -393,7 +416,17 @@ func (p *ClaudeProvider) ChatStream(ctx context.Context, config *providers.AIMod
 			}
 
 			if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
+				log.Printf("[流式调试-Claude] JSON解析失败: %v, data: %s", err, data)
 				continue
+			}
+
+			// 调试：打印完整的响应结构（仅前几个chunk）
+			if len(streamResponse.Choices) > 0 {
+				delta := streamResponse.Choices[0].Delta
+				if delta.Reasoning != nil || delta.ReasoningDetails != nil || delta.ReasoningContent != "" || delta.Content != "" {
+					log.Printf("[流式调试-Claude] 收到delta: reasoning=%v, reasoning_details=%v, reasoning_content=%q, content=%q",
+						delta.Reasoning, delta.ReasoningDetails, delta.ReasoningContent, delta.Content)
+				}
 			}
 
 			// 如果有Token使用信息，传递给回调
@@ -418,31 +451,76 @@ func (p *ClaudeProvider) ChatStream(ctx context.Context, config *providers.AIMod
 			if len(streamResponse.Choices) > 0 {
 				delta := streamResponse.Choices[0].Delta
 
-				// 尝试提取推理内容
+				// 尝试提取推理内容（按优先级检查不同的字段名）
+				// OpenRouter/Claude 可能使用不同的字段名
+				hasReasoning := false
 				if delta.Reasoning != nil {
+					// 检查 reasoning 字段（可能是对象或字符串）
 					if rStr, ok := delta.Reasoning.(string); ok && rStr != "" {
 						fullReasoningContent.WriteString(rStr)
 						callback("[REASONING_DELTA]"+rStr, false, nil, nil)
+						hasReasoning = true
+						log.Printf("[流式调试-Claude] 收到推理内容 (reasoning字段), 长度=%d", len(rStr))
+					} else if rMap, ok := delta.Reasoning.(map[string]interface{}); ok {
+						// 如果是对象，尝试提取内容
+						if content, ok := rMap["content"].(string); ok && content != "" {
+							fullReasoningContent.WriteString(content)
+							callback("[REASONING_DELTA]"+content, false, nil, nil)
+							hasReasoning = true
+							log.Printf("[流式调试-Claude] 收到推理内容 (reasoning.content), 长度=%d", len(content))
+						}
 					}
-				} else if delta.ReasoningDetails != nil {
+				}
+				if !hasReasoning && delta.ReasoningDetails != nil {
+					// 检查 reasoning_details 字段
 					if rStr, ok := delta.ReasoningDetails.(string); ok && rStr != "" {
 						fullReasoningContent.WriteString(rStr)
 						callback("[REASONING_DELTA]"+rStr, false, nil, nil)
+						hasReasoning = true
+						log.Printf("[流式调试-Claude] 收到推理内容 (reasoning_details字段), 长度=%d", len(rStr))
+					} else if rMap, ok := delta.ReasoningDetails.(map[string]interface{}); ok {
+						// 如果是对象，尝试提取内容
+						if content, ok := rMap["content"].(string); ok && content != "" {
+							fullReasoningContent.WriteString(content)
+							callback("[REASONING_DELTA]"+content, false, nil, nil)
+							hasReasoning = true
+							log.Printf("[流式调试-Claude] 收到推理内容 (reasoning_details.content), 长度=%d", len(content))
+						}
 					}
-				} else if delta.ReasoningContent != "" {
+				}
+				if !hasReasoning && delta.ReasoningContent != "" {
+					// 检查 reasoning_content 字段
 					fullReasoningContent.WriteString(delta.ReasoningContent)
 					callback("[REASONING_DELTA]"+delta.ReasoningContent, false, nil, nil)
+					hasReasoning = true
+					log.Printf("[流式调试-Claude] 收到推理内容 (reasoning_content字段), 长度=%d", len(delta.ReasoningContent))
 				}
 
 				// 处理正常内容
 				if delta.Content != "" {
 					fullContent.WriteString(delta.Content)
 					callback("[CONTENT_DELTA]"+delta.Content, false, nil, nil)
+					log.Printf("[流式调试-Claude] 收到正式内容, 长度=%d", len(delta.Content))
 				}
 			}
 		}
 	}
 
+	// 最终回调（如果流正常结束）
+	finalContent := ""
+	if fullReasoningContent.Len() > 0 {
+		finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
+		log.Printf("[流式调试-Claude] 流正常结束, 推理内容总长度=%d", fullReasoningContent.Len())
+	}
+	if fullContent.Len() > 0 {
+		finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
+		log.Printf("[流式调试-Claude] 流正常结束, 正式内容总长度=%d", fullContent.Len())
+	}
+	if finalContent != "" {
+		callback(finalContent, true, nil, nil)
+	} else {
+		callback("", true, nil, nil)
+	}
 	return nil
 }
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"yaolight-workshop/backend/modules/ai/services/providers"
@@ -53,18 +54,24 @@ func buildMessages(config *providers.AIModelConfig, prompt string, content strin
 
 func applyThinking(requestBody map[string]interface{}, providerConfig map[string]interface{}) {
 	if providerConfig == nil {
+		log.Printf("[流式调试-讯飞星火] providerConfig 为 nil，不添加 thinking 参数")
 		return
 	}
 
+	log.Printf("[流式调试-讯飞星火] providerConfig=%+v", providerConfig)
+
+	// 优先使用 thinkingType 参数
 	if v, ok := providerConfig["thinkingType"]; ok {
 		if s, ok := v.(string); ok && s != "" {
 			requestBody["thinking"] = map[string]interface{}{
 				"type": s,
 			}
+			log.Printf("[流式调试-讯飞星火] 使用 thinkingType=%s", s)
 			return
 		}
 	}
 
+	// 兼容 thinking 布尔参数
 	if v, ok := providerConfig["thinking"]; ok {
 		if b, ok := v.(bool); ok {
 			t := "disabled"
@@ -74,8 +81,12 @@ func applyThinking(requestBody map[string]interface{}, providerConfig map[string
 			requestBody["thinking"] = map[string]interface{}{
 				"type": t,
 			}
+			log.Printf("[流式调试-讯飞星火] 使用 thinking=%v，转换为 type=%s", b, t)
+			return
 		}
 	}
+
+	log.Printf("[流式调试-讯飞星火] 未找到 thinkingType 或 thinking 参数，不添加 thinking 参数")
 }
 
 func applyUser(requestBody map[string]interface{}, providerConfig map[string]interface{}) {

@@ -63,7 +63,8 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 	}
 
 	// 处理 providerConfig 中的参数
-	// 检查是否启用 reasoning
+	// 注意：根据官方示例，如果不启用推理，不应该添加reasoning参数
+	// 只有当明确启用时才添加，不添加默认的 {"enabled": false}
 	if val, ok := providerConfig["reasoning"]; ok {
 		if enabled, ok := val.(bool); ok && enabled {
 			// 如果指定了 effort，则包含它
@@ -75,8 +76,10 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 			}
 			requestBody["reasoning"] = reasoningConfig
 		} else if reasoningMap, ok := val.(map[string]interface{}); ok {
+			// 如果前端传递的是对象，直接使用
 			requestBody["reasoning"] = reasoningMap
 		}
+		// 注意：如果 reasoning=false，不添加reasoning参数（根据官方示例）
 	} else if val, ok := providerConfig["thinking"]; ok {
 		// 兼容 thinking 参数
 		if enabled, ok := val.(bool); ok && enabled {
@@ -88,7 +91,10 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 			}
 			requestBody["reasoning"] = reasoningConfig
 		}
+		// 注意：如果 thinking=false，不添加reasoning参数（根据官方示例）
 	}
+	// 注意：如果既没有reasoning也没有thinking参数，不添加reasoning参数
+	// 这样可以让模型使用默认行为（可能默认会思考，也可能不会）
 
 	if config.Temperature != nil {
 		requestBody["temperature"] = *config.Temperature
@@ -241,6 +247,8 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 	}
 
 	// 处理 providerConfig 中的参数
+	// 注意：根据官方示例，如果不启用推理，不应该添加reasoning参数
+	// 只有当明确启用时才添加，不添加默认的 {"enabled": false}
 	if val, ok := providerConfig["reasoning"]; ok {
 		if enabled, ok := val.(bool); ok && enabled {
 			// 如果指定了 effort，则包含它
@@ -252,9 +260,12 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 			}
 			requestBody["reasoning"] = reasoningConfig
 		} else if reasoningMap, ok := val.(map[string]interface{}); ok {
+			// 如果前端传递的是对象，直接使用
 			requestBody["reasoning"] = reasoningMap
 		}
+		// 注意：如果 reasoning=false，不添加reasoning参数（根据官方示例）
 	} else if val, ok := providerConfig["thinking"]; ok {
+		// 兼容 thinking 参数
 		if enabled, ok := val.(bool); ok && enabled {
 			reasoningConfig := map[string]interface{}{
 				"enabled": true,
@@ -264,7 +275,10 @@ func (p *GeminiProvider) ChatStream(ctx context.Context, config *providers.AIMod
 			}
 			requestBody["reasoning"] = reasoningConfig
 		}
+		// 注意：如果 thinking=false，不添加reasoning参数（根据官方示例）
 	}
+	// 注意：如果既没有reasoning也没有thinking参数，不添加reasoning参数
+	// 这样可以让模型使用默认行为（可能默认会思考，也可能不会）
 
 	if config.Temperature != nil {
 		requestBody["temperature"] = *config.Temperature
