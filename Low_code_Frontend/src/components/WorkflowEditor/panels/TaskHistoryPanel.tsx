@@ -26,6 +26,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { taskApi } from '@/api/task';
 import type { Task, TaskNodeExecution, TaskStatus } from '@/types/task';
+import { ProviderIcon } from '@/components/Icons/ProviderIcon';
 import styles from './TaskHistoryPanel.module.scss';
 
 const { Text, Title } = Typography;
@@ -252,7 +253,16 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
                       title={
                         <Space>
                           <TaskStatusTag status={task.status} task={task} />
-                          <Text strong>{task.name || t('taskHistory.task', { id: task.id })}</Text>
+                          <Text strong>
+                            {task.name || 
+                              (task.sequenceNumber !== undefined 
+                                ? t('taskHistory.task', { id: task.sequenceNumber })
+                                : t('taskHistory.task', { id: task.id }))}
+                          </Text>
+                          {/* AI供应商图标 */}
+                          {task.provider && (
+                            <ProviderIcon provider={task.provider} size={16} />
+                          )}
                         </Space>
                       }
                       description={

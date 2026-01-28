@@ -40,16 +40,71 @@
 .taskItem {
   border-bottom: 1px solid var(--border-secondary);
   padding: 16px 0;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
 
+  // 流畅的hover动效
   &:hover {
     background-color: var(--bg-secondary);
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 16px 12px;
     margin: 0 -12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    
+    // 添加一个微妙的背景渐变效果
+    &::before {
+      opacity: 1;
+    }
+  }
+
+  // 微妙的背景渐变层
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(24, 144, 255, 0.03) 0%, rgba(114, 46, 209, 0.03) 100%);
+    opacity: 0;
+    transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    border-radius: 8px;
   }
 
   &:last-child {
     border-bottom: none;
+  }
+
+  // 确保内部元素也有平滑过渡
+  :global(.ant-list-item-meta-title),
+  :global(.ant-list-item-meta-description) {
+    transition: color 0.3s ease, transform 0.3s ease;
+  }
+
+  :global(.ant-list-item-action) {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  // hover时按钮的动效
+  &:hover :global(.ant-list-item-action) {
+    transform: translateX(-3px);
+    
+    // 按钮颜色稍微加深
+    :global(.ant-btn-link) {
+      color: var(--primary-color);
+    }
+  }
+
+  // 图标和文本的平滑过渡
+  &:hover :global(.ant-list-item-meta-title) {
+    :global(.ant-typography) {
+      color: var(--text-primary);
+    }
   }
 }
 

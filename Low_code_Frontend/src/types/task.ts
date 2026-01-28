@@ -69,6 +69,9 @@ export interface Task {
   cancelledBy?: number;
   createdAt: string;
   updatedAt: string;
+  sequenceNumber?: number;    // 工作流内序号
+  provider?: string;          // AI供应商（如果有AI节点）
+  modelName?: string;          // AI模型名称（如果有AI节点）
 }
 
 /**

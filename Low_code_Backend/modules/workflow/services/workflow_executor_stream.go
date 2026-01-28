@@ -78,7 +78,11 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 	}
 
 	// 获取模型模式
+	// 如果 modelMode 为空字符串，也使用默认值 "system"（确保测试工作流时能正确计费）
 	modelMode := getString(node.Config, "modelMode", "system")
+	if modelMode == "" {
+		modelMode = "system"
+	}
 	modelID := getUint(node.Config, "modelId", 0)
 
 	// 获取模型配置
@@ -1134,7 +1138,11 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		// 如果是AI节点，检查是否启用流式输出
 		if nodeConfig.Type == "ai" {
 			// 获取模型配置以判断是否启用流式
+			// 如果 modelMode 为空字符串，也使用默认值 "system"（确保测试工作流时能正确计费）
 			modelMode := getString(nodeConfig.Config, "modelMode", "system")
+			if modelMode == "" {
+				modelMode = "system"
+			}
 			modelRepo := aiRepos.NewAIModelRepository(database.DB)
 			modelConfig, err := aiService.GetModelConfigForExecution(
 				modelMode,

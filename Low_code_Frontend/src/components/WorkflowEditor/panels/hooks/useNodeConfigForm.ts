@@ -159,7 +159,10 @@ export function useNodeConfigForm({
 
       // 为AI节点处理模型配置
       if (isAINode) {
-        const modelMode = config.modelMode || 'system';
+        // 确保 modelMode 被正确设置（如果为空或未定义，默认为 'system'）
+        // 这很重要，因为后端需要根据 modelMode 来决定是否计费
+        const modelMode = config.modelMode || existingConfig.modelMode || 'system';
+        config.modelMode = modelMode; // 确保配置中包含 modelMode
         const modelId = config.modelId;
         let provider = config.provider;
         let modelName = config.modelName || '';
