@@ -65,7 +65,11 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	}
 
 	// 获取模型模式
+	// 如果 modelMode 为空字符串，也使用默认值 "system"（确保测试工作流时能正确计费）
 	modelMode := getString(node.Config, "modelMode", "system")
+	if modelMode == "" {
+		modelMode = "system"
+	}
 
 	// 获取模型配置
 	modelRepo := aiRepos.NewAIModelRepository(database.DB)

@@ -16,6 +16,7 @@ type AlkaidService struct {
 	repo                *alkaidRepos.AlkaidRepository
 	capabilitiesService *CapabilitiesService
 	knowledgeService    *KnowledgeService
+	intentAnalyzer      *IntentAnalyzer
 	aiProvider          providers.AIProvider
 }
 
@@ -25,6 +26,7 @@ func NewAlkaidService() *AlkaidService {
 		repo:                alkaidRepos.NewAlkaidRepository(),
 		capabilitiesService: NewCapabilitiesService(),
 		knowledgeService:    &KnowledgeService{},
+		intentAnalyzer:      NewIntentAnalyzer(),
 		aiProvider:          deepseek.NewDeepSeekProvider(),
 	}
 }
@@ -120,60 +122,71 @@ func (s *AlkaidService) SendMessageStream(req SendMessageRequest, callback SendM
 		return nil, fmt.Errorf("保存用户消息失败: %w", err)
 	}
 
-	// 通知前端：正在理解需求
-	callback("", "understanding", false, nil)
-
-	// 3. 构建AI配置（使用deepseek系统预设）
-	aiConfig, err := s.buildAIConfig(req.UserID)
-	if err != nil {
-		callback("", "", true, fmt.Errorf("构建AI配置失败: %w", err))
-		return nil, fmt.Errorf("构建AI配置失败: %w", err)
-	}
-
-	// 4. 获取对话历史（不包括刚保存的这条用户消息）
+	// 3. 获取对话历史（不包括刚保存的这条用户消息）
 	historyMessages, err := s.repo.GetMessagesBySessionID(req.SessionID, 0) // 0表示获取所有消息
 	if err != nil {
 		callback("", "", true, fmt.Errorf("获取对话历史失败: %w", err))
 		return nil, fmt.Errorf("获取对话历史失败: %w", err)
 	}
 
-	// 通知前端：正在检索知识库
-	callback("", "retrieving", false, nil)
-
-	// 5. 构建Prompt（首次对话时注入知识库上下文，后续对话按需检索）
-	var systemPrompt string
+	// 构建对话历史文本
 	var conversationHistory string
-
-	if len(historyMessages) <= 1 { // 只有刚保存的一条用户消息，说明是首次对话
-		// 首次对话：根据用户问题智能检索相关知识库
-		systemPrompt, err = s.buildSystemPrompt(req.UserID, req.Content)
-		if err != nil {
-			callback("", "", true, fmt.Errorf("构建系统Prompt失败: %w", err))
-			return nil, fmt.Errorf("构建系统Prompt失败: %w", err)
-		}
-		conversationHistory = "" // 首次对话没有历史
-	} else {
-		// 后续对话：也根据当前用户消息按需检索知识库，并构建对话历史
-		systemPrompt, err = s.buildSystemPrompt(req.UserID, req.Content)
-		if err != nil {
-			callback("", "", true, fmt.Errorf("构建系统Prompt失败: %w", err))
-			return nil, fmt.Errorf("构建系统Prompt失败: %w", err)
-		}
-		// 排除刚保存的这条用户消息，只使用之前的消息构建历史
+	if len(historyMessages) > 1 {
 		prevMessages := historyMessages[:len(historyMessages)-1]
 		conversationHistory = s.buildConversationHistory(prevMessages)
 	}
 
-	// 6. 构建用户消息（包含对话历史）
+	// 4. **第一阶段：分析用户意图，判断是否需要生成工作流（不显示给用户，不存储）**
+	needsWorkflow, err := s.intentAnalyzer.AnalyzeIntent(req.Content, conversationHistory)
+	if err != nil {
+		// 如果分析失败，默认需要生成工作流（保守策略）
+		needsWorkflow = true
+	}
+
+	// 注意：意图分析结果不发送给前端，不存储，只在后端内部使用
+
+	// 5. **根据分析结果决定是否加载工作流配置**
+	var systemPrompt string
+	if needsWorkflow {
+		// 需要生成工作流：加载完整的工作流配置
+		// 通知前端：正在理解需求（此时才开始显示给用户）
+		callback("", "understanding", false, nil)
+		callback("", "retrieving", false, nil)
+		systemPrompt, err = s.buildSystemPrompt(req.UserID, req.Content)
+		if err != nil {
+			callback("", "", true, fmt.Errorf("构建系统Prompt失败: %w", err))
+			return nil, fmt.Errorf("构建系统Prompt失败: %w", err)
+		}
+	} else {
+		// 不需要生成工作流：使用简化的通用对话Prompt
+		// 通知前端：正在理解需求（此时才开始显示给用户）
+		callback("", "understanding", false, nil)
+		systemPrompt = s.buildGeneralChatPrompt()
+	}
+
+	// 6. 构建AI配置（使用deepseek系统预设）
+	aiConfig, err := s.buildAIConfig(req.UserID)
+	if err != nil {
+		callback("", "", true, fmt.Errorf("构建AI配置失败: %w", err))
+		return nil, fmt.Errorf("构建AI配置失败: %w", err)
+	}
+
+	// 7. 构建用户消息（包含对话历史）
 	userPrompt := req.Content
 	if conversationHistory != "" {
 		userPrompt = conversationHistory + "\n\n用户：" + req.Content
 	}
 
-	// 通知前端：正在生成工作流
-	callback("", "generating", false, nil)
+	// 8. 根据意图决定通知前端的步骤
+	if needsWorkflow {
+		// 需要生成工作流：通知前端正在生成工作流
+		callback("", "generating", false, nil)
+	} else {
+		// 不需要生成工作流：通知前端正在回复（跳过retrieving和generating步骤）
+		callback("", "replying", false, nil)
+	}
 
-	// 7. 调用AI流式生成回复（强制启用流式输出）
+	// 9. 调用AI流式生成回复（强制启用流式输出）
 	var fullContent strings.Builder
 	var fullReasoningContent strings.Builder
 	var streamErr error
@@ -402,6 +415,24 @@ func (s *AlkaidService) buildConversationHistory(messages []alkaidModels.AlkaidM
 	}
 
 	return history.String()
+}
+
+// buildGeneralChatPrompt 构建通用对话Prompt（不需要生成工作流时使用）
+func (s *AlkaidService) buildGeneralChatPrompt() string {
+	return `你是一个友好的AI助手（瑶光星）。你可以与用户自然对话，回答他们的问题，提供帮助和建议。
+
+## 对话规则
+
+1. **自然对话**：保持自然、友好的语气，不要使用固定的模板话术
+2. **回答问题**：如果用户询问功能使用方法、技术问题等，给出清晰的回答
+3. **提供建议**：如果用户询问如何实现某个功能，可以提供建议和指导
+4. **工作流相关**：如果用户想要生成工作流，可以引导他们描述具体需求
+
+## 注意事项
+
+- 不要生成工作流JSON（除非用户明确要求）
+- 保持对话的自然和流畅
+- 根据用户的问题提供有用的信息`
 }
 
 // generateSessionTitle 生成会话标题（从用户消息提取）

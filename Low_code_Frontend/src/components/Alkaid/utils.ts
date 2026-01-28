@@ -2,20 +2,76 @@ import { validateWorkflowFile } from '@/utils/workflowImportExport';
 import type { WorkflowExportData } from '@/utils/workflowImportExport';
 
 /**
- * 从Markdown文本中提取JSON代码块
+ * 检测是否有工作流JSON代码块（带特殊标记的）
+ */
+export function hasWorkflowJSONBlock(markdownText: string): boolean {
+  if (!markdownText) return false;
+
+  // 检测是否有带特殊标记的工作流JSON代码块
+  // 格式：<!-- workflow-json -->\n```json\n{...}\n```
+  const workflowJsonBlockRegex = /<!--\s*workflow-json\s*-->[\s\S]*?```json\s*[\s\S]*/;
+  if (workflowJsonBlockRegex.test(markdownText)) {
+    return true;
+  }
+
+  // 兼容旧格式：检测是否有 ```json 代码块，且包含工作流的关键字段
+  const jsonBlockStartRegex = /```json\s*[\s\S]*/;
+  if (jsonBlockStartRegex.test(markdownText)) {
+    // 检查是否包含工作流的关键字段
+    if (markdownText.includes('"version"') && markdownText.includes('"nodes"')) {
+      return true;
+    }
+  }
+
+  // 检测是否有通用代码块开始标记，且包含工作流的关键字段
+  const codeBlockStartRegex = /```\s*\{[\s\S]*/;
+  if (codeBlockStartRegex.test(markdownText)) {
+    // 检查是否包含工作流的关键字段
+    if (markdownText.includes('"version"') && markdownText.includes('"nodes"')) {
+      return true;
+    }
+  }
+
+  // 检测是否有JSON对象开始，且包含工作流的关键字段
+  const jsonObjectStartRegex = /\{\s*"version"[\s\S]*"nodes"[\s\S]*/;
+  if (jsonObjectStartRegex.test(markdownText)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * 从Markdown文本中提取工作流JSON代码块
  */
 export function extractWorkflowJSON(markdownText: string): string | null {
   if (!markdownText) return null;
 
-  // 方法1: 尝试提取 ```json 代码块
-  const jsonBlockRegex = /```json\s*([\s\S]*?)```/;
-  const jsonMatch = markdownText.match(jsonBlockRegex);
-  if (jsonMatch && jsonMatch[1]) {
+  // 方法1: 优先提取带特殊标记的工作流JSON代码块（新格式）
+  const workflowJsonBlockRegex = /<!--\s*workflow-json\s*-->[\s\S]*?```json\s*([\s\S]*?)```/;
+  const workflowMatch = markdownText.match(workflowJsonBlockRegex);
+  if (workflowMatch && workflowMatch[1]) {
     try {
-      const json = JSON.parse(jsonMatch[1].trim());
+      const json = JSON.parse(workflowMatch[1].trim());
       return JSON.stringify(json, null, 2);
     } catch (e) {
       // 如果解析失败，继续尝试其他方法
+    }
+  }
+
+  // 方法2: 尝试提取 ```json 代码块（兼容旧格式，但必须包含工作流特征）
+  const jsonBlockRegex = /```json\s*([\s\S]*?)```/;
+  const jsonMatch = markdownText.match(jsonBlockRegex);
+  if (jsonMatch && jsonMatch[1]) {
+    const jsonContent = jsonMatch[1].trim();
+    // 只处理包含工作流特征的JSON
+    if (jsonContent.includes('"version"') && jsonContent.includes('"nodes"')) {
+      try {
+        const json = JSON.parse(jsonContent);
+        return JSON.stringify(json, null, 2);
+      } catch (e) {
+        // 如果解析失败，继续尝试其他方法
+      }
     }
   }
 

@@ -29,40 +29,27 @@ func NewPromptBuilder(capabilities *WorkflowCapabilities, relevantKnowledge ...[
 func (pb *PromptBuilder) BuildSystemPrompt() string {
 	var builder strings.Builder
 
-	builder.WriteString("你是一个专业的工作流生成助手（瑶光星）。你的任务是根据用户需求生成符合格式的工作流JSON。\n\n")
+	builder.WriteString("你是一个专业的工作流生成助手（瑶光星）。你可以与用户自然对话，并根据用户需求生成或修改工作流。\n\n")
 
 	// 1. 核心规则
 	builder.WriteString("## 核心规则\n")
-	builder.WriteString("1. **输出格式**：使用Markdown格式，包含友好的对话文本和工作流JSON代码块\n")
-	builder.WriteString("   - 可以先说一些友好的话，比如\"好啦，这是为您生成的工作流~~\"\n")
-	builder.WriteString("   - 然后必须包含一个 ```json 代码块，里面是完整的工作流JSON\n")
-	builder.WriteString("   - 可以添加一些说明文字，解释工作流的功能或需要注意的地方\n")
-	builder.WriteString("2. **JSON格式**：代码块中的JSON必须是完整的 WorkflowExportData 格式\n")
-	builder.WriteString("3. **严格遵循格式**：所有字段名必须与规范完全一致\n")
-	builder.WriteString("4. **变量引用语法**：使用 `{{nodeId.variableName}}` 格式，例如 `{{node-1.data.url}}`\n")
-	builder.WriteString("5. **工作流复杂度**：根据用户描述的复杂程度灵活决定节点数量\n")
+	builder.WriteString("1. **自然对话**：与用户交流时保持自然、友好的语气，不要使用固定的模板话术\n")
+	builder.WriteString("   - 根据对话上下文灵活回应，就像和朋友聊天一样\n")
+	builder.WriteString("   - 当用户要求生成工作流时，自然地介绍工作流的功能和特点\n")
+	builder.WriteString("   - 当用户要求修改时，自然地说明修改内容\n")
+	builder.WriteString("2. **工作流输出格式**：当需要输出工作流JSON时，必须在代码块前添加特殊标记 `<!-- workflow-json -->`\n")
+	builder.WriteString("   - 格式：`<!-- workflow-json -->\\n```json\\n{...}\\n```\n")
+	builder.WriteString("   - JSON代码块中的内容必须是完整的 WorkflowExportData 格式\n")
+	builder.WriteString("   - 可以在JSON代码块前后添加说明，但不要使用固定的模板话术\n")
+	builder.WriteString("   - **重要**：只有工作流JSON需要添加此标记，其他JSON代码块不需要\n")
+	builder.WriteString("3. **JSON格式**：代码块中的JSON必须是完整的 WorkflowExportData 格式\n")
+	builder.WriteString("4. **严格遵循格式**：所有字段名必须与规范完全一致\n")
+	builder.WriteString("5. **变量引用语法**：使用 `{{nodeId.variableName}}` 格式，例如 `{{node-1.data.url}}`\n")
+	builder.WriteString("6. **工作流复杂度**：根据用户描述的复杂程度灵活决定节点数量\n")
 	builder.WriteString("   - 如果用户需求简单，使用最小可运行模板：start → crawler → dataclean → ai → output → end\n")
 	builder.WriteString("   - 如果用户需求复杂（如多步骤、条件分支、多数据源等），可以设计更复杂的工作流，使用更多节点\n")
 	builder.WriteString("   - 不要人为限制节点数量，完全根据用户需求来设计\n")
-	builder.WriteString("6. **避免复杂节点**：第一阶段不要使用 loop 和 transform 节点\n\n")
-
-	// 输出示例
-	builder.WriteString("### 输出格式示例\n")
-	builder.WriteString("```markdown\n")
-	builder.WriteString("好啦，这是为您生成的工作流~~\n\n")
-	builder.WriteString("这个工作流包含了以下节点：\n")
-	builder.WriteString("1. 开始节点：定义输入数据\n")
-	builder.WriteString("2. 爬虫节点：抓取网页内容\n")
-	builder.WriteString("3. 数据清洗节点：清洗文本数据\n")
-	builder.WriteString("4. AI处理节点：使用AI总结内容\n")
-	builder.WriteString("5. 输出节点：输出结果\n\n")
-	builder.WriteString("```json\n")
-	builder.WriteString("{\n")
-	builder.WriteString("  \"version\": \"1.0.0\",\n")
-	builder.WriteString("  ...\n")
-	builder.WriteString("}\n")
-	builder.WriteString("```\n")
-	builder.WriteString("```\n\n")
+	builder.WriteString("7. **避免复杂节点**：第一阶段不要使用 loop 和 transform 节点\n\n")
 
 	// 2. 工作流格式定义
 	builder.WriteString("## 工作流格式定义 (WorkflowExportData)\n")
@@ -103,12 +90,17 @@ func (pb *PromptBuilder) BuildSystemPrompt() string {
 	builder.WriteString("- 变量引用必须引用实际存在的上游节点输出变量\n\n")
 
 	builder.WriteString("## 输出要求\n")
-	builder.WriteString("1. **Markdown格式**：使用Markdown格式输出，包含友好的对话文本和工作流JSON代码块\n")
-	builder.WriteString("2. **JSON代码块**：必须包含一个 ```json 代码块，代码块中的JSON必须是有效的、可解析的\n")
+	builder.WriteString("1. **对话风格**：保持自然、灵活的对话风格，根据用户的问题和上下文灵活回应\n")
+	builder.WriteString("   - 不要使用固定的模板话术或格式化的开场白\n")
+	builder.WriteString("   - 可以自然地解释、说明、建议，就像在和朋友聊天\n")
+	builder.WriteString("2. **工作流输出**：当需要输出工作流时，必须在代码块前添加特殊标记 `<!-- workflow-json -->`\n")
+	builder.WriteString("   - 格式：`<!-- workflow-json -->\\n```json\\n{...}\\n```\n")
+	builder.WriteString("   - JSON代码块中的内容必须是有效的、可解析的 WorkflowExportData 格式\n")
+	builder.WriteString("   - 可以在JSON代码块前后添加说明，但保持自然，不要使用固定模板\n")
+	builder.WriteString("   - **重要**：只有工作流JSON需要添加此标记，其他JSON代码块不需要\n")
 	builder.WriteString("3. **节点ID**：所有节点ID使用 node-1, node-2, node-3... 格式\n")
 	builder.WriteString("4. **节点位置**：使用合理的坐标（建议垂直排列，y坐标递增140）\n")
 	builder.WriteString("5. **必填字段**：节点配置必须包含所有必填字段\n")
-	builder.WriteString("6. **友好对话**：可以在JSON代码块前后添加友好的说明文字，让用户理解工作流的用途\n")
 
 	// 8. 相关知识库（按需加载）
 	if len(pb.relevantKnowledge) > 0 {

@@ -7,7 +7,7 @@ import { AlkaidIcon } from '@/components/Icons';
 import AlkaidButton from './AlkaidButton';
 import styles from './AlkaidAssistant.module.scss';
 import { alkaidApi } from '@/api';
-import { extractWorkflowJSON, parseWorkflowJSON } from './utils';
+import { extractWorkflowJSON, parseWorkflowJSON, hasWorkflowJSONBlock } from './utils';
 import { MarkdownRenderer } from '@/components/WorkflowEditor/utils/MarkdownRenderer';
 import ProcessLoader, { ProcessStep } from './ProcessLoader';
 
@@ -71,6 +71,8 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
   const [processSteps, setProcessSteps] = useState<ProcessStep[]>([]);
   const [cancelStream, setCancelStream] = useState<(() => void) | null>(null);
   const [currentLoadingMessageId, setCurrentLoadingMessageId] = useState<string | null>(null);
+  const [needsWorkflow, setNeedsWorkflow] = useState<boolean | null>(null); // 是否需要生成工作流
+  const needsWorkflowRef = useRef<boolean | null>(null); // 使用ref确保在流式输出过程中能实时获取最新值
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<any>(null);
   const isSendingFirstMessage = useRef(false); // 标记是否正在发送第一条消息
@@ -229,13 +231,12 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
     setInputValue('');
     setLoading(true);
 
-    // 初始化步骤
-    setProcessSteps([
-      { id: 'understanding', label: '正在努力理解您的需求呢~ ', status: 'loading' },
-      { id: 'retrieving', label: '正在知识库里寻找答案呢 ', status: 'pending' },
-      { id: 'generating', label: '正在为您精心编织工作流呢 ', status: 'pending' },
-      { id: 'completed', label: '完成啦！快来看看吧~ ', status: 'pending' },
-    ]);
+    // 重置工作流需求标志
+    setNeedsWorkflow(null);
+    needsWorkflowRef.current = null;
+    
+    // 初始化步骤为空（意图分析阶段不显示，等第二阶段AI开始处理时才显示）
+    setProcessSteps([]);
 
     try {
       // 如果没有会话ID，先创建会话
@@ -270,6 +271,30 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
         currentSessionId,
         messageContent,
         (content, step, done) => {
+          // 根据后端返回的步骤动态初始化步骤显示
+          if (step === 'understanding' && processSteps.length === 0) {
+            // 第一次收到understanding步骤，初始化步骤列表
+            // 此时还不知道是否需要工作流，先显示通用步骤
+            setProcessSteps([
+              { id: 'understanding', label: '正在努力理解您的需求呢~ ', status: 'loading' },
+              { id: 'retrieving', label: '正在知识库里寻找答案呢 ', status: 'pending' },
+              { id: 'generating', label: '正在为您精心编织工作流呢 ', status: 'pending' },
+              { id: 'completed', label: '完成啦！快来看看吧~ ', status: 'pending' },
+            ]);
+          }
+
+          // 如果收到replying步骤，说明不需要生成工作流，调整步骤显示
+          if (step === 'replying') {
+            setNeedsWorkflow(false);
+            needsWorkflowRef.current = false; // 同步更新ref
+            // 更新步骤为：理解 → 回复 → 完成
+            setProcessSteps([
+              { id: 'understanding', label: '正在努力理解您的需求呢~ ', status: 'completed' },
+              { id: 'replying', label: '正在为您回复呢 ', status: 'loading' },
+              { id: 'completed', label: '完成啦！快来看看吧~ ', status: 'pending' },
+            ]);
+          }
+
           // 累加流式内容（后端发送的是增量内容）
           if (content) {
             accumulatedContentRef.current += content;
@@ -289,10 +314,26 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
               // 已经在初始化时设为 loading
             } else if (step === 'retrieving') {
               updateProcessStep('understanding', 'completed');
+              setNeedsWorkflow(true); // 收到retrieving说明需要生成工作流
+              needsWorkflowRef.current = true; // 同步更新ref
             } else if (step === 'generating') {
               updateProcessStep('retrieving', 'completed');
+            } else if (step === 'replying') {
+              // 不需要生成工作流时的回复步骤
+              updateProcessStep('understanding', 'completed');
             } else if (step === 'completed') {
-              updateProcessStep('generating', 'completed');
+              // 根据当前 needsWorkflow 状态更新步骤
+              setNeedsWorkflow(prev => {
+                if (prev === true) {
+                  updateProcessStep('generating', 'completed');
+                } else if (prev === false) {
+                  updateProcessStep('replying', 'completed');
+                } else {
+                  // 如果还没有确定，默认按生成工作流处理
+                  updateProcessStep('generating', 'completed');
+                }
+                return prev;
+              });
               updateProcessStep('completed', 'completed');
             }
           }
@@ -305,8 +346,12 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
             isSendingMessage.current = false; // 标记消息发送完成
             // 重置累积内容
             accumulatedContentRef.current = '';
-            // 延迟清除步骤显示
-            setTimeout(() => setProcessSteps([]), 3000);
+            // 延迟清除步骤显示和重置工作流标志
+            setTimeout(() => {
+              setProcessSteps([]);
+              setNeedsWorkflow(null);
+              needsWorkflowRef.current = null;
+            }, 3000);
           }
         },
         (error) => {
@@ -349,23 +394,57 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
   };
 
   // 解析消息内容，将工作流JSON替换为文件图标
-  const parseMessageContent = (content: string) => {
-    const workflowJSON = extractWorkflowJSON(content);
-    if (!workflowJSON) {
-      return { hasWorkflow: false, text: content };
+  const parseMessageContent = (content: string, isGenerating: boolean = false, shouldCheckWorkflow: boolean = true) => {
+    // 如果不需要检测工作流，直接返回原始内容
+    if (!shouldCheckWorkflow) {
+      return { hasWorkflow: false, text: content, isGenerating: false };
     }
 
-    // 移除JSON代码块，保留其他文本
-    const textWithoutJson = content
-      .replace(/```json\s*[\s\S]*?```/g, '')
-      .replace(/```\s*[\s\S]*?```/g, '')
-      .trim();
+    // 检测是否有工作流JSON代码块（包括未完成的）
+    const hasJSONBlock = hasWorkflowJSONBlock(content);
+    
+    if (hasJSONBlock) {
+      // 尝试提取完整的JSON
+      const workflowJSON = extractWorkflowJSON(content);
+      
+      // 只移除工作流JSON代码块（带特殊标记的），保留其他JSON
+      let textWithoutJson = content;
+      
+      // 1. 移除带特殊标记的工作流JSON代码块（新格式）
+      // 格式：<!-- workflow-json -->\n```json\n{...}\n```
+      textWithoutJson = textWithoutJson.replace(/<!--\s*workflow-json\s*-->[\s\S]*?```json\s*[\s\S]*?```/g, '');
+      // 移除未完成的带标记的工作流JSON（到文本末尾）
+      textWithoutJson = textWithoutJson.replace(/<!--\s*workflow-json\s*-->[\s\S]*?```json\s*[\s\S]*$/gm, '');
+      
+      // 2. 兼容旧格式：移除包含工作流关键字段的JSON代码块（如果没有特殊标记）
+      // 只处理包含 "version" 和 "nodes" 的JSON（工作流特征）
+      const workflowJsonPattern = /```json\s*[\s\S]*?"version"[\s\S]*?"nodes"[\s\S]*?```/g;
+      textWithoutJson = textWithoutJson.replace(workflowJsonPattern, '');
+      // 移除未完成的（到文本末尾）
+      textWithoutJson = textWithoutJson.replace(/```json\s*[\s\S]*?"version"[\s\S]*?"nodes"[\s\S]*$/gm, '');
+      
+      // 3. 移除不在代码块中的工作流JSON对象（包含 "version" 和 "nodes"）
+      const workflowJsonObjectPattern = /\{\s*"version"[\s\S]*?"nodes"[\s\S]*?\}/g;
+      textWithoutJson = textWithoutJson.replace(workflowJsonObjectPattern, '');
+      // 移除未完成的（到文本末尾）
+      textWithoutJson = textWithoutJson.replace(/\{\s*"version"[\s\S]*?"nodes"[\s\S]*$/gm, '');
+      
+      // 4. 清理多余的换行和空格
+      textWithoutJson = textWithoutJson
+        .replace(/\n{3,}/g, '\n\n') // 多个换行合并为两个
+        .replace(/^\s+|\s+$/g, '') // 移除首尾空白
+        .trim();
 
-    return {
-      hasWorkflow: true,
-      text: textWithoutJson,
-      workflowJSON,
-    };
+      return {
+        hasWorkflow: true,
+        text: textWithoutJson,
+        workflowJSON: workflowJSON || null, // 如果提取不到完整JSON，返回null表示还在生成中
+        isGenerating: isGenerating && !workflowJSON, // 如果正在生成且提取不到完整JSON，说明还在生成中
+      };
+    }
+
+    // 如果没有检测到工作流JSON代码块，返回原始内容
+    return { hasWorkflow: false, text: content, isGenerating: false };
   };
 
   // 处理导入工作流
@@ -579,7 +658,16 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
                           )}
 
                           {(() => {
-                            const parsed = parseMessageContent(msg.content);
+                            // 使用ref获取最新的needsWorkflow值，确保在流式输出过程中能实时获取
+                            const currentNeedsWorkflow = needsWorkflowRef.current;
+                            // 只有在明确需要生成工作流时才检测和显示工作流
+                            const shouldCheckWorkflow = currentNeedsWorkflow === true;
+                            // 判断是否正在生成中（当前消息是正在加载的助手消息）
+                            const isMsgGenerating = isCurrentLoadingMessage && loading && shouldCheckWorkflow;
+                            // 只有在需要生成工作流时才检查JSON代码块
+                            const parsed = parseMessageContent(msg.content, isMsgGenerating, shouldCheckWorkflow);
+                            // 只有在明确需要生成工作流时才显示工作流卡片
+                            const shouldShowWorkflow = parsed.hasWorkflow && currentNeedsWorkflow === true;
                             return (
                               <>
                                 {parsed.text && (
@@ -587,7 +675,7 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
                                     <MarkdownRenderer content={parsed.text} />
                                   </div>
                                 )}
-                                {parsed.hasWorkflow && (
+                                {shouldShowWorkflow && (
                                   <div className={styles.workflowFileCard}>
                                     <div className={styles.workflowFileIcon}>
                                       <FileTextOutlined style={{ fontSize: 16, color: 'var(--primary)' }} />
@@ -596,28 +684,39 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
                                       <Typography.Text strong style={{ display: 'block', fontSize: '12px', lineHeight: '1.4' }}>
                                         {t('alkaid.workflowFile') || '工作流文件'}
                                       </Typography.Text>
-                                      <Typography.Text type="secondary" style={{ fontSize: '10px', display: 'block', lineHeight: '1.4' }}>
-                                        {t('alkaid.clickToImport') || '点击导入到工作流编辑器'}
-                                      </Typography.Text>
-                                      <Space size={4} style={{ marginTop: '4px' }}>
-                                        <Button
-                                          type="primary"
-                                          size="small"
-                                          icon={<UploadOutlined />}
-                                          onClick={() => handleImportWorkflow(parsed.workflowJSON!)}
-                                          style={{ fontSize: '11px', height: '22px', padding: '0 6px' }}
-                                        >
-                                          {t('alkaid.import') || '导入'}
-                                        </Button>
-                                        <Button
-                                          size="small"
-                                          icon={<DownloadOutlined />}
-                                          onClick={() => handleDownloadWorkflow(parsed.workflowJSON!)}
-                                          style={{ fontSize: '11px', height: '22px', padding: '0 6px' }}
-                                        >
-                                          {t('alkaid.download') || '下载'}
-                                        </Button>
-                                      </Space>
+                                      {parsed.isGenerating ? (
+                                        <Space size={4} style={{ marginTop: '4px' }}>
+                                          <Spin size="small" />
+                                          <Typography.Text type="secondary" style={{ fontSize: '10px', lineHeight: '1.4' }}>
+                                            {t('alkaid.generating') || '生成中...'}
+                                          </Typography.Text>
+                                        </Space>
+                                      ) : parsed.workflowJSON ? (
+                                        <>
+                                          <Typography.Text type="secondary" style={{ fontSize: '10px', display: 'block', lineHeight: '1.4' }}>
+                                            {t('alkaid.clickToImport') || '点击导入到工作流编辑器'}
+                                          </Typography.Text>
+                                          <Space size={4} style={{ marginTop: '4px' }}>
+                                            <Button
+                                              type="primary"
+                                              size="small"
+                                              icon={<UploadOutlined />}
+                                              onClick={() => handleImportWorkflow(parsed.workflowJSON!)}
+                                              style={{ fontSize: '11px', height: '22px', padding: '0 6px' }}
+                                            >
+                                              {t('alkaid.import') || '导入'}
+                                            </Button>
+                                            <Button
+                                              size="small"
+                                              icon={<DownloadOutlined />}
+                                              onClick={() => handleDownloadWorkflow(parsed.workflowJSON!)}
+                                              style={{ fontSize: '11px', height: '22px', padding: '0 6px' }}
+                                            >
+                                              {t('alkaid.download') || '下载'}
+                                            </Button>
+                                          </Space>
+                                        </>
+                                      ) : null}
                                     </div>
                                   </div>
                                 )}

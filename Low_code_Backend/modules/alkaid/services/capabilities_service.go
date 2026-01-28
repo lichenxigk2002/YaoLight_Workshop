@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"yaolight-workshop/backend/modules/workflow/services"
 )
 
@@ -88,11 +89,26 @@ func NewCapabilitiesService() *CapabilitiesService {
 }
 
 // GetCapabilities 获取完整的能力说明文档
+// 现在会自动从源代码提取配置，无需手动维护
 func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
-	// 1. 构建节点能力列表
+	// 1. 构建节点能力列表（基础定义）
 	nodeTypes := s.buildNodeCapabilities()
 
-	// 2. 构建工作流格式定义
+	// 2. **自动从源代码提取配置并更新**
+	// 这会扫描实际的节点执行代码，提取所有配置字段
+	capabilities := &WorkflowCapabilities{
+		NodeTypes: nodeTypes,
+	}
+	if err := UpdateCapabilitiesFromSource(capabilities); err != nil {
+		// 如果自动提取失败，记录警告但继续使用基础定义
+		fmt.Printf("警告: 自动提取配置失败，使用基础定义: %v\n", err)
+		// 不返回错误，继续使用基础定义
+	} else {
+		// 更新成功，使用更新后的节点类型
+		nodeTypes = capabilities.NodeTypes
+	}
+
+	// 3. 构建工作流格式定义
 	workflowSchema := WorkflowSchema{
 		Version:  "1.0.0",
 		Required: []string{"version", "exportedAt", "nodes", "edges"},
@@ -121,13 +137,13 @@ func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
 		},
 	}
 
-	// 3. 构建推荐模板
+	// 4. 构建推荐模板
 	template := Template{
 		MinimalFlow: []string{"start", "crawler", "dataclean", "ai", "output", "end"},
 		Description: "最小可运行模板，适用于大多数场景：开始 → 爬虫 → 数据清洗 → AI处理 → 输出 → 结束",
 	}
 
-	// 4. 构建工作流规则
+	// 5. 构建工作流规则
 	rules := WorkflowRules{
 		VariableSyntax: "{{nodeId.variableName}} 或 {{nodeId.variableName.field}}",
 		MaxNodes:       -1,                            // -1 表示无限制，根据用户需求灵活决定
