@@ -14,6 +14,12 @@ import (
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
+	notificationHub "yaolight-workshop/backend/modules/notification/hub"
+		notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
+		notificationModule "yaolight-workshop/backend/modules/notification"
+		notificationRepos "yaolight-workshop/backend/modules/notification/repositories"
+		notificationServices "yaolight-workshop/backend/modules/notification/services"
+	paymentControllers "yaolight-workshop/backend/modules/payment/controllers"
 	projectControllers "yaolight-workshop/backend/modules/project/controllers"
 	taskControllers "yaolight-workshop/backend/modules/task/controllers"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
@@ -98,6 +104,20 @@ func main() {
 		api.POST("/auth/email-login", authController.EmailLogin)
 		api.POST("/auth/email-register", authController.EmailRegister)
 
+		// 支付相关路由（部分需要认证）
+		paymentController := paymentControllers.NewPaymentController()
+		api.GET("/payment/packages", paymentController.GetPackages)                    // 获取套餐列表（无需认证）
+		api.POST("/payment/alipay/notify", paymentController.HandleAlipayNotify)       // 支付宝异步通知（无需认证，由支付宝调用）
+		r.GET("/payment/callback", paymentController.HandleAlipayReturn)               // 支付宝同步跳转（无需认证）
+
+		// 站内通知 WebSocket（通过 query token 鉴权，不加 JWT 中间件）
+		notificationHubInstance := notificationHub.NewHub()
+		notificationRepo := notificationRepos.NewNotificationRepository(database.DB)
+		notificationService := notificationServices.NewNotificationService(notificationRepo, notificationHubInstance)
+		notificationModule.SetDefaultService(notificationService)
+		notificationController := notificationControllers.NewNotificationController(notificationService, notificationHubInstance)
+		api.GET("/ws/notifications", notificationController.HandleWebSocket)
+
 		// 需要认证的路由
 		auth := api.Group("")
 		auth.Use(middleware.JWTAuthMiddleware())
@@ -105,6 +125,8 @@ func main() {
 			// 用户相关路由
 			auth.GET("/users/current", authController.GetCurrentUser)
 			auth.PUT("/users/username", authController.UpdateUsername)
+			auth.GET("/users/notification-preferences", authController.GetNotificationPreferences)
+			auth.PUT("/users/notification-preferences", authController.UpdateNotificationPreferences)
 			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
 			auth.POST("/users/avatar", authController.UploadAvatar)
 
@@ -156,6 +178,18 @@ func main() {
 			auth.POST("/alkaid/messages", alkaidController.SendMessage)
 			auth.POST("/alkaid/messages/stream", alkaidController.SendMessageStream) // 新增流式接口
 			auth.GET("/alkaid/sessions/:id/messages", alkaidController.GetMessages)
+
+			// 支付相关路由（需要认证）
+			paymentController := paymentControllers.NewPaymentController()
+			auth.POST("/payment/orders", paymentController.CreateOrder)                      // 创建订单
+			auth.GET("/payment/orders/:orderId/status", paymentController.GetOrderStatus)   // 查询订单状态
+			auth.POST("/payment/orders/:orderId/mock-pay", paymentController.MockPay)       // 模拟支付（仅开发用）
+
+			// 站内通知 REST
+			auth.GET("/notifications", notificationController.List)
+			auth.GET("/notifications/unread-count", notificationController.UnreadCount)
+			auth.PUT("/notifications/:id/read", notificationController.MarkRead)
+			auth.PUT("/notifications/read-all", notificationController.MarkAllRead)
 		}
 	}
 

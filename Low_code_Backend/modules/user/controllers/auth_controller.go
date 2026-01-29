@@ -486,6 +486,40 @@ func (c *AuthController) UpdateUsername(ctx *gin.Context) {
 	})
 }
 
+// GetNotificationPreferences 获取通知偏好
+func (c *AuthController) GetNotificationPreferences(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	prefs, err := c.authService.GetNotificationPreferences(userID.(uint))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": prefs})
+}
+
+// UpdateNotificationPreferences 更新通知偏好
+func (c *AuthController) UpdateNotificationPreferences(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var prefs map[string]bool
+	if err := ctx.ShouldBindJSON(&prefs); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误", "data": nil})
+		return
+	}
+	if err := c.authService.UpdateNotificationPreferences(userID.(uint), prefs); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "修改成功", "data": nil})
+}
+
 // UploadAvatar 上传头像
 // @Summary 上传头像
 // @Description 上传用户头像文件

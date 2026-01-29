@@ -14,9 +14,11 @@ import (
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
 	aiService "yaolight-workshop/backend/modules/ai/services"
 	"yaolight-workshop/backend/modules/ai/services/providers"
+	notification "yaolight-workshop/backend/modules/notification"
 	taskModels "yaolight-workshop/backend/modules/task/models"
 	taskRepos "yaolight-workshop/backend/modules/task/repositories"
 	userModels "yaolight-workshop/backend/modules/user/models"
+	workflowModels "yaolight-workshop/backend/modules/workflow/models"
 )
 
 // StreamCallback 流式执行回调函数
@@ -1365,6 +1367,20 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 		if err := taskRepo.UpdateTask(task); err != nil {
 			log.Printf("更新任务状态失败: %v", err)
+		}
+
+		// 站内通知：工作流执行完成
+		var workflow workflowModels.Workflow
+		if err := database.DB.Select("name", "project_id").Where("id = ?", task.WorkflowID).First(&workflow).Error; err == nil {
+			title := "工作流执行完成"
+			content := "工作流「" + workflow.Name + "」已执行完成，点击查看结果。"
+			actionURL := ""
+			if workflow.ProjectID != nil && *workflow.ProjectID > 0 {
+				actionURL = fmt.Sprintf("/projects/%d/workflows/%d/edit", *workflow.ProjectID, task.WorkflowID)
+			}
+			notification.Notify(task.UserID, "task_completed", title, content, actionURL)
+		} else {
+			notification.Notify(task.UserID, "task_completed", "工作流执行完成", "任务已执行完成，点击查看结果。", "")
 		}
 	}
 

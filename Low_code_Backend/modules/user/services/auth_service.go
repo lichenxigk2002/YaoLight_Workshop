@@ -14,6 +14,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/cache"
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/email"
+	"yaolight-workshop/backend/infrastructure/shared"
 	"yaolight-workshop/backend/infrastructure/jwt"
 	userModels "yaolight-workshop/backend/modules/user/models"
 )
@@ -521,4 +522,65 @@ func toPersistenceModel(user *entity.User) *userModels.User {
 		CreatedAt:    user.CreatedAt,
 		UpdatedAt:    user.UpdatedAt,
 	}
+}
+
+// NotificationPrefs 通知偏好：类型 -> 是否开启（新用户默认全开）
+var DefaultNotificationPrefs = map[string]bool{
+	"task_completed": true,
+}
+
+// GetNotificationPreferences 获取当前用户的通知偏好，未设置的项默认 true
+func (s *AuthService) GetNotificationPreferences(userID uint) (map[string]bool, error) {
+	var user userModels.User
+	if err := database.DB.Select("id", "preferences").First(&user, userID).Error; err != nil {
+		return nil, ErrUserNotFound
+	}
+	out := make(map[string]bool)
+	for k, v := range DefaultNotificationPrefs {
+		out[k] = v
+	}
+	if user.Preferences.Data == nil {
+		return out, nil
+	}
+	prefs, ok := user.Preferences.Data.(map[string]interface{})
+	if !ok {
+		return out, nil
+	}
+	notifications, ok := prefs["notifications"].(map[string]interface{})
+	if !ok {
+		return out, nil
+	}
+	for k, v := range notifications {
+		if b, ok := v.(bool); ok {
+			out[k] = b
+		}
+	}
+	return out, nil
+}
+
+// UpdateNotificationPreferences 更新通知偏好（只更新传入的项，其余保持）
+func (s *AuthService) UpdateNotificationPreferences(userID uint, prefs map[string]bool) error {
+	var user userModels.User
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		return ErrUserNotFound
+	}
+	var prefsMap map[string]interface{}
+	if user.Preferences.Data != nil {
+		if m, ok := user.Preferences.Data.(map[string]interface{}); ok {
+			prefsMap = m
+		}
+	}
+	if prefsMap == nil {
+		prefsMap = make(map[string]interface{})
+	}
+	notifications, _ := prefsMap["notifications"].(map[string]interface{})
+	if notifications == nil {
+		notifications = make(map[string]interface{})
+	}
+	for k, v := range prefs {
+		notifications[k] = v
+	}
+	prefsMap["notifications"] = notifications
+	user.Preferences = shared.JSONB{Data: prefsMap}
+	return database.DB.Model(&user).Update("preferences", user.Preferences).Error
 }

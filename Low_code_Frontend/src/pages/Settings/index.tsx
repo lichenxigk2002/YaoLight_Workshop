@@ -4,11 +4,9 @@ import {
   UserOutlined,
   CloudServerOutlined,
   CreditCardOutlined,
-  DatabaseOutlined,
-  ApiOutlined,
-  SettingOutlined,
   GlobalOutlined,
   FileTextOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
@@ -43,19 +41,9 @@ export default function Settings() {
           label: t('settings.billing'),
         },
         {
-          key: 'datasources',
-          icon: <DatabaseOutlined />,
-          label: t('settings.datasources'),
-        },
-        {
-          key: 'extensions',
-          icon: <ApiOutlined />,
-          label: t('settings.extensions'),
-        },
-        {
-          key: 'customization',
-          icon: <SettingOutlined />,
-          label: t('settings.customization'),
+          key: 'notifications',
+          icon: <BellOutlined />,
+          label: t('settings.notificationConfig'),
         },
       ],
     },

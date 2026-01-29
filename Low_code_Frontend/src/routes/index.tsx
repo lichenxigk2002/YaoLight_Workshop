@@ -11,7 +11,9 @@ import Settings from '../pages/Settings'
 import ProfileInfo from '../pages/Settings/Profile'
 import ModelProviders from '../pages/Settings/Models'
 import Billing from '../pages/Settings/Billing'
+import SettingsNotifications from '../pages/Settings/Notifications'
 import Payment from '../pages/Payment'
+import Help from '../pages/Help'
 
 const router = createBrowserRouter([
   {
@@ -78,6 +80,10 @@ const router = createBrowserRouter([
         path: 'billing',
         element: <Billing />,
       },
+      {
+        path: 'notifications',
+        element: <SettingsNotifications />,
+      },
     ],
   },
   {
@@ -86,6 +92,16 @@ const router = createBrowserRouter([
       <ProtectedRoute>
         <Layout>
           <Payment />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/help',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <Help />
         </Layout>
       </ProtectedRoute>
     ),

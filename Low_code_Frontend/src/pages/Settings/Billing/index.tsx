@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { userApi } from '@/api/user';
 import { useAuthStore } from '@/store/auth';
 import { ProviderIcon, StardustIcon } from '@/components/Icons';
+import SettingsPageTitle from '@/components/SettingsPageTitle';
 import type { TokenTransaction } from '@/types/user';
 import styles from './index.module.scss';
 
@@ -105,7 +106,7 @@ export default function Billing() {
 
   return (
     <div className={styles.container}>
-      <h2 className={styles.title}>{t('settings.billing')}</h2>
+      <SettingsPageTitle title={t('settings.billing')} />
 
       <Card className={styles.summary}>
         {t('settings.currentStardustBalance')}: {user?.token_balance?.toLocaleString() || 0} <StardustIcon size={16} style={{ marginLeft: '4px', verticalAlign: 'middle' }} />

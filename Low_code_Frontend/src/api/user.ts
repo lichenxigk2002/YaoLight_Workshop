@@ -68,6 +68,18 @@ export const userApi = {
   getCurrentUser: () =>
     http.get<User>('/users/current'),
 
+  /**
+   * 获取通知偏好（各类型开关）
+   */
+  getNotificationPreferences: () =>
+    http.get<Record<string, boolean>>('/users/notification-preferences'),
+
+  /**
+   * 更新通知偏好
+   */
+  updateNotificationPreferences: (prefs: Record<string, boolean>) =>
+    http.put('/users/notification-preferences', prefs),
+
   getTokenTransactions: (params?: { page?: number; pageSize?: number }) =>
     http.get<{ list: TokenTransaction[]; total: number; page: number; pageSize: number }>('/users/token-transactions', params),
 

@@ -26,10 +26,11 @@ import { aiApi } from '@/api/ai';
 import { userApi } from '@/api/user';
 import { useAuthStore } from '@/store/auth';
 import { ProviderIcon, StardustIcon } from '@/components/Icons';
+import SettingsPageTitle from '@/components/SettingsPageTitle';
 import type { AIModel, ProviderTemplate, CreateModelRequest, SystemPresetModel } from '@/types/ai';
 import styles from './index.module.scss';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 // 增强供应商模板，添加图标和能力标签
 const PROVIDER_METADATA: Record<string, { icon: React.ReactNode, capabilities: string[] }> = {
@@ -345,8 +346,8 @@ export default function ModelProviders() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <Title level={3} style={{ margin: 0 }}>{t('settings.modelProviders')}</Title>
+      <SettingsPageTitle title={t('settings.modelProviders')} />
+      <div className={styles.searchRow}>
         <Input
           className={styles.searchBox}
           placeholder={t('common.search')}

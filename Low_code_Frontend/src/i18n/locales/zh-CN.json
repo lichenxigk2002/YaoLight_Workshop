@@ -47,13 +47,37 @@
   },
   "layout": {
     "userCenter": "个人中心",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "modelProviders": "模型供应",
+    "helpDocs": "帮助文档",
+    "githubStar": "在 GitHub 上看看",
+    "contactMe": "联系我",
+    "notifications": "站内消息",
+    "notificationEmpty": "暂无消息",
+    "markAllRead": "全部已读",
+    "notificationAll": "全部",
+    "notificationUnread": "未读",
+    "notificationView": "查看",
+    "notificationSettings": "消息提示配置"
+  },
+  "help": {
+    "title": "帮助文档",
+    "intro": "欢迎使用瑶光工坊。本页为帮助文档入口，更多内容敬请期待。",
+    "quickLinks": "快捷链接",
+    "modelProviders": "模型供应：在设置中配置各模型供应商的 API Key。",
+    "workflow": "工作流：从仪表盘进入项目，创建并编辑工作流。"
   },
   "settings": {
     "title": "设置",
     "groupWorkspace": "工作空间",
     "groupGeneral": "通用",
     "profile": "个人信息",
+    "notificationConfig": "消息提示配置",
+    "notificationConfigDesc": "选择需要接收的站内消息类型，新用户默认全部开启。",
+    "notificationTaskCompleted": "工作流执行完成",
+    "notificationTaskCompletedDesc": "工作流运行结束后推送站内消息",
+    "loadFailed": "加载偏好失败",
+    "saveFailed": "保存偏好失败",
     "modelProviders": "模型供应商",
     "modelList": "模型列表",
     "toBeConfigured": "待配置",

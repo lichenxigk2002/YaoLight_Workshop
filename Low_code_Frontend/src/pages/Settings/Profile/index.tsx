@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Form, Input, Button, Descriptions, Avatar, Modal, App } from 'antd';
+import { Form, Input, Button, Avatar, Modal, App } from 'antd';
 import { UserOutlined, EditOutlined, CameraOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/store/auth';
 import { userApi } from '@/api/user';
+import SettingsPageTitle from '@/components/SettingsPageTitle';
 import styles from './index.module.scss';
 
 export default function ProfileInfo() {
@@ -98,14 +99,41 @@ export default function ProfileInfo() {
     e.target.value = '';
   };
 
+  const detailItems = [
+    { label: t('profile.username'), value: user?.username },
+    { label: t('profile.email'), value: user?.email },
+    { label: t('profile.phone'), value: user?.phone || t('profile.notBound') },
+    {
+      label: t('profile.role'),
+      value: user?.role === 'admin' ? t('profile.admin') : t('profile.normalUser'),
+    },
+    {
+      label: t('profile.accountStatus'),
+      value: user?.status === 'active' ? t('profile.active') : t('profile.inactive'),
+    },
+    { label: t('profile.loginCount'), value: String(user?.login_count ?? 0) },
+    {
+      label: t('profile.lastLogin'),
+      value: user?.last_login_at
+        ? new Date(user.last_login_at).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US')
+        : t('profile.noRecord'),
+    },
+    {
+      label: t('profile.registrationTime'),
+      value: user?.created_at
+        ? new Date(user.created_at).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US')
+        : t('profile.unknown'),
+    },
+  ];
+
   return (
     <div className={styles.container}>
-      <h2 className={styles.title}>{t('settings.profile')}</h2>
+      <SettingsPageTitle title={t('settings.profile')} />
 
       <div className={styles.avatarSection}>
         <div className={styles.avatarWrapper}>
           <Avatar
-            size={80}
+            size={56}
             src={getAvatarUrl()}
             icon={<UserOutlined />}
             className={styles.avatar}
@@ -129,10 +157,13 @@ export default function ProfileInfo() {
           />
         </div>
         <div className={styles.userInfo}>
-          <h3>{user?.username || t('profile.unknownUser')}</h3>
-          <p>{user?.email}</p>
+          <span className={styles.userName}>{user?.username || t('profile.unknownUser')}</span>
+          <span className={styles.userEmail}>{user?.email}</span>
           <Button
+            type="default"
+            size="small"
             icon={<EditOutlined />}
+            className={styles.modifyBtn}
             onClick={() => {
               form.setFieldsValue({ username: user?.username });
               setModalVisible(true);
@@ -143,28 +174,14 @@ export default function ProfileInfo() {
         </div>
       </div>
 
-      <Descriptions column={1} className={styles.descriptions}>
-        <Descriptions.Item label={t('profile.username')}>{user?.username}</Descriptions.Item>
-        <Descriptions.Item label={t('profile.email')}>{user?.email}</Descriptions.Item>
-        <Descriptions.Item label={t('profile.phone')}>{user?.phone || t('profile.notBound')}</Descriptions.Item>
-        <Descriptions.Item label={t('profile.role')}>
-          {user?.role === 'admin' ? t('profile.admin') : t('profile.normalUser')}
-        </Descriptions.Item>
-        <Descriptions.Item label={t('profile.accountStatus')}>
-          {user?.status === 'active' ? t('profile.active') : t('profile.inactive')}
-        </Descriptions.Item>
-        <Descriptions.Item label={t('profile.loginCount')}>{user?.login_count || 0}</Descriptions.Item>
-        <Descriptions.Item label={t('profile.lastLogin')}>
-          {user?.last_login_at
-            ? new Date(user.last_login_at).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US')
-            : t('profile.noRecord')}
-        </Descriptions.Item>
-        <Descriptions.Item label={t('profile.registrationTime')}>
-          {user?.created_at
-            ? new Date(user.created_at).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US')
-            : t('profile.unknown')}
-        </Descriptions.Item>
-      </Descriptions>
+      <div className={styles.detailCard}>
+        {detailItems.map(({ label, value }) => (
+          <div key={label} className={styles.detailRow}>
+            <span className={styles.detailLabel}>{label}</span>
+            <span className={styles.detailValue}>{value}</span>
+          </div>
+        ))}
+      </div>
 
       <Modal
         title={t('profile.modifyUsername')}

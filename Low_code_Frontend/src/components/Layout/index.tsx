@@ -1,11 +1,25 @@
-import { Layout as AntLayout, Dropdown, Avatar, Space, Button } from 'antd';
-import { UserOutlined, LogoutOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons';
+import { Layout as AntLayout, Dropdown, Avatar, Button } from 'antd';
+import {
+  UserOutlined,
+  LogoutOutlined,
+  SunOutlined,
+  MoonOutlined,
+  SettingOutlined,
+  CloudServerOutlined,
+  FileTextOutlined,
+  GithubOutlined,
+  LinkOutlined,
+  RightOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/store/theme';
-import type { MenuProps } from 'antd';
+import NotificationBell from './NotificationBell';
 import styles from './index.module.scss';
+
+const GITHUB_URL = 'https://github.com/lichenxigk2002/YaoLight_Workshop';
+const BLOG_URL = 'https://www.gfbzsblog.site/';
 
 const { Header, Content } = AntLayout;
 
@@ -28,8 +42,16 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/login');
   };
 
-  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-    if (key === 'profile') {
+  const handleUserMenu = (key: string) => {
+    if (key === 'models') {
+      navigate('/settings/models');
+    } else if (key === 'help') {
+      navigate('/help');
+    } else if (key === 'github') {
+      window.open(GITHUB_URL, '_blank', 'noopener,noreferrer');
+    } else if (key === 'contact') {
+      window.open(BLOG_URL, '_blank', 'noopener,noreferrer');
+    } else if (key === 'profile') {
       navigate('/settings');
     } else if (key === 'logout') {
       handleLogout();
@@ -41,43 +63,78 @@ export default function Layout({ children }: LayoutProps) {
     i18n.changeLanguage(newLanguage);
   };
 
-  // 获取头像 URL
   const getAvatarUrl = () => {
     if (user?.avatar_url) {
-      // 如果是绝对路径（http/https），直接返回
       if (user.avatar_url.startsWith('http')) {
         return user.avatar_url;
       }
-      // 如果是相对路径，拼接 API 基础路径
       const baseURL = import.meta.env.VITE_BASE_URL || '/api';
       return `${baseURL}/uploads/${user.avatar_url}`;
     }
     return undefined;
   };
 
-  const menuItems: MenuProps['items'] = [
-    {
-      key: 'profile',
-      label: (
-        <Space>
-          <UserOutlined />
+  const menuRows = [
+    { key: 'models', icon: <CloudServerOutlined />, label: t('layout.modelProviders'), external: false },
+    { key: 'help', icon: <FileTextOutlined />, label: t('layout.helpDocs'), external: false },
+    { key: 'github', icon: <GithubOutlined />, label: t('layout.githubStar'), external: true },
+    { key: 'contact', icon: <LinkOutlined />, label: t('layout.contactMe'), external: true },
+  ];
+
+  const dropdownContent = (
+    <div className={styles.userDropdownPanel}>
+      <div className={styles.userDropdownHead}>
+        <Avatar
+          src={getAvatarUrl()}
+          className={styles.userDropdownAvatar}
+          icon={<UserOutlined />}
+        />
+        <span className={styles.userDropdownName}>{user?.username || '用户'}</span>
+      </div>
+      <div className={styles.userDropdownDivider} />
+      {menuRows.map(({ key, icon, label, external }) => (
+        <button
+          key={key}
+          type="button"
+          className={styles.userDropdownItem}
+          onClick={() => handleUserMenu(key)}
+        >
+          <span className={styles.userDropdownItemLeft}>
+            {icon}
+            <span>{label}</span>
+          </span>
+          {external ? (
+            <LinkOutlined className={styles.userDropdownItemRight} />
+          ) : (
+            <RightOutlined className={styles.userDropdownItemRight} />
+          )}
+        </button>
+      ))}
+      <div className={styles.userDropdownDivider} />
+      <button
+        type="button"
+        className={styles.userDropdownItem}
+        onClick={() => handleUserMenu('profile')}
+      >
+        <span className={styles.userDropdownItemLeft}>
+          <SettingOutlined />
           <span>{t('layout.userCenter')}</span>
-        </Space>
-      ),
-    },
-    {
-      type: 'divider',
-    },
-    {
-      key: 'logout',
-      label: (
-        <Space>
+        </span>
+        <RightOutlined className={styles.userDropdownItemRight} />
+      </button>
+      <div className={styles.userDropdownDivider} />
+      <button
+        type="button"
+        className={styles.userDropdownItem}
+        onClick={() => handleUserMenu('logout')}
+      >
+        <span className={styles.userDropdownItemLeft}>
           <LogoutOutlined />
           <span>{t('layout.logout')}</span>
-        </Space>
-      ),
-    },
-  ];
+        </span>
+      </button>
+    </div>
+  );
 
   return (
     <AntLayout className={styles.layout}>
@@ -90,34 +147,37 @@ export default function Layout({ children }: LayoutProps) {
           />
           <span className={styles.brandText}>{t('common.brandName')}</span>
         </div>
-        <Space>
+        <div className={styles.headerRight}>
           <Button
-            className={styles.themeToggle}
+            className={styles.headerIconBtn}
             shape="circle"
             size="middle"
             onClick={toggleTheme}
             icon={theme === 'dark' ? <MoonOutlined /> : <SunOutlined />}
           />
           <Button
-            className={styles.languageToggle}
+            className={styles.headerIconBtn}
             shape="circle"
             size="middle"
             onClick={handleLanguageToggle}
           >
             {i18n.language === 'zh-CN' ? 'CN' : 'US'}
           </Button>
-          <span className={styles.username}>{user?.username || '用户'}</span>
+          <NotificationBell />
           <Dropdown
-            menu={{ items: menuItems, onClick: handleMenuClick }}
+            dropdownRender={() => dropdownContent}
             placement="bottomRight"
+            trigger={['hover', 'click']}
           >
-            <Avatar
-              src={getAvatarUrl()}
-              className={styles.headerAvatar}
-              icon={<UserOutlined />}
-            />
+            <span className={styles.headerAvatarWrap}>
+              <Avatar
+                src={getAvatarUrl()}
+                className={styles.headerAvatar}
+                icon={<UserOutlined />}
+              />
+            </span>
           </Dropdown>
-        </Space>
+        </div>
       </Header>
       <Content className={styles.content}>
         {children}

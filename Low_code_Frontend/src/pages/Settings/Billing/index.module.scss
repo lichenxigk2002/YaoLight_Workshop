@@ -1,18 +1,6 @@
 .container {
-  max-width: 1000px;
+  max-width: 900px;
   margin: 0 auto;
-
-  .title {
-    margin-bottom: 40px;
-    font-size: 32px;
-    font-weight: 600;
-    color: #000;
-    letter-spacing: -1px;
-
-    [data-theme='dark'] & {
-      color: #fff;
-    }
-  }
 
   .summary {
     background: #fff;
@@ -46,15 +34,6 @@
   :global(.ant-table-wrapper) {
     .ant-table {
       background: transparent;
-      
-      .ant-table-container {
-        border-radius: 12px;
-        border: 1px solid #f0f0f0;
-        
-        [data-theme='dark'] & {
-          border-color: rgba(255, 255, 255, 0.1);
-        }
-      }
     }
 
     .ant-table-thead > tr > th {

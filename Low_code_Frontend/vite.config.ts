@@ -25,6 +25,7 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
+        ws: true, // 支持 WebSocket 升级（站内通知实时推送）
         rewrite: (path) => path, // 保持路径不变
         configure: (proxy, _options) => {
           proxy.on('error', (err, _req, _res) => {

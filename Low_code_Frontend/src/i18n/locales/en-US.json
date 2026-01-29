@@ -49,13 +49,37 @@
   },
   "layout": {
     "userCenter": "Profile",
-    "logout": "Sign Out"
+    "logout": "Sign Out",
+    "modelProviders": "Model Providers",
+    "helpDocs": "Help",
+    "githubStar": "View on GitHub",
+    "contactMe": "Contact Me",
+    "notifications": "Notifications",
+    "notificationEmpty": "No notifications",
+    "markAllRead": "Mark all read",
+    "notificationAll": "All",
+    "notificationUnread": "Unread",
+    "notificationView": "View",
+    "notificationSettings": "Notification settings"
+  },
+  "help": {
+    "title": "Help",
+    "intro": "Welcome to YaoLight Workshop. This is the help docs entry; more content coming soon.",
+    "quickLinks": "Quick Links",
+    "modelProviders": "Model Providers: Configure API keys in Settings.",
+    "workflow": "Workflows: Enter a project from Dashboard to create and edit workflows."
   },
   "settings": {
     "title": "Settings",
     "groupWorkspace": "Workspace",
     "groupGeneral": "General",
     "profile": "Profile Info",
+    "notificationConfig": "Notification Settings",
+    "notificationConfigDesc": "Choose which in-app notifications to receive. New users have all enabled by default.",
+    "notificationTaskCompleted": "Workflow completed",
+    "notificationTaskCompletedDesc": "Push notification when a workflow run finishes",
+    "loadFailed": "Failed to load preferences",
+    "saveFailed": "Failed to save preferences",
     "modelProviders": "Model Providers",
     "modelList": "Model List",
     "toBeConfigured": "To be configured",
