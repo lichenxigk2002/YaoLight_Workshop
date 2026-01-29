@@ -554,6 +554,8 @@ Graduation project/
 
 ## 🙏 致谢
 
+> *This project is dedicated to the girl who, on December 26, 2025, at Dongjiang Seaside Park in Tianjin, corrected me—they were seagulls, not pigeons—and in that moment taught me to see the sea as it truly is.*
+
 感谢以下开源项目的支持：
 
 - [React Flow](https://reactflow.dev/) - 工作流可视化
