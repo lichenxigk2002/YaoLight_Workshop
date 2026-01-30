@@ -554,7 +554,7 @@ Graduation project/
 
 ## 🙏 致谢
 
-> *This project is dedicated to the girl who, on December 26, 2025, at Dongjiang Seaside Park in Tianjin, corrected me—they were seagulls, not pigeons—and in that moment taught me to see the sea as it truly is.*
+> *For her—who on a winter afternoon, the twenty-sixth of December, 2025, at 14:34:24, by the water at Dongjiang Seaside Park in Tianjin, corrected me: they were seagulls, not pigeons—and in that instant I felt the ice I had carried within me begin to thaw.*
 
 感谢以下开源项目的支持：
 
