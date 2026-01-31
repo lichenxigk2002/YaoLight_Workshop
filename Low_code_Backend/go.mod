@@ -1,6 +1,6 @@
 module yaolight-workshop/backend
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.1
@@ -14,12 +14,14 @@ require (
 	github.com/redis/go-redis/v9 v9.0.5
 	golang.org/x/crypto v0.14.0
 	golang.org/x/net v0.16.0
+	golang.org/x/oauth2 v0.34.0
 	golang.org/x/text v0.13.0
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/gorm v1.25.5
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/bytedance/sonic v1.10.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

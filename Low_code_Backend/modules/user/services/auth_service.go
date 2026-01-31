@@ -3,8 +3,13 @@ package services
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -12,11 +17,13 @@ import (
 	"yaolight-workshop/backend/domain/entity"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/cache"
+	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/email"
-	"yaolight-workshop/backend/infrastructure/shared"
 	"yaolight-workshop/backend/infrastructure/jwt"
+	"yaolight-workshop/backend/infrastructure/shared"
 	userModels "yaolight-workshop/backend/modules/user/models"
+	"yaolight-workshop/backend/modules/user/repositories"
 )
 
 var (
@@ -33,19 +40,21 @@ var (
 
 // AuthService 认证服务
 type AuthService struct {
-	userRepo     repository.UserRepository
-	emailService *email.EmailService
-	verifyCache  cache.VerificationCacheInterface
+	userRepo         repository.UserRepository
+	oauthBindingRepo *repositories.OAuthBindingRepository
+	emailService     *email.EmailService
+	verifyCache      cache.VerificationCacheInterface
 }
 
 // NewAuthService 创建认证服务
-func NewAuthService(userRepo repository.UserRepository) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, oauthBindingRepo *repositories.OAuthBindingRepository) *AuthService {
 	// 尝试使用 Redis，如果失败则降级到内存缓存
 	useRedis := true // 可以从配置读取
 	return &AuthService{
-		userRepo:     userRepo,
-		emailService: email.NewEmailService(),
-		verifyCache:  cache.GetVerificationCacheService(useRedis),
+		userRepo:         userRepo,
+		oauthBindingRepo: oauthBindingRepo,
+		emailService:     email.NewEmailService(),
+		verifyCache:      cache.GetVerificationCacheService(useRedis),
 	}
 }
 
@@ -456,6 +465,181 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 	}, nil
 }
 
+// OAuthLogin 第三方登录：按 provider+oauth_id 或 email 查找/创建用户，返回 JWT
+func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL string) (*LoginResponse, error) {
+	if provider == "" || oauthID == "" {
+		return nil, errors.New("invalid oauth provider or id")
+	}
+	// 邮箱为空时用占位（如 GitHub 未公开邮箱）
+	if email == "" {
+		email = fmt.Sprintf("%s_%s@oauth.local", provider, oauthID)
+	}
+	// 用户名：优先用 name，否则生成
+	username := name
+	if username == "" {
+		username = generateRandomUsername()
+	}
+	// 限制长度
+	if len(username) > 50 {
+		username = username[:50]
+	}
+
+	var user *entity.User
+	var err error
+	// 1) 优先按 user_oauth_bindings 表查找（支持多平台绑定）
+	if uid, ok := s.oauthBindingRepo.FindUserID(provider, oauthID); ok {
+		user, err = s.userRepo.FindByID(uid)
+		if err != nil {
+			return nil, err
+		}
+		if avatarURL != "" && !hasLocalAvatar(user.AvatarURL) {
+			if localPath, e := saveOAuthAvatarToLocal(avatarURL, user.ID); e == nil {
+				user.AvatarURL = &localPath
+			} else {
+				log.Printf("save oauth avatar to local failed: %v", e)
+			}
+		}
+	} else {
+		// 2) 按邮箱查找（同邮箱则写入绑定表）
+		user, err = s.userRepo.FindByUsernameOrEmail("", email)
+		if err == nil {
+			if err := s.oauthBindingRepo.Add(user.ID, provider, oauthID); err != nil {
+				return nil, err
+			}
+			if avatarURL != "" && !hasLocalAvatar(user.AvatarURL) {
+				if localPath, e := saveOAuthAvatarToLocal(avatarURL, user.ID); e == nil {
+					user.AvatarURL = &localPath
+					_ = s.userRepo.Update(user)
+				} else {
+					log.Printf("save oauth avatar to local failed: %v", e)
+				}
+			}
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		} else {
+			// 3) 新用户：创建用户并写入绑定表
+			for {
+				_, err = s.userRepo.FindByUsername(username)
+				if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+					break
+				}
+				if err != nil {
+					return nil, err
+				}
+				username = generateRandomUsername()
+			}
+			const registerBonusStardust = 2000000
+			user = &entity.User{
+				Username:     username,
+				Email:        email,
+				Password:     "",
+				Role:         "user",
+				Status:       "active",
+				TokenBalance: registerBonusStardust,
+			}
+			if err := s.userRepo.Create(user); err != nil {
+				return nil, err
+			}
+			if err := s.oauthBindingRepo.Add(user.ID, provider, oauthID); err != nil {
+				return nil, err
+			}
+			if avatarURL != "" {
+				if localPath, e := saveOAuthAvatarToLocal(avatarURL, user.ID); e == nil {
+					user.AvatarURL = &localPath
+					_ = s.userRepo.Update(user)
+				} else {
+					log.Printf("save oauth avatar to local failed: %v", e)
+				}
+			}
+			transaction := userModels.TokenTransaction{
+				UserID:      user.ID,
+				Amount:      registerBonusStardust,
+				Type:        "bonus",
+				RelatedID:   fmt.Sprintf("oauth_%s_%d", provider, user.ID),
+				Description: "OAuth 注册赠送200万星尘",
+				Cost:        0,
+				Currency:    "CNY",
+			}
+			_ = database.DB.Create(&transaction).Error
+		}
+	}
+
+	if !user.IsActive() {
+		return nil, errors.New("user account is inactive")
+	}
+
+	now := time.Now()
+	user.LastLoginAt = &now
+	user.LoginCount++
+	if err := s.userRepo.Update(user); err != nil {
+		return nil, err
+	}
+
+	token, err := jwt.GenerateToken(user.ID, user.Username, user.Role)
+	if err != nil {
+		return nil, err
+	}
+	user.Password = ""
+	return &LoginResponse{
+		Token: token,
+		User:  toPersistenceModel(user),
+	}, nil
+}
+
+// hasLocalAvatar 判断是否已是本地头像（非第三方外链）。
+// 包含：OAuth 导入后保存的本地路径、以及用户自定义上传的头像；有则不再用 OAuth 头像覆盖。
+func hasLocalAvatar(avatarURL *string) bool {
+	if avatarURL == nil || *avatarURL == "" {
+		return false
+	}
+	return !strings.HasPrefix(*avatarURL, "http://") && !strings.HasPrefix(*avatarURL, "https://")
+}
+
+// saveOAuthAvatarToLocal 从 OAuth 头像 URL 下载并保存到本地，返回相对路径 avatars/xxx
+func saveOAuthAvatarToLocal(imageURL string, userID uint) (relativePath string, err error) {
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Get(imageURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("avatar url returned %d", resp.StatusCode)
+	}
+	ct := resp.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "image/") {
+		return "", fmt.Errorf("not an image: %s", ct)
+	}
+	const maxSize = 5 * 1024 * 1024 // 5MB
+	body := io.LimitReader(resp.Body, maxSize+1)
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return "", err
+	}
+	if len(data) > maxSize {
+		return "", fmt.Errorf("image too large")
+	}
+	ext := ".jpg"
+	switch {
+	case strings.Contains(ct, "png"):
+		ext = ".png"
+	case strings.Contains(ct, "gif"):
+		ext = ".gif"
+	case strings.Contains(ct, "webp"):
+		ext = ".webp"
+	}
+	uploadDir := filepath.Join(config.UploadPath, "avatars")
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return "", err
+	}
+	filename := fmt.Sprintf("%d_%d%s", userID, time.Now().Unix(), ext)
+	fullPath := filepath.Join(uploadDir, filename)
+	if err := os.WriteFile(fullPath, data, 0644); err != nil {
+		return "", err
+	}
+	return filepath.Join("avatars", filename), nil
+}
+
 // generateRandomUsername 生成随机用户名
 func generateRandomUsername() string {
 	rand.Seed(time.Now().UnixNano())
@@ -487,6 +671,286 @@ func (s *AuthService) UpdateUsername(userID uint, newUsername string) error {
 
 	// 更新用户名
 	user.Username = newUsername
+	return s.userRepo.Update(user)
+}
+
+// GetOAuthBindings 返回当前用户 GitHub/Google 绑定状态（基于 user_oauth_bindings 表，支持多平台同时绑定）
+func (s *AuthService) GetOAuthBindings(userID uint) (githubBound, googleBound bool, err error) {
+	providers, err := s.oauthBindingRepo.GetByUser(userID)
+	if err != nil {
+		return false, false, err
+	}
+	for _, p := range providers {
+		switch p {
+		case "github":
+			githubBound = true
+		case "google":
+			googleBound = true
+		}
+	}
+	return githubBound, googleBound, nil
+}
+
+// OAuthBind 将已登录用户绑定指定第三方（写入 user_oauth_bindings，可同时绑定多个；可选更新头像）
+func (s *AuthService) OAuthBind(userID uint, provider, oauthID, email, name, avatarURL string) error {
+	if err := s.oauthBindingRepo.Add(userID, provider, oauthID); err != nil {
+		return err
+	}
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	if avatarURL != "" && !hasLocalAvatar(user.AvatarURL) {
+		if localPath, err := saveOAuthAvatarToLocal(avatarURL, user.ID); err == nil {
+			user.AvatarURL = &localPath
+			_ = s.userRepo.Update(user)
+		}
+	}
+	return nil
+}
+
+// UnbindOAuth 解绑指定第三方（从 user_oauth_bindings 中删除该 provider）
+func (s *AuthService) UnbindOAuth(userID uint, provider string) error {
+	return s.oauthBindingRepo.Remove(userID, provider)
+}
+
+// --- 账号注销（确认 + 邮箱验证码）---
+
+const cacheKeyDeactivatePrefix = "deactivate:"
+const cacheKeyEmailChangePrefix = "email_change:"
+const cacheKeyEmailBindNewPrefix = "email_bind_new:"
+const cacheKeyEmailUnbindPrefix = "email_unbind:"
+
+// SendDeactivateCode 发送注销验证码到当前用户邮箱
+func (s *AuthService) SendDeactivateCode(userID uint) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	if user.Email == "" || strings.HasPrefix(user.Email, "unbound_") {
+		return errors.New("当前账号未绑定有效邮箱，无法发送验证码")
+	}
+	key := cacheKeyDeactivatePrefix + user.Email
+	canSend, err := s.verifyCache.CheckRateLimit(key)
+	if err != nil {
+		return err
+	}
+	if !canSend {
+		remaining, _ := s.verifyCache.GetRemainingTime(key)
+		return fmt.Errorf("发送太频繁，请%d秒后再试", remaining)
+	}
+	code := s.verifyCache.GenerateCode()
+	if err := s.emailService.SendVerificationCode(user.Email, code); err != nil {
+		log.Printf("发送注销验证码失败: %v", err)
+		return errors.New("发送验证码失败，请稍后重试")
+	}
+	if err := s.verifyCache.Set(key, code); err != nil {
+		return err
+	}
+	if err := s.verifyCache.SetRateLimit(key); err != nil {
+		log.Printf("设置频率限制失败: %v", err)
+	}
+	return nil
+}
+
+// ConfirmDeactivate 校验验证码与确认文案后软删除账号（GitHub 风格：需输入用户名确认）
+func (s *AuthService) ConfirmDeactivate(userID uint, code, confirmText string) error {
+	if strings.TrimSpace(confirmText) == "" {
+		return errors.New("请输入确认内容（当前用户名）")
+	}
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	if user.Email == "" || strings.HasPrefix(user.Email, "unbound_") {
+		return errors.New("当前账号未绑定有效邮箱")
+	}
+	key := cacheKeyDeactivatePrefix + user.Email
+	ok, err := s.verifyCache.Verify(key, code)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrInvalidCode
+	}
+	if confirmText != user.Username {
+		return errors.New("确认内容与当前用户名不一致，请重新输入")
+	}
+	_ = s.verifyCache.Delete(key)
+	return s.userRepo.Delete(userID)
+}
+
+// --- 邮箱换绑（验证码验证当前邮箱后更换为新邮箱）---
+
+// SendEmailBindCode 发送绑定邮箱验证码到新邮箱（当前未绑定时使用）
+func (s *AuthService) SendEmailBindCode(userID uint, newEmail string) error {
+	newEmail = strings.TrimSpace(strings.ToLower(newEmail))
+	if newEmail == "" || !strings.Contains(newEmail, "@") {
+		return ErrInvalidEmail
+	}
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	if user.Email != "" && !strings.HasPrefix(user.Email, "unbound_") {
+		return errors.New("当前已绑定邮箱，请使用换绑")
+	}
+	// 新邮箱已被其他用户使用则不允许（用 Count 检查，避免 First 产生 record not found 日志）
+	taken, err := s.userRepo.EmailTakenByOther(newEmail, userID)
+	if err != nil {
+		return err
+	}
+	if taken {
+		return errors.New("该邮箱已被其他账号使用")
+	}
+	key := cacheKeyEmailBindNewPrefix + newEmail
+	canSend, err := s.verifyCache.CheckRateLimit(key)
+	if err != nil {
+		return err
+	}
+	if !canSend {
+		remaining, _ := s.verifyCache.GetRemainingTime(key)
+		return fmt.Errorf("发送太频繁，请%d秒后再试", remaining)
+	}
+	code := s.verifyCache.GenerateCode()
+	if err := s.emailService.SendVerificationCode(newEmail, code); err != nil {
+		log.Printf("发送绑定邮箱验证码失败: %v", err)
+		return errors.New("发送验证码失败，请稍后重试")
+	}
+	if err := s.verifyCache.Set(key, code); err != nil {
+		return err
+	}
+	if err := s.verifyCache.SetRateLimit(key); err != nil {
+		log.Printf("设置频率限制失败: %v", err)
+	}
+	return nil
+}
+
+// SendEmailChangeCode 发送换绑验证码到当前邮箱
+func (s *AuthService) SendEmailChangeCode(userID uint) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	if user.Email == "" || strings.HasPrefix(user.Email, "unbound_") {
+		return errors.New("当前账号未绑定有效邮箱，无法换绑")
+	}
+	key := cacheKeyEmailChangePrefix + fmt.Sprintf("%d", userID)
+	canSend, err := s.verifyCache.CheckRateLimit(key)
+	if err != nil {
+		return err
+	}
+	if !canSend {
+		remaining, _ := s.verifyCache.GetRemainingTime(key)
+		return fmt.Errorf("发送太频繁，请%d秒后再试", remaining)
+	}
+	code := s.verifyCache.GenerateCode()
+	if err := s.emailService.SendVerificationCode(user.Email, code); err != nil {
+		log.Printf("发送换绑验证码失败: %v", err)
+		return errors.New("发送验证码失败，请稍后重试")
+	}
+	if err := s.verifyCache.Set(key, code); err != nil {
+		return err
+	}
+	if err := s.verifyCache.SetRateLimit(key); err != nil {
+		log.Printf("设置频率限制失败: %v", err)
+	}
+	return nil
+}
+
+// ConfirmEmailChange 校验验证码后将当前用户邮箱更新为新邮箱（支持换绑与未绑定时绑定）
+func (s *AuthService) ConfirmEmailChange(userID uint, code, newEmail string) error {
+	newEmail = strings.TrimSpace(strings.ToLower(newEmail))
+	if newEmail == "" {
+		return ErrInvalidEmail
+	}
+	if !strings.Contains(newEmail, "@") {
+		return ErrInvalidEmail
+	}
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	var key string
+	if user.Email == "" || strings.HasPrefix(user.Email, "unbound_") {
+		key = cacheKeyEmailBindNewPrefix + newEmail
+	} else {
+		key = cacheKeyEmailChangePrefix + fmt.Sprintf("%d", userID)
+	}
+	ok, err := s.verifyCache.Verify(key, code)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrInvalidCode
+	}
+	taken, err := s.userRepo.EmailTakenByOther(newEmail, userID)
+	if err != nil {
+		return err
+	}
+	if taken {
+		return errors.New("该邮箱已被其他账号使用")
+	}
+	_ = s.verifyCache.Delete(key)
+	user.Email = newEmail
+	return s.userRepo.Update(user)
+}
+
+// --- 邮箱解绑（验证码验证后置为未绑定，需至少保留一种登录方式）---
+
+// SendEmailUnbindCode 发送解绑邮箱验证码到当前邮箱
+func (s *AuthService) SendEmailUnbindCode(userID uint) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	if user.Email == "" || strings.HasPrefix(user.Email, "unbound_") {
+		return errors.New("当前账号未绑定邮箱，无需解绑")
+	}
+	providers, _ := s.oauthBindingRepo.GetByUser(userID)
+	hasPassword := user.Password != ""
+	if !hasPassword && len(providers) == 0 {
+		return errors.New("解绑邮箱后将无法登录，请先绑定第三方账号或设置密码")
+	}
+	key := cacheKeyEmailUnbindPrefix + fmt.Sprintf("%d", userID)
+	canSend, err := s.verifyCache.CheckRateLimit(key)
+	if err != nil {
+		return err
+	}
+	if !canSend {
+		remaining, _ := s.verifyCache.GetRemainingTime(key)
+		return fmt.Errorf("发送太频繁，请%d秒后再试", remaining)
+	}
+	code := s.verifyCache.GenerateCode()
+	if err := s.emailService.SendVerificationCode(user.Email, code); err != nil {
+		log.Printf("发送解绑验证码失败: %v", err)
+		return errors.New("发送验证码失败，请稍后重试")
+	}
+	if err := s.verifyCache.Set(key, code); err != nil {
+		return err
+	}
+	if err := s.verifyCache.SetRateLimit(key); err != nil {
+		log.Printf("设置频率限制失败: %v", err)
+	}
+	return nil
+}
+
+// ConfirmEmailUnbind 校验验证码后解绑邮箱（置为占位邮箱）
+func (s *AuthService) ConfirmEmailUnbind(userID uint, code string) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	key := cacheKeyEmailUnbindPrefix + fmt.Sprintf("%d", userID)
+	ok, err := s.verifyCache.Verify(key, code)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrInvalidCode
+	}
+	_ = s.verifyCache.Delete(key)
+	user.Email = fmt.Sprintf("unbound_%d@local", userID)
 	return s.userRepo.Update(user)
 }
 

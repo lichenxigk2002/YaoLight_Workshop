@@ -69,6 +69,45 @@ export const userApi = {
     http.get<User>('/users/current'),
 
   /**
+   * 获取 GitHub/Google 绑定状态
+   */
+  getOAuthBindings: () =>
+    http.get<{ github: boolean; google: boolean }>('/users/oauth-bindings'),
+
+  /**
+   * 发起绑定第三方，返回跳转 URL
+   */
+  requestOAuthBind: (provider: 'github' | 'google') =>
+    http.post<{ redirectUrl: string }>('/users/oauth-bindings/request', { provider }),
+
+  /**
+   * 解绑指定第三方
+   */
+  unbindOAuth: (provider: 'github' | 'google') =>
+    http.delete(`/users/oauth-bindings/${provider}`),
+
+  /** 发送账号注销验证码（发到当前邮箱） */
+  sendDeactivateCode: () => http.post<{ code: number; message: string }>('/auth/send-deactivate-code'),
+  /** 确认注销：验证码 + 输入用户名确认 */
+  confirmDeactivate: (data: { code: string; confirmText: string }) =>
+    http.post<{ code: number; message: string }>('/auth/confirm-deactivate', data),
+
+  /** 发送绑定邮箱验证码（发到新邮箱，当前未绑定时用） */
+  sendEmailBindCode: (newEmail: string) =>
+    http.post<{ code: number; message: string }>('/auth/send-email-bind-code', { newEmail }),
+  /** 发送换绑邮箱验证码（发到当前邮箱） */
+  sendEmailChangeCode: () => http.post<{ code: number; message: string }>('/auth/send-email-change-code'),
+  /** 确认换绑/绑定：验证码 + 新邮箱 */
+  confirmEmailChange: (data: { code: string; newEmail: string }) =>
+    http.post<{ code: number; message: string }>('/auth/confirm-email-change', data),
+
+  /** 发送解绑邮箱验证码（发到当前邮箱） */
+  sendEmailUnbindCode: () => http.post<{ code: number; message: string }>('/auth/send-email-unbind-code'),
+  /** 确认解绑邮箱：验证码 */
+  confirmEmailUnbind: (data: { code: string }) =>
+    http.post<{ code: number; message: string }>('/auth/confirm-email-unbind', data),
+
+  /**
    * 获取通知偏好（各类型开关）
    */
   getNotificationPreferences: () =>

@@ -1,6 +1,6 @@
 .container {
   max-width: 480px;
-  margin: 0;
+  margin: 0 auto;
   padding: 0;
 }
 
@@ -38,30 +38,59 @@
     right: -2px;
     width: 26px;
     height: 26px;
+    padding: 0;
+    border: 1.5px solid var(--text-primary);
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 26px;
-    padding: 0;
-    background: var(--bg-primary) !important;
-    border: 1.5px solid var(--text-primary) !important;
-    color: var(--text-primary) !important;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: opacity 0.2s;
 
-    :global(.anticon) {
+    .avatarUploadIcon {
       font-size: 12px;
-      color: inherit;
+      display: block;
+      line-height: 0;
+      margin: 0;
     }
 
-    &:hover {
+    .avatarUploadSpinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--border-secondary);
+      border-top-color: var(--text-primary);
+      border-radius: 50%;
+      animation: avatarUploadSpin 0.6s linear infinite;
+    }
+
+    &:hover:not(:disabled) {
       opacity: 0.85;
     }
 
-    [data-theme='dark'] & {
-      background: #000 !important;
-      border-color: #fff !important;
-      color: #fff !important;
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
     }
+
+    [data-theme='dark'] & {
+      background: #000;
+      border-color: #fff;
+      color: #fff;
+
+      .avatarUploadSpinner {
+        border-color: rgba(255, 255, 255, 0.2);
+        border-top-color: #fff;
+      }
+    }
+  }
+}
+
+@keyframes avatarUploadSpin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -137,6 +166,17 @@
   flex-shrink: 0;
   font-size: 13px;
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  .detailIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
 }
 
 .detailValue {
@@ -145,4 +185,17 @@
   color: var(--text-primary);
   text-align: right;
   word-break: break-all;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.emailTrigger {
+  cursor: pointer;
+  padding: 2px 0;
+  border-radius: 2px;
+  &:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
 }

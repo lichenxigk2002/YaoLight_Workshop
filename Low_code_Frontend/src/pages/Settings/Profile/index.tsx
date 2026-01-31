@@ -1,21 +1,63 @@
 import { useState, useEffect, useRef } from 'react';
-import { Form, Input, Button, Avatar, Modal, App } from 'antd';
-import { UserOutlined, EditOutlined, CameraOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Avatar, Modal, App, Dropdown } from 'antd';
+import type { MenuProps } from 'antd';
+import {
+  UserOutlined,
+  EditOutlined,
+  CameraOutlined,
+  GithubOutlined,
+  GoogleOutlined,
+  MailOutlined,
+  PhoneOutlined,
+  TeamOutlined,
+  CheckCircleOutlined,
+  LoginOutlined,
+  ClockCircleOutlined,
+  CalendarOutlined,
+  ExclamationCircleOutlined,
+  LinkOutlined,
+} from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { userApi } from '@/api/user';
 import SettingsPageTitle from '@/components/SettingsPageTitle';
 import styles from './index.module.scss';
 
+const getOAuthBaseUrl = () => {
+  const base = import.meta.env.VITE_BASE_URL || '/api';
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+};
+
+const isUnboundEmail = (email?: string) => !email || email.startsWith('unbound_');
+
 export default function ProfileInfo() {
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
-  const { user, setUser } = useAuthStore();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { user, setUser, logout } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [oauthBindings, setOauthBindings] = useState<{ github: boolean; google: boolean }>({ github: false, google: false });
   const [form] = Form.useForm();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
+  const [deactivateStep, setDeactivateStep] = useState(0);
+  const [deactivateCodeSent, setDeactivateCodeSent] = useState(false);
+  const [deactivateCountdown, setDeactivateCountdown] = useState(0);
+  const [emailChangeModalOpen, setEmailChangeModalOpen] = useState(false);
+  const [emailChangeIsBind, setEmailChangeIsBind] = useState(false);
+  const [emailChangeCodeSent, setEmailChangeCodeSent] = useState(false);
+  const [emailChangeCountdown, setEmailChangeCountdown] = useState(0);
+  const [emailUnbindModalOpen, setEmailUnbindModalOpen] = useState(false);
+  const [emailUnbindCodeSent, setEmailUnbindCodeSent] = useState(false);
+  const [emailUnbindCountdown, setEmailUnbindCountdown] = useState(0);
+  const [formDeactivate] = Form.useForm();
+  const [formEmailChange] = Form.useForm();
+  const [formEmailUnbind] = Form.useForm();
 
   const refreshUserInfo = async () => {
     try {
@@ -26,9 +68,58 @@ export default function ProfileInfo() {
     }
   };
 
+  const refreshOAuthBindings = async () => {
+    try {
+      const data = await userApi.getOAuthBindings();
+      setOauthBindings(data);
+    } catch {
+      setOauthBindings({ github: false, google: false });
+    }
+  };
+
   useEffect(() => {
     refreshUserInfo();
+    refreshOAuthBindings();
   }, []);
+
+  // 处理 OAuth 绑定回调：?oauth=bound 或 ?error=bind_*
+  useEffect(() => {
+    const oauth = searchParams.get('oauth');
+    const err = searchParams.get('error');
+    if (oauth === 'bound') {
+      message.success(t('profile.oauthBindSuccess'));
+      setSearchParams((p) => {
+        p.delete('oauth');
+        return p;
+      }, { replace: true });
+      refreshOAuthBindings();
+      refreshUserInfo();
+      return;
+    }
+    if (err && err.startsWith('bind_')) {
+      message.error(err === 'bind_expired' ? t('profile.oauthBindExpired') : t('profile.oauthBindFailed'));
+      setSearchParams((p) => {
+        p.delete('error');
+        return p;
+      }, { replace: true });
+    }
+  }, [searchParams, setSearchParams, message, t]);
+
+  useEffect(() => {
+    if (deactivateCountdown <= 0) return;
+    const t = setTimeout(() => setDeactivateCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [deactivateCountdown]);
+  useEffect(() => {
+    if (emailChangeCountdown <= 0) return;
+    const t = setTimeout(() => setEmailChangeCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [emailChangeCountdown]);
+  useEffect(() => {
+    if (emailUnbindCountdown <= 0) return;
+    const t = setTimeout(() => setEmailUnbindCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [emailUnbindCountdown]);
 
   const handleUpdateUsername = async (values: { username: string }) => {
     try {
@@ -99,30 +190,159 @@ export default function ProfileInfo() {
     e.target.value = '';
   };
 
-  const detailItems = [
-    { label: t('profile.username'), value: user?.username },
-    { label: t('profile.email'), value: user?.email },
-    { label: t('profile.phone'), value: user?.phone || t('profile.notBound') },
+  const handleBindOAuth = async (provider: 'github' | 'google') => {
+    try {
+      const res = await userApi.requestOAuthBind(provider);
+      if (res?.redirectUrl) {
+        window.location.href = res.redirectUrl;
+      }
+    } catch (e: any) {
+      message.error(e.message || t('profile.oauthBindFailed'));
+    }
+  };
+
+  const handleUnbindOAuth = async (provider: 'github' | 'google') => {
+    try {
+      await userApi.unbindOAuth(provider);
+      message.success(t('profile.oauthUnbindSuccess'));
+      refreshOAuthBindings();
+    } catch (e: any) {
+      message.error(e.message || t('profile.oauthUnbindFailed'));
+    }
+  };
+
+  const handleSendDeactivateCode = async () => {
+    try {
+      await userApi.sendDeactivateCode();
+      message.success(t('profile.sendCodeSuccess'));
+      setDeactivateCodeSent(true);
+      setDeactivateStep(1);
+      setDeactivateCountdown(60);
+    } catch (e: any) {
+      message.error(e.message || t('common.operationFailed'));
+    }
+  };
+
+  const handleConfirmDeactivate = async (values: { code: string; confirmText: string }) => {
+    try {
+      setLoading(true);
+      await userApi.confirmDeactivate({ code: values.code, confirmText: (values.confirmText ?? '').toString().trim() });
+      message.success(t('profile.deactivateSuccess'));
+      setDeactivateModalOpen(false);
+      setDeactivateStep(0);
+      setDeactivateCodeSent(false);
+      formDeactivate.resetFields();
+      logout();
+      navigate('/login', { replace: true });
+    } catch (e: any) {
+      message.error(e.message || t('common.operationFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendEmailChangeCode = async () => {
+    try {
+      if (emailChangeIsBind) {
+        const newEmail = formEmailChange.getFieldValue('newEmail')?.trim();
+        if (!newEmail) {
+          message.error(t('login.emailRequired'));
+          return;
+        }
+        await userApi.sendEmailBindCode(newEmail);
+      } else {
+        await userApi.sendEmailChangeCode();
+      }
+      message.success(t('profile.sendCodeSuccess'));
+      setEmailChangeCodeSent(true);
+      setEmailChangeCountdown(60);
+    } catch (e: any) {
+      message.error(e.message || t('common.operationFailed'));
+    }
+  };
+
+  const handleConfirmEmailChange = async (values: { code?: string; newEmail?: string }) => {
+    try {
+      setLoading(true);
+      const newEmail = (values.newEmail ?? formEmailChange.getFieldValue('newEmail') ?? '').toString().trim();
+      if (!newEmail) {
+        message.error(t('login.emailRequired'));
+        return;
+      }
+      await userApi.confirmEmailChange({ code: values.code ?? '', newEmail });
+      message.success(emailChangeIsBind ? t('profile.bindEmailSuccess') : t('profile.changeEmailSuccess'));
+      setEmailChangeModalOpen(false);
+      setEmailChangeCodeSent(false);
+      formEmailChange.resetFields();
+      await refreshUserInfo();
+    } catch (e: any) {
+      message.error(e.message || t('common.operationFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendEmailUnbindCode = async () => {
+    try {
+      await userApi.sendEmailUnbindCode();
+      message.success(t('profile.sendCodeSuccess'));
+      setEmailUnbindCodeSent(true);
+      setEmailUnbindCountdown(60);
+    } catch (e: any) {
+      message.error(e.message || t('common.operationFailed'));
+    }
+  };
+
+  const handleConfirmEmailUnbind = async (values: { code: string }) => {
+    try {
+      setLoading(true);
+      await userApi.confirmEmailUnbind({ code: values.code });
+      message.success(t('profile.unbindEmailSuccess'));
+      setEmailUnbindModalOpen(false);
+      setEmailUnbindCodeSent(false);
+      formEmailUnbind.resetFields();
+      await refreshUserInfo();
+    } catch (e: any) {
+      message.error(e.message || t('common.operationFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const displayEmail = user?.email && !isUnboundEmail(user.email) ? user.email : t('profile.emailUnboundDisplay');
+
+  const detailItems: { key: string; label: string; value: string; icon: React.ReactNode }[] = [
+    { key: 'username', label: t('profile.username'), value: user?.username ?? '', icon: <UserOutlined /> },
+    { key: 'email', label: t('profile.email'), value: displayEmail, icon: <MailOutlined /> },
+    { key: 'phone', label: t('profile.phone'), value: user?.phone || t('profile.notBound'), icon: <PhoneOutlined /> },
     {
+      key: 'role',
       label: t('profile.role'),
       value: user?.role === 'admin' ? t('profile.admin') : t('profile.normalUser'),
+      icon: <TeamOutlined />,
     },
     {
+      key: 'status',
       label: t('profile.accountStatus'),
       value: user?.status === 'active' ? t('profile.active') : t('profile.inactive'),
+      icon: <CheckCircleOutlined />,
     },
-    { label: t('profile.loginCount'), value: String(user?.login_count ?? 0) },
+    { key: 'loginCount', label: t('profile.loginCount'), value: String(user?.login_count ?? 0), icon: <LoginOutlined /> },
     {
+      key: 'lastLogin',
       label: t('profile.lastLogin'),
       value: user?.last_login_at
         ? new Date(user.last_login_at).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US')
         : t('profile.noRecord'),
+      icon: <ClockCircleOutlined />,
     },
     {
+      key: 'registrationTime',
       label: t('profile.registrationTime'),
       value: user?.created_at
         ? new Date(user.created_at).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US')
         : t('profile.unknown'),
+      icon: <CalendarOutlined />,
     },
   ];
 
@@ -139,15 +359,19 @@ export default function ProfileInfo() {
             className={styles.avatar}
             onClick={() => fileInputRef.current?.click()}
           />
-          <Button
-            type="primary"
-            shape="circle"
-            icon={<CameraOutlined />}
-            size="small"
+          <button
+            type="button"
             className={styles.avatarUploadBtn}
-            loading={uploading}
+            disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
-          />
+            aria-label={i18n.language === 'zh-CN' ? '更换头像' : 'Change avatar'}
+          >
+            {uploading ? (
+              <span className={styles.avatarUploadSpinner} />
+            ) : (
+              <CameraOutlined className={styles.avatarUploadIcon} />
+            )}
+          </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -158,7 +382,7 @@ export default function ProfileInfo() {
         </div>
         <div className={styles.userInfo}>
           <span className={styles.userName}>{user?.username || t('profile.unknownUser')}</span>
-          <span className={styles.userEmail}>{user?.email}</span>
+          <span className={styles.userEmail}>{displayEmail}</span>
           <Button
             type="default"
             size="small"
@@ -175,12 +399,109 @@ export default function ProfileInfo() {
       </div>
 
       <div className={styles.detailCard}>
-        {detailItems.map(({ label, value }) => (
-          <div key={label} className={styles.detailRow}>
-            <span className={styles.detailLabel}>{label}</span>
-            <span className={styles.detailValue}>{value}</span>
+        {detailItems.map(({ key, label, value, icon }) => (
+          <div key={key} className={styles.detailRow}>
+            <span className={styles.detailLabel}>
+              <span className={styles.detailIcon}>{icon}</span>
+              {label}
+            </span>
+            <span className={styles.detailValue}>
+              {key === 'email' ? (
+                <Dropdown
+                  menu={{
+                    items: isUnboundEmail(user?.email)
+                      ? [
+                          {
+                            key: 'bind',
+                            label: t('profile.bindEmail'),
+                            onClick: () => { setEmailChangeModalOpen(true); setEmailChangeCodeSent(false); setEmailChangeIsBind(true); formEmailChange.resetFields(); },
+                          },
+                        ]
+                      : [
+                          {
+                            key: 'change',
+                            label: t('profile.changeEmail'),
+                            onClick: () => { setEmailChangeModalOpen(true); setEmailChangeCodeSent(false); setEmailChangeIsBind(false); formEmailChange.resetFields(); },
+                          },
+                          {
+                            key: 'unbind',
+                            label: t('profile.unbindEmail'),
+                            danger: true,
+                            onClick: () => { setEmailUnbindModalOpen(true); setEmailUnbindCodeSent(false); formEmailUnbind.resetFields(); },
+                          },
+                        ],
+                  } as { items: MenuProps['items'] }}
+                  trigger={['hover', 'click']}
+                  placement="bottomRight"
+                >
+                  <span className={styles.emailTrigger}>{value}</span>
+                </Dropdown>
+              ) : (
+                value
+              )}
+            </span>
           </div>
         ))}
+      </div>
+
+      <div className={styles.detailCard} style={{ marginTop: 24 }}>
+        <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 8, marginBottom: 4 }}>
+          <span className={styles.detailLabel} style={{ fontWeight: 600 }}>
+            <span className={styles.detailIcon}><LinkOutlined /></span>
+            {t('profile.oauthBindings')}
+          </span>
+        </div>
+        <div className={styles.detailRow}>
+          <span className={styles.detailLabel}>
+            <span className={styles.detailIcon}><GithubOutlined /></span>
+            {t('profile.github')}
+          </span>
+          <span className={styles.detailValue}>
+            {oauthBindings.github ? (
+              <Button type="link" size="small" danger onClick={() => handleUnbindOAuth('github')}>
+                {t('profile.unbind')}
+              </Button>
+            ) : (
+              <Button type="link" size="small" onClick={() => handleBindOAuth('github')}>
+                {t('profile.bind')}
+              </Button>
+            )}
+          </span>
+        </div>
+        <div className={styles.detailRow}>
+          <span className={styles.detailLabel}>
+            <span className={styles.detailIcon}><GoogleOutlined /></span>
+            {t('profile.google')}
+          </span>
+          <span className={styles.detailValue}>
+            {oauthBindings.google ? (
+              <Button type="link" size="small" danger onClick={() => handleUnbindOAuth('google')}>
+                {t('profile.unbind')}
+              </Button>
+            ) : (
+              <Button type="link" size="small" onClick={() => handleBindOAuth('google')}>
+                {t('profile.bind')}
+              </Button>
+            )}
+          </span>
+        </div>
+      </div>
+
+      <div className={styles.detailCard} style={{ marginTop: 24 }}>
+        <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 8, marginBottom: 4 }}>
+          <span className={styles.detailLabel} style={{ fontWeight: 600 }}>
+            <span className={styles.detailIcon}><ExclamationCircleOutlined /></span>
+            {t('profile.deactivateAccount')}
+          </span>
+        </div>
+        <div className={styles.detailRow}>
+          <span className={styles.detailLabel} style={{ color: 'var(--color-text-secondary)' }}>{t('profile.deactivateWarning')}</span>
+          <span className={styles.detailValue}>
+            <Button type="primary" danger size="small" onClick={() => { setDeactivateModalOpen(true); setDeactivateStep(0); setDeactivateCodeSent(false); formDeactivate.resetFields(); }}>
+              {t('profile.deactivateAccount')}
+            </Button>
+          </span>
+        </div>
       </div>
 
       <Modal
@@ -208,6 +529,156 @@ export default function ProfileInfo() {
             <Input placeholder={t('profile.newUsernamePlaceholder')} maxLength={50} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={t('profile.deactivateAccount')}
+        open={deactivateModalOpen}
+        onCancel={() => {
+          setDeactivateModalOpen(false);
+          setDeactivateStep(0);
+          setDeactivateCodeSent(false);
+          formDeactivate.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        {deactivateStep === 0 ? (
+          <>
+            <p style={{ marginBottom: 16 }}>{t('profile.deactivateWarning')}</p>
+            <p style={{ marginBottom: 16, color: 'var(--color-text-secondary)' }}>
+              {t('profile.deactivateConfirmTip', { username: user?.username || '' })}
+            </p>
+            <Button type="primary" danger onClick={handleSendDeactivateCode} loading={loading}>
+              {t('profile.getCode')}
+            </Button>
+          </>
+        ) : (
+          <Form form={formDeactivate} layout="vertical" onFinish={handleConfirmDeactivate}>
+            <Form.Item
+              name="code"
+              label={t('login.code')}
+              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
+            >
+              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
+            </Form.Item>
+            <Form.Item
+              name="confirmText"
+              label={t('profile.confirmTextPlaceholder')}
+              rules={[{ required: true, message: t('profile.usernameRequired') }]}
+            >
+              <Input placeholder={t('profile.confirmTextPlaceholder')} />
+            </Form.Item>
+            <Form.Item style={{ marginBottom: 0 }}>
+              <Button type="primary" danger htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                {t('profile.deactivateAccount')}
+              </Button>
+              <Button
+                onClick={() => {
+                  setDeactivateStep(0);
+                  setDeactivateCodeSent(false);
+                  formDeactivate.resetFields();
+                }}
+              >
+                {t('common.cancel')}
+              </Button>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      <Modal
+        title={emailChangeIsBind ? t('profile.bindEmail') : t('profile.changeEmail')}
+        open={emailChangeModalOpen}
+        onCancel={() => {
+          setEmailChangeModalOpen(false);
+          setEmailChangeCodeSent(false);
+          formEmailChange.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        {!emailChangeCodeSent ? (
+          emailChangeIsBind ? (
+            <Form form={formEmailChange} layout="vertical">
+              <Form.Item
+                name="newEmail"
+                label={t('profile.newEmail')}
+                rules={[{ required: true, message: t('login.emailRequired') }, { type: 'email', message: t('login.emailInvalid') }]}
+              >
+                <Input placeholder={t('profile.newEmailPlaceholder')} />
+              </Form.Item>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" onClick={handleSendEmailChangeCode} loading={loading}>
+                  {t('profile.getCode')}
+                </Button>
+              </Form.Item>
+            </Form>
+          ) : (
+            <Button type="primary" onClick={handleSendEmailChangeCode} loading={loading}>
+              {t('profile.getCode')}
+            </Button>
+          )
+        ) : (
+          <Form form={formEmailChange} layout="vertical" onFinish={handleConfirmEmailChange}>
+            <Form.Item
+              name="code"
+              label={t('login.code')}
+              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
+            >
+              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
+            </Form.Item>
+            {emailChangeIsBind ? null : (
+              <Form.Item
+                name="newEmail"
+                label={t('profile.newEmail')}
+                rules={[{ required: true, message: t('login.emailRequired') }, { type: 'email', message: t('login.emailInvalid') }]}
+              >
+                <Input placeholder={t('profile.newEmailPlaceholder')} />
+              </Form.Item>
+            )}
+            <Form.Item style={{ marginBottom: 0 }}>
+              <Button type="primary" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                {t('common.ok')}
+              </Button>
+              <Button onClick={() => setEmailChangeModalOpen(false)}>{t('common.cancel')}</Button>
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+
+      <Modal
+        title={t('profile.unbindEmail')}
+        open={emailUnbindModalOpen}
+        onCancel={() => {
+          setEmailUnbindModalOpen(false);
+          setEmailUnbindCodeSent(false);
+          formEmailUnbind.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+      >
+        {!emailUnbindCodeSent ? (
+          <Button type="primary" danger onClick={handleSendEmailUnbindCode} loading={loading}>
+            {t('profile.getCode')}
+          </Button>
+        ) : (
+          <Form form={formEmailUnbind} layout="vertical" onFinish={handleConfirmEmailUnbind}>
+            <Form.Item
+              name="code"
+              label={t('login.code')}
+              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
+            >
+              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
+            </Form.Item>
+            <Form.Item style={{ marginBottom: 0 }}>
+              <Button type="primary" danger htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                {t('profile.unbindEmail')}
+              </Button>
+              <Button onClick={() => setEmailUnbindModalOpen(false)}>{t('common.cancel')}</Button>
+            </Form.Item>
+          </Form>
+        )}
       </Modal>
     </div>
   );

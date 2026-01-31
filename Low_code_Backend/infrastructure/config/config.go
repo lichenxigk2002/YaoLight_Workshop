@@ -44,6 +44,13 @@ var (
 	// 文件上传配置
 	UploadPath string // 文件上传路径
 
+	// OAuth 登录（Google / GitHub）
+	GoogleClientID     string
+	GoogleClientSecret string
+	GitHubClientID     string
+	GitHubClientSecret string
+	FrontendURL        string // 登录成功后重定向的前端地址，如 http://localhost:3000
+
 	// 支付宝支付配置
 	AlipayAppID      string // 支付宝应用ID
 	AlipayPID        string // 支付宝商户PID
@@ -145,6 +152,13 @@ func LoadConfig() error {
 
 	// 文件上传配置
 	UploadPath = getEnv("UPLOAD_PATH", "./uploads")
+
+	// OAuth 登录
+	GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")
+	GoogleClientSecret = getEnv("GOOGLE_CLIENT_SECRET", "")
+	GitHubClientID = getEnv("GITHUB_CLIENT_ID", "")
+	GitHubClientSecret = getEnv("GITHUB_CLIENT_SECRET", "")
+	FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
 
 	// 支付宝支付配置
 	AlipayAppID = getEnv("ALIPAY_APP_ID", "")

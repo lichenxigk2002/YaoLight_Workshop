@@ -21,42 +21,46 @@ func NewUserRepository(db *gorm.DB) repository.UserRepository {
 // toDomainEntity 将持久化实体转换为领域实体
 func toDomainEntity(m *models.User) *entity.User {
 	return &entity.User{
-		ID:           m.ID,
-		Username:     m.Username,
-		Email:        m.Email,
-		Password:     m.Password,
-		Phone:        m.Phone,
-		RealName:     m.RealName,
-		AvatarURL:    m.AvatarURL,
-		Role:         m.Role,
-		Status:       m.Status,
-		LastLoginAt:  m.LastLoginAt,
-		LastLoginIP:  m.LastLoginIP,
-		LoginCount:   m.LoginCount,
-		TokenBalance: m.TokenBalance,
-		CreatedAt:    m.CreatedAt,
-		UpdatedAt:    m.UpdatedAt,
+		ID:            m.ID,
+		Username:      m.Username,
+		Email:         m.Email,
+		Password:      m.Password,
+		Phone:         m.Phone,
+		RealName:      m.RealName,
+		AvatarURL:     m.AvatarURL,
+		Role:          m.Role,
+		Status:        m.Status,
+		LastLoginAt:   m.LastLoginAt,
+		LastLoginIP:   m.LastLoginIP,
+		LoginCount:    m.LoginCount,
+		TokenBalance:  m.TokenBalance,
+		OAuthProvider: m.OAuthProvider,
+		OAuthID:       m.OAuthID,
+		CreatedAt:     m.CreatedAt,
+		UpdatedAt:     m.UpdatedAt,
 	}
 }
 
 // toPersistenceEntity 将领域实体转换为持久化实体
 func toPersistenceEntity(e *entity.User) *models.User {
 	return &models.User{
-		ID:           e.ID,
-		Username:     e.Username,
-		Email:        e.Email,
-		Password:     e.Password,
-		Phone:        e.Phone,
-		RealName:     e.RealName,
-		AvatarURL:    e.AvatarURL,
-		Role:         e.Role,
-		Status:       e.Status,
-		LastLoginAt:  e.LastLoginAt,
-		LastLoginIP:  e.LastLoginIP,
-		LoginCount:   e.LoginCount,
-		TokenBalance: e.TokenBalance,
-		CreatedAt:    e.CreatedAt,
-		UpdatedAt:    e.UpdatedAt,
+		ID:            e.ID,
+		Username:      e.Username,
+		Email:         e.Email,
+		Password:      e.Password,
+		Phone:         e.Phone,
+		RealName:      e.RealName,
+		AvatarURL:     e.AvatarURL,
+		Role:          e.Role,
+		Status:        e.Status,
+		LastLoginAt:   e.LastLoginAt,
+		LastLoginIP:   e.LastLoginIP,
+		LoginCount:    e.LoginCount,
+		TokenBalance:  e.TokenBalance,
+		OAuthProvider: e.OAuthProvider,
+		OAuthID:       e.OAuthID,
+		CreatedAt:     e.CreatedAt,
+		UpdatedAt:     e.UpdatedAt,
 	}
 }
 
@@ -100,10 +104,28 @@ func (r *userRepository) FindByEmail(email string) (*entity.User, error) {
 	return toDomainEntity(&model), nil
 }
 
+// EmailTakenByOther 邮箱是否已被其他用户使用（排除 excludeUserID）
+func (r *userRepository) EmailTakenByOther(email string, excludeUserID uint) (bool, error) {
+	var count int64
+	if err := r.db.Model(&models.User{}).Where("email = ? AND id != ?", email, excludeUserID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // FindByUsernameOrEmail 根据用户名或邮箱查找用户
 func (r *userRepository) FindByUsernameOrEmail(username, email string) (*entity.User, error) {
 	var model models.User
 	if err := r.db.Where("username = ? OR email = ?", username, email).First(&model).Error; err != nil {
+		return nil, err
+	}
+	return toDomainEntity(&model), nil
+}
+
+// FindByOAuth 根据第三方 provider + oauth_id 查找用户
+func (r *userRepository) FindByOAuth(provider, oauthID string) (*entity.User, error) {
+	var model models.User
+	if err := r.db.Where("oauth_provider = ? AND oauth_id = ?", provider, oauthID).First(&model).Error; err != nil {
 		return nil, err
 	}
 	return toDomainEntity(&model), nil

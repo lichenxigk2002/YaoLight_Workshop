@@ -17,12 +17,17 @@ import (
 	fileModels "yaolight-workshop/backend/modules/file/models"
 	nodeModels "yaolight-workshop/backend/modules/node/models"
 	notificationModels "yaolight-workshop/backend/modules/notification/models"
+	paymentModels "yaolight-workshop/backend/modules/payment/models"
 	projectModels "yaolight-workshop/backend/modules/project/models"
 	systemModels "yaolight-workshop/backend/modules/system/models"
 	taskModels "yaolight-workshop/backend/modules/task/models"
 	userModels "yaolight-workshop/backend/modules/user/models"
 	workflowModels "yaolight-workshop/backend/modules/workflow/models"
 )
+
+func init() {
+	// 确保 user_oauth_bindings 在 AutoMigrate 中（与 009_add_user_oauth_bindings.sql 一致）
+}
 
 var DB *gorm.DB
 
@@ -63,12 +68,16 @@ func InitDatabase() error {
 
 	log.Println("✅ Database connected successfully")
 
+	// 在 AutoMigrate 之前修正 user_oauth_bindings 列名（o_auth_id -> oauth_id），避免 GORM 再 ADD 一列导致冲突
+	EnsureUserOAuthBindingsColumnName()
+
 	// 执行自动迁移
 	if err := AutoMigrate(); err != nil {
 		return fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
 	EnsureAIModelsProviderConstraint()
+	EnsureUsersOAuthColumns()
 
 	// 初始化系统预置数据
 	if err := SeedNodeTypes(); err != nil {
@@ -85,6 +94,37 @@ func InitDatabase() error {
 	}
 
 	return nil
+}
+
+// EnsureUsersOAuthColumns 确保 users 表有 OAuth 相关列（兼容已有库）
+func EnsureUsersOAuthColumns() {
+	// PostgreSQL: 列不存在时添加
+	DB.Exec(`
+		DO $$
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'oauth_provider') THEN
+				ALTER TABLE users ADD COLUMN oauth_provider VARCHAR(20);
+				CREATE INDEX IF NOT EXISTS idx_users_oauth_provider ON users(oauth_provider);
+			END IF;
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'oauth_id') THEN
+				ALTER TABLE users ADD COLUMN oauth_id VARCHAR(100);
+				CREATE INDEX IF NOT EXISTS idx_users_oauth_id ON users(oauth_id);
+			END IF;
+		END $$;
+	`)
+}
+
+// EnsureUserOAuthBindingsColumnName 将 user_oauth_bindings 表中 GORM 自动生成的 o_auth_id 列重命名为 oauth_id
+func EnsureUserOAuthBindingsColumnName() {
+	DB.Exec(`
+		DO $$
+		BEGIN
+			IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'user_oauth_bindings' AND column_name = 'o_auth_id')
+			   AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'user_oauth_bindings' AND column_name = 'oauth_id') THEN
+				ALTER TABLE user_oauth_bindings RENAME COLUMN o_auth_id TO oauth_id;
+			END IF;
+		END $$;
+	`)
 }
 
 func EnsureAIModelsProviderConstraint() {
@@ -114,10 +154,12 @@ func AutoMigrate() error {
 	err := DB.AutoMigrate(
 		// 基础表（无外键依赖）
 		&userModels.User{},
+		&userModels.UserOAuthBinding{},
 		&userModels.TokenTransaction{},
 		&nodeModels.NodeType{},
 		&systemModels.SystemConfig{},
 		&systemModels.Statistics{},
+		&paymentModels.Order{}, // 订单表
 		// &aiModels.ProviderTemplate{},        // 已存在，注释掉以减少迁移检查
 		// &aiModels.ModelPricingConfig{},      // 已存在，注释掉以减少迁移检查
 
@@ -366,6 +408,32 @@ func SeedModelPricingConfigs() error {
 							"input_price_per_million":      0.40,
 							"output_price_per_million":     1.00,
 							"cache_read_price_per_million": 0.05,
+						},
+					},
+				},
+			},
+		},
+		{
+			Provider:    "grok",
+			ModelName:   "x-ai/grok-4",
+			PricingType: "segmented",
+			Currency:    "USD",
+			IsActive:    true,
+			Description: shared.Ptr("Grok 4 - 分段计费（基于上下文长度，256K上下文窗口）"),
+			PricingData: shared.JSONB{
+				Data: map[string]interface{}{
+					"segments": []map[string]interface{}{
+						{
+							"context_length_limit":         128000.0, // ≤128K tokens
+							"input_price_per_million":      3.0,
+							"output_price_per_million":     15.0,
+							"cache_read_price_per_million": 0.75,
+						},
+						{
+							"context_length_limit":         nil, // >128K tokens (最大256K)
+							"input_price_per_million":      6.0,
+							"output_price_per_million":     30.0,
+							"cache_read_price_per_million": 0.75,
 						},
 					},
 				},
