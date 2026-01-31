@@ -14,15 +14,17 @@ import (
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
+	notificationModule "yaolight-workshop/backend/modules/notification"
+	notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
 	notificationHub "yaolight-workshop/backend/modules/notification/hub"
-		notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
-		notificationModule "yaolight-workshop/backend/modules/notification"
-		notificationRepos "yaolight-workshop/backend/modules/notification/repositories"
-		notificationServices "yaolight-workshop/backend/modules/notification/services"
+	notificationRepos "yaolight-workshop/backend/modules/notification/repositories"
+	notificationServices "yaolight-workshop/backend/modules/notification/services"
 	paymentControllers "yaolight-workshop/backend/modules/payment/controllers"
 	projectControllers "yaolight-workshop/backend/modules/project/controllers"
 	taskControllers "yaolight-workshop/backend/modules/task/controllers"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
+	userRepositories "yaolight-workshop/backend/modules/user/repositories"
+	userServices "yaolight-workshop/backend/modules/user/services"
 	workflowControllers "yaolight-workshop/backend/modules/workflow/controllers"
 )
 
@@ -96,19 +98,28 @@ func main() {
 		api.Static("/uploads", config.UploadPath)
 
 		// 认证相关路由（无需JWT中间件）
-		authController := authControllers.NewAuthController()
+		userRepo := userRepositories.NewUserRepository(database.DB)
+		oauthBindingRepo := userRepositories.NewOAuthBindingRepository(database.DB)
+		authService := userServices.NewAuthService(userRepo, oauthBindingRepo)
+		authController := authControllers.NewAuthControllerWithService(authService)
+		oauthController := authControllers.NewOAuthController(authService)
 		api.POST("/auth/register", authController.Register)
 		api.POST("/auth/login", authController.Login)
 		api.POST("/auth/send-code", authController.SendVerificationCode)
 		api.POST("/auth/send-register-code", authController.SendRegisterCode)
 		api.POST("/auth/email-login", authController.EmailLogin)
 		api.POST("/auth/email-register", authController.EmailRegister)
+		// OAuth 登录（Google / GitHub）
+		api.GET("/auth/google", oauthController.GoogleRedirect)
+		api.GET("/auth/google/callback", oauthController.GoogleCallback)
+		api.GET("/auth/github", oauthController.GitHubRedirect)
+		api.GET("/auth/github/callback", oauthController.GitHubCallback)
 
 		// 支付相关路由（部分需要认证）
 		paymentController := paymentControllers.NewPaymentController()
-		api.GET("/payment/packages", paymentController.GetPackages)                    // 获取套餐列表（无需认证）
-		api.POST("/payment/alipay/notify", paymentController.HandleAlipayNotify)       // 支付宝异步通知（无需认证，由支付宝调用）
-		r.GET("/payment/callback", paymentController.HandleAlipayReturn)               // 支付宝同步跳转（无需认证）
+		api.GET("/payment/packages", paymentController.GetPackages)              // 获取套餐列表（无需认证）
+		api.POST("/payment/alipay/notify", paymentController.HandleAlipayNotify) // 支付宝异步通知（无需认证，由支付宝调用）
+		r.GET("/payment/callback", paymentController.HandleAlipayReturn)         // 支付宝同步跳转（无需认证）
 
 		// 站内通知 WebSocket（通过 query token 鉴权，不加 JWT 中间件）
 		notificationHubInstance := notificationHub.NewHub()
@@ -129,6 +140,18 @@ func main() {
 			auth.PUT("/users/notification-preferences", authController.UpdateNotificationPreferences)
 			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
 			auth.POST("/users/avatar", authController.UploadAvatar)
+			auth.GET("/users/oauth-bindings", authController.GetOAuthBindings)
+			auth.POST("/users/oauth-bindings/request", authController.RequestOAuthBind)
+			auth.DELETE("/users/oauth-bindings/:provider", authController.UnbindOAuth)
+			// 账号注销（确认 + 邮箱验证码）
+			auth.POST("/auth/send-deactivate-code", authController.SendDeactivateCode)
+			auth.POST("/auth/confirm-deactivate", authController.ConfirmDeactivate)
+			// 邮箱换绑 / 解绑（验证码）
+			auth.POST("/auth/send-email-bind-code", authController.SendEmailBindCode)
+			auth.POST("/auth/send-email-change-code", authController.SendEmailChangeCode)
+			auth.POST("/auth/confirm-email-change", authController.ConfirmEmailChange)
+			auth.POST("/auth/send-email-unbind-code", authController.SendEmailUnbindCode)
+			auth.POST("/auth/confirm-email-unbind", authController.ConfirmEmailUnbind)
 
 			// 项目相关路由
 			projectController := projectControllers.NewProjectController()
@@ -181,9 +204,9 @@ func main() {
 
 			// 支付相关路由（需要认证）
 			paymentController := paymentControllers.NewPaymentController()
-			auth.POST("/payment/orders", paymentController.CreateOrder)                      // 创建订单
-			auth.GET("/payment/orders/:orderId/status", paymentController.GetOrderStatus)   // 查询订单状态
-			auth.POST("/payment/orders/:orderId/mock-pay", paymentController.MockPay)       // 模拟支付（仅开发用）
+			auth.POST("/payment/orders", paymentController.CreateOrder)                   // 创建订单
+			auth.GET("/payment/orders/:orderId/status", paymentController.GetOrderStatus) // 查询订单状态
+			auth.POST("/payment/orders/:orderId/mock-pay", paymentController.MockPay)     // 模拟支付（仅开发用）
 
 			// 站内通知 REST
 			auth.GET("/notifications", notificationController.List)

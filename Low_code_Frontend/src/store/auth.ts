@@ -9,6 +9,8 @@ interface AuthState {
   login: (token: string, user: User) => void;
   logout: () => void;
   setUser: (user: User) => void;
+  /** 仅设置 token（OAuth 回调后先设 token，再调 getCurrentUser 拉用户） */
+  setToken: (token: string) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -25,6 +27,9 @@ export const useAuthStore = create<AuthState>()(
       },
       setUser: (user: User) => {
         set({ user, isAuthenticated: true });
+      },
+      setToken: (token: string) => {
+        set({ token, isAuthenticated: true, user: null });
       },
     }),
     {

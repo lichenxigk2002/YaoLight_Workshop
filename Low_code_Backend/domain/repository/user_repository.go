@@ -18,8 +18,14 @@ type UserRepository interface {
 	// FindByEmail 根据邮箱查找用户
 	FindByEmail(email string) (*entity.User, error)
 
+	// EmailTakenByOther 邮箱是否已被其他用户使用（排除指定 userID，用于绑定/换绑前检查）
+	EmailTakenByOther(email string, excludeUserID uint) (bool, error)
+
 	// FindByUsernameOrEmail 根据用户名或邮箱查找用户
 	FindByUsernameOrEmail(username, email string) (*entity.User, error)
+
+	// FindByOAuth 根据第三方 provider + oauth_id 查找用户
+	FindByOAuth(provider, oauthID string) (*entity.User, error)
 
 	// Update 更新用户
 	Update(user *entity.User) error

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Form, Input, Button, Card, Tabs, Typography, Select, Space, Divider, App } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, ApiOutlined, GlobalOutlined, GithubOutlined, GoogleOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { userApi } from '@/api/user';
 import { md5Hash } from '@/utils/crypto';
@@ -16,9 +16,15 @@ const { TabPane } = Tabs;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+const getOAuthBaseUrl = () => {
+  const base = import.meta.env.VITE_BASE_URL || '/api';
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+};
+
 export default function Login() {
   const navigate = useNavigate();
-  const { login: loginStore, isAuthenticated } = useAuthStore();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { login: loginStore, isAuthenticated, setToken, setUser } = useAuthStore();
   const { message } = App.useApp();
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
@@ -33,6 +39,48 @@ export default function Login() {
       navigate('/', { replace: true });
     }
   }, [isAuthenticated, navigate]);
+
+  const oauthProcessedRef = useRef(false);
+  // OAuth 回调：URL 带 token 时先设 token，再拉用户信息并登录
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const error = searchParams.get('error');
+    if (error) {
+      const msg =
+        error === 'google_not_configured' || error === 'github_not_configured'
+          ? t('login.oauthNotConfigured', 'OAuth 未配置')
+          : error === 'missing_code'
+            ? t('login.oauthMissingCode', '授权未完成')
+            : t('login.oauthFailed', '第三方登录失败');
+      message.error(msg);
+      setSearchParams((p) => {
+        p.delete('error');
+        return p;
+      }, { replace: true });
+      return;
+    }
+    if (!token || oauthProcessedRef.current) return;
+    oauthProcessedRef.current = true;
+    setToken(token);
+    setSearchParams((p) => {
+      p.delete('token');
+      return p;
+    }, { replace: true });
+    // 等 persist 写入 localStorage 后再发请求
+    setTimeout(() => {
+      userApi
+        .getCurrentUser()
+        .then((user) => {
+          setUser(user);
+          message.success(t('login.loginSuccess', '登录成功！'));
+          navigate('/', { replace: true });
+        })
+        .catch(() => {
+          message.error(t('login.oauthTokenInvalid', '登录已过期，请重试'));
+          useAuthStore.getState().logout();
+        });
+    }, 0);
+  }, [searchParams, setToken, setUser, setSearchParams, message, navigate, t]);
 
   // 倒计时
   useEffect(() => {
@@ -413,10 +461,24 @@ export default function Login() {
             </Divider>
 
             <div className={styles.socialLogin}>
-              <Button icon={<GithubOutlined />} className={styles.socialBtn} block>
+              <Button
+                icon={<GithubOutlined />}
+                className={styles.socialBtn}
+                block
+                onClick={() => {
+                  window.location.href = getOAuthBaseUrl() + '/auth/github';
+                }}
+              >
                 {t('login.githubLogin')}
               </Button>
-              <Button icon={<GoogleOutlined />} className={styles.socialBtn} block>
+              <Button
+                icon={<GoogleOutlined />}
+                className={styles.socialBtn}
+                block
+                onClick={() => {
+                  window.location.href = getOAuthBaseUrl() + '/auth/google';
+                }}
+              >
                 {t('login.googleLogin')}
               </Button>
             </div>

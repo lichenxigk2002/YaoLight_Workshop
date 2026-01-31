@@ -7,9 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"yaolight-workshop/backend/infrastructure/cache"
 	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/database"
 	userModels "yaolight-workshop/backend/modules/user/models"
@@ -22,12 +24,16 @@ type AuthController struct {
 	authService *services.AuthService
 }
 
-// NewAuthController 创建认证控制器
+// NewAuthController 创建认证控制器（内部创建 authService）
 func NewAuthController() *AuthController {
 	userRepo := repositories.NewUserRepository(database.DB)
-	return &AuthController{
-		authService: services.NewAuthService(userRepo),
-	}
+	oauthBindingRepo := repositories.NewOAuthBindingRepository(database.DB)
+	return NewAuthControllerWithService(services.NewAuthService(userRepo, oauthBindingRepo))
+}
+
+// NewAuthControllerWithService 使用已有 authService 创建认证控制器（供 OAuth 等共用）
+func NewAuthControllerWithService(authService *services.AuthService) *AuthController {
+	return &AuthController{authService: authService}
 }
 
 // Register 用户注册
@@ -172,6 +178,217 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 		"message": "获取成功",
 		"data":    user,
 	})
+}
+
+// GetOAuthBindings 获取当前用户 GitHub/Google 绑定状态
+func (c *AuthController) GetOAuthBindings(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	githubBound, googleBound, err := c.authService.GetOAuthBindings(userID.(uint))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 200, "message": "ok",
+		"data": gin.H{"github": githubBound, "google": googleBound},
+	})
+}
+
+// RequestOAuthBind 发起绑定第三方：生成一次性 state，返回跳转 URL（前端跳转到该 URL 完成授权）
+func (c *AuthController) RequestOAuthBind(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var req struct {
+		Provider string `json:"provider" binding:"required,oneof=github google"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "provider 必填且为 github 或 google", "data": nil})
+		return
+	}
+	token, err := cache.GetOAuthBindCache().CreateToken(userID.(uint))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成绑定 token 失败", "data": nil})
+		return
+	}
+	scheme := "http"
+	if ctx.Request.TLS != nil {
+		scheme = "https"
+	}
+	if ctx.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	base := scheme + "://" + ctx.Request.Host + "/api/auth"
+	redirectURL := base + "/" + req.Provider + "?state=bind_" + token
+	ctx.JSON(http.StatusOK, gin.H{
+		"code": 200, "message": "ok",
+		"data": gin.H{"redirectUrl": redirectURL},
+	})
+}
+
+// UnbindOAuth 解绑指定第三方
+func (c *AuthController) UnbindOAuth(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	provider := ctx.Param("provider")
+	if provider != "github" && provider != "google" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "provider 为 github 或 google", "data": nil})
+		return
+	}
+	if err := c.authService.UnbindOAuth(userID.(uint), provider); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已解绑", "data": nil})
+}
+
+// SendDeactivateCode 发送账号注销验证码（发到当前用户邮箱）
+func (c *AuthController) SendDeactivateCode(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	if err := c.authService.SendDeactivateCode(userID.(uint)); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到您的邮箱", "data": nil})
+}
+
+// ConfirmDeactivate 校验验证码与确认文案后注销账号（需输入当前用户名确认）
+func (c *AuthController) ConfirmDeactivate(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var req struct {
+		Code        string `json:"code" binding:"required,len=6"`
+		ConfirmText string `json:"confirmText" binding:"required"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请填写验证码和确认内容（当前用户名）", "data": nil})
+		return
+	}
+	if err := c.authService.ConfirmDeactivate(userID.(uint), req.Code, strings.TrimSpace(req.ConfirmText)); err != nil {
+		if err == services.ErrInvalidCode {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "验证码错误或已过期", "data": nil})
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "账号已注销", "data": nil})
+}
+
+// SendEmailBindCode 发送绑定邮箱验证码（发到新邮箱，当前未绑定时使用）
+func (c *AuthController) SendEmailBindCode(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var req struct {
+		NewEmail string `json:"newEmail" binding:"required,email"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请填写有效的新邮箱", "data": nil})
+		return
+	}
+	if err := c.authService.SendEmailBindCode(userID.(uint), req.NewEmail); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到该邮箱", "data": nil})
+}
+
+// SendEmailChangeCode 发送换绑邮箱验证码（发到当前邮箱）
+func (c *AuthController) SendEmailChangeCode(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	if err := c.authService.SendEmailChangeCode(userID.(uint)); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到当前邮箱", "data": nil})
+}
+
+// ConfirmEmailChange 校验验证码后换绑为新邮箱
+func (c *AuthController) ConfirmEmailChange(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var req struct {
+		Code     string `json:"code" binding:"required,len=6"`
+		NewEmail string `json:"newEmail" binding:"required,email"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请填写验证码和新邮箱", "data": nil})
+		return
+	}
+	if err := c.authService.ConfirmEmailChange(userID.(uint), req.Code, req.NewEmail); err != nil {
+		if err == services.ErrInvalidCode {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "验证码错误或已过期", "data": nil})
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "邮箱已更换", "data": nil})
+}
+
+// SendEmailUnbindCode 发送解绑邮箱验证码（发到当前邮箱）
+func (c *AuthController) SendEmailUnbindCode(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	if err := c.authService.SendEmailUnbindCode(userID.(uint)); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到当前邮箱", "data": nil})
+}
+
+// ConfirmEmailUnbind 校验验证码后解绑邮箱
+func (c *AuthController) ConfirmEmailUnbind(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var req struct {
+		Code string `json:"code" binding:"required,len=6"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请填写验证码", "data": nil})
+		return
+	}
+	if err := c.authService.ConfirmEmailUnbind(userID.(uint), req.Code); err != nil {
+		if err == services.ErrInvalidCode {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "验证码错误或已过期", "data": nil})
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "邮箱已解绑", "data": nil})
 }
 
 // GetTokenTransactions 获取当前用户Token计费清单
