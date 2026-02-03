@@ -78,6 +78,7 @@ func InitDatabase() error {
 
 	EnsureAIModelsProviderConstraint()
 	EnsureUsersOAuthColumns()
+	EnsureUsersUserNo()
 
 	// 初始化系统预置数据
 	if err := SeedNodeTypes(); err != nil {
@@ -146,6 +147,24 @@ func EnsureAIModelsProviderConstraint() {
 	`)
 }
 
+// EnsureUsersUserNo 为 users 表添加 user_no 列并回填；新用户由业务层生成随机编号
+func EnsureUsersUserNo() {
+	// 1) 若不存在则添加列（可为空，便于回填）
+	DB.Exec(`
+		DO $$
+		BEGIN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'user_no') THEN
+				ALTER TABLE users ADD COLUMN user_no BIGINT;
+			END IF;
+		END $$;
+	`)
+	// 2) 回填：未设置过的用 10000000+id，保证唯一
+	DB.Exec(`UPDATE users SET user_no = 10000000 + id WHERE user_no IS NULL OR user_no = 0`)
+	// 3) 设为非空并建唯一索引
+	DB.Exec(`ALTER TABLE users ALTER COLUMN user_no SET NOT NULL`)
+	DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_no ON users(user_no)`)
+}
+
 // AutoMigrate 自动迁移所有模型
 func AutoMigrate() error {
 	log.Println("🔄 Starting database migration...")
@@ -155,6 +174,7 @@ func AutoMigrate() error {
 		// 基础表（无外键依赖）
 		&userModels.User{},
 		&userModels.UserOAuthBinding{},
+		&userModels.UserAvatarHistory{},
 		&userModels.TokenTransaction{},
 		&nodeModels.NodeType{},
 		&systemModels.SystemConfig{},

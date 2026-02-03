@@ -626,6 +626,7 @@
     "unknownUser": "Unknown User",
     "username": "Username",
     "email": "Email",
+    "userNo": "User ID",
     "phone": "Phone Number",
     "role": "Role",
     "accountStatus": "Account Status",

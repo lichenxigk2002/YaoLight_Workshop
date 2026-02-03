@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Form, Input, Button, Avatar, Modal, App, Dropdown } from 'antd';
+import { Form, Input, Button, Avatar, Modal, App, Dropdown, Collapse } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   UserOutlined,
@@ -16,11 +16,14 @@ import {
   CalendarOutlined,
   ExclamationCircleOutlined,
   LinkOutlined,
+  IdcardOutlined,
+  LeftOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { userApi } from '@/api/user';
+import type { UserAvatarHistory } from '@/types/user';
 import SettingsPageTitle from '@/components/SettingsPageTitle';
 import styles from './index.module.scss';
 
@@ -41,6 +44,7 @@ export default function ProfileInfo() {
   const [uploading, setUploading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [oauthBindings, setOauthBindings] = useState<{ github: boolean; google: boolean }>({ github: false, google: false });
+  const [avatarHistory, setAvatarHistory] = useState<UserAvatarHistory[]>([]);
   const [form] = Form.useForm();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -77,9 +81,19 @@ export default function ProfileInfo() {
     }
   };
 
+  const refreshAvatarHistory = async () => {
+    try {
+      const list = await userApi.getAvatarHistory();
+      setAvatarHistory(Array.isArray(list) ? list : []);
+    } catch {
+      setAvatarHistory([]);
+    }
+  };
+
   useEffect(() => {
     refreshUserInfo();
     refreshOAuthBindings();
+    refreshAvatarHistory();
   }, []);
 
   // 处理 OAuth 绑定回调：?oauth=bound 或 ?error=bind_*
@@ -136,18 +150,15 @@ export default function ProfileInfo() {
     }
   };
 
-  // 获取头像 URL
-  const getAvatarUrl = () => {
-    if (user?.avatar_url) {
-      // 如果是绝对路径（http/https），直接返回
-      if (user.avatar_url.startsWith('http')) {
-        return user.avatar_url;
-      }
-      // 如果是相对路径，拼接 API 基础路径
-      const baseURL = import.meta.env.VITE_BASE_URL || '/api';
-      return `${baseURL}/uploads/${user.avatar_url}`;
-    }
-    return undefined;
+  const baseURL = import.meta.env.VITE_BASE_URL || '/api';
+  const uploadsBase = baseURL.endsWith('/') ? baseURL.slice(0, -1) : baseURL;
+
+  // 获取头像 URL（当前用户或历史项）
+  const getAvatarUrl = (url?: string | null) => {
+    const u = url ?? user?.avatar_url;
+    if (!u) return undefined;
+    if (u.startsWith('http')) return u;
+    return `${uploadsBase}/uploads/${u}`;
   };
 
   // 处理头像上传
@@ -157,10 +168,32 @@ export default function ProfileInfo() {
       await userApi.uploadAvatar(file);
       message.success(t('profile.uploadAvatarSuccess') || '头像上传成功');
       await refreshUserInfo();
+      await refreshAvatarHistory();
     } catch (error: any) {
       message.error(error.message || t('profile.uploadAvatarFailed') || '头像上传失败');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleUseAvatar = async (historyId: number) => {
+    try {
+      await userApi.useAvatar(historyId);
+      message.success(i18n.language === 'zh-CN' ? '已切换为该头像' : 'Avatar updated');
+      await refreshUserInfo();
+    } catch (e: any) {
+      message.error(e.message || t('common.operationFailed'));
+    }
+  };
+
+  const handleDeleteAvatarHistory = async (id: number) => {
+    try {
+      await userApi.deleteAvatarHistory(id);
+      message.success(i18n.language === 'zh-CN' ? '已删除' : 'Deleted');
+      await refreshAvatarHistory();
+      await refreshUserInfo();
+    } catch (e: any) {
+      message.error(e.message || t('common.operationFailed'));
     }
   };
 
@@ -243,15 +276,15 @@ export default function ProfileInfo() {
 
   const handleSendEmailChangeCode = async () => {
     try {
+      const newEmail = formEmailChange.getFieldValue('newEmail')?.trim();
+      if (!newEmail) {
+        message.error(t('login.emailRequired'));
+        return;
+      }
       if (emailChangeIsBind) {
-        const newEmail = formEmailChange.getFieldValue('newEmail')?.trim();
-        if (!newEmail) {
-          message.error(t('login.emailRequired'));
-          return;
-        }
         await userApi.sendEmailBindCode(newEmail);
       } else {
-        await userApi.sendEmailChangeCode();
+        await userApi.sendEmailChangeCodeToNew(newEmail);
       }
       message.success(t('profile.sendCodeSuccess'));
       setEmailChangeCodeSent(true);
@@ -314,6 +347,7 @@ export default function ProfileInfo() {
   const detailItems: { key: string; label: string; value: string; icon: React.ReactNode }[] = [
     { key: 'username', label: t('profile.username'), value: user?.username ?? '', icon: <UserOutlined /> },
     { key: 'email', label: t('profile.email'), value: displayEmail, icon: <MailOutlined /> },
+    { key: 'userNo', label: t('profile.userNo'), value: user?.user_no != null ? String(user.user_no) : t('profile.unknown'), icon: <IdcardOutlined /> },
     { key: 'phone', label: t('profile.phone'), value: user?.phone || t('profile.notBound'), icon: <PhoneOutlined /> },
     {
       key: 'role',
@@ -354,7 +388,7 @@ export default function ProfileInfo() {
         <div className={styles.avatarWrapper}>
           <Avatar
             size={56}
-            src={getAvatarUrl()}
+            src={getAvatarUrl(undefined)}
             icon={<UserOutlined />}
             className={styles.avatar}
             onClick={() => fileInputRef.current?.click()}
@@ -398,6 +432,60 @@ export default function ProfileInfo() {
         </div>
       </div>
 
+      <div className={styles.avatarHistorySection}>
+        <Collapse
+          bordered={false}
+          className={styles.avatarHistoryCollapse}
+          expandIconPosition="end"
+          items={[
+            {
+              key: 'history',
+              label: (
+                <span className={styles.collapseLabel}>
+                  <CameraOutlined />
+                  {i18n.language === 'zh-CN' ? '头像历史' : 'Avatar history'}
+                  {avatarHistory.length > 0 && (
+                    <span className={styles.collapseCount}>（{avatarHistory.length}）</span>
+                  )}
+                </span>
+              ),
+              children:
+                avatarHistory.length === 0 ? (
+                  <div className={styles.avatarHistoryEmpty}>
+                    {i18n.language === 'zh-CN' ? '暂无历史头像，上传新头像后会显示在这里' : 'No avatar history yet. Upload a new avatar to see it here.'}
+                  </div>
+                ) : (
+                  <div className={styles.avatarHistoryGrid}>
+                    {avatarHistory.map((item) => (
+                      <div key={item.id} className={styles.avatarHistoryItem}>
+                        <Avatar
+                          size={48}
+                          src={getAvatarUrl(item.avatar_url)}
+                          icon={<UserOutlined />}
+                          className={styles.avatarHistoryThumb}
+                        />
+                        <div className={styles.avatarHistoryActions}>
+                          <Button type="primary" size="small" onClick={() => handleUseAvatar(item.id)}>
+                            {i18n.language === 'zh-CN' ? '使用' : 'Use'}
+                          </Button>
+                          <Button size="small" danger onClick={() => handleDeleteAvatarHistory(item.id)}>
+                            {i18n.language === 'zh-CN' ? '删除' : 'Delete'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ),
+            },
+          ]}
+          expandIcon={({ isActive }) => (
+            <span className={styles.collapseArrow}>
+              <LeftOutlined style={{ fontSize: 10 }} rotate={isActive ? -90 : 0} />
+            </span>
+          )}
+        />
+      </div>
+
       <div className={styles.detailCard}>
         {detailItems.map(({ key, label, value, icon }) => (
           <div key={key} className={styles.detailRow}>
@@ -411,25 +499,25 @@ export default function ProfileInfo() {
                   menu={{
                     items: isUnboundEmail(user?.email)
                       ? [
-                          {
-                            key: 'bind',
-                            label: t('profile.bindEmail'),
-                            onClick: () => { setEmailChangeModalOpen(true); setEmailChangeCodeSent(false); setEmailChangeIsBind(true); formEmailChange.resetFields(); },
-                          },
-                        ]
+                        {
+                          key: 'bind',
+                          label: t('profile.bindEmail'),
+                          onClick: () => { setEmailChangeModalOpen(true); setEmailChangeCodeSent(false); setEmailChangeIsBind(true); formEmailChange.resetFields(); },
+                        },
+                      ]
                       : [
-                          {
-                            key: 'change',
-                            label: t('profile.changeEmail'),
-                            onClick: () => { setEmailChangeModalOpen(true); setEmailChangeCodeSent(false); setEmailChangeIsBind(false); formEmailChange.resetFields(); },
-                          },
-                          {
-                            key: 'unbind',
-                            label: t('profile.unbindEmail'),
-                            danger: true,
-                            onClick: () => { setEmailUnbindModalOpen(true); setEmailUnbindCodeSent(false); formEmailUnbind.resetFields(); },
-                          },
-                        ],
+                        {
+                          key: 'change',
+                          label: t('profile.changeEmail'),
+                          onClick: () => { setEmailChangeModalOpen(true); setEmailChangeCodeSent(false); setEmailChangeIsBind(false); formEmailChange.resetFields(); },
+                        },
+                        {
+                          key: 'unbind',
+                          label: t('profile.unbindEmail'),
+                          danger: true,
+                          onClick: () => { setEmailUnbindModalOpen(true); setEmailUnbindCodeSent(false); formEmailUnbind.resetFields(); },
+                        },
+                      ],
                   } as { items: MenuProps['items'] }}
                   trigger={['hover', 'click']}
                   placement="bottomRight"
@@ -542,49 +630,53 @@ export default function ProfileInfo() {
         }}
         footer={null}
         destroyOnClose
+        className={styles.centeredModal}
       >
-        {deactivateStep === 0 ? (
-          <>
-            <p style={{ marginBottom: 16 }}>{t('profile.deactivateWarning')}</p>
-            <p style={{ marginBottom: 16, color: 'var(--color-text-secondary)' }}>
-              {t('profile.deactivateConfirmTip', { username: user?.username || '' })}
-            </p>
-            <Button type="primary" danger onClick={handleSendDeactivateCode} loading={loading}>
-              {t('profile.getCode')}
-            </Button>
-          </>
-        ) : (
-          <Form form={formDeactivate} layout="vertical" onFinish={handleConfirmDeactivate}>
-            <Form.Item
-              name="code"
-              label={t('login.code')}
-              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
-            >
-              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
-            </Form.Item>
-            <Form.Item
-              name="confirmText"
-              label={t('profile.confirmTextPlaceholder')}
-              rules={[{ required: true, message: t('profile.usernameRequired') }]}
-            >
-              <Input placeholder={t('profile.confirmTextPlaceholder')} />
-            </Form.Item>
-            <Form.Item style={{ marginBottom: 0 }}>
-              <Button type="primary" danger htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
-                {t('profile.deactivateAccount')}
+        <div className={styles.modalFormWrap}>
+          {deactivateStep === 0 ? (
+            <>
+              <p style={{ marginBottom: 12, fontSize: 13 }}>{t('profile.deactivateWarning')}</p>
+              <p style={{ marginBottom: 12, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                {t('profile.deactivateConfirmTip', { username: user?.username || '' })}
+              </p>
+              <Button type="primary" danger size="small" onClick={handleSendDeactivateCode} loading={loading}>
+                {t('profile.getCode')}
               </Button>
-              <Button
-                onClick={() => {
-                  setDeactivateStep(0);
-                  setDeactivateCodeSent(false);
-                  formDeactivate.resetFields();
-                }}
+            </>
+          ) : (
+            <Form form={formDeactivate} layout="vertical" onFinish={handleConfirmDeactivate}>
+              <Form.Item
+                name="code"
+                label={t('login.code')}
+                rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
               >
-                {t('common.cancel')}
-              </Button>
-            </Form.Item>
-          </Form>
-        )}
+                <Input placeholder={t('login.codePlaceholder')} maxLength={6} size="small" />
+              </Form.Item>
+              <Form.Item
+                name="confirmText"
+                label={t('profile.confirmTextPlaceholder')}
+                rules={[{ required: true, message: t('profile.usernameRequired') }]}
+              >
+                <Input placeholder={t('profile.confirmTextPlaceholder')} size="small" />
+              </Form.Item>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" danger size="small" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                  {t('profile.deactivateAccount')}
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setDeactivateStep(0);
+                    setDeactivateCodeSent(false);
+                    formDeactivate.resetFields();
+                  }}
+                >
+                  {t('common.cancel')}
+                </Button>
+              </Form.Item>
+            </Form>
+          )}
+        </div>
       </Modal>
 
       <Modal
@@ -597,54 +689,42 @@ export default function ProfileInfo() {
         }}
         footer={null}
         destroyOnClose
+        className={styles.centeredModal}
       >
-        {!emailChangeCodeSent ? (
-          emailChangeIsBind ? (
-            <Form form={formEmailChange} layout="vertical">
-              <Form.Item
-                name="newEmail"
-                label={t('profile.newEmail')}
-                rules={[{ required: true, message: t('login.emailRequired') }, { type: 'email', message: t('login.emailInvalid') }]}
-              >
-                <Input placeholder={t('profile.newEmailPlaceholder')} />
-              </Form.Item>
+        <div className={styles.modalFormWrap}>
+          <Form form={formEmailChange} layout="vertical" onFinish={emailChangeCodeSent ? handleConfirmEmailChange : undefined}>
+            <Form.Item
+              name="newEmail"
+              label={t('profile.newEmail')}
+              rules={[{ required: true, message: t('login.emailRequired') }, { type: 'email', message: t('login.emailInvalid') }]}
+            >
+              <Input placeholder={t('profile.newEmailPlaceholder')} size="small" />
+            </Form.Item>
+            {!emailChangeCodeSent ? (
               <Form.Item style={{ marginBottom: 0 }}>
-                <Button type="primary" onClick={handleSendEmailChangeCode} loading={loading}>
+                <Button type="primary" size="small" onClick={handleSendEmailChangeCode} loading={loading}>
                   {t('profile.getCode')}
                 </Button>
               </Form.Item>
-            </Form>
-          ) : (
-            <Button type="primary" onClick={handleSendEmailChangeCode} loading={loading}>
-              {t('profile.getCode')}
-            </Button>
-          )
-        ) : (
-          <Form form={formEmailChange} layout="vertical" onFinish={handleConfirmEmailChange}>
-            <Form.Item
-              name="code"
-              label={t('login.code')}
-              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
-            >
-              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
-            </Form.Item>
-            {emailChangeIsBind ? null : (
-              <Form.Item
-                name="newEmail"
-                label={t('profile.newEmail')}
-                rules={[{ required: true, message: t('login.emailRequired') }, { type: 'email', message: t('login.emailInvalid') }]}
-              >
-                <Input placeholder={t('profile.newEmailPlaceholder')} />
-              </Form.Item>
+            ) : (
+              <>
+                <Form.Item
+                  name="code"
+                  label={t('login.code')}
+                  rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
+                >
+                  <Input placeholder={t('login.codePlaceholder')} maxLength={6} size="small" />
+                </Form.Item>
+                <Form.Item style={{ marginBottom: 0 }}>
+                  <Button type="primary" size="small" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                    {t('common.ok')}
+                  </Button>
+                  <Button size="small" onClick={() => setEmailChangeModalOpen(false)}>{t('common.cancel')}</Button>
+                </Form.Item>
+              </>
             )}
-            <Form.Item style={{ marginBottom: 0 }}>
-              <Button type="primary" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
-                {t('common.ok')}
-              </Button>
-              <Button onClick={() => setEmailChangeModalOpen(false)}>{t('common.cancel')}</Button>
-            </Form.Item>
           </Form>
-        )}
+        </div>
       </Modal>
 
       <Modal
@@ -657,28 +737,31 @@ export default function ProfileInfo() {
         }}
         footer={null}
         destroyOnClose
+        className={styles.centeredModal}
       >
-        {!emailUnbindCodeSent ? (
-          <Button type="primary" danger onClick={handleSendEmailUnbindCode} loading={loading}>
-            {t('profile.getCode')}
-          </Button>
-        ) : (
-          <Form form={formEmailUnbind} layout="vertical" onFinish={handleConfirmEmailUnbind}>
-            <Form.Item
-              name="code"
-              label={t('login.code')}
-              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
-            >
-              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
-            </Form.Item>
-            <Form.Item style={{ marginBottom: 0 }}>
-              <Button type="primary" danger htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
-                {t('profile.unbindEmail')}
-              </Button>
-              <Button onClick={() => setEmailUnbindModalOpen(false)}>{t('common.cancel')}</Button>
-            </Form.Item>
-          </Form>
-        )}
+        <div className={styles.modalFormWrap}>
+          {!emailUnbindCodeSent ? (
+            <Button type="primary" danger size="small" onClick={handleSendEmailUnbindCode} loading={loading}>
+              {t('profile.getCode')}
+            </Button>
+          ) : (
+            <Form form={formEmailUnbind} layout="vertical" onFinish={handleConfirmEmailUnbind}>
+              <Form.Item
+                name="code"
+                label={t('login.code')}
+                rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
+              >
+                <Input placeholder={t('login.codePlaceholder')} maxLength={6} size="small" />
+              </Form.Item>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" danger size="small" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                  {t('profile.unbindEmail')}
+                </Button>
+                <Button size="small" onClick={() => setEmailUnbindModalOpen(false)}>{t('common.cancel')}</Button>
+              </Form.Item>
+            </Form>
+          )}
+        </div>
       </Modal>
     </div>
   );

@@ -7,6 +7,7 @@
  */
 export interface User {
   id: number;
+  user_no?: number; // 随机用户编号（非自增）
   username: string;
   email: string;
   phone?: string | null;
@@ -19,6 +20,14 @@ export interface User {
   token_balance?: number;
   created_at: string;
   updated_at: string;
+}
+
+/** 头像历史项（用于头像历史列表） */
+export interface UserAvatarHistory {
+  id: number;
+  user_id: number;
+  avatar_url: string;
+  created_at: string;
 }
 
 export interface TokenTransaction {

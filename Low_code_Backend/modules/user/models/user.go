@@ -10,6 +10,7 @@ import (
 // User 用户持久化实体
 type User struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
+	UserNo        int64          `gorm:"column:user_no" json:"user_no"` // 随机用户编号，用于展示与存储路径；唯一约束在 EnsureUsersUserNo 中回填后创建
 	Username      string         `gorm:"type:varchar(50);uniqueIndex;not null" json:"username"`
 	Email         string         `gorm:"type:varchar(100);uniqueIndex;not null" json:"email"`
 	Password      string         `gorm:"type:varchar(255);not null" json:"-"`

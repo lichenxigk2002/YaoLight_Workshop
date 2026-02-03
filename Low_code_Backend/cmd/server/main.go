@@ -100,7 +100,8 @@ func main() {
 		// 认证相关路由（无需JWT中间件）
 		userRepo := userRepositories.NewUserRepository(database.DB)
 		oauthBindingRepo := userRepositories.NewOAuthBindingRepository(database.DB)
-		authService := userServices.NewAuthService(userRepo, oauthBindingRepo)
+		avatarHistoryRepo := userRepositories.NewAvatarHistoryRepository(database.DB)
+		authService := userServices.NewAuthService(userRepo, oauthBindingRepo, avatarHistoryRepo)
 		authController := authControllers.NewAuthControllerWithService(authService)
 		oauthController := authControllers.NewOAuthController(authService)
 		api.POST("/auth/register", authController.Register)
@@ -140,6 +141,9 @@ func main() {
 			auth.PUT("/users/notification-preferences", authController.UpdateNotificationPreferences)
 			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
 			auth.POST("/users/avatar", authController.UploadAvatar)
+			auth.GET("/users/avatar/history", authController.GetAvatarHistory)
+			auth.POST("/users/avatar/use", authController.UseAvatar)
+			auth.DELETE("/users/avatar/history/:id", authController.DeleteAvatarHistory)
 			auth.GET("/users/oauth-bindings", authController.GetOAuthBindings)
 			auth.POST("/users/oauth-bindings/request", authController.RequestOAuthBind)
 			auth.DELETE("/users/oauth-bindings/:provider", authController.UnbindOAuth)
@@ -148,7 +152,7 @@ func main() {
 			auth.POST("/auth/confirm-deactivate", authController.ConfirmDeactivate)
 			// 邮箱换绑 / 解绑（验证码）
 			auth.POST("/auth/send-email-bind-code", authController.SendEmailBindCode)
-			auth.POST("/auth/send-email-change-code", authController.SendEmailChangeCode)
+			auth.POST("/auth/send-email-change-code", authController.SendEmailChangeCodeToNew)
 			auth.POST("/auth/confirm-email-change", authController.ConfirmEmailChange)
 			auth.POST("/auth/send-email-unbind-code", authController.SendEmailUnbindCode)
 			auth.POST("/auth/confirm-email-unbind", authController.ConfirmEmailUnbind)

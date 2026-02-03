@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/cache"
 	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/database"
+	"yaolight-workshop/backend/infrastructure/storage"
 	userModels "yaolight-workshop/backend/modules/user/models"
 	"yaolight-workshop/backend/modules/user/repositories"
 	"yaolight-workshop/backend/modules/user/services"
@@ -28,7 +30,8 @@ type AuthController struct {
 func NewAuthController() *AuthController {
 	userRepo := repositories.NewUserRepository(database.DB)
 	oauthBindingRepo := repositories.NewOAuthBindingRepository(database.DB)
-	return NewAuthControllerWithService(services.NewAuthService(userRepo, oauthBindingRepo))
+	avatarHistoryRepo := repositories.NewAvatarHistoryRepository(database.DB)
+	return NewAuthControllerWithService(services.NewAuthService(userRepo, oauthBindingRepo, avatarHistoryRepo))
 }
 
 // NewAuthControllerWithService 使用已有 authService 创建认证控制器（供 OAuth 等共用）
@@ -312,18 +315,25 @@ func (c *AuthController) SendEmailBindCode(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到该邮箱", "data": nil})
 }
 
-// SendEmailChangeCode 发送换绑邮箱验证码（发到当前邮箱）
-func (c *AuthController) SendEmailChangeCode(ctx *gin.Context) {
+// SendEmailChangeCodeToNew 发送换绑验证码到新邮箱（换绑时向新邮箱发验证码）
+func (c *AuthController) SendEmailChangeCodeToNew(ctx *gin.Context) {
 	userID, exists := ctx.Get("userID")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
 		return
 	}
-	if err := c.authService.SendEmailChangeCode(userID.(uint)); err != nil {
+	var req struct {
+		NewEmail string `json:"newEmail" binding:"required,email"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请填写有效的新邮箱", "data": nil})
+		return
+	}
+	if err := c.authService.SendEmailChangeCodeToNew(userID.(uint), req.NewEmail); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到当前邮箱", "data": nil})
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到该邮箱", "data": nil})
 }
 
 // ConfirmEmailChange 校验验证码后换绑为新邮箱
@@ -750,106 +760,129 @@ func (c *AuthController) UpdateNotificationPreferences(ctx *gin.Context) {
 // @Failure 401 {object} map[string]interface{} "未授权"
 // @Router /api/users/avatar [post]
 func (c *AuthController) UploadAvatar(ctx *gin.Context) {
-	// 从中间件获取用户ID
 	userID, exists := ctx.Get("userID")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"code":    401,
-			"message": "未授权",
-			"data":    nil,
-		})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
 		return
 	}
+	uid := userID.(uint)
 
-	// 获取上传的文件
 	file, err := ctx.FormFile("avatar")
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "请选择要上传的头像文件",
-			"data":    nil,
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请选择要上传的头像文件", "data": nil})
 		return
 	}
-
-	// 验证文件类型（只允许图片）
-	allowedTypes := map[string]bool{
-		".jpg":  true,
-		".jpeg": true,
-		".png":  true,
-		".gif":  true,
-		".webp": true,
-	}
+	allowedTypes := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
 	ext := filepath.Ext(file.Filename)
 	if !allowedTypes[ext] {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "不支持的文件类型，仅支持 jpg、jpeg、png、gif、webp",
-			"data":    nil,
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "不支持的文件类型，仅支持 jpg、jpeg、png、gif、webp", "data": nil})
 		return
 	}
-
-	// 验证文件大小（限制为 5MB）
 	if file.Size > 5*1024*1024 {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "文件大小不能超过 5MB",
-			"data":    nil,
-		})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "文件大小不能超过 5MB", "data": nil})
 		return
 	}
 
-	// 创建上传目录
-	uploadDir := filepath.Join(config.UploadPath, "avatars")
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		log.Printf("创建上传目录失败: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "创建上传目录失败",
-			"data":    nil,
-		})
-		return
-	}
-
-	// 生成唯一文件名：用户ID_时间戳_随机数.扩展名
-	timestamp := time.Now().Unix()
-	filename := fmt.Sprintf("%d_%d%s", userID.(uint), timestamp, ext)
-	filePath := filepath.Join(uploadDir, filename)
-
-	// 保存文件
-	if err := ctx.SaveUploadedFile(file, filePath); err != nil {
-		log.Printf("保存文件失败: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "保存文件失败",
-			"data":    nil,
-		})
-		return
-	}
-
-	// 生成相对路径（用于存储到数据库）
-	relativePath := filepath.Join("avatars", filename)
-
-	// 更新用户头像路径
-	err = c.authService.UpdateAvatar(userID.(uint), relativePath)
+	user, err := c.authService.GetUserByID(uid)
 	if err != nil {
-		// 如果更新失败，删除已上传的文件
-		os.Remove(filePath)
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "更新头像失败: " + err.Error(),
-			"data":    nil,
-		})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取用户失败", "data": nil})
 		return
 	}
 
-	// 返回文件路径
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "头像上传成功",
-		"data": gin.H{
-			"url": relativePath,
-		},
-	})
+	var avatarURL string
+	if config.COSEnabled {
+		f, _ := file.Open()
+		defer f.Close()
+		contentType := file.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "image/jpeg"
+		}
+		filename := fmt.Sprintf("%d_%d%s", uid, time.Now().Unix(), ext)
+		avatarURL, err = storage.UploadAvatar(context.Background(), f, file.Size, user.UserNo, filename, contentType)
+		if err != nil {
+			log.Printf("COS upload failed: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "上传到存储失败", "data": nil})
+			return
+		}
+	} else {
+		uploadDir := filepath.Join(config.UploadPath, "avatars")
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			log.Printf("创建上传目录失败: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建上传目录失败", "data": nil})
+			return
+		}
+		filename := fmt.Sprintf("%d_%d%s", uid, time.Now().Unix(), ext)
+		filePath := filepath.Join(uploadDir, filename)
+		if err := ctx.SaveUploadedFile(file, filePath); err != nil {
+			log.Printf("保存文件失败: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存文件失败", "data": nil})
+			return
+		}
+		avatarURL = filepath.Join("avatars", filename)
+	}
+
+	if err := c.authService.AddAvatarHistory(uid, avatarURL); err != nil {
+		log.Printf("AddAvatarHistory failed: %v", err)
+	}
+	if err := c.authService.UpdateAvatar(uid, avatarURL); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新头像失败: " + err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "头像上传成功", "data": gin.H{"url": avatarURL}})
+}
+
+// GetAvatarHistory 获取当前用户头像历史列表（像 QQ 一样可查看/重新应用/删除）
+func (c *AuthController) GetAvatarHistory(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	list, err := c.authService.ListAvatarHistory(userID.(uint))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": list})
+}
+
+// UseAvatar 将历史中的某张设为当前头像
+func (c *AuthController) UseAvatar(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var body struct {
+		HistoryID uint `json:"history_id"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil || body.HistoryID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请提供 history_id", "data": nil})
+		return
+	}
+	if err := c.authService.SetCurrentAvatar(userID.(uint), body.HistoryID); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已切换为该头像", "data": nil})
+}
+
+// DeleteAvatarHistory 删除一条头像历史
+func (c *AuthController) DeleteAvatarHistory(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 id", "data": nil})
+		return
+	}
+	if err := c.authService.DeleteAvatarHistory(userID.(uint), uint(id)); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已删除", "data": nil})
 }

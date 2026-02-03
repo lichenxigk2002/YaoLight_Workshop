@@ -44,6 +44,14 @@ var (
 	// 文件上传配置
 	UploadPath string // 文件上传路径
 
+	// 腾讯云 COS 配置（头像等文件，不配置则走本地 UploadPath）
+	COSEnabled       bool   // 是否启用 COS
+	COSBucket        string // 存储桶名称（含 APPID，如 my-bucket-1234567890）
+	COSRegion        string // 地域，如 ap-guangzhou
+	COSSecretID      string
+	COSSecretKey     string
+	COSPublicBaseURL string // 可选：自定义/CDN 域名，如 https://cdn.example.com，空则用默认域名
+
 	// OAuth 登录（Google / GitHub）
 	GoogleClientID     string
 	GoogleClientSecret string
@@ -152,6 +160,14 @@ func LoadConfig() error {
 
 	// 文件上传配置
 	UploadPath = getEnv("UPLOAD_PATH", "./uploads")
+
+	// 腾讯云 COS
+	COSEnabled = getEnv("COS_ENABLED", "false") == "true" || getEnv("COS_ENABLED", "") == "1"
+	COSBucket = getEnv("COS_BUCKET", "")
+	COSRegion = getEnv("COS_REGION", "")
+	COSSecretID = getEnv("COS_SECRET_ID", "")
+	COSSecretKey = getEnv("COS_SECRET_KEY", "")
+	COSPublicBaseURL = getEnv("COS_PUBLIC_BASE_URL", "")
 
 	// OAuth 登录
 	GoogleClientID = getEnv("GOOGLE_CLIENT_ID", "")

@@ -29,3 +29,6 @@ dist-ssr
 .env.production.local
 .env.development.local
 
+/src/components/WorkflowEditor/configs/OutputNodeConfig.ARCHITECTURE.md
+/src/pages/Payment/SANDBOX_QUICK_START.md
+/src/components/WorkflowEditor/panels/TASK_HISTORY_USAGE.md
