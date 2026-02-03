@@ -243,15 +243,15 @@ export default function ProfileInfo() {
 
   const handleSendEmailChangeCode = async () => {
     try {
+      const newEmail = formEmailChange.getFieldValue('newEmail')?.trim();
+      if (!newEmail) {
+        message.error(t('login.emailRequired'));
+        return;
+      }
       if (emailChangeIsBind) {
-        const newEmail = formEmailChange.getFieldValue('newEmail')?.trim();
-        if (!newEmail) {
-          message.error(t('login.emailRequired'));
-          return;
-        }
         await userApi.sendEmailBindCode(newEmail);
       } else {
-        await userApi.sendEmailChangeCode();
+        await userApi.sendEmailChangeCodeToNew(newEmail);
       }
       message.success(t('profile.sendCodeSuccess'));
       setEmailChangeCodeSent(true);
@@ -542,49 +542,53 @@ export default function ProfileInfo() {
         }}
         footer={null}
         destroyOnClose
+        className={styles.centeredModal}
       >
-        {deactivateStep === 0 ? (
-          <>
-            <p style={{ marginBottom: 16 }}>{t('profile.deactivateWarning')}</p>
-            <p style={{ marginBottom: 16, color: 'var(--color-text-secondary)' }}>
-              {t('profile.deactivateConfirmTip', { username: user?.username || '' })}
-            </p>
-            <Button type="primary" danger onClick={handleSendDeactivateCode} loading={loading}>
-              {t('profile.getCode')}
-            </Button>
-          </>
-        ) : (
-          <Form form={formDeactivate} layout="vertical" onFinish={handleConfirmDeactivate}>
-            <Form.Item
-              name="code"
-              label={t('login.code')}
-              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
-            >
-              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
-            </Form.Item>
-            <Form.Item
-              name="confirmText"
-              label={t('profile.confirmTextPlaceholder')}
-              rules={[{ required: true, message: t('profile.usernameRequired') }]}
-            >
-              <Input placeholder={t('profile.confirmTextPlaceholder')} />
-            </Form.Item>
-            <Form.Item style={{ marginBottom: 0 }}>
-              <Button type="primary" danger htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
-                {t('profile.deactivateAccount')}
+        <div className={styles.modalFormWrap}>
+          {deactivateStep === 0 ? (
+            <>
+              <p style={{ marginBottom: 12, fontSize: 13 }}>{t('profile.deactivateWarning')}</p>
+              <p style={{ marginBottom: 12, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                {t('profile.deactivateConfirmTip', { username: user?.username || '' })}
+              </p>
+              <Button type="primary" danger size="small" onClick={handleSendDeactivateCode} loading={loading}>
+                {t('profile.getCode')}
               </Button>
-              <Button
-                onClick={() => {
-                  setDeactivateStep(0);
-                  setDeactivateCodeSent(false);
-                  formDeactivate.resetFields();
-                }}
+            </>
+          ) : (
+            <Form form={formDeactivate} layout="vertical" onFinish={handleConfirmDeactivate}>
+              <Form.Item
+                name="code"
+                label={t('login.code')}
+                rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
               >
-                {t('common.cancel')}
-              </Button>
-            </Form.Item>
-          </Form>
-        )}
+                <Input placeholder={t('login.codePlaceholder')} maxLength={6} size="small" />
+              </Form.Item>
+              <Form.Item
+                name="confirmText"
+                label={t('profile.confirmTextPlaceholder')}
+                rules={[{ required: true, message: t('profile.usernameRequired') }]}
+              >
+                <Input placeholder={t('profile.confirmTextPlaceholder')} size="small" />
+              </Form.Item>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" danger size="small" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                  {t('profile.deactivateAccount')}
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setDeactivateStep(0);
+                    setDeactivateCodeSent(false);
+                    formDeactivate.resetFields();
+                  }}
+                >
+                  {t('common.cancel')}
+                </Button>
+              </Form.Item>
+            </Form>
+          )}
+        </div>
       </Modal>
 
       <Modal
@@ -597,54 +601,42 @@ export default function ProfileInfo() {
         }}
         footer={null}
         destroyOnClose
+        className={styles.centeredModal}
       >
-        {!emailChangeCodeSent ? (
-          emailChangeIsBind ? (
-            <Form form={formEmailChange} layout="vertical">
-              <Form.Item
-                name="newEmail"
-                label={t('profile.newEmail')}
-                rules={[{ required: true, message: t('login.emailRequired') }, { type: 'email', message: t('login.emailInvalid') }]}
-              >
-                <Input placeholder={t('profile.newEmailPlaceholder')} />
-              </Form.Item>
+        <div className={styles.modalFormWrap}>
+          <Form form={formEmailChange} layout="vertical" onFinish={emailChangeCodeSent ? handleConfirmEmailChange : undefined}>
+            <Form.Item
+              name="newEmail"
+              label={t('profile.newEmail')}
+              rules={[{ required: true, message: t('login.emailRequired') }, { type: 'email', message: t('login.emailInvalid') }]}
+            >
+              <Input placeholder={t('profile.newEmailPlaceholder')} size="small" />
+            </Form.Item>
+            {!emailChangeCodeSent ? (
               <Form.Item style={{ marginBottom: 0 }}>
-                <Button type="primary" onClick={handleSendEmailChangeCode} loading={loading}>
+                <Button type="primary" size="small" onClick={handleSendEmailChangeCode} loading={loading}>
                   {t('profile.getCode')}
                 </Button>
               </Form.Item>
-            </Form>
-          ) : (
-            <Button type="primary" onClick={handleSendEmailChangeCode} loading={loading}>
-              {t('profile.getCode')}
-            </Button>
-          )
-        ) : (
-          <Form form={formEmailChange} layout="vertical" onFinish={handleConfirmEmailChange}>
-            <Form.Item
-              name="code"
-              label={t('login.code')}
-              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
-            >
-              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
-            </Form.Item>
-            {emailChangeIsBind ? null : (
-              <Form.Item
-                name="newEmail"
-                label={t('profile.newEmail')}
-                rules={[{ required: true, message: t('login.emailRequired') }, { type: 'email', message: t('login.emailInvalid') }]}
-              >
-                <Input placeholder={t('profile.newEmailPlaceholder')} />
-              </Form.Item>
+            ) : (
+              <>
+                <Form.Item
+                  name="code"
+                  label={t('login.code')}
+                  rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
+                >
+                  <Input placeholder={t('login.codePlaceholder')} maxLength={6} size="small" />
+                </Form.Item>
+                <Form.Item style={{ marginBottom: 0 }}>
+                  <Button type="primary" size="small" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                    {t('common.ok')}
+                  </Button>
+                  <Button size="small" onClick={() => setEmailChangeModalOpen(false)}>{t('common.cancel')}</Button>
+                </Form.Item>
+              </>
             )}
-            <Form.Item style={{ marginBottom: 0 }}>
-              <Button type="primary" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
-                {t('common.ok')}
-              </Button>
-              <Button onClick={() => setEmailChangeModalOpen(false)}>{t('common.cancel')}</Button>
-            </Form.Item>
           </Form>
-        )}
+        </div>
       </Modal>
 
       <Modal
@@ -657,28 +649,31 @@ export default function ProfileInfo() {
         }}
         footer={null}
         destroyOnClose
+        className={styles.centeredModal}
       >
-        {!emailUnbindCodeSent ? (
-          <Button type="primary" danger onClick={handleSendEmailUnbindCode} loading={loading}>
-            {t('profile.getCode')}
-          </Button>
-        ) : (
-          <Form form={formEmailUnbind} layout="vertical" onFinish={handleConfirmEmailUnbind}>
-            <Form.Item
-              name="code"
-              label={t('login.code')}
-              rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
-            >
-              <Input placeholder={t('login.codePlaceholder')} maxLength={6} />
-            </Form.Item>
-            <Form.Item style={{ marginBottom: 0 }}>
-              <Button type="primary" danger htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
-                {t('profile.unbindEmail')}
-              </Button>
-              <Button onClick={() => setEmailUnbindModalOpen(false)}>{t('common.cancel')}</Button>
-            </Form.Item>
-          </Form>
-        )}
+        <div className={styles.modalFormWrap}>
+          {!emailUnbindCodeSent ? (
+            <Button type="primary" danger size="small" onClick={handleSendEmailUnbindCode} loading={loading}>
+              {t('profile.getCode')}
+            </Button>
+          ) : (
+            <Form form={formEmailUnbind} layout="vertical" onFinish={handleConfirmEmailUnbind}>
+              <Form.Item
+                name="code"
+                label={t('login.code')}
+                rules={[{ required: true, message: t('login.codeRequired') }, { len: 6, message: t('login.codeInvalid') }]}
+              >
+                <Input placeholder={t('login.codePlaceholder')} maxLength={6} size="small" />
+              </Form.Item>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" danger size="small" htmlType="submit" loading={loading} style={{ marginRight: 8 }}>
+                  {t('profile.unbindEmail')}
+                </Button>
+                <Button size="small" onClick={() => setEmailUnbindModalOpen(false)}>{t('common.cancel')}</Button>
+              </Form.Item>
+            </Form>
+          )}
+        </div>
       </Modal>
     </div>
   );

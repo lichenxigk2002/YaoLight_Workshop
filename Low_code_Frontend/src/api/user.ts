@@ -95,8 +95,9 @@ export const userApi = {
   /** 发送绑定邮箱验证码（发到新邮箱，当前未绑定时用） */
   sendEmailBindCode: (newEmail: string) =>
     http.post<{ code: number; message: string }>('/auth/send-email-bind-code', { newEmail }),
-  /** 发送换绑邮箱验证码（发到当前邮箱） */
-  sendEmailChangeCode: () => http.post<{ code: number; message: string }>('/auth/send-email-change-code'),
+  /** 发送换绑验证码到新邮箱（换绑时向新邮箱发验证码） */
+  sendEmailChangeCodeToNew: (newEmail: string) =>
+    http.post<{ code: number; message: string }>('/auth/send-email-change-code', { newEmail }),
   /** 确认换绑/绑定：验证码 + 新邮箱 */
   confirmEmailChange: (data: { code: string; newEmail: string }) =>
     http.post<{ code: number; message: string }>('/auth/confirm-email-change', data),

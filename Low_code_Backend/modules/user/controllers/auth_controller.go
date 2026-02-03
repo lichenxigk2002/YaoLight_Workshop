@@ -312,18 +312,25 @@ func (c *AuthController) SendEmailBindCode(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到该邮箱", "data": nil})
 }
 
-// SendEmailChangeCode 发送换绑邮箱验证码（发到当前邮箱）
-func (c *AuthController) SendEmailChangeCode(ctx *gin.Context) {
+// SendEmailChangeCodeToNew 发送换绑验证码到新邮箱（换绑时向新邮箱发验证码）
+func (c *AuthController) SendEmailChangeCodeToNew(ctx *gin.Context) {
 	userID, exists := ctx.Get("userID")
 	if !exists {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
 		return
 	}
-	if err := c.authService.SendEmailChangeCode(userID.(uint)); err != nil {
+	var req struct {
+		NewEmail string `json:"newEmail" binding:"required,email"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请填写有效的新邮箱", "data": nil})
+		return
+	}
+	if err := c.authService.SendEmailChangeCodeToNew(userID.(uint), req.NewEmail); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到当前邮箱", "data": nil})
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送到该邮箱", "data": nil})
 }
 
 // ConfirmEmailChange 校验验证码后换绑为新邮箱

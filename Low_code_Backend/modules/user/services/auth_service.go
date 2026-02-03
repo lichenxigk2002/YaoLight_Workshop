@@ -718,6 +718,7 @@ func (s *AuthService) UnbindOAuth(userID uint, provider string) error {
 
 const cacheKeyDeactivatePrefix = "deactivate:"
 const cacheKeyEmailChangePrefix = "email_change:"
+const cacheKeyEmailChangeNewPrefix = "email_change_new:" // 换绑：验证码发到新邮箱
 const cacheKeyEmailBindNewPrefix = "email_bind_new:"
 const cacheKeyEmailUnbindPrefix = "email_unbind:"
 
@@ -826,16 +827,27 @@ func (s *AuthService) SendEmailBindCode(userID uint, newEmail string) error {
 	return nil
 }
 
-// SendEmailChangeCode 发送换绑验证码到当前邮箱
-func (s *AuthService) SendEmailChangeCode(userID uint) error {
+// SendEmailChangeCodeToNew 发送换绑验证码到新邮箱（换绑时向新邮箱发验证码）
+func (s *AuthService) SendEmailChangeCodeToNew(userID uint, newEmail string) error {
+	newEmail = strings.TrimSpace(strings.ToLower(newEmail))
+	if newEmail == "" || !strings.Contains(newEmail, "@") {
+		return ErrInvalidEmail
+	}
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return ErrUserNotFound
 	}
 	if user.Email == "" || strings.HasPrefix(user.Email, "unbound_") {
-		return errors.New("当前账号未绑定有效邮箱，无法换绑")
+		return errors.New("当前账号未绑定有效邮箱，请使用绑定邮箱")
 	}
-	key := cacheKeyEmailChangePrefix + fmt.Sprintf("%d", userID)
+	taken, err := s.userRepo.EmailTakenByOther(newEmail, userID)
+	if err != nil {
+		return err
+	}
+	if taken {
+		return errors.New("该邮箱已被其他账号使用")
+	}
+	key := cacheKeyEmailChangeNewPrefix + newEmail
 	canSend, err := s.verifyCache.CheckRateLimit(key)
 	if err != nil {
 		return err
@@ -845,8 +857,8 @@ func (s *AuthService) SendEmailChangeCode(userID uint) error {
 		return fmt.Errorf("发送太频繁，请%d秒后再试", remaining)
 	}
 	code := s.verifyCache.GenerateCode()
-	if err := s.emailService.SendVerificationCode(user.Email, code); err != nil {
-		log.Printf("发送换绑验证码失败: %v", err)
+	if err := s.emailService.SendVerificationCode(newEmail, code); err != nil {
+		log.Printf("发送换绑验证码到新邮箱失败: %v", err)
 		return errors.New("发送验证码失败，请稍后重试")
 	}
 	if err := s.verifyCache.Set(key, code); err != nil {
@@ -875,7 +887,7 @@ func (s *AuthService) ConfirmEmailChange(userID uint, code, newEmail string) err
 	if user.Email == "" || strings.HasPrefix(user.Email, "unbound_") {
 		key = cacheKeyEmailBindNewPrefix + newEmail
 	} else {
-		key = cacheKeyEmailChangePrefix + fmt.Sprintf("%d", userID)
+		key = cacheKeyEmailChangeNewPrefix + newEmail
 	}
 	ok, err := s.verifyCache.Verify(key, code)
 	if err != nil {

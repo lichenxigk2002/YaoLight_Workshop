@@ -37,7 +37,7 @@ func (s *PricingService) CalculateEquivalentTokens(usage *providers.TokenUsage, 
 	}
 
 	// 2. 获取基准模型（DeepSeek）的单价 (USD/1M)
-	// 我们定义 1 星尘 = 1 个 DeepSeek 缓存未命中输入 Token 的价值
+	//  1 星尘 = 1 个 DeepSeek 缓存未命中输入 Token 的价值
 	// 即 1 星尘 = $0.28 / 1,000,000
 	baseTokenPrice := 0.28 / 1000000.0
 

@@ -199,3 +199,40 @@
     text-decoration: underline;
   }
 }
+
+/* 弹窗居中、表单紧凑 */
+.centeredModal {
+  :global(.ant-modal-body) {
+    display: flex;
+    justify-content: center;
+    padding: 16px 24px;
+  }
+}
+
+.modalFormWrap {
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  text-align: center;
+
+  :global(.ant-form-item) {
+    margin-bottom: 12px;
+    text-align: left;
+  }
+  :global(.ant-form-item:last-child) {
+    margin-bottom: 0;
+    text-align: center;
+  }
+
+  /* 介于 small 与 default 之间的尺寸 */
+  :global(.ant-input) {
+    height: 28px;
+    font-size: 13px;
+    padding: 2px 11px;
+  }
+  :global(.ant-btn) {
+    height: 28px;
+    padding: 0 11px;
+    font-size: 13px;
+  }
+}

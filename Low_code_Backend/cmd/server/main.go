@@ -148,7 +148,7 @@ func main() {
 			auth.POST("/auth/confirm-deactivate", authController.ConfirmDeactivate)
 			// 邮箱换绑 / 解绑（验证码）
 			auth.POST("/auth/send-email-bind-code", authController.SendEmailBindCode)
-			auth.POST("/auth/send-email-change-code", authController.SendEmailChangeCode)
+			auth.POST("/auth/send-email-change-code", authController.SendEmailChangeCodeToNew)
 			auth.POST("/auth/confirm-email-change", authController.ConfirmEmailChange)
 			auth.POST("/auth/send-email-unbind-code", authController.SendEmailUnbindCode)
 			auth.POST("/auth/confirm-email-unbind", authController.ConfirmEmailUnbind)
