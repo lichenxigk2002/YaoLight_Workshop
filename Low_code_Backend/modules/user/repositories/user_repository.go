@@ -22,6 +22,7 @@ func NewUserRepository(db *gorm.DB) repository.UserRepository {
 func toDomainEntity(m *models.User) *entity.User {
 	return &entity.User{
 		ID:            m.ID,
+		UserNo:        m.UserNo,
 		Username:      m.Username,
 		Email:         m.Email,
 		Password:      m.Password,
@@ -45,6 +46,7 @@ func toDomainEntity(m *models.User) *entity.User {
 func toPersistenceEntity(e *entity.User) *models.User {
 	return &models.User{
 		ID:            e.ID,
+		UserNo:        e.UserNo,
 		Username:      e.Username,
 		Email:         e.Email,
 		Password:      e.Password,
@@ -81,6 +83,15 @@ func (r *userRepository) Create(user *entity.User) error {
 func (r *userRepository) FindByID(id uint) (*entity.User, error) {
 	var model models.User
 	if err := r.db.First(&model, id).Error; err != nil {
+		return nil, err
+	}
+	return toDomainEntity(&model), nil
+}
+
+// FindByUserNo 根据用户编号查找用户（用于随机 ID 唯一性校验）
+func (r *userRepository) FindByUserNo(userNo int64) (*entity.User, error) {
+	var model models.User
+	if err := r.db.Where("user_no = ?", userNo).First(&model).Error; err != nil {
 		return nil, err
 	}
 	return toDomainEntity(&model), nil

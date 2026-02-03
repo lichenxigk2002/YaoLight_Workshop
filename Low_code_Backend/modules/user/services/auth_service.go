@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +21,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/email"
+	"yaolight-workshop/backend/infrastructure/storage"
 	"yaolight-workshop/backend/infrastructure/jwt"
 	"yaolight-workshop/backend/infrastructure/shared"
 	userModels "yaolight-workshop/backend/modules/user/models"
@@ -40,19 +42,21 @@ var (
 
 // AuthService 认证服务
 type AuthService struct {
-	userRepo         repository.UserRepository
-	oauthBindingRepo *repositories.OAuthBindingRepository
-	emailService     *email.EmailService
-	verifyCache      cache.VerificationCacheInterface
+	userRepo            repository.UserRepository
+	oauthBindingRepo    *repositories.OAuthBindingRepository
+	avatarHistoryRepo   *repositories.AvatarHistoryRepository
+	emailService        *email.EmailService
+	verifyCache         cache.VerificationCacheInterface
 }
 
 // NewAuthService 创建认证服务
-func NewAuthService(userRepo repository.UserRepository, oauthBindingRepo *repositories.OAuthBindingRepository) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, oauthBindingRepo *repositories.OAuthBindingRepository, avatarHistoryRepo *repositories.AvatarHistoryRepository) *AuthService {
 	// 尝试使用 Redis，如果失败则降级到内存缓存
 	useRedis := true // 可以从配置读取
 	return &AuthService{
-		userRepo:         userRepo,
-		oauthBindingRepo: oauthBindingRepo,
+		userRepo:          userRepo,
+		oauthBindingRepo:  oauthBindingRepo,
+		avatarHistoryRepo: avatarHistoryRepo,
 		emailService:     email.NewEmailService(),
 		verifyCache:      cache.GetVerificationCacheService(useRedis),
 	}
@@ -110,10 +114,11 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 		return nil, err
 	}
 
-	// 创建用户领域实体
+	// 创建用户领域实体（使用随机用户编号，非自增）
 	// 注册赠送200万星尘
 	const registerBonusStardust = 2000000 // 200万星尘
 	user := &entity.User{
+		UserNo:       s.generateUniqueUserNo(),
 		Username:     req.Username,
 		Email:        req.Email,
 		Password:     string(hashedPassword),
@@ -403,10 +408,11 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 	// 生成随机用户名
 	username := generateRandomUsername()
 
-	// 创建用户（无需密码）
+	// 创建用户（无需密码，使用随机用户编号）
 	// 注册赠送200万星尘
 	const registerBonusStardust = 2000000 // 200万星尘
 	user := &entity.User{
+		UserNo:       s.generateUniqueUserNo(),
 		Username:     username,
 		Email:        req.Email,
 		Password:     "", // 邮箱注册无密码
@@ -493,10 +499,12 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 			return nil, err
 		}
 		if avatarURL != "" && !hasLocalAvatar(user.AvatarURL) {
-			if localPath, e := saveOAuthAvatarToLocal(avatarURL, user.ID); e == nil {
-				user.AvatarURL = &localPath
+			if url, e := s.saveOAuthAvatar(avatarURL, user); e == nil {
+				user.AvatarURL = &url
+				_ = s.AddAvatarHistory(user.ID, url)
+				_ = s.userRepo.Update(user)
 			} else {
-				log.Printf("save oauth avatar to local failed: %v", e)
+				log.Printf("save oauth avatar failed: %v", e)
 			}
 		}
 	} else {
@@ -507,11 +515,12 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 				return nil, err
 			}
 			if avatarURL != "" && !hasLocalAvatar(user.AvatarURL) {
-				if localPath, e := saveOAuthAvatarToLocal(avatarURL, user.ID); e == nil {
-					user.AvatarURL = &localPath
+				if url, e := s.saveOAuthAvatar(avatarURL, user); e == nil {
+					user.AvatarURL = &url
+					_ = s.AddAvatarHistory(user.ID, url)
 					_ = s.userRepo.Update(user)
 				} else {
-					log.Printf("save oauth avatar to local failed: %v", e)
+					log.Printf("save oauth avatar failed: %v", e)
 				}
 			}
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -530,6 +539,7 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 			}
 			const registerBonusStardust = 2000000
 			user = &entity.User{
+				UserNo:       s.generateUniqueUserNo(),
 				Username:     username,
 				Email:        email,
 				Password:     "",
@@ -544,11 +554,12 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 				return nil, err
 			}
 			if avatarURL != "" {
-				if localPath, e := saveOAuthAvatarToLocal(avatarURL, user.ID); e == nil {
-					user.AvatarURL = &localPath
+				if url, e := s.saveOAuthAvatar(avatarURL, user); e == nil {
+					user.AvatarURL = &url
+					_ = s.AddAvatarHistory(user.ID, url)
 					_ = s.userRepo.Update(user)
 				} else {
-					log.Printf("save oauth avatar to local failed: %v", e)
+					log.Printf("save oauth avatar failed: %v", e)
 				}
 			}
 			transaction := userModels.TokenTransaction{
@@ -593,6 +604,14 @@ func hasLocalAvatar(avatarURL *string) bool {
 		return false
 	}
 	return !strings.HasPrefix(*avatarURL, "http://") && !strings.HasPrefix(*avatarURL, "https://")
+}
+
+// saveOAuthAvatar 将 OAuth 头像保存到 COS（若启用）或本地，返回最终 URL/路径
+func (s *AuthService) saveOAuthAvatar(avatarURL string, user *entity.User) (finalURL string, err error) {
+	if config.COSEnabled {
+		return storage.UploadAvatarFromURL(context.Background(), avatarURL, user.UserNo)
+	}
+	return saveOAuthAvatarToLocal(avatarURL, user.ID)
 }
 
 // saveOAuthAvatarToLocal 从 OAuth 头像 URL 下载并保存到本地，返回相对路径 avatars/xxx
@@ -645,6 +664,20 @@ func generateRandomUsername() string {
 	rand.Seed(time.Now().UnixNano())
 	// 生成格式：user_123456
 	return fmt.Sprintf("user_%d", rand.Intn(900000)+100000)
+}
+
+// generateUniqueUserNo 生成唯一用户编号（8 位随机，与回填的 10000000+id 不重叠）
+func (s *AuthService) generateUniqueUserNo() int64 {
+	const minNo = 20000000
+	const maxNo = 99999999
+	for i := 0; i < 20; i++ {
+		n := minNo + rand.Int63n(int64(maxNo-minNo+1))
+		_, err := s.userRepo.FindByUserNo(n)
+		if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+			return n
+		}
+	}
+	return minNo + time.Now().UnixNano()%int64(maxNo-minNo+1)
 }
 
 // UpdateUsername 修改用户名
@@ -701,8 +734,9 @@ func (s *AuthService) OAuthBind(userID uint, provider, oauthID, email, name, ava
 		return err
 	}
 	if avatarURL != "" && !hasLocalAvatar(user.AvatarURL) {
-		if localPath, err := saveOAuthAvatarToLocal(avatarURL, user.ID); err == nil {
-			user.AvatarURL = &localPath
+		if url, err := s.saveOAuthAvatar(avatarURL, user); err == nil {
+			user.AvatarURL = &url
+			_ = s.AddAvatarHistory(user.ID, url)
 			_ = s.userRepo.Update(user)
 		}
 	}
@@ -968,21 +1002,46 @@ func (s *AuthService) ConfirmEmailUnbind(userID uint, code string) error {
 
 // UpdateAvatar 更新用户头像
 func (s *AuthService) UpdateAvatar(userID uint, avatarPath string) error {
-	// 获取用户
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return ErrUserNotFound
 	}
-
-	// 更新头像路径
 	user.AvatarURL = &avatarPath
 	return s.userRepo.Update(user)
+}
+
+// AddAvatarHistory 添加一条头像历史（上传或 OAuth 拉取后调用）
+func (s *AuthService) AddAvatarHistory(userID uint, avatarURL string) error {
+	return s.avatarHistoryRepo.Create(&userModels.UserAvatarHistory{
+		UserID:    userID,
+		AvatarURL: avatarURL,
+	})
+}
+
+// ListAvatarHistory 获取用户头像历史列表，按时间倒序
+func (s *AuthService) ListAvatarHistory(userID uint) ([]userModels.UserAvatarHistory, error) {
+	return s.avatarHistoryRepo.ListByUserID(userID)
+}
+
+// SetCurrentAvatar 将历史中的某条设为当前头像
+func (s *AuthService) SetCurrentAvatar(userID uint, historyID uint) error {
+	item, err := s.avatarHistoryRepo.GetByID(historyID, userID)
+	if err != nil {
+		return err
+	}
+	return s.UpdateAvatar(userID, item.AvatarURL)
+}
+
+// DeleteAvatarHistory 删除一条头像历史（软删除）
+func (s *AuthService) DeleteAvatarHistory(userID uint, historyID uint) error {
+	return s.avatarHistoryRepo.Delete(historyID, userID)
 }
 
 // toPersistenceModel 将领域实体转换为持久化模型（用于返回给 Controller）
 func toPersistenceModel(user *entity.User) *userModels.User {
 	return &userModels.User{
 		ID:           user.ID,
+		UserNo:       user.UserNo,
 		Username:     user.Username,
 		Email:        user.Email,
 		Password:     user.Password,

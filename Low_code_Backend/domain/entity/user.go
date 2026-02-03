@@ -5,6 +5,7 @@ import "time"
 // User 用户领域实体（纯业务对象，不依赖 GORM）
 type User struct {
 	ID            uint
+	UserNo        int64 // 随机用户编号，用于展示与存储路径
 	Username      string
 	Email         string
 	Password      string

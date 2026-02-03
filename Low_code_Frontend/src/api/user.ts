@@ -2,6 +2,7 @@ import http from '@/http';
 import type { PageRequest, PageResponse } from '@/types/api';
 import type {
   User,
+  UserAvatarHistory,
   TokenTransaction,
   LoginRequest,
   LoginResponse,
@@ -173,4 +174,22 @@ export const userApi = {
     formData.append('avatar', file);
     return http.upload<{ url: string }>('/users/avatar', formData);
   },
+
+  /**
+   * 获取头像历史列表
+   */
+  getAvatarHistory: () =>
+    http.get<UserAvatarHistory[]>('/users/avatar/history'),
+
+  /**
+   * 将历史中的某张设为当前头像
+   */
+  useAvatar: (historyId: number) =>
+    http.post('/users/avatar/use', { history_id: historyId }),
+
+  /**
+   * 删除一条头像历史
+   */
+  deleteAvatarHistory: (id: number) =>
+    http.delete(`/users/avatar/history/${id}`),
 };

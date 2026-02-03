@@ -12,6 +12,9 @@ type UserRepository interface {
 	// FindByID 根据ID查找用户
 	FindByID(id uint) (*entity.User, error)
 
+	// FindByUserNo 根据用户编号查找用户（随机 ID 唯一性校验）
+	FindByUserNo(userNo int64) (*entity.User, error)
+
 	// FindByUsername 根据用户名查找用户
 	FindByUsername(username string) (*entity.User, error)
 

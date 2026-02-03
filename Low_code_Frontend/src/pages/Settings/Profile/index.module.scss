@@ -194,6 +194,7 @@
   cursor: pointer;
   padding: 2px 0;
   border-radius: 2px;
+
   &:hover {
     color: var(--color-primary);
     text-decoration: underline;
@@ -219,6 +220,7 @@
     margin-bottom: 12px;
     text-align: left;
   }
+
   :global(.ant-form-item:last-child) {
     margin-bottom: 0;
     text-align: center;
@@ -230,9 +232,116 @@
     font-size: 13px;
     padding: 2px 11px;
   }
+
   :global(.ant-btn) {
     height: 28px;
     padding: 0 11px;
     font-size: 13px;
+  }
+}
+
+/* 头像历史整块：与下方「用户名」之间始终有一条分隔线（收起/展开都有） */
+.avatarHistorySection {
+  margin-top: 24px;
+  padding-bottom: 0;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.avatarHistoryCollapse {
+  background: transparent !important;
+  border: none !important;
+
+  :global(.ant-collapse),
+  :global(.ant-collapse-item),
+  :global(.ant-collapse-item)::before,
+  :global(.ant-collapse-item)::after {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+  }
+
+  :global(.ant-collapse-header),
+  :global(.ant-collapse-header)::before,
+  :global(.ant-collapse-header)::after {
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+  }
+
+  :global(.ant-collapse-header) {
+    align-items: center;
+    padding: 12px 0 !important;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  :global(.ant-collapse-content),
+  :global(.ant-collapse-content-box) {
+    border: none !important;
+    border-top: none !important;
+    padding: 0 0 12px 0 !important;
+  }
+
+  :global(.ant-collapse-arrow) {
+    color: var(--text-secondary);
+  }
+}
+
+.collapseArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.collapseLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.collapseCount {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.avatarHistoryEmpty {
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.avatarHistoryGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.avatarHistoryItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+
+  .avatarHistoryThumb {
+    flex-shrink: 0;
+  }
+
+  .avatarHistoryActions {
+    display: flex;
+    gap: 6px;
   }
 }

@@ -628,6 +628,7 @@
     "unknownUser": "未知用户",
     "username": "用户名",
     "email": "邮箱",
+    "userNo": "用户编号",
     "phone": "手机号",
     "role": "角色",
     "accountStatus": "账号状态",
