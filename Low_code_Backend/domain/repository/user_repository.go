@@ -2,12 +2,17 @@ package repository
 
 import (
 	"yaolight-workshop/backend/domain/entity"
+
+	"gorm.io/gorm"
 )
 
 // UserRepository 用户仓储接口
 type UserRepository interface {
 	// Create 创建用户
 	Create(user *entity.User) error
+
+	// CreateWithDB 在指定 DB（如事务 tx）中创建用户，用于事务内写入
+	CreateWithDB(db *gorm.DB, user *entity.User) error
 
 	// FindByID 根据ID查找用户
 	FindByID(id uint) (*entity.User, error)
@@ -38,4 +43,7 @@ type UserRepository interface {
 
 	// DeductTokens 扣除用户Token
 	DeductTokens(userID uint, amount int64) error
+
+	// DeductTokensWithDB 在指定 DB（如事务 tx）中扣除用户 Token，用于事务内扣费+写流水
+	DeductTokensWithDB(db *gorm.DB, userID uint, amount int64) error
 }

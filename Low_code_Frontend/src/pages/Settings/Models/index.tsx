@@ -273,7 +273,7 @@ export default function ModelProviders() {
               <div className={styles.nameRow}>
                 <span className={styles.name}>{template.name}</span>
                 {isSystemConfigured && (
-                  <Tag color="gold" size="small" size="small" style={{ marginLeft: '8px', borderRadius: '4px', fontSize: '10px' }}>
+                  <Tag color="gold" size="small" style={{ marginLeft: '8px', borderRadius: '4px', fontSize: '10px' }}>
                     {t('workflowEditor.ai.systemPreset')}
                   </Tag>
                 )}
