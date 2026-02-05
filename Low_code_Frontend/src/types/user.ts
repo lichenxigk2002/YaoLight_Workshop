@@ -49,6 +49,27 @@ export interface TokenTransaction {
   created_at: string;
 }
 
+/** 账单周期：日 / 月 / 季 / 年 */
+export type BillPeriod = 'day' | 'month' | 'quarter' | 'year';
+
+/** 账单汇总请求参数 */
+export interface BillSummaryParams {
+  period: BillPeriod;
+  year: number;
+  month?: number; // 1-12 月；quarter 时为 1-4 表示第几季
+  day?: number;   // 1-31，period=day 时必填
+}
+
+/** 账单汇总响应 */
+export interface BillSummary {
+  period: BillPeriod;
+  start_at: string;
+  end_at: string;
+  total_income: number;
+  total_expense: number;
+  transaction_count: number;
+}
+
 /**
  * 登录请求
  */

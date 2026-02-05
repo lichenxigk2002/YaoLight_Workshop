@@ -36,7 +36,7 @@
       background: transparent;
     }
 
-    .ant-table-thead > tr > th {
+    .ant-table-thead>tr>th {
       background: #f9f9f9;
       color: #666;
       font-weight: 600;
@@ -49,24 +49,131 @@
       }
     }
 
-    .ant-table-tbody > tr > td {
+    .ant-table-tbody>tr>td {
       border-bottom: 1px solid #f0f0f0;
-      
+
       [data-theme='dark'] & {
         border-bottom-color: rgba(255, 255, 255, 0.05);
         color: #fff;
-        
+
         &:hover {
           background: rgba(255, 255, 255, 0.05) !important;
         }
       }
     }
 
-    .ant-table-tbody > tr:hover > td {
+    .ant-table-tbody>tr:hover>td {
       background: #fafafa !important;
+
       [data-theme='dark'] & {
         background: rgba(255, 255, 255, 0.08) !important;
       }
+    }
+  }
+
+  .filterHint {
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #666;
+
+    [data-theme='dark'] & {
+      color: #999;
+    }
+
+    a {
+      margin-left: 8px;
+    }
+  }
+
+  .billPeriodBar {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .billPeriodLabel {
+      font-weight: 500;
+      color: #333;
+
+      [data-theme='dark'] & {
+        color: #ccc;
+      }
+    }
+  }
+
+  .billSummaryGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .billSummaryCard {
+    text-align: center;
+    min-height: 80px;
+
+    :global(.ant-card-body) {
+      padding: 16px;
+    }
+  }
+
+  .billSummaryLabel {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+
+    [data-theme='dark'] & {
+      color: #999;
+    }
+  }
+
+  .billSummaryValue {
+    font-size: 20px;
+    font-weight: 600;
+
+    [data-theme='dark'] & {
+      color: #fff;
+    }
+  }
+
+  .billSummaryValueIncome {
+    font-size: 20px;
+    font-weight: 600;
+    color: #52c41a;
+  }
+
+  .billSummaryValueExpense {
+    font-size: 20px;
+    font-weight: 600;
+    color: #ff4d4f;
+  }
+
+  .billRange {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 12px;
+
+    [data-theme='dark'] & {
+      color: #666;
+    }
+  }
+
+  .billActions {
+    display: block;
+    margin-top: 8px;
+  }
+
+  .viewTransactionsLink {
+    display: inline-block;
+  }
+
+  .billEmpty {
+    color: #999;
+    text-align: center;
+    padding: 24px;
+
+    [data-theme='dark'] & {
+      color: #666;
     }
   }
 }
