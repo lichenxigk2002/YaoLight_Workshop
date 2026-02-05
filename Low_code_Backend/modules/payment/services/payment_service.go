@@ -20,11 +20,13 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/database"
 	paymentModels "yaolight-workshop/backend/modules/payment/models"
 	"yaolight-workshop/backend/modules/payment/repositories"
+	userModels "yaolight-workshop/backend/modules/user/models"
 	userRepos "yaolight-workshop/backend/modules/user/repositories"
 )
 
@@ -62,9 +64,9 @@ type CreateOrderRequest struct {
 
 // CreateOrderResponse 创建订单响应
 type CreateOrderResponse struct {
-	OrderID string  `json:"orderId"`           // 订单号
-	PayURL  *string `json:"payUrl,omitempty"`  // PC支付跳转链接
-	QRCode  *string `json:"qrCode,omitempty"`  // 扫码支付二维码
+	OrderID string  `json:"orderId"`          // 订单号
+	PayURL  *string `json:"payUrl,omitempty"` // PC支付跳转链接
+	QRCode  *string `json:"qrCode,omitempty"` // 扫码支付二维码
 }
 
 // CreateOrder 创建支付订单
@@ -151,7 +153,7 @@ func (s *PaymentService) generateAlipayPayment(order *paymentModels.Order) (*str
 	log.Println("=== 开始生成支付宝支付链接 ===")
 	log.Printf("订单号: %s", order.OrderID)
 	log.Printf("支付方式: %s", order.PaymentMethod)
-	
+
 	// 检查配置
 	if config.AlipayAppID == "" {
 		log.Println("❌ 错误: 支付宝APPID未配置")
@@ -161,11 +163,11 @@ func (s *PaymentService) generateAlipayPayment(order *paymentModels.Order) (*str
 		log.Println("❌ 错误: 支付宝私钥未配置")
 		return nil, nil, errors.New("支付宝私钥未配置，请检查 ALIPAY_PRIVATE_KEY 环境变量")
 	}
-	
+
 	log.Printf("✅ 配置检查通过")
 	log.Printf("APP_ID: %s", config.AlipayAppID)
 	log.Printf("私钥长度: %d 字符", len(config.AlipayPrivateKey))
-	
+
 	// 检查必要的配置
 	if config.AlipayNotifyURL == "" {
 		log.Printf("⚠️  警告: ALIPAY_NOTIFY_URL 未配置，支付回调可能失败")
@@ -258,34 +260,34 @@ func (s *PaymentService) callAlipayPrecreateAPI(params map[string]string, gatewa
 	// 构建请求体（form-data格式）
 	queryString := s.buildQueryString(params)
 	log.Printf("请求参数: %s", queryString)
-	
+
 	// 创建HTTP请求
 	req, err := http.NewRequest("POST", gateway, bytes.NewBufferString(queryString))
 	if err != nil {
 		return "", fmt.Errorf("创建请求失败: %w", err)
 	}
-	
+
 	// 设置请求头
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
-	
+
 	// 发送请求
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 	log.Printf("发送请求到: %s", gateway)
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("发送请求失败: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// 读取响应
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("读取响应失败: %w", err)
 	}
-	
+
 	log.Printf("响应状态码: %d", resp.StatusCode)
 	log.Printf("响应内容长度: %d 字节", len(body))
 	if len(body) > 500 {
@@ -293,23 +295,23 @@ func (s *PaymentService) callAlipayPrecreateAPI(params map[string]string, gatewa
 	} else {
 		log.Printf("响应内容: %s", string(body))
 	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("支付宝API返回错误状态码: %d, 响应: %s", resp.StatusCode, string(body))
 	}
-	
+
 	// 解析响应（支付宝返回的是JSON格式）
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return "", fmt.Errorf("解析响应JSON失败: %w, 响应内容: %s", err, string(body))
 	}
-	
+
 	// 提取响应数据
 	precreateResponse, ok := result["alipay_trade_precreate_response"].(map[string]interface{})
 	if !ok {
 		return "", fmt.Errorf("响应格式错误，未找到 alipay_trade_precreate_response，完整响应: %+v", result)
 	}
-	
+
 	// 检查是否有错误
 	if code, ok := precreateResponse["code"].(string); ok && code != "10000" {
 		msg := precreateResponse["msg"].(string)
@@ -319,19 +321,19 @@ func (s *PaymentService) callAlipayPrecreateAPI(params map[string]string, gatewa
 		}
 		return "", fmt.Errorf("支付宝API返回错误: code=%s, msg=%s, sub_msg=%s", code, msg, subMsg)
 	}
-	
+
 	// 获取二维码
 	qrCode, ok := precreateResponse["qr_code"].(string)
 	if !ok || qrCode == "" {
 		log.Printf("❌ 响应中未找到二维码，完整响应: %+v", precreateResponse)
 		return "", fmt.Errorf("响应中未找到二维码，响应: %+v", precreateResponse)
 	}
-	
+
 	// 验证二维码URL格式
 	if !strings.HasPrefix(qrCode, "http://") && !strings.HasPrefix(qrCode, "https://") {
 		log.Printf("⚠️  警告：二维码格式可能不正确: %s", qrCode)
 	}
-	
+
 	log.Printf("✅ 成功提取二维码: %s", qrCode)
 	log.Printf("📝 提示：支付宝二维码通常有2-5分钟有效期，请尽快扫码支付")
 	return qrCode, nil
@@ -403,10 +405,10 @@ func filterBase64Chars(s string) string {
 	var result strings.Builder
 	for _, r := range s {
 		// Base64有效字符: A-Z, a-z, 0-9, +, /, =
-		if (r >= 'A' && r <= 'Z') || 
-		   (r >= 'a' && r <= 'z') || 
-		   (r >= '0' && r <= '9') || 
-		   r == '+' || r == '/' || r == '=' {
+		if (r >= 'A' && r <= 'Z') ||
+			(r >= 'a' && r <= 'z') ||
+			(r >= '0' && r <= '9') ||
+			r == '+' || r == '/' || r == '=' {
 			result.WriteRune(r)
 		}
 	}
@@ -417,7 +419,7 @@ func filterBase64Chars(s string) string {
 func (s *PaymentService) parsePrivateKey(keyStr string) (*rsa.PrivateKey, error) {
 	log.Println("🔍 [DEBUG] 开始解析私钥...")
 	log.Printf("🔍 [DEBUG] 私钥原始长度: %d 字符", len(keyStr))
-	
+
 	if keyStr == "" {
 		log.Println("❌ [DEBUG] 私钥为空")
 		return nil, errors.New("私钥为空")
@@ -437,12 +439,12 @@ func (s *PaymentService) parsePrivateKey(keyStr string) (*rsa.PrivateKey, error)
 	if keyStr != originalKeyStr {
 		log.Println("🔍 [DEBUG] 已替换 \\n 为实际换行符")
 	}
-	
+
 	// 检查是否包含 PEM 标记
 	hasBegin := strings.Contains(keyStr, "BEGIN")
 	hasEnd := strings.Contains(keyStr, "END")
 	log.Printf("🔍 [DEBUG] 包含 BEGIN 标记: %v, 包含 END 标记: %v", hasBegin, hasEnd)
-	
+
 	// 如果私钥没有包含 PEM 头尾标记，尝试添加
 	if !hasBegin {
 		log.Println("⚠️  [DEBUG] 私钥没有 BEGIN 标记，尝试添加...")
@@ -453,41 +455,41 @@ func (s *PaymentService) parsePrivateKey(keyStr string) (*rsa.PrivateKey, error)
 	// 确保换行符正确
 	keyStr = strings.ReplaceAll(keyStr, "\r\n", "\n")
 	keyStr = strings.ReplaceAll(keyStr, "\r", "\n")
-	
+
 	// 检查换行符数量
 	newlineCount := strings.Count(keyStr, "\n")
 	log.Printf("🔍 [DEBUG] 私钥中的换行符数量: %d", newlineCount)
-	
+
 	// 如果换行符太少，说明私钥内容可能被压缩成一行了，需要重新格式化
 	if hasBegin && hasEnd && newlineCount < 5 {
 		log.Println("⚠️  [DEBUG] 检测到私钥内容缺少换行符，尝试重新格式化...")
 		log.Printf("🔍 [DEBUG] 当前换行符数量: %d (正常应该>20)", newlineCount)
-		
+
 		// 提取私钥内容部分（去掉BEGIN和END标记）
 		beginMarker := "-----BEGIN PRIVATE KEY-----"
 		endMarker := "-----END PRIVATE KEY-----"
 		beginIdx := strings.Index(keyStr, beginMarker)
 		endIdx := strings.Index(keyStr, endMarker)
-		
+
 		if beginIdx >= 0 && endIdx > beginIdx {
 			// 提取内容部分
 			contentStart := beginIdx + len(beginMarker)
 			contentEnd := endIdx
 			content := strings.TrimSpace(keyStr[contentStart:contentEnd])
-			
+
 			log.Printf("🔍 [DEBUG] 提取的原始内容长度: %d 字符", len(content))
-			
+
 			// 移除所有空白字符（包括换行符和空格）
 			originalContent := content
 			content = strings.ReplaceAll(content, "\n", "")
 			content = strings.ReplaceAll(content, " ", "")
 			content = strings.ReplaceAll(content, "\r", "")
 			content = strings.ReplaceAll(content, "\t", "")
-			
+
 			if len(content) != len(originalContent) {
 				log.Printf("🔍 [DEBUG] 已移除空白字符，清理后长度: %d 字符 (移除了 %d 个字符)", len(content), len(originalContent)-len(content))
 			}
-			
+
 			// 过滤掉所有非Base64字符
 			beforeFilter := content
 			content = filterBase64Chars(content)
@@ -504,7 +506,7 @@ func (s *PaymentService) parsePrivateKey(keyStr string) (*rsa.PrivateKey, error)
 					log.Printf("🔍 [DEBUG] 被移除的非法字符: %v", removedChars)
 				}
 			}
-			
+
 			// 验证是否为有效的Base64字符串
 			if _, err := base64.StdEncoding.DecodeString(content); err != nil {
 				log.Printf("⚠️  [DEBUG] 警告：内容不是有效的Base64字符串: %v", err)
@@ -523,7 +525,7 @@ func (s *PaymentService) parsePrivateKey(keyStr string) (*rsa.PrivateKey, error)
 			} else {
 				log.Printf("✅ [DEBUG] 内容验证：是有效的Base64字符串")
 			}
-			
+
 			// 每64个字符一行重新格式化
 			var formattedContent strings.Builder
 			lineCount := 0
@@ -538,9 +540,9 @@ func (s *PaymentService) parsePrivateKey(keyStr string) (*rsa.PrivateKey, error)
 				formattedContent.WriteString(content[i:end])
 				lineCount++
 			}
-			
+
 			log.Printf("🔍 [DEBUG] 重新格式化为 %d 行 (每行64字符)", lineCount)
-			
+
 			// 重新组装PEM格式
 			keyStr = beginMarker + "\n" + formattedContent.String() + "\n" + endMarker
 			newlineCount = strings.Count(keyStr, "\n")
@@ -563,20 +565,20 @@ func (s *PaymentService) parsePrivateKey(keyStr string) (*rsa.PrivateKey, error)
 		trimmedKey = strings.TrimPrefix(trimmedKey, "-----BEGIN RSA PRIVATE KEY-----")
 		trimmedKey = strings.TrimSuffix(trimmedKey, "-----END RSA PRIVATE KEY-----")
 		trimmedKey = strings.TrimSpace(trimmedKey)
-		
+
 		// 移除所有空白字符
 		trimmedKey = strings.ReplaceAll(trimmedKey, "\n", "")
 		trimmedKey = strings.ReplaceAll(trimmedKey, " ", "")
 		trimmedKey = strings.ReplaceAll(trimmedKey, "\r", "")
 		trimmedKey = strings.ReplaceAll(trimmedKey, "\t", "")
-		
+
 		// 过滤掉所有非Base64字符
 		beforeFilter := trimmedKey
 		trimmedKey = filterBase64Chars(trimmedKey)
 		if len(trimmedKey) != len(beforeFilter) {
 			log.Printf("🔍 [DEBUG] 已过滤非Base64字符，过滤后长度: %d 字符 (移除了 %d 个非法字符)", len(trimmedKey), len(beforeFilter)-len(trimmedKey))
 		}
-		
+
 		log.Printf("🔍 [DEBUG] 尝试 Base64 解码，清理后长度: %d", len(trimmedKey))
 		keyBytes, err := base64.StdEncoding.DecodeString(trimmedKey)
 		if err == nil {
@@ -624,15 +626,15 @@ func (s *PaymentService) parsePrivateKey(keyStr string) (*rsa.PrivateKey, error)
 				}
 			}
 		}
-		
+
 		log.Println("❌ [DEBUG] 所有解析方式都失败")
 		return nil, errors.New("私钥格式错误：无法解析PEM格式，请确保私钥包含 -----BEGIN PRIVATE KEY----- 和 -----END PRIVATE KEY-----")
 	}
-	
+
 	if len(rest) > 0 {
 		log.Printf("⚠️  [DEBUG] PEM 解码后有剩余数据，长度: %d", len(rest))
 	}
-	
+
 	log.Printf("🔍 [DEBUG] PEM Block Type: %s", block.Type)
 	log.Printf("🔍 [DEBUG] PEM Block 字节长度: %d", len(block.Bytes))
 
@@ -736,28 +738,27 @@ func (s *PaymentService) HandleAlipayNotify(params map[string]string) error {
 		return fmt.Errorf("交易状态异常: %s", tradeStatus)
 	}
 
-	// 7. 更新订单状态
+	// 7. 在事务中更新订单状态 + 增加用户星尘余额，保证原子性（流水可后续补）
 	now := time.Now()
 	order.Status = paymentModels.OrderStatusPaid
 	order.PaidAt = &now
 	order.AlipayTradeNo = params["trade_no"]
 
-	if err := s.orderRepo.Update(order); err != nil {
-		return fmt.Errorf("更新订单失败: %w", err)
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(order).Error; err != nil {
+			return fmt.Errorf("更新订单失败: %w", err)
+		}
+		if err := tx.Model(&userModels.User{}).
+			Where("id = ?", order.UserID).
+			Update("token_balance", gorm.Expr("token_balance + ?", order.Stardust)).Error; err != nil {
+			return fmt.Errorf("更新用户余额失败: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
-	// 8. 增加用户星尘余额
-	user, err := s.userRepo.FindByID(order.UserID)
-	if err != nil {
-		return fmt.Errorf("用户不存在: %w", err)
-	}
-
-	user.TokenBalance += order.Stardust
-	if err := s.userRepo.Update(user); err != nil {
-		return fmt.Errorf("更新用户余额失败: %w", err)
-	}
-
-	// 9. 记录交易流水（可选）
+	// 9. 记录交易流水（可选，后续实现时可一并放入上方事务）
 	// TODO: 创建 TokenTransaction 记录
 
 	log.Printf("订单 %s 支付成功，用户 %d 增加 %d 星尘", orderID, order.UserID, order.Stardust)
@@ -846,4 +847,3 @@ func (s *PaymentService) parsePublicKey(keyStr string) (*rsa.PublicKey, error) {
 
 	return rsaKey, nil
 }
-

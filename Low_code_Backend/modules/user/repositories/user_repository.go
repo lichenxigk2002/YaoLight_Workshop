@@ -79,6 +79,18 @@ func (r *userRepository) Create(user *entity.User) error {
 	return nil
 }
 
+// CreateWithDB 在指定 DB（如事务 tx）中创建用户
+func (r *userRepository) CreateWithDB(db *gorm.DB, user *entity.User) error {
+	model := toPersistenceEntity(user)
+	if err := db.Create(model).Error; err != nil {
+		return err
+	}
+	user.ID = model.ID
+	user.CreatedAt = model.CreatedAt
+	user.UpdatedAt = model.UpdatedAt
+	return nil
+}
+
 // FindByID 根据ID查找用户
 func (r *userRepository) FindByID(id uint) (*entity.User, error) {
 	var model models.User
@@ -156,4 +168,9 @@ func (r *userRepository) Delete(id uint) error {
 // DeductTokens 扣除用户Token
 func (r *userRepository) DeductTokens(userID uint, amount int64) error {
 	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("token_balance", gorm.Expr("token_balance - ?", amount)).Error
+}
+
+// DeductTokensWithDB 在指定 DB（如事务 tx）中扣除用户 Token
+func (r *userRepository) DeductTokensWithDB(db *gorm.DB, userID uint, amount int64) error {
+	return db.Model(&models.User{}).Where("id = ?", userID).Update("token_balance", gorm.Expr("token_balance - ?", amount)).Error
 }

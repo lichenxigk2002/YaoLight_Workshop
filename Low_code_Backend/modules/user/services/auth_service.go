@@ -21,9 +21,9 @@ import (
 	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/email"
-	"yaolight-workshop/backend/infrastructure/storage"
 	"yaolight-workshop/backend/infrastructure/jwt"
 	"yaolight-workshop/backend/infrastructure/shared"
+	"yaolight-workshop/backend/infrastructure/storage"
 	userModels "yaolight-workshop/backend/modules/user/models"
 	"yaolight-workshop/backend/modules/user/repositories"
 )
@@ -42,11 +42,11 @@ var (
 
 // AuthService 认证服务
 type AuthService struct {
-	userRepo            repository.UserRepository
-	oauthBindingRepo    *repositories.OAuthBindingRepository
-	avatarHistoryRepo   *repositories.AvatarHistoryRepository
-	emailService        *email.EmailService
-	verifyCache         cache.VerificationCacheInterface
+	userRepo          repository.UserRepository
+	oauthBindingRepo  *repositories.OAuthBindingRepository
+	avatarHistoryRepo *repositories.AvatarHistoryRepository
+	emailService      *email.EmailService
+	verifyCache       cache.VerificationCacheInterface
 }
 
 // NewAuthService 创建认证服务
@@ -57,8 +57,8 @@ func NewAuthService(userRepo repository.UserRepository, oauthBindingRepo *reposi
 		userRepo:          userRepo,
 		oauthBindingRepo:  oauthBindingRepo,
 		avatarHistoryRepo: avatarHistoryRepo,
-		emailService:     email.NewEmailService(),
-		verifyCache:      cache.GetVerificationCacheService(useRedis),
+		emailService:      email.NewEmailService(),
+		verifyCache:       cache.GetVerificationCacheService(useRedis),
 	}
 }
 
@@ -131,27 +131,28 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 		user.Phone = &req.Phone
 	}
 
-	// 通过仓储创建用户
-	if err := s.userRepo.Create(user); err != nil {
+	// 在事务中创建用户 + 注册赠送流水，保证原子性
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := s.userRepo.CreateWithDB(tx, user); err != nil {
+			return err
+		}
+		transaction := userModels.TokenTransaction{
+			UserID:      user.ID,
+			Amount:      registerBonusStardust,
+			Type:        "bonus",
+			RelatedID:   fmt.Sprintf("register_%d", user.ID),
+			Description: "注册赠送200万星尘",
+			Cost:        0,
+			Currency:    "CNY",
+		}
+		if err := tx.Create(&transaction).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	// 记录注册赠送星尘的流水
-	transaction := userModels.TokenTransaction{
-		UserID:      user.ID,
-		Amount:      registerBonusStardust, // 增加星尘
-		Type:        "bonus",               // 类型：奖励/赠送
-		RelatedID:   fmt.Sprintf("register_%d", user.ID),
-		Description: "注册赠送200万星尘",
-		Cost:        0, // 赠送无费用
-		Currency:    "CNY",
-	}
-	if err := database.DB.Create(&transaction).Error; err != nil {
-		// 记录流水失败不影响注册流程，只记录日志
-		log.Printf("⚠️ Failed to create register bonus transaction for user %d: %v", user.ID, err)
-	} else {
-		log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus", user.ID, user.Username)
-	}
+	log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus", user.ID, user.Username)
 
 	// 转换为持久化实体返回（保持向后兼容）
 	return toPersistenceModel(user), nil

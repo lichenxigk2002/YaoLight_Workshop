@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/shared"
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
@@ -393,25 +394,13 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 						equivalentTokens = int64(usage.TotalTokens) // 计算失败时使用实际Token数
 					}
 
-					// 扣除用户星尘余额（等效Token数）
-					deductErr := e.userRepo.DeductTokens(userID, equivalentTokens)
-					if deductErr != nil {
-						log.Printf("[%s] Token deduction failed for user %d: %v", nodeID, userID, deductErr)
-					} else {
-						log.Printf("[%s] Deducted %d stardust (equivalent tokens) for user %d, actual tokens: %d, provider: %s, model: %s",
-							nodeID, equivalentTokens, usage.TotalTokens, userID, modelConfig.Provider, modelConfig.ModelName)
-					}
-
-					// 计算费用（仅用于记录，不影响扣费）
+					// 计算费用（仅用于记录）
 					cost, err := e.pricingService.CalculateCost(usage, modelConfig.Provider, modelConfig.ModelName)
 					if err != nil {
 						log.Printf("[%s] Failed to calculate cost: %v", nodeID, err)
 						cost = 0
 					}
-					// 从数据库获取货币单位（USD或CNY）
 					currency := e.pricingService.GetCurrency(modelConfig.Provider, modelConfig.ModelName)
-
-					// 提取扩展Token信息
 					var cacheRead, cacheWrite, audio int
 					if usage.CacheReadTokens != nil {
 						cacheRead = *usage.CacheReadTokens
@@ -425,7 +414,7 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 
 					transaction := userModels.TokenTransaction{
 						UserID:           userID,
-						Amount:           -equivalentTokens, // 扣除等效Token数（星尘）
+						Amount:           -equivalentTokens,
 						Type:             "consumption",
 						RelatedID:        nodeID,
 						Description:      "AI节点消耗（系统预设模型）",
@@ -435,18 +424,23 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 						ModelID:          billingModelID,
 						PromptTokens:     usage.PromptTokens,
 						CompletionTokens: usage.CompletionTokens,
-						TotalTokens:      usage.TotalTokens, // 实际Token数用于记录
+						TotalTokens:      usage.TotalTokens,
 						CacheReadTokens:  cacheRead,
 						CacheWriteTokens: cacheWrite,
 						AudioTokens:      audio,
-						Cost:             cost, // 费用仅用于记录
+						Cost:             cost,
 						Currency:         currency,
 					}
-					if createErr := database.DB.Create(&transaction).Error; createErr != nil {
-						log.Printf("[%s] Create token transaction failed for user %d: %v", nodeID, userID, createErr)
+					if err := database.DB.Transaction(func(tx *gorm.DB) error {
+						if err := e.userRepo.DeductTokensWithDB(tx, userID, equivalentTokens); err != nil {
+							return err
+						}
+						return tx.Create(&transaction).Error
+					}); err != nil {
+						log.Printf("[%s] Token deduction/transaction failed for user %d: %v", nodeID, userID, err)
 					} else {
-						log.Printf("[%s] Token transaction created successfully: provider=%s, tokens=%d, cost=%f",
-							nodeID, modelConfig.Provider, usage.TotalTokens, cost)
+						log.Printf("[%s] Deducted %d stardust (equivalent tokens) for user %d, actual tokens: %d, provider: %s, model: %s",
+							nodeID, equivalentTokens, usage.TotalTokens, userID, modelConfig.Provider, modelConfig.ModelName)
 					}
 				} else {
 					// saved或custom模式：使用用户自己的API Key，只记录使用量，不扣费不扣token
@@ -602,32 +596,18 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 
 			// **计费逻辑**：只有system模式才扣费和扣除token余额
 			if modelMode == "system" {
-				// 使用 PricingService 计算等效Token数（星尘消耗）
 				equivalentTokens, err := e.pricingService.CalculateEquivalentTokens(usage, modelConfig.Provider, modelConfig.ModelName)
 				if err != nil {
 					log.Printf("[%s] Failed to calculate equivalent tokens: %v, using actual tokens", nodeID, err)
 					equivalentTokens = int64(usage.TotalTokens)
 				}
 
-				// 扣除用户星尘余额（等效Token数）
-				deductErr := e.userRepo.DeductTokens(userID, equivalentTokens)
-				if deductErr != nil {
-					log.Printf("[%s] Token deduction failed for user %d: %v", nodeID, userID, deductErr)
-				} else {
-					log.Printf("[%s] Deducted %d stardust (equivalent tokens) for user %d, actual tokens: %d, provider: %s, model: %s",
-						nodeID, equivalentTokens, usage.TotalTokens, userID, modelConfig.Provider, modelConfig.ModelName)
-				}
-
-				// 计算费用（仅用于记录）
 				cost, err := e.pricingService.CalculateCost(usage, modelConfig.Provider, modelConfig.ModelName)
 				if err != nil {
 					log.Printf("[%s] Failed to calculate cost: %v", nodeID, err)
 					cost = 0
 				}
-				// 从数据库获取货币单位（USD或CNY）
 				currency := e.pricingService.GetCurrency(modelConfig.Provider, modelConfig.ModelName)
-
-				// 提取扩展Token信息
 				var cacheRead, cacheWrite, audio int
 				if usage.CacheReadTokens != nil {
 					cacheRead = *usage.CacheReadTokens
@@ -641,7 +621,7 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 
 				transaction := userModels.TokenTransaction{
 					UserID:           userID,
-					Amount:           -equivalentTokens, // 扣除等效Token数（星尘）
+					Amount:           -equivalentTokens,
 					Type:             "consumption",
 					RelatedID:        nodeID,
 					Description:      "AI节点消耗（系统预设模型）",
@@ -651,15 +631,23 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 					ModelID:          billingModelID,
 					PromptTokens:     usage.PromptTokens,
 					CompletionTokens: usage.CompletionTokens,
-					TotalTokens:      usage.TotalTokens, // 实际Token数用于记录
+					TotalTokens:      usage.TotalTokens,
 					CacheReadTokens:  cacheRead,
 					CacheWriteTokens: cacheWrite,
 					AudioTokens:      audio,
-					Cost:             cost, // 费用仅用于记录
+					Cost:             cost,
 					Currency:         currency,
 				}
-				if createErr := database.DB.Create(&transaction).Error; createErr != nil {
-					log.Printf("[%s] Create token transaction failed for user %d: %v", nodeID, userID, createErr)
+				if err := database.DB.Transaction(func(tx *gorm.DB) error {
+					if err := e.userRepo.DeductTokensWithDB(tx, userID, equivalentTokens); err != nil {
+						return err
+					}
+					return tx.Create(&transaction).Error
+				}); err != nil {
+					log.Printf("[%s] Token deduction/transaction failed for user %d: %v", nodeID, userID, err)
+				} else {
+					log.Printf("[%s] Deducted %d stardust (equivalent tokens) for user %d, actual tokens: %d, provider: %s, model: %s",
+						nodeID, equivalentTokens, usage.TotalTokens, userID, modelConfig.Provider, modelConfig.ModelName)
 				}
 			} else {
 				// saved或custom模式：使用用户自己的API Key，只记录使用量，不扣费不扣token
