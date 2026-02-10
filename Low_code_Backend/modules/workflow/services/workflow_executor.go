@@ -66,10 +66,11 @@ func NewWorkflowExecutor() *WorkflowExecutor {
 	templateRepo := aiRepos.NewProviderTemplateRepository(database.DB)
 	userRepo := userRepos.NewUserRepository(database.DB)
 	pricingRepo := aiRepos.NewPricingConfigRepository(database.DB)
+	capabilityRepo := aiRepos.NewCapabilityConfigRepository(database.DB)
 	return &WorkflowExecutor{
 		crawlerService:   crawlerService.NewCrawlerService(),
 		datacleanService: datacleanService.NewDataCleanService(),
-		aiService:        aiService.NewAIService(modelRepo, templateRepo, pricingRepo),
+		aiService:        aiService.NewAIService(modelRepo, templateRepo, pricingRepo, capabilityRepo),
 		userRepo:         userRepo,
 		pricingService:   aiService.NewPricingService(pricingRepo),
 	}

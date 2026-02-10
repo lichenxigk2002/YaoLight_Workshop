@@ -4,6 +4,8 @@ import type {
   User,
   UserAvatarHistory,
   TokenTransaction,
+  BillSummary,
+  BillSummaryParams,
   LoginRequest,
   LoginResponse,
   RegisterRequest,
@@ -121,8 +123,36 @@ export const userApi = {
   updateNotificationPreferences: (prefs: Record<string, boolean>) =>
     http.put('/users/notification-preferences', prefs),
 
-  getTokenTransactions: (params?: { page?: number; pageSize?: number }) =>
+  /** 流水：分页，可选时间范围 */
+  getTokenTransactions: (params?: {
+    page?: number;
+    pageSize?: number;
+    start_date?: string; // YYYY-MM-DD
+    end_date?: string;   // YYYY-MM-DD
+  }) =>
     http.get<{ list: TokenTransaction[]; total: number; page: number; pageSize: number }>('/users/token-transactions', params),
+
+  /** 账单汇总：按日/月/季/年 */
+  getBillSummary: (params: BillSummaryParams) => {
+    const query: Record<string, string | number> = {
+      period: params.period,
+      year: params.year,
+    };
+    if (params.month != null) query.month = params.month;
+    if (params.day != null) query.day = params.day;
+    return http.get<BillSummary>('/users/bills/summary', query);
+  },
+
+  /** 导出账单 PDF：按当前周期，触发浏览器下载 */
+  exportBillPDF: (params: BillSummaryParams) => {
+    const query: Record<string, string | number> = {
+      period: params.period,
+      year: params.year,
+    };
+    if (params.month != null) query.month = params.month;
+    if (params.day != null) query.day = params.day;
+    return http.download('/users/bills/export', query);
+  },
 
   /**
    * 获取用户列表（分页）

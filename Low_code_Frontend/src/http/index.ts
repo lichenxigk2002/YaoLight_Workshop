@@ -65,20 +65,21 @@ class HttpClient {
         const url = response.config?.url || '';
 
         try {
+          // 二进制下载（如 PDF）：直接返回完整 response，便于 download() 使用 data 与 headers
+          if (response.config.responseType === 'blob') {
+            return response;
+          }
+
           // 使用 StatusHandler 处理 HTTP 状态码
-          // 这会处理各种 HTTP 状态码并返回解析后的数据
           let responseData = await StatusHandler.handle(response, url);
 
           // 检查响应数据格式
-          // 如果响应数据已经是目标格式（没有包装在 ApiResponse 中），直接返回
           if (responseData && typeof responseData === 'object' && 'success' in responseData && 'results' in responseData) {
-            // 这是 ExecuteWorkflowResponse 格式，直接返回
             return responseData;
           }
 
           // 标准 ApiResponse 格式处理
           if (!responseData || typeof responseData !== 'object' || !('code' in responseData)) {
-            // 如果响应数据不是标准格式，可能是直接返回的数据
             return responseData;
           }
 

@@ -5,7 +5,7 @@ import { Node, Edge } from 'reactflow';
 import { VariableSelectField, VariableTagTextArea } from '../variables';
 import { AITooltips } from '../utils/configTooltips';
 import { aiApi } from '@/api/ai';
-import type { AIModel, SystemPresetModel, ProviderTemplate } from '@/types/ai';
+import type { AIModel, ModelCapability, SystemPresetModel, ProviderTemplate } from '@/types/ai';
 import {
   SettingOutlined,
   DatabaseOutlined,
@@ -18,6 +18,9 @@ import styles from './AINodeConfig.module.scss';
 import {
   getModelConfigSupport,
   getModelConfigKey,
+  getMaxTokensLimitFromCapability,
+  getMaxTokensLimitFallback,
+  filterProviderOptionsBySupport,
 } from './modelConfigSupport';
 // 导入 providers 以触发注册
 import '../providers';
@@ -76,7 +79,7 @@ const ModeSelector: React.FC<{
   return (
     <Segmented
       block
-      motion={false}
+      motion={undefined}
       value={value}
       onChange={onChange as any}
       className={styles.modeSegmented}
@@ -99,8 +102,58 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
   const [loading, setLoading] = useState(false);
   const form = Form.useFormInstance();
 
+  // 按需加载：当前展示的 provider+model 对应的能力（点哪个模型加载哪个，减轻负载）
+  const [currentCapability, setCurrentCapability] = useState<ModelCapability | null>(null);
+  const [capabilityKey, setCapabilityKey] = useState<string>('');
+  const capabilityCacheRef = useRef<Record<string, ModelCapability | null>>({});
+
   // 用于跟踪当前模型配置键，避免重复切换
   const currentModelConfigKeyRef = useRef<string | null>(null);
+
+  // 当前展示的 provider / modelName（用于按需拉取能力）
+  const watchedModelMode = Form.useWatch('modelMode', form) || 'system';
+  const watchedModelId = Form.useWatch('modelId', form);
+  const watchedProvider = Form.useWatch('provider', form);
+  const watchedModelName = Form.useWatch('modelName', form);
+  const activeProviderForFetch = watchedModelMode === 'saved' && watchedModelId
+    ? (userModels.find(m => m.id === watchedModelId)?.provider ?? watchedProvider)
+    : watchedProvider;
+  const activeModelNameForFetch = watchedModelMode === 'saved' && watchedModelId
+    ? (() => {
+        const m = userModels.find(m => m.id === watchedModelId);
+        return m?.modelName === '__provider_default__' ? (watchedModelName ?? '') : (m?.modelName ?? '');
+      })()
+    : (watchedModelName ?? '');
+
+  // 点哪个模型就拉取哪个模型的能力，拉完后更新 state 并触发高级参数区重渲染
+  useEffect(() => {
+    if (!activeProviderForFetch || !activeModelNameForFetch) {
+      setCapabilityKey('');
+      setCurrentCapability(null);
+      return;
+    }
+    const key = `${activeProviderForFetch}|${activeModelNameForFetch}`;
+    if (capabilityCacheRef.current[key] !== undefined) {
+      setCurrentCapability(capabilityCacheRef.current[key]);
+      setCapabilityKey(key);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AI能力] 当前展示模型（缓存）:', activeProviderForFetch, activeModelNameForFetch, capabilityCacheRef.current[key]);
+      }
+      return;
+    }
+    let cancelled = false;
+    aiApi.getModelCapability(activeProviderForFetch, activeModelNameForFetch).then((cap) => {
+      if (cancelled) return;
+      capabilityCacheRef.current[key] = cap ?? null;
+      setCurrentCapability(cap ?? null);
+      setCapabilityKey(key);
+      form.setFieldValue('_capabilityVersion', Date.now());
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AI能力] 当前展示模型（已加载）:', activeProviderForFetch, activeModelNameForFetch, cap ?? '(无能力配置)');
+      }
+    });
+    return () => { cancelled = true; };
+  }, [activeProviderForFetch, activeModelNameForFetch, form]);
 
   // 高级配置面板的展开状态
   const [advancedPanelActive, setAdvancedPanelActive] = useState<string[]>([]);
@@ -260,7 +313,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
     return opts;
   }, [systemModels]);
 
-  // 初始化加载数据
+  // 初始化加载数据（模板含 modelCapabilities，加载后需触发高级参数区重渲染）
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -270,6 +323,8 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
         ]);
         setSystemModels(models);
         setProviderTemplates(templates);
+        // 触发表单 shouldUpdate，使依赖 providerTemplates 的高级参数区用最新能力重新渲染
+        form.setFieldValue('_capabilityVersion', Date.now());
       } catch (error) { }
     };
     loadData();
@@ -354,7 +409,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                       <Form.Item label={t('node.config.ai.displayMode') || '展示方式'} className={styles.formItem}>
                         <Segmented
                           block
-                          motion={false}
+                          motion={undefined}
                           value={providerPickerMode}
                           onChange={(val) => setProviderPickerMode(val as ProviderPickerMode)}
                           className={partsStyles.segmentedControl}
@@ -492,7 +547,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                       <Form.Item label={t('node.config.ai.displayMode') || '展示方式'} className={styles.formItem}>
                         <Segmented
                           block
-                          motion={false}
+                          motion={undefined}
                           value={providerPickerMode}
                           onChange={(val) => setProviderPickerMode(val as ProviderPickerMode)}
                           className={partsStyles.segmentedControl}
@@ -904,7 +959,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                   label: t('node.config.ai.advancedParams'),
                   children: (
                     <>
-                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.modelMode !== curr?.modelMode || prev?.modelId !== curr?.modelId || prev?.provider !== curr?.provider || prev?.modelName !== curr?.modelName}>
+                      <Form.Item noStyle shouldUpdate={(prev, curr) => prev?.modelMode !== curr?.modelMode || prev?.modelId !== curr?.modelId || prev?.provider !== curr?.provider || prev?.modelName !== curr?.modelName || prev?._capabilityVersion !== curr?._capabilityVersion}>
                         {({ getFieldValue }) => {
                           const currentMode = getFieldValue('modelMode') || 'system';
                           const currentModelId = getFieldValue('modelId');
@@ -922,43 +977,40 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
 
                           const providerReg = activeProvider ? providerRegistry.get(activeProvider) : null;
 
-                          // 新架构：如果提供商定义了配置项列表，直接使用 StandardProviderConfig
+                          // 优先用按需加载的当前模型能力（点哪个模型加载哪个）；未命中时回退到模板
+                          const useFetched = capabilityKey === `${activeProvider}|${currentModelName}`;
+                          const template = activeProvider ? providerTemplates.find(t => t.provider === activeProvider) : null;
+                          const capability = useFetched ? currentCapability : (template?.modelCapabilities?.[currentModelName] ?? null);
+
+                          const maxTokensLimit = capability != null
+                            ? getMaxTokensLimitFromCapability(capability)
+                            : getMaxTokensLimitFallback(activeProvider, currentModelName);
+                          const support = getModelConfigSupport(activeProvider, capability);
+
+                          // 调试：当前展示的模型与本次用于展示的能力来源（控制台搜 [AI能力] 或 [AI能力调试]）
+                          if (process.env.NODE_ENV === 'development' && activeProvider) {
+                            console.log('[AI能力调试]', {
+                              当前展示: `${activeProvider} / ${currentModelName}`,
+                              能力来源: useFetched ? '按需加载' : '模板回退',
+                              capability: capability ?? '(无，走 provider 回退)',
+                              support: { ...support },
+                            });
+                          }
+
+                          // 新架构：如果提供商定义了配置项列表，按后端能力过滤后再渲染（数据库改 support_stream 等才会生效）
                           if (providerReg?.configuration) {
-                            return <StandardProviderConfig form={form} options={providerReg.configuration} />;
-                          }
-
-                          // 旧架构：使用硬编码逻辑 + ConfigComponent
-
-                          // 根据提供商和模型确定 maxTokens 的最大值
-                          let maxTokensLimit = 32768; // 默认值
-                          if (activeProvider === 'deepseek') {
-                            // DeepSeek 不同模型有不同的限制
-                            if (currentModelName.includes('reasoner')) {
-                              maxTokensLimit = 65536; // deepseek-reasoner 最大 64K
-                            } else {
-                              maxTokensLimit = 8192; // deepseek-chat 最大 8K
+                            const filteredOptions = filterProviderOptionsBySupport(
+                              providerReg.configuration,
+                              support,
+                              maxTokensLimit
+                            );
+                            if (process.env.NODE_ENV === 'development' && activeProvider) {
+                              console.log('[AI能力调试] 过滤后选项 type 列表', filteredOptions.map(o => o.type));
                             }
-                          } else if (activeProvider === 'doubao') {
-                            maxTokensLimit = 32768; // 豆包通常支持较大的 token 数
-                          } else if (activeProvider === 'zhipuai') {
-                            maxTokensLimit = 131072; // 智谱AI GLM-4.7/4.6 最大支持 128K
-                          } else if (activeProvider === 'claude') {
-                            maxTokensLimit = 131072; // Claude (OpenRouter) 通常支持更大的 token 数
-                          } else if (activeProvider === 'gemini') {
-                            maxTokensLimit = 32768; // Gemini 限制
-                          } else if (activeProvider === 'gpt') {
-                            maxTokensLimit = 131072; // GPT (OpenRouter) 通常支持更大的 token 数
-                          } else if (activeProvider === 'grok') {
-                            maxTokensLimit = 131072; // Grok 限制
-                          } else if (activeProvider === 'spark') {
-                            maxTokensLimit = 65535; // 讯飞星火 X1.5 最大 65535
-                          } else if (activeProvider === 'hunyuan') {
-                            maxTokensLimit = 32768;
-                          } else {
-                            maxTokensLimit = 32768; // 其他提供商默认值
+                            return <StandardProviderConfig form={form} options={filteredOptions} />;
                           }
 
-                          const support = getModelConfigSupport(activeProvider);
+                          // 旧架构：使用能力配置驱动的表单项 + ConfigComponent
 
                           return (
                             <>

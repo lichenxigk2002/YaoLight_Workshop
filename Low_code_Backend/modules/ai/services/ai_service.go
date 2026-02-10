@@ -27,6 +27,7 @@ type AIService struct {
 	modelRepo       repository.AIModelRepository
 	templateRepo    repository.ProviderTemplateRepository
 	pricingRepo     aiRepos.PricingConfigRepository
+	capabilityRepo  aiRepos.CapabilityConfigRepository
 	providerFactory *ProviderFactory
 }
 
@@ -35,11 +36,13 @@ func NewAIService(
 	modelRepo repository.AIModelRepository,
 	templateRepo repository.ProviderTemplateRepository,
 	pricingRepo aiRepos.PricingConfigRepository,
+	capabilityRepo aiRepos.CapabilityConfigRepository,
 ) *AIService {
 	return &AIService{
 		modelRepo:       modelRepo,
 		templateRepo:    templateRepo,
 		pricingRepo:     pricingRepo,
+		capabilityRepo:  capabilityRepo,
 		providerFactory: NewProviderFactory(),
 	}
 }
@@ -187,10 +190,55 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 		// 添加从数据库获取的模型列表（可能为空）
 		template["supportedModels"] = supportedModels
 
+		// 附加该 provider 下各模型的能力配置（按 model_name 索引）
+		modelCapabilities := make(map[string]map[string]interface{})
+		if s.capabilityRepo != nil {
+			caps, _ := s.capabilityRepo.FindByProvider(provider)
+			for _, c := range caps {
+				modelCapabilities[c.ModelName] = capabilityToMap(&c)
+			}
+		}
+		template["modelCapabilities"] = modelCapabilities
+
 		result = append(result, template)
 	}
 
 	return result, nil
+}
+
+// GetModelCapability 按 provider+model_name 获取能力配置，不存在时返回 nil
+func (s *AIService) GetModelCapability(provider, modelName string) map[string]interface{} {
+	if s.capabilityRepo == nil {
+		return nil
+	}
+	c, err := s.capabilityRepo.FindByProviderAndModel(provider, modelName)
+	if err != nil || c == nil {
+		return nil
+	}
+	return capabilityToMap(c)
+}
+
+// capabilityToMap 将 ModelCapabilityConfig 转为前端可用的 map
+func capabilityToMap(c *models.ModelCapabilityConfig) map[string]interface{} {
+	m := map[string]interface{}{
+		"support_temperature":       c.SupportTemperature,
+		"support_max_tokens":        c.SupportMaxTokens,
+		"support_top_p":             c.SupportTopP,
+		"support_stream":            c.SupportStream,
+		"support_thinking":          c.SupportThinking,
+		"support_thinking_level":    c.SupportThinkingLevel,
+		"support_enable_thinking":   c.SupportEnableThinking,
+		"support_frequency_penalty": c.SupportFrequencyPenalty,
+		"support_presence_penalty":  c.SupportPresencePenalty,
+		"support_stop_sequences":    c.SupportStopSequences,
+		"support_vision":            c.SupportVision,
+		"support_image_generation":  c.SupportImageGeneration,
+		"max_tokens_limit":          c.MaxTokensLimit,
+	}
+	if c.CapabilityOptions != nil && c.CapabilityOptions.Data != nil {
+		m["capability_options"] = c.CapabilityOptions.Data
+	}
+	return m
 }
 
 // GetProvider 获取提供商实例

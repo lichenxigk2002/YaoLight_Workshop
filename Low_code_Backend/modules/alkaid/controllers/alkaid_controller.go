@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	alkaidServices "yaolight-workshop/backend/modules/alkaid/services"
+	"yaolight-workshop/backend/modules/alkaid/services/agentic"
 )
 
 // AlkaidController 瑶光星控制器
@@ -429,6 +430,143 @@ func (c *AlkaidController) SendMessageStream(ctx *gin.Context) {
 	}
 }
 
+// SessionStream Agentic 流式接口：POST /alkaid/sessions/:id/stream，SSE 推送 content/phase_changed/tool_step_*/done/error
+func (c *AlkaidController) SessionStream(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code": 401, "message": "未授权", "data": nil,
+		})
+		return
+	}
+	sessionIDStr := ctx.Param("id")
+	sessionID, err := strconv.ParseUint(sessionIDStr, 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code": 400, "message": "无效的会话ID", "data": nil,
+		})
+		return
+	}
+	var body struct {
+		Message   string                 `json:"message"`
+		Interrupt bool                   `json:"interrupt"`
+		Context   map[string]interface{} `json:"context"` // 新增 context 字段
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code": 400, "message": "请求参数错误: " + err.Error(), "data": nil,
+		})
+		return
+	}
+	if body.Message == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code": 400, "message": "message 不能为空", "data": nil,
+		})
+		return
+	}
+	err = agentic.RunStream(ctx, agentic.RunStreamRequest{
+		SessionID: uint(sessionID),
+		UserID:    userID.(uint),
+		Message:   body.Message,
+		Interrupt: body.Interrupt,
+		Context:   body.Context, // 传递 context
+	})
+	if err != nil {
+		// 若尚未开始写 SSE，可返回 JSON 错误；否则 RunStream 内部已写 error 事件
+		if ctx.Writer.Written() {
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500, "message": "流式处理失败: " + err.Error(), "data": nil,
+		})
+	}
+}
+
+// ApplyWorkflow 将会话的 pendingWorkflow 应用到画布
+func (c *AlkaidController) ApplyWorkflow(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var body struct {
+		SessionID  uint `json:"sessionId"`
+		WorkflowID uint `json:"workflowId"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	if body.SessionID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "sessionId 必填", "data": nil})
+		return
+	}
+	if err := agentic.ApplyWorkflow(agentic.ApplyWorkflowRequest{
+		SessionID: body.SessionID, UserID: userID.(uint), WorkflowID: body.WorkflowID,
+	}); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已应用到画布", "data": nil})
+}
+
+// ApplyPatch 将会话的 pendingPatch 应用到画布
+func (c *AlkaidController) ApplyPatch(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var body struct {
+		SessionID  uint `json:"sessionId"`
+		WorkflowID uint `json:"workflowId"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	if body.SessionID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "sessionId 必填", "data": nil})
+		return
+	}
+	if err := agentic.ApplyPatch(agentic.ApplyPatchRequest{
+		SessionID: body.SessionID, UserID: userID.(uint), WorkflowID: body.WorkflowID,
+	}); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已应用补丁", "data": nil})
+}
+
+// GetCapabilities 获取瑶光星能力说明（供智能体/前端使用）
+func (c *AlkaidController) GetCapabilities(ctx *gin.Context) {
+	_, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未授权",
+			"data":    nil,
+		})
+		return
+	}
+
+	capabilities, err := c.alkaidService.GetCapabilities()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取能力说明失败: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "获取成功",
+		"data":    capabilities,
+	})
+}
+
 // GetMessages 获取会话的消息列表
 func (c *AlkaidController) GetMessages(ctx *gin.Context) {
 	userID, exists := ctx.Get("userID")
@@ -490,9 +628,20 @@ func (c *AlkaidController) GetMessages(ctx *gin.Context) {
 		return
 	}
 
+	// 同时返回历史工具步（用于前端展示执行过程，不传给 AI）
+	var toolSteps []interface{}
+	if session.ToolStepsJSON.Data != nil {
+		if stepsData, ok := session.ToolStepsJSON.Data.([]interface{}); ok {
+			toolSteps = stepsData
+		}
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "获取成功",
-		"data":    messages,
+		"data": gin.H{
+			"messages":  messages,
+			"toolSteps": toolSteps, // 历史工具步，仅用于前端展示
+		},
 	})
 }

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -401,14 +402,16 @@ func (c *AuthController) ConfirmEmailUnbind(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "邮箱已解绑", "data": nil})
 }
 
-// GetTokenTransactions 获取当前用户Token计费清单
-// @Summary 获取当前用户Token计费清单
-// @Description 获取当前登录用户的Token消耗与金额流水
+// GetTokenTransactions 获取当前用户流水（分页，可选时间范围）
+// @Summary 获取当前用户流水
+// @Description 获取当前登录用户的 Token 流水明细，支持 start_date/end_date 筛选
 // @Tags 用户
 // @Security BearerAuth
 // @Produce json
 // @Param page query int false "页码" default(1)
 // @Param pageSize query int false "每页数量" default(20)
+// @Param start_date query string false "开始日期 YYYY-MM-DD"
+// @Param end_date query string false "结束日期 YYYY-MM-DD"
 // @Success 200 {object} map[string]interface{} "获取成功"
 // @Failure 401 {object} map[string]interface{} "未授权"
 // @Router /api/users/token-transactions [get]
@@ -435,13 +438,24 @@ func (c *AuthController) GetTokenTransactions(ctx *gin.Context) {
 		pageSize = 100
 	}
 
+	db := database.DB.Model(&userModels.TokenTransaction{}).Where("user_id = ?", userID.(uint))
+	if startDate := ctx.Query("start_date"); startDate != "" {
+		if t, err := time.Parse("2006-01-02", startDate); err == nil {
+			db = db.Where("created_at >= ?", t)
+		}
+	}
+	if endDate := ctx.Query("end_date"); endDate != "" {
+		if t, err := time.Parse("2006-01-02", endDate); err == nil {
+			endOfDay := t.Add(24*time.Hour - time.Nanosecond)
+			db = db.Where("created_at <= ?", endOfDay)
+		}
+	}
+
 	var total int64
-	if err := database.DB.Model(&userModels.TokenTransaction{}).
-		Where("user_id = ?", userID.(uint)).
-		Count(&total).Error; err != nil {
+	if err := db.Count(&total).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
-			"message": "获取计费清单失败",
+			"message": "获取流水失败",
 			"data":    nil,
 		})
 		return
@@ -449,15 +463,10 @@ func (c *AuthController) GetTokenTransactions(ctx *gin.Context) {
 
 	var list []userModels.TokenTransaction
 	offset := (page - 1) * pageSize
-	if err := database.DB.
-		Where("user_id = ?", userID.(uint)).
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(pageSize).
-		Find(&list).Error; err != nil {
+	if err := db.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
-			"message": "获取计费清单失败",
+			"message": "获取流水失败",
 			"data":    nil,
 		})
 		return
@@ -473,6 +482,160 @@ func (c *AuthController) GetTokenTransactions(ctx *gin.Context) {
 			"pageSize": pageSize,
 		},
 	})
+}
+
+// GetBillSummary 获取当前用户指定周期账单汇总
+// @Summary 获取账单汇总
+// @Description 按日/月/季/年汇总流水，返回收入、支出、笔数
+// @Tags 用户
+// @Security BearerAuth
+// @Produce json
+// @Param period query string true "周期 day|month|quarter|year"
+// @Param year query int true "年"
+// @Param month query int false "月(1-12)，day/month 必填；quarter 时为 1-4 表示第几季"
+// @Param day query int false "日(1-31)，period=day 时必填"
+// @Success 200 {object} map[string]interface{} "获取成功"
+// @Failure 401 {object} map[string]interface{} "未授权"
+// @Router /api/users/bills/summary [get]
+func (c *AuthController) GetBillSummary(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未授权",
+			"data":    nil,
+		})
+		return
+	}
+
+	period := ctx.DefaultQuery("period", "month")
+	year, _ := strconv.Atoi(ctx.Query("year"))
+	month, _ := strconv.Atoi(ctx.Query("month"))
+	day, _ := strconv.Atoi(ctx.Query("day"))
+
+	if year <= 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "参数 year 必填且有效",
+			"data":    nil,
+		})
+		return
+	}
+	req := &services.BillSummaryRequest{Period: period, Year: year, Month: month, Day: day}
+
+	billingSvc := services.NewBillingService()
+	sum, err := billingSvc.GetBillSummary(userID.(uint), req)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidBillPeriod) || errors.Is(err, services.ErrInvalidBillParams) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"message": err.Error(),
+				"data":    nil,
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取账单失败",
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "获取成功",
+		"data":    sum,
+	})
+}
+
+// GetBillsExport 导出指定周期账单为 PDF
+// @Summary 导出账单 PDF
+// @Description 按日/月/季/年导出账单，包含汇总与流水明细
+// @Tags 用户
+// @Security BearerAuth
+// @Produce application/pdf
+// @Param period query string true "周期 day|month|quarter|year"
+// @Param year query int true "年"
+// @Param month query int false "月(1-12)；quarter 时为 1-4"
+// @Param day query int false "日(1-31)，period=day 时必填"
+// @Success 200 {file} binary "PDF 文件"
+// @Failure 401 {object} map[string]interface{} "未授权"
+// @Router /api/users/bills/export [get]
+func (c *AuthController) GetBillsExport(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code": 401, "message": "未授权", "data": nil,
+		})
+		return
+	}
+	uid := userID.(uint)
+
+	period := ctx.DefaultQuery("period", "month")
+	year, _ := strconv.Atoi(ctx.Query("year"))
+	month, _ := strconv.Atoi(ctx.Query("month"))
+	day, _ := strconv.Atoi(ctx.Query("day"))
+	if year <= 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code": 400, "message": "参数 year 必填且有效", "data": nil,
+		})
+		return
+	}
+	req := &services.BillSummaryRequest{Period: period, Year: year, Month: month, Day: day}
+
+	billingSvc := services.NewBillingService()
+	sum, err := billingSvc.GetBillSummary(uid, req)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidBillPeriod) || errors.Is(err, services.ErrInvalidBillParams) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code": 400, "message": err.Error(), "data": nil,
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500, "message": "获取账单失败", "data": nil,
+		})
+		return
+	}
+
+	transactions, err := billingSvc.GetTransactionsInRange(uid, sum.StartAt, sum.EndAt, 500)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500, "message": "获取流水失败", "data": nil,
+		})
+		return
+	}
+
+	var u userModels.User
+	if err := database.DB.Select("user_no", "username").First(&u, uid).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500, "message": "获取用户信息失败", "data": nil,
+		})
+		return
+	}
+	pdfUser := &services.BillPDFUser{UserNo: u.UserNo, Username: u.Username}
+
+	pdfBytes, err := services.GenerateBillPDF(sum, transactions, pdfUser, time.Now())
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code": 500, "message": "生成 PDF 失败", "data": nil,
+		})
+		return
+	}
+
+	filename := "stardust-bill-" + sum.StartAt.Format("2006-01-02") + ".pdf"
+	if period == "month" {
+		filename = "stardust-bill-" + sum.StartAt.Format("2006-01") + ".pdf"
+	} else if period == "quarter" {
+		y, m := sum.StartAt.Year(), int(sum.StartAt.Month())
+		q := (m-1)/3 + 1
+		filename = fmt.Sprintf("stardust-bill-%d-Q%d.pdf", y, q)
+	} else if period == "year" {
+		filename = "stardust-bill-" + sum.StartAt.Format("2006") + ".pdf"
+	}
+	ctx.Header("Content-Disposition", "attachment; filename="+filename)
+	ctx.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
 
 // SendVerificationCode 发送邮箱验证码
