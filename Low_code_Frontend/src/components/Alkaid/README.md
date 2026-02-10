@@ -12,6 +12,8 @@
 - 降低新手搭建工作流门槛（不会“选节点/连线/变量传递”也能跑通）
 - 提升首次跑通率与复用效率（模板化、可保存、可二次修改）
 
+当前实现上，瑶光星支持两种对话流：**Agentic 流**（默认）与**旧流**。Agentic 流下，用户发消息后后端会按需调用能力说明、当前工作流、知识库检索等工具，经 LLM 生成回复并抽取工作流 JSON，校验后以「待确认工作流」或「待确认补丁」形式推送给前端；用户可查看阶段与工具步进度，并一键「应用到画布」或「应用补丁」。旧流仍为单轮流式生成，可从消息中解析工作流 JSON 导入。详见第 5.7 节与第 7、8 节。
+
 ## 2. 适用范围与边界
 
 ### 2.1 适用范围
@@ -191,7 +193,7 @@ start → crawler → dataclean → ai → output → end
   - 提取 `json` tag 确定字段名。
   - 提取自定义 tag（如 `alkaid:"用于配置抓取的 URL"`）作为 AI 的字段描述。
   - 提取 `validate` tag（如 `required,url`）作为生成约束。
-- **自动化**：后端提供 `/api/alkaid/capabilities` 接口，动态返回由代码直接生成的“节点能力说明书”。
+- **自动化**：后端已实现 `GET /api/alkaid/capabilities` 与 CapabilitiesService，并可通过配置提取器从节点执行代码中更新配置字段，动态返回的“节点能力说明书”。
 
 #### L3（校验闭环）："生成-验证-反馈"的 Trial-and-Error 循环
 - **实现**：AI 生成 JSON 后，不直接交付，而是先由后端 `WorkflowExecutor.Validate()` 进行“干跑”校验。
@@ -298,6 +300,45 @@ start → crawler → dataclean → ai → output → end
 **L3（自愈闭环，可选）：应用 patch 后自动重试运行（最多 N 次）**
 - 若仍失败，带上最新失败信息继续修复；最终输出"已修复并跑通"或"无法自动修复需用户补充信息"
 
+### 5.7 Agentic 流与工具链（当前实现）
+
+当前默认使用的 **Agentic 流** 由后端固定管道 + 可选 LLM 工具调用组成，前端通过 SSE 接收阶段、工具步、流式内容与待确认工作流/补丁。
+
+#### 流式接口
+
+- **请求**：`POST /api/alkaid/sessions/:id/stream`，Body：`{ message, interrupt?, context? }`。`context` 可含 `currentWorkflow` 供后端做 diff 生成补丁。
+- **SSE 事件**：
+  - `content`：流式文本片段（`delta`）
+  - `phase_changed`：当前阶段（如 planning、generating、validating、idle）
+  - `tool_step_started`：工具开始（stepId、toolName、phase）
+  - `tool_step_finished`：工具结束（stepId、status、resultSummary、errorMessage）
+  - `pending_workflow`：待确认工作流摘要（如 nodeCount、edgeCount）
+  - `pending_patch`：待确认补丁（如 patchCount）
+  - `done`：正常结束
+  - `interrupted`：请求被取消（如用户打断）
+  - `error`：错误信息
+
+#### 后端工具（Agentic 内部）
+
+| 工具名 | 说明 |
+|--------|------|
+| `get_capabilities` | 获取节点类型、工作流格式、规则等能力说明（CapabilitiesService） |
+| `get_workflow` | 按会话关联的 workflowId 读取当前画布节点与边 |
+| `get_node_spec` | 按节点类型返回规格（NodeSpec） |
+| `validate_workflow` | 结构校验（version、nodes、edges、节点 id/type、边 source/target） |
+| `run_workflow_trial` | 试运行工作流（WorkflowExecutor.Execute） |
+| `propose_workflow` | 将生成的工作流写入会话的 PendingWorkflowJSON，不直接写画布 |
+| `propose_patch` | 将 diff 得到的补丁写入会话的 PendingPatchJSON |
+| `search_knowledge` | 从知识库检索最佳实践、示例、节点使用技巧等 |
+
+#### 应用到画布与补丁
+
+- **应用到画布**：`POST /api/alkaid/apply-workflow`，Body `{ sessionId, workflowId? }`。将会话中的 pendingWorkflow 转为节点/边并调用 `SaveWorkflowNodes` 写入画布，并清空 pending。支持 BeforeApplyWorkflow Hook（环境变量配置 URL，可拒绝并返回 reason）。
+- **应用补丁**：`POST /api/alkaid/apply-patch`，Body `{ sessionId, workflowId? }`。将会话中的 pendingPatch 按 op（add/remove/set/set_edges）应用到当前画布并保存，再清空 pending。
+- **打断**：发送新消息时前端可先取消当前流；后端在 request context 取消时发送 `interrupted` 并退出。
+
+更细的 Agentic 接入说明见 `docs/05-ALKaid-Agentic-Integration.md`，实现总结见 `docs/04-ALKaid-Implementation-Summary.md`、`docs/06-ALKaid-Implementation-Round2-Summary.md`。
+
 ## 6. Prompt 与输出规范（让 AI 稳定"只输出 JSON"）
 
 ### 6.1 System 指令（规范）
@@ -319,146 +360,121 @@ start → crawler → dataclean → ai → output → end
 - 输出：json/markdown/文件/展示
 - 限制：节点数量、是否多来源、是否需要条件分支
 
-## 7. 前端集成（建议落点与接口）
+## 7. 前端集成（实现说明）
 
-### 7.1 组件落点
+### 7.1 组件与目录结构
 
-建议目录结构：
+当前前端实现目录结构如下（API 与类型在 `src` 下统一管理）：
 
 ```
 src/components/Alkaid/
   README.md
-  AlkaidPanel.tsx
-  AlkaidPanel.module.scss
-  alkaidKnowledge.ts
-  alkaidTypes.ts
-  alkaidWorkflowRepair.ts
-  alkaidApi.ts
-  index.ts
+  AlkaidAssistant.tsx           # 主对话界面（Drawer 内）
+  AlkaidAssistant.module.scss
+  AlkaidButton.tsx              # 入口按钮，打开瑶光星 Drawer
+  ProcessLoader.tsx              # 旧流进度展示（understanding → generating 等）
+  ProcessLoader.module.scss
+  utils.ts                      # 工作流 JSON 提取、校验、剥离展示（extractWorkflowJSON、parseWorkflowJSON、stripWorkflowJSONFromText 等）
+  index.ts                      # 导出 AlkaidAssistant、utils、types、AlkaidProgress、AlkaidPendingWorkflow、AlkaidPendingPatch
+  types/
+    index.ts
+    progress.ts                 # Phase、AgentToolStep、进度与 SSE 相关类型
+  components/
+    AlkaidProgress.tsx          # Agentic 流：阶段文案 + 最近 N 条工具步（可折叠）
+    AlkaidProgress.module.scss
+    AlkaidPendingWorkflow.tsx   # 待确认工作流摘要 +「应用到画布」「放弃」
+    AlkaidPendingPatch.tsx      # 待确认补丁数量 +「应用补丁」「放弃」
+    AlkaidPending.module.scss
+    index.ts
+  docs/                         # 与后端 modules/alkaid/docs 同步的详细文档
 ```
+
+- **API**：`src/api/alkaid.ts`（会话 CRUD、消息、旧流 `sendMessageStream`、Agentic 流 `sessionStreamAgentic`、`applyWorkflow`、`applyPatch`）。
+- **类型**：`src/types/alkaid.ts`（Session、Message、Phase、AgentToolStep、GetMessagesResponse 等）。
 
 ### 7.2 与 WorkflowEditor 的集成点
 
-建议作为工作流面板的一个入口（按钮/图标），打开 Drawer 或 Modal：
-
-- 入口 UI：`AlkaidPanel`
-- 关键流程：
-  1. 发送对话请求（生成 workflow JSON）
-  2. 校验/补全
-  3. 调用 `importWorkflow` 应用到画布
+- **入口**：工作流面板通过 `AlkaidButton` 打开瑶光星，Drawer 内渲染 `AlkaidAssistant`。
+- **Agentic 流**（默认 `useAgentic=true`）：
+  1. 发消息 → `alkaidApi.sessionStreamAgentic(sessionId, message, callbacks)`，解析 SSE 更新 phase、toolSteps、流式内容、pendingWorkflow/pendingPatch。
+  2. 加载中展示 `AlkaidProgress`（阶段 + 工具步）；有待确认时展示 `AlkaidPendingWorkflow` / `AlkaidPendingPatch`。
+  3. 用户点击「应用到画布」→ `alkaidApi.applyWorkflow(sessionId, workflowId)`，成功后通过 `onWorkflowApplied` 回调（如 `loadWorkflowNodes`）刷新画布。
+- **旧流**（`useAgentic=false`）：`sendMessageStream`，进度用 `ProcessLoader`，从助手消息中解析工作流 JSON 后通过 `onWorkflowGenerated` 导入画布。
+- **打断**：发送新消息时若正在加载，会先取消当前流再发送。
 
 ### 7.3 直接复用的工具函数
 
-- 导入/导出/校验：`src/utils/workflowImportExport.ts`
-- 默认配置：`src/utils/nodeUtils.ts`
+- 导入/导出/校验：`src/utils/workflowImportExport.ts`（如 `validateWorkflowFile`）
+- 默认配置：`src/utils/nodeUtils.ts`（如 `getDefaultConfig`）
+- 组件内使用 `utils.ts` 的 `extractWorkflowJSON`、`parseWorkflowJSON`、`hasWorkflowJSONBlock`、`stripWorkflowJSONFromText` 做展示与解析。
 
-### 7.4 最小"应用到画布"伪代码（仅说明流程）
+### 7.4 最小「应用到画布」流程（旧流从消息解析时）
 
 ```typescript
 const data = JSON.parse(modelOutputText)
 if (!validateWorkflowFile(data)) throw new Error("invalid workflow")
-const repaired = repairWorkflow(data)
+const repaired = repairWorkflow(data)  // 可选：position/label/config/edge.id 补全
 await importWorkflow(repaired)
 ```
 
-## 8. 后端接口（建议）
+Agentic 流下「应用到画布」由后端 `apply-workflow` 接口直接将会话中的 pendingWorkflow 写入画布，前端仅需调用 `applyWorkflow(sessionId, workflowId)` 并在成功后刷新画布。
 
-### 8.0 获取能力与节点规格（建议新增，强烈推荐）
+## 8. 后端接口
+
+### 8.0 已实现接口总览
+
+以下为当前已实现的 HTTP 接口（均在需认证的 `/api` 下，如 `auth.GET` / `auth.POST`）：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/alkaid/capabilities | 获取能力说明（节点类型、工作流格式、规则等），供前端与 Agentic 工具使用 |
+| POST | /api/alkaid/sessions | 创建会话，Body：`{ title?, workflowId? }` |
+| GET | /api/alkaid/sessions | 获取当前用户会话列表，Query：page、pageSize |
+| GET | /api/alkaid/sessions/:id | 获取会话详情 |
+| PUT | /api/alkaid/sessions/:id/title | 更新会话标题，Body：`{ title }` |
+| DELETE | /api/alkaid/sessions/:id | 删除会话 |
+| POST | /api/alkaid/messages | 发送消息（非流式），Body：`{ sessionId, content }` |
+| POST | /api/alkaid/messages/stream | 旧流式接口，Body：`{ sessionId, content }`，SSE：event: message |
+| POST | /api/alkaid/sessions/:id/stream | **Agentic 流式接口**，Body：`{ message, interrupt?, context? }`，SSE 见 5.7 节 |
+| GET | /api/alkaid/sessions/:id/messages | 获取会话消息列表（含历史 toolSteps），Query：limit? |
+| POST | /api/alkaid/apply-workflow | 将会话 pendingWorkflow 写入画布，Body：`{ sessionId, workflowId? }` |
+| POST | /api/alkaid/apply-patch | 将会话 pendingPatch 应用到画布并清空，Body：`{ sessionId, workflowId? }` |
+
+### 8.1 获取能力与节点规格（已实现）
 
 `GET /api/alkaid/capabilities`
 
-#### 用途
-前端展示支持哪些节点/字段/变量，同时为生成请求提供权威上下文（Capabilities）。
+- **用途**：前端展示支持哪些节点/字段/变量，Agentic 工具链中的 `get_capabilities` 也使用同一能力数据。
+- **实现**：`CapabilitiesService.GetCapabilities()`，并可由配置提取器从节点执行代码中更新配置字段。
+- **返回**：包含 `version`、`workflowSchema`、`nodeTypes[]`（含 type、label、description、stability、inputs、outputs、config、configRules、examples）、`template`、`rules` 等。结构定义见后端 `WorkflowCapabilities`、`NodeCapability`。
 
-#### 返回建议包含
-- `capabilitiesVersion`
-- `workflowSchema`
-- `nodeTypes[]`（含 defaults、configSchema、io、constraints、examples）
-- （第二阶段）系统可用的 provider/model 列表与能力开关（例如是否支持 stream/thinking）
+### 8.2 会话与消息（已实现）
 
-### 8.1 生成工作流
+会话 CRUD、发送消息、获取消息列表均已实现；创建会话时可关联 `workflowId`，便于 Agentic 流中 `get_workflow`、`apply-workflow`、`apply-patch` 操作当前画布。
 
-`POST /api/alkaid/generate-workflow`
+### 8.3 Agentic 流式接口（已实现）
 
-#### 请求体建议
-```json
-{
-  "prompt": "用户自然语言需求",
-  "language": "zh-CN",
-  "context": {
-    "nodeTypes": ["start","crawler","dataclean","ai","condition","merge","output","end"],
-    "nodeDefaults": {},
-    "nodeIO": {}
-  },
-  "constraints": {
-    "maxNodes": 12,
-    "preferProviders": ["deepseek", "qwen"]
-  }
-}
-```
+`POST /api/alkaid/sessions/:id/stream`
 
-#### 响应体建议
-- 直接返回 `WorkflowExportData`（推荐），或返回 `{ workflow, explanation, warnings }`
+- **请求体**：`{ message, interrupt?, context? }`。`context` 可传 `currentWorkflow` 供后端生成补丁时做 diff。
+- **SSE 事件**：见第 5.7 节（content、phase_changed、tool_step_started/finished、pending_workflow、pending_patch、done、interrupted、error）。
+- **实现**：`modules/alkaid/services/agentic/loop.go` 的 `RunStream`，内含 BeforeGenerate Hook、工具调用、LLM 生成、校验、propose_workflow/propose_patch、SSE 写入。
 
-### 8.2 修复工作流（可选）
+### 8.4 应用到画布与应用补丁（已实现）
 
-`POST /api/alkaid/repair-workflow`
+- **apply-workflow**：从会话读取 PendingWorkflowJSON，校验归属与 BeforeApplyWorkflow Hook，转为 `SaveWorkflowNodesRequest` 调用 `SaveWorkflowNodes`，再清空 pending。Hook 通过环境变量 `ALKAID_HOOK_BEFORE_APPLY_WORKFLOW_URL` 配置。
+- **apply-patch**：从会话读取 PendingPatchJSON，按 patch 列表（add/remove/set/set_edges）应用到当前画布并保存，再清空 pending。
 
-- 输入：workflow + 校验/执行错误信息
-- 输出：修复后的 workflow
+### 8.5 可选扩展接口（未实现，供后续）
 
-### 8.3 校验工作流（建议新增，便于前后端一致）
+以下为文档中的建议接口，当前生成/校验/修复/补丁建议均在 Agentic 流内通过工具完成；若需独立 HTTP 入口可后续增加：
 
-`POST /api/alkaid/validate-workflow`
+- `POST /api/alkaid/generate-workflow`：单轮根据 prompt 生成工作流 JSON。
+- `POST /api/alkaid/repair-workflow`：根据 workflow + 错误信息返回修复后 workflow。
+- `POST /api/alkaid/validate-workflow`：仅校验 workflow，返回 errors[]。
+- `POST /api/alkaid/suggest-patch`：根据 workflow + ExecutionError 返回 patch[]。
 
-- 输入：workflow
-- 输出：机器可读的错误列表（errors[]），用于：
-  - 前端提示用户
-  - 后端 repair 流水线驱动模型做定向修复
-
-（可选）如果你已有前端 `validateWorkflowFile`，后端校验仍建议保留一份以 Capabilities 为准的实现，避免前后端规则漂移。
-
-### 8.4 运行失败诊断与补丁修复（建议新增）
-
-为了支持失败节点旁弹出瑶光星纠错，建议增加两个能力：
-
-#### 1) 执行错误结构化返回（ExecutionError）
-
-目标：让前端可以精确定位失败节点与字段，让模型可以基于机器可读信息做修复。
-
-建议字段：
-- `workflowRunId`
-- `failedNodeId`
-- `errorCode`（稳定枚举，便于统计与策略化修复）
-- `message`（给用户看的错误说明）
-- `details`（可选，机器可读上下文：fieldPath、expected/got、上游变量解析结果摘要等）
-- `safeSnapshot`（可选，脱敏后的输入/配置快照；不得包含 token/cookie/密钥）
-
-#### 2) 节点配置补丁接口（Patch）
-
-接口建议：`POST /api/alkaid/suggest-patch`
-
-- 输入：当前 workflow + ExecutionError（或 validate errors）
-- 输出：`patch[]`（模型仅输出补丁）
-
-##### 补丁建议形态（示意）
-```json
-{
-  "patch": [
-    {
-      "op": "set",
-      "nodeId": "node-2",
-      "path": "$.data.config.urlVariable",
-      "value": "{{node-1.data.url}}",
-      "reason": "crawler 的 urlVariable 必须引用 start 的 data.url"
-    }
-  ]
-}
-```
-
-##### 安全边界（必须）
-- patch 应用前进行白名单校验（只允许修改允许字段，禁止注入密钥）
-- 必须脱敏日志与快照，不把用户敏感信息发给模型
+运行失败诊断与补丁修复的**产品形态**（失败节点旁小精灵、一键应用补丁等）见第 5.6 节；后端已具备 `validate_workflow`、`run_workflow_trial`、`propose_patch` 等工具，可在此基础上扩展独立接口或更多 Hook。
 
 ## 9. 安全与合规（必须）
 
@@ -478,17 +494,16 @@ await importWorkflow(repaired)
 
 参考项目国际化说明：`src/i18n/README.md`。
 
-### 瑶光星建议使用前缀命名
+### 瑶光星使用的前缀与键
 
-- `workflowEditor.alkaid.title`
-- `workflowEditor.alkaid.open`
-- `workflowEditor.alkaid.generate`
-- `workflowEditor.alkaid.apply`
-- `workflowEditor.alkaid.validationFailed`
+- **workflowEditor.alkaid.***：工作流编辑器中瑶光星相关文案（标题、打开、生成、应用、校验失败、待确认工作流/补丁、阶段与工具步状态、Hook 拒绝等）已在中英文中维护。
+- **alkaid.***：瑶光星独立页或通用文案（如创建会话失败等）。
 
-### 同时维护
+### 维护文件
 - `src/i18n/locales/zh-CN.json`
 - `src/i18n/locales/en-US.json`
+
+新增键时建议继续使用 `workflowEditor.alkaid.*` 或 `alkaid.*` 前缀，并在中英文两处同步添加。
 
 ## 11. 验收标准（可执行）
 
@@ -497,6 +512,15 @@ await importWorkflow(repaired)
 3. 使用一个可访问 URL，可完整执行并在 output 节点产出数据
 4. 用户仅修改 Start 的 `inputData` 即可复用同一模板重复运行
 5. 校验失败或执行失败时，UI 能定位到原因并给出下一步建议（至少标明失败节点）
+
+### 相关文档（本目录 docs/ 与后端 modules/alkaid/docs/）
+
+- **00-README-Alkaid.md**：与本 README 同源的产品与协议说明
+- **01-ALKaid-Architecture.md**：增强架构、目录隔离、前后端职责
+- **04-ALKaid-Implementation-Summary.md**：当前实现总结（阶段一～三、路由、数据流）
+- **05-ALKaid-Agentic-Integration.md**：Agentic 流前端接入（useAgentic、onWorkflowApplied、Progress/Pending 组件）
+- **06-ALKaid-Implementation-Round2-Summary.md**：第二轮实现（打断、pendingPatch、Hooks、国际化、apply-patch 真实应用）
+- **ALKaid-Unimplemented-Checklist.md**：未实现功能清单
 
 ## 12. 附录：可运行最小示例（WorkflowExportData）
 
