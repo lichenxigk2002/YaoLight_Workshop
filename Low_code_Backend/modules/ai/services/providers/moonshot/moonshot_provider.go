@@ -152,6 +152,10 @@ func (p *MoonshotProvider) Chat(config *providers.AIModelConfig, prompt string, 
 	}, nil
 }
 
+func (p *MoonshotProvider) ChatWithTools(ctx context.Context, config *providers.AIModelConfig, systemPrompt string, messages []providers.ChatMessage, tools []providers.ToolDef, providerConfig map[string]interface{}) (*providers.ChatResponseWithTools, error) {
+	return nil, fmt.Errorf("tool calling not implemented for Moonshot provider")
+}
+
 // ChatStream 流式聊天对话
 func (p *MoonshotProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	// Moonshot AI API地址

@@ -5,6 +5,7 @@ import type {
   Message,
   SendMessageResponse,
   GetSessionsResponse,
+  GetMessagesResponse,
 } from '@/types/alkaid';
 import { createSSEReader } from '@/utils/sseUtils';
 
@@ -122,8 +123,98 @@ export const alkaidApi = {
   },
 
   /**
-   * 获取消息列表
+   * 获取消息列表（包含历史工具步）
    */
   getMessages: (sessionId: number, limit?: number) =>
-    http.get<Message[]>(`/alkaid/sessions/${sessionId}/messages`, limit ? { limit } : {}),
+    http.get<GetMessagesResponse>(`/alkaid/sessions/${sessionId}/messages`, limit ? { limit } : {}),
+
+  /**
+   * Agentic 流式接口：POST /alkaid/sessions/:id/stream，SSE 事件 content / phase_changed / tool_step_* / done / error
+   */
+  sessionStreamAgentic: (
+    sessionId: number,
+    message: string,
+    callbacks: {
+      onContent?: (delta: string) => void;
+      onPhaseChanged?: (phase: string) => void;
+      onToolStepStarted?: (data: { stepId: string; toolName: string; phase: string }) => void;
+      onToolStepFinished?: (data: { stepId: string; status: string; resultSummary?: string; errorMessage?: string }) => void;
+      onPendingWorkflow?: (data: { summary: { nodeCount: number; edgeCount: number } }) => void;
+      onPendingPatch?: (data: { patchCount: number }) => void;
+      onDone?: () => void;
+      onError?: (message: string) => void;
+    },
+    context?: { currentWorkflow?: any } // 新增 context 参数
+  ): (() => void) => {
+    let token: string | null = null;
+    try {
+      const authStorage = localStorage.getItem('auth-storage');
+      if (authStorage) {
+        const authData = JSON.parse(authStorage);
+        token = authData.state?.token || null;
+      }
+    } catch (e) {}
+    const baseURL = import.meta.env.VITE_BASE_URL || '/api';
+    const url = `${baseURL}/alkaid/sessions/${sessionId}/stream`;
+    const abortController = new AbortController();
+    let cancelReader: (() => void) | null = null;
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+      body: JSON.stringify({ message, interrupt: false, context }), // 传递 context
+      signal: abortController.signal,
+    })
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let eventType = '';
+        const process = () =>
+          reader.read().then(({ value, done }) => {
+            if (done) {
+              callbacks.onDone?.();
+              return;
+            }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) {
+              if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+              else if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (eventType === 'content') callbacks.onContent?.(data.delta ?? '');
+                  else if (eventType === 'phase_changed') callbacks.onPhaseChanged?.(data.phase);
+                  else if (eventType === 'tool_step_started') callbacks.onToolStepStarted?.(data);
+                  else if (eventType === 'tool_step_finished') callbacks.onToolStepFinished?.(data);
+                  else if (eventType === 'pending_workflow') callbacks.onPendingWorkflow?.(data);
+                  else if (eventType === 'pending_patch') callbacks.onPendingPatch?.(data);
+                  else if (eventType === 'done') callbacks.onDone?.();
+                  else if (eventType === 'interrupted') callbacks.onDone?.(); // 打断视为结束，与 onDone 一致清理状态
+                  else if (eventType === 'error') callbacks.onError?.(data.message ?? '');
+                } catch (_) {}
+              }
+            }
+            return process();
+          });
+        cancelReader = () => reader.cancel();
+        return process();
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') callbacks.onError?.(err.message ?? '请求失败');
+      });
+
+    return () => {
+      if (cancelReader) cancelReader();
+      abortController.abort();
+    };
+  },
+
+  applyWorkflow: (sessionId: number, workflowId?: number) =>
+    http.post<{ code: number; message: string }>('/alkaid/apply-workflow', { sessionId, workflowId }),
+
+  applyPatch: (sessionId: number, workflowId?: number) =>
+    http.post<{ code: number; message: string }>('/alkaid/apply-patch', { sessionId, workflowId }),
 };

@@ -22,8 +22,9 @@ func NewAIController() *AIController {
 	modelRepo := repositories.NewAIModelRepository(database.DB)
 	templateRepo := repositories.NewProviderTemplateRepository(database.DB)
 	pricingRepo := repositories.NewPricingConfigRepository(database.DB)
+	capabilityRepo := repositories.NewCapabilityConfigRepository(database.DB)
 	return &AIController{
-		aiService: services.NewAIService(modelRepo, templateRepo, pricingRepo),
+		aiService: services.NewAIService(modelRepo, templateRepo, pricingRepo, capabilityRepo),
 	}
 }
 
@@ -53,6 +54,26 @@ func (c *AIController) GetSystemPresetModels(ctx *gin.Context) {
 		"code":    200,
 		"message": "获取成功",
 		"data":    models,
+	})
+}
+
+// GetModelCapability 按 provider+model_name 获取模型能力配置
+func (c *AIController) GetModelCapability(ctx *gin.Context) {
+	provider := ctx.Query("provider")
+	modelName := ctx.Query("model_name")
+	if provider == "" || modelName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "缺少 provider 或 model_name",
+			"data":    nil,
+		})
+		return
+	}
+	cap := c.aiService.GetModelCapability(provider, modelName)
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "获取成功",
+		"data":    cap,
 	})
 }
 

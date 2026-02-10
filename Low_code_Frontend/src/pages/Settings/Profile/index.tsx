@@ -629,7 +629,7 @@ export default function ProfileInfo() {
           formDeactivate.resetFields();
         }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         className={styles.centeredModal}
       >
         <div className={styles.modalFormWrap}>
@@ -688,7 +688,7 @@ export default function ProfileInfo() {
           formEmailChange.resetFields();
         }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         className={styles.centeredModal}
       >
         <div className={styles.modalFormWrap}>
@@ -736,7 +736,7 @@ export default function ProfileInfo() {
           formEmailUnbind.resetFields();
         }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         className={styles.centeredModal}
       >
         <div className={styles.modalFormWrap}>

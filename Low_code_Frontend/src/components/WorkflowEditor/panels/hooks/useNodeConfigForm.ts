@@ -3,7 +3,7 @@ import { FormInstance } from 'antd';
 import { Node } from 'reactflow';
 import { workflowApi } from '@/api/workflow';
 import {
-  getModelConfigSupport,
+  getModelConfigSupportForPersistence,
   getModelConfigKey,
   filterSupportedConfig,
 } from '../../configs/modelConfigSupport';
@@ -190,8 +190,8 @@ export function useNodeConfigForm({
         // 获取当前模型配置键
         const modelConfigKey = getModelConfigKey(modelMode, provider, modelName, modelId);
 
-        // 获取模型配置支持
-        const support = getModelConfigSupport(provider);
+        // 持久化时用「按 provider 回退」的 support，避免丢失用户已填的 stream/thinking 等
+        const support = getModelConfigSupportForPersistence(provider);
 
         // 获取或创建 modelConfigs 对象
         const modelConfigs: Record<string, any> = existingConfig.modelConfigs || {};

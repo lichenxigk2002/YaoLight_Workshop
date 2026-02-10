@@ -7,9 +7,11 @@ import { AlkaidIcon } from '@/components/Icons';
 import AlkaidButton from './AlkaidButton';
 import styles from './AlkaidAssistant.module.scss';
 import { alkaidApi } from '@/api';
-import { extractWorkflowJSON, parseWorkflowJSON, hasWorkflowJSONBlock } from './utils';
+import { extractWorkflowJSON, parseWorkflowJSON, hasWorkflowJSONBlock, stripWorkflowJSONFromText } from './utils';
 import { MarkdownRenderer } from '@/components/WorkflowEditor/utils/MarkdownRenderer';
 import ProcessLoader, { ProcessStep } from './ProcessLoader';
+import { AlkaidProgress, AlkaidPendingWorkflow, AlkaidPendingPatch } from './components';
+import type { Phase, AgentToolStep } from './types';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -32,12 +34,21 @@ interface AlkaidAssistantProps {
   workflowId?: string;
   onWorkflowGenerated?: (workflow: any) => void;
   hasExistingNodes?: boolean; // 是否已有工作流节点
+  /** 是否使用 Agentic 流（进度 + 待确认工作流）；默认 true */
+  useAgentic?: boolean;
+  /** Agentic 流下「应用到画布」成功后调用，用于刷新画布（如重新拉取节点） */
+  onWorkflowApplied?: () => void;
+  /** 获取当前工作流数据（用于上下文注入） */
+  getCurrentWorkflow?: () => Promise<any>;
 }
 
 const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
   workflowId,
   onWorkflowGenerated,
   hasExistingNodes = false,
+  useAgentic = true,
+  onWorkflowApplied,
+  getCurrentWorkflow,
 }) => {
   const { t } = useTranslation();
   const { user } = useAuthStore();
@@ -71,13 +82,21 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
   const [processSteps, setProcessSteps] = useState<ProcessStep[]>([]);
   const [cancelStream, setCancelStream] = useState<(() => void) | null>(null);
   const [currentLoadingMessageId, setCurrentLoadingMessageId] = useState<string | null>(null);
-  const [needsWorkflow, setNeedsWorkflow] = useState<boolean | null>(null); // 是否需要生成工作流
+  const [needsWorkflow, setNeedsWorkflow] = useState<boolean | null>(null); // 是否需要生成工作流（旧流专用）
   const needsWorkflowRef = useRef<boolean | null>(null); // 使用ref确保在流式输出过程中能实时获取最新值
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<any>(null);
   const isSendingFirstMessage = useRef(false); // 标记是否正在发送第一条消息
   const accumulatedContentRef = useRef(''); // 用于累积流式内容
   const isSendingMessage = useRef(false); // 标记是否正在发送消息（包括第一条和后续消息）
+
+  // Agentic 流状态（仅 useAgentic 为 true 时使用）
+  const [agenticPhase, setAgenticPhase] = useState<Phase>('idle');
+  const [agenticToolSteps, setAgenticToolSteps] = useState<AgentToolStep[]>([]);
+  const [agenticPendingSummary, setAgenticPendingSummary] = useState<{ nodeCount: number; edgeCount: number } | null>(null);
+  const [agenticPendingPatchCount, setAgenticPendingPatchCount] = useState<number | null>(null);
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyPatchLoading, setApplyPatchLoading] = useState(false);
 
   // 滚动到底部
   const scrollToBottom = () => {
@@ -105,9 +124,12 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
     if (visible && sessionId) {
       // 如果切换了会话，加载该会话的消息
       loadMessages(sessionId);
+      setAgenticPendingSummary(null);
+      setAgenticPendingPatchCount(null);
     } else if (visible && !sessionId) {
-      // 如果没有会话，清空消息
       setMessages([]);
+      setAgenticPendingSummary(null);
+      setAgenticPendingPatchCount(null);
     }
   }, [visible, sessionId]);
 
@@ -150,7 +172,11 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
 
   const loadMessages = async (sid: number) => {
     try {
-      const msgs = await alkaidApi.getMessages(sid);
+      const response = await alkaidApi.getMessages(sid);
+      // 后端现在返回 { messages, toolSteps }
+      const msgs = response.messages || [];
+      const toolSteps = response.toolSteps || [];
+      
       const formattedMessages: Message[] = msgs.map((msg: any) => ({
         id: msg.id.toString(),
         role: msg.role,
@@ -158,6 +184,9 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
         timestamp: new Date(msg.createdAt),
       }));
       setMessages(formattedMessages);
+      
+      // 加载历史工具步（仅用于前端展示，不传给 AI）
+      setAgenticToolSteps(toolSteps);
     } catch (error) {
       console.error('Load messages error:', error);
     }
@@ -212,7 +241,20 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
   };
 
   const handleSend = async () => {
-    if (!inputValue.trim() || loading) return;
+    if (!inputValue.trim()) return;
+    // Agentic 流：若正在加载则视为「打断」——先取消当前流再发新消息
+    if (loading && useAgentic) {
+      if (cancelStream) cancelStream();
+      setCancelStream(null);
+      setLoading(false);
+      setCurrentLoadingMessageId(null);
+      setAgenticPhase('idle');
+      // 注意：打断时也不清空历史工具步，保留已完成的工具步记录
+      // setAgenticToolSteps([]);
+      setAgenticPendingSummary(null);
+    } else if (loading && !useAgentic) {
+      return;
+    }
 
     // 标记正在发送消息
     isSendingMessage.current = true;
@@ -237,6 +279,15 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
     
     // 初始化步骤为空（意图分析阶段不显示，等第二阶段AI开始处理时才显示）
     setProcessSteps([]);
+
+    // Agentic 流：新轮次清除待确认
+    if (useAgentic) {
+      setAgenticPendingSummary(null);
+      setAgenticPendingPatchCount(null);
+      // 注意：不再清空历史工具步，让工具步累积显示（持久化）
+      // setAgenticToolSteps([]);
+      setAgenticPhase('planning');
+    }
 
     try {
       // 如果没有会话ID，先创建会话
@@ -265,8 +316,91 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
         timestamp: new Date(),
       }]);
 
-      // 使用流式接口发送消息（后端强制启用流式输出）
+      if (useAgentic) {
+        // 获取当前工作流上下文
+        let context: any = {};
+        if (getCurrentWorkflow) {
+          try {
+            const workflowData = await getCurrentWorkflow();
+            if (workflowData) {
+              context.currentWorkflow = workflowData;
+            }
+          } catch (e) {
+            console.error('Failed to get current workflow context:', e);
+          }
+        }
 
+        // Agentic 流：POST /alkaid/sessions/:id/stream，SSE 解析 phase/tool_step/content/pending_workflow/done
+        const cancel = alkaidApi.sessionStreamAgentic(
+          currentSessionId,
+          messageContent,
+          {
+            onContent: (delta) => {
+              accumulatedContentRef.current += delta;
+              setMessages(prev => prev.map(msg =>
+                msg.id === assistantMsgId
+                  ? { ...msg, role: 'assistant' as const, content: accumulatedContentRef.current }
+                  : msg
+              ));
+            },
+            onPhaseChanged: (phase) => setAgenticPhase(phase as Phase),
+            onToolStepStarted: (data: { stepId: string; toolName: string; phase: string; userMessageId?: number; userMessageContent?: string }) => {
+              setAgenticToolSteps(prev => [...prev, {
+                stepId: data.stepId,
+                userMessageId: data.userMessageId ?? 0,
+                userMessageContent: data.userMessageContent,
+                phase: (data.phase as Phase) || 'planning',
+                toolName: data.toolName,
+                toolInput: {},
+                status: 'running',
+                startedAt: new Date().toISOString(),
+              }]);
+            },
+            onToolStepFinished: (data) => {
+              setAgenticToolSteps(prev => prev.map(s =>
+                s.stepId === data.stepId
+                  ? {
+                      ...s,
+                      status: data.status as AgentToolStep['status'],
+                      finishedAt: new Date().toISOString(),
+                      resultSummary: data.resultSummary,
+                      errorMessage: data.errorMessage,
+                    }
+                  : s
+              ));
+            },
+            onPendingWorkflow: (data) => {
+              setAgenticPendingSummary(data.summary ?? null);
+            },
+            onPendingPatch: (data) => {
+              setAgenticPendingPatchCount(data.patchCount ?? 0);
+            },
+            onDone: () => {
+              setLoading(false);
+              setCancelStream(null);
+              setCurrentLoadingMessageId(null);
+              isSendingFirstMessage.current = false;
+              isSendingMessage.current = false;
+              accumulatedContentRef.current = '';
+              setAgenticPhase('idle');
+            },
+            onError: (errMsg) => {
+              message.error(t('alkaid.sendMessageFailed') || '发送消息失败: ' + errMsg);
+              setLoading(false);
+              setCancelStream(null);
+              setCurrentLoadingMessageId(null);
+              isSendingFirstMessage.current = false;
+              isSendingMessage.current = false;
+              setAgenticPhase('idle');
+            },
+          },
+          context
+        );
+        setCancelStream(() => cancel);
+        return;
+      }
+
+      // 旧流：使用流式接口发送消息（后端强制启用流式输出）
       const cancel = alkaidApi.sendMessageStream(
         currentSessionId,
         messageContent,
@@ -393,58 +527,71 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
     setVisible(false);
   };
 
-  // 解析消息内容，将工作流JSON替换为文件图标
+  /** Agentic：应用到画布 */
+  const handleApplyWorkflow = async () => {
+    if (!sessionId || applyLoading) return;
+    setApplyLoading(true);
+    try {
+      await alkaidApi.applyWorkflow(sessionId, workflowId ? parseInt(workflowId, 10) : undefined);
+      message.success(t('alkaid.workflowImported') || '工作流已应用到画布');
+      setAgenticPendingSummary(null);
+      onWorkflowApplied?.();
+    } catch (e: any) {
+      message.error(e?.message || t('alkaid.importFailed') || '应用失败');
+    } finally {
+      setApplyLoading(false);
+    }
+  };
+
+  /** Agentic：放弃待确认工作流 */
+  const handleDiscardPendingWorkflow = () => {
+    setAgenticPendingSummary(null);
+  };
+
+  /** Agentic：应用补丁 */
+  const handleApplyPatch = async () => {
+    if (!sessionId || applyPatchLoading) return;
+    setApplyPatchLoading(true);
+    try {
+      await alkaidApi.applyPatch(sessionId, workflowId ? parseInt(workflowId, 10) : undefined);
+      message.success(t('workflowEditor.alkaid.patchApplied', '补丁已应用') || '补丁已应用');
+      setAgenticPendingPatchCount(null);
+      onWorkflowApplied?.();
+    } catch (e: any) {
+      message.error(e?.message || t('alkaid.importFailed') || '应用失败');
+    } finally {
+      setApplyPatchLoading(false);
+    }
+  };
+
+  /** Agentic：放弃待确认补丁 */
+  const handleDiscardPendingPatch = () => {
+    setAgenticPendingPatchCount(null);
+  };
+
+  // 解析消息内容：工作流 JSON 不展示为代码，仅用文件卡片展示；文案中完全移除 JSON
   const parseMessageContent = (content: string, isGenerating: boolean = false, shouldCheckWorkflow: boolean = true) => {
-    // 如果不需要检测工作流，直接返回原始内容
     if (!shouldCheckWorkflow) {
-      return { hasWorkflow: false, text: content, isGenerating: false };
+      return { hasWorkflow: false, text: content, workflowJSON: null, isGenerating: false };
     }
 
-    // 检测是否有工作流JSON代码块（包括未完成的）
     const hasJSONBlock = hasWorkflowJSONBlock(content);
-    
-    if (hasJSONBlock) {
-      // 尝试提取完整的JSON
-      const workflowJSON = extractWorkflowJSON(content);
-      
-      // 只移除工作流JSON代码块（带特殊标记的），保留其他JSON
-      let textWithoutJson = content;
-      
-      // 1. 移除带特殊标记的工作流JSON代码块（新格式）
-      // 格式：<!-- workflow-json -->\n```json\n{...}\n```
-      textWithoutJson = textWithoutJson.replace(/<!--\s*workflow-json\s*-->[\s\S]*?```json\s*[\s\S]*?```/g, '');
-      // 移除未完成的带标记的工作流JSON（到文本末尾）
-      textWithoutJson = textWithoutJson.replace(/<!--\s*workflow-json\s*-->[\s\S]*?```json\s*[\s\S]*$/gm, '');
-      
-      // 2. 兼容旧格式：移除包含工作流关键字段的JSON代码块（如果没有特殊标记）
-      // 只处理包含 "version" 和 "nodes" 的JSON（工作流特征）
-      const workflowJsonPattern = /```json\s*[\s\S]*?"version"[\s\S]*?"nodes"[\s\S]*?```/g;
-      textWithoutJson = textWithoutJson.replace(workflowJsonPattern, '');
-      // 移除未完成的（到文本末尾）
-      textWithoutJson = textWithoutJson.replace(/```json\s*[\s\S]*?"version"[\s\S]*?"nodes"[\s\S]*$/gm, '');
-      
-      // 3. 移除不在代码块中的工作流JSON对象（包含 "version" 和 "nodes"）
-      const workflowJsonObjectPattern = /\{\s*"version"[\s\S]*?"nodes"[\s\S]*?\}/g;
-      textWithoutJson = textWithoutJson.replace(workflowJsonObjectPattern, '');
-      // 移除未完成的（到文本末尾）
-      textWithoutJson = textWithoutJson.replace(/\{\s*"version"[\s\S]*?"nodes"[\s\S]*$/gm, '');
-      
-      // 4. 清理多余的换行和空格
-      textWithoutJson = textWithoutJson
-        .replace(/\n{3,}/g, '\n\n') // 多个换行合并为两个
-        .replace(/^\s+|\s+$/g, '') // 移除首尾空白
-        .trim();
+    const workflowJSON = hasJSONBlock ? extractWorkflowJSON(content) : null;
 
+    // 用统一剥离函数移除所有形式的工作流 JSON（含 <!-- workflow-json --> 后裸 JSON），避免页面上出现代码
+    const textWithoutJson = hasJSONBlock ? stripWorkflowJSONFromText(content) : content;
+
+    // 当 isGenerating 为 true 时，即便还没有 JSON，也提前认为“有工作流”，用于展示占位卡片（加载中）
+    if (hasJSONBlock || isGenerating) {
       return {
         hasWorkflow: true,
         text: textWithoutJson,
-        workflowJSON: workflowJSON || null, // 如果提取不到完整JSON，返回null表示还在生成中
-        isGenerating: isGenerating && !workflowJSON, // 如果正在生成且提取不到完整JSON，说明还在生成中
+        workflowJSON: workflowJSON || null,
+        // 只要没有拿到最终 JSON，就保持“生成中”态
+        isGenerating: isGenerating && !workflowJSON,
       };
     }
-
-    // 如果没有检测到工作流JSON代码块，返回原始内容
-    return { hasWorkflow: false, text: content, isGenerating: false };
+    return { hasWorkflow: false, text: content, workflowJSON: null, isGenerating: false };
   };
 
   // 处理导入工作流
@@ -640,7 +787,9 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
 
               {messages.map((msg) => {
                 // 检查是否是正在加载的助手消息
-                const isCurrentLoadingMessage = msg.role === 'assistant' && msg.id === currentLoadingMessageId && loading && processSteps.length > 0;
+                const isCurrentLoadingMessage = msg.role === 'assistant' && msg.id === currentLoadingMessageId && loading;
+                const showAgenticProgress = useAgentic && isCurrentLoadingMessage;
+                const showLegacySteps = !useAgentic && isCurrentLoadingMessage && processSteps.length > 0;
 
                 return (
                   <div
@@ -650,29 +799,46 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
                     <div className={styles.messageContent}>
                       <div className={styles.messageBubble}>
                         <div className={styles.messageText}>
-                          {/* 如果是正在加载的助手消息，显示步骤 */}
-                          {isCurrentLoadingMessage && (
+                          {/* Agentic 流：显示阶段与工具步 */}
+                          {showAgenticProgress && (
+                            <div className={styles.processStepsWrapper}>
+                              <AlkaidProgress
+                                phase={agenticPhase}
+                                toolSteps={agenticToolSteps}
+                                maxSteps={10}
+                              />
+                            </div>
+                          )}
+                          {/* 旧流：显示步骤 */}
+                          {showLegacySteps && (
                             <div className={styles.processStepsWrapper}>
                               <ProcessLoader steps={processSteps} visible={true} />
                             </div>
                           )}
 
                           {(() => {
-                            // 使用ref获取最新的needsWorkflow值，确保在流式输出过程中能实时获取
-                            const currentNeedsWorkflow = needsWorkflowRef.current;
-                            // 只有在明确需要生成工作流时才检测和显示工作流
-                            const shouldCheckWorkflow = currentNeedsWorkflow === true;
-                            // 判断是否正在生成中（当前消息是正在加载的助手消息）
-                            const isMsgGenerating = isCurrentLoadingMessage && loading && shouldCheckWorkflow;
-                            // 只有在需要生成工作流时才检查JSON代码块
-                            const parsed = parseMessageContent(msg.content, isMsgGenerating, shouldCheckWorkflow);
-                            // 只有在明确需要生成工作流时才显示工作流卡片
-                            const shouldShowWorkflow = parsed.hasWorkflow && currentNeedsWorkflow === true;
+                            // 只要内容里包含 <!-- workflow-json --> 或工作流 JSON，就检测、剥离并渲染为文件卡片。
+                            // 同时：
+                            // - 旧流：当 needsWorkflowRef.current 为 true 且当前消息在加载时，就提前展示“加载中”占位卡片；
+                            // - Agentic 流：当进入 generating / validating / repairing / running_trial / waiting_approval / summarizing 等阶段时，也提前展示占位卡片。
+                            const shouldCheckWorkflow = true;
+                            const isAgenticGeneratingPhase =
+                              useAgentic &&
+                              ['generating', 'validating', 'repairing', 'running_trial', 'waiting_approval', 'summarizing'].includes(
+                                agenticPhase,
+                              );
+                            const shouldShowGeneratingPlaceholder =
+                              isCurrentLoadingMessage &&
+                              loading &&
+                              (isAgenticGeneratingPhase || (!useAgentic && needsWorkflowRef.current === true));
+
+                            const parsed = parseMessageContent(msg.content, shouldShowGeneratingPlaceholder, shouldCheckWorkflow);
+                            const shouldShowWorkflow = parsed.hasWorkflow;
                             return (
                               <>
                                 {parsed.text && (
                                   <div className={styles.markdownContent}>
-                                    <MarkdownRenderer content={parsed.text} />
+                                    <MarkdownRenderer content={parsed.text} className={styles.alkaidMarkdown} />
                                   </div>
                                 )}
                                 {shouldShowWorkflow && (
@@ -681,28 +847,28 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
                                       <FileTextOutlined style={{ fontSize: 16, color: 'var(--primary)' }} />
                                     </div>
                                     <div className={styles.workflowFileInfo}>
-                                      <Typography.Text strong style={{ display: 'block', fontSize: '12px', lineHeight: '1.4' }}>
+                                      <span className={styles.workflowFileTitle}>
                                         {t('alkaid.workflowFile') || '工作流文件'}
-                                      </Typography.Text>
+                                      </span>
                                       {parsed.isGenerating ? (
-                                        <Space size={4} style={{ marginTop: '4px' }}>
-                                          <Spin size="small" />
-                                          <Typography.Text type="secondary" style={{ fontSize: '10px', lineHeight: '1.4' }}>
-                                            {t('alkaid.generating') || '生成中...'}
-                                          </Typography.Text>
-                                        </Space>
+                                        <>
+                                          <Spin size="small" style={{ marginRight: 2 }} />
+                                          <span className={styles.workflowFileStatus} style={{ color: 'var(--text-secondary)' }}>
+                                            {t('alkaid.loading') || '加载中'}
+                                          </span>
+                                        </>
                                       ) : parsed.workflowJSON ? (
                                         <>
-                                          <Typography.Text type="secondary" style={{ fontSize: '10px', display: 'block', lineHeight: '1.4' }}>
-                                            {t('alkaid.clickToImport') || '点击导入到工作流编辑器'}
-                                          </Typography.Text>
-                                          <Space size={4} style={{ marginTop: '4px' }}>
+                                          <span className={styles.workflowFileStatus} style={{ color: '#52c41a' }}>
+                                            {t('alkaid.generated') || '生成完毕'}
+                                          </span>
+                                          <span className={styles.workflowFileActions}>
                                             <Button
                                               type="primary"
                                               size="small"
                                               icon={<UploadOutlined />}
                                               onClick={() => handleImportWorkflow(parsed.workflowJSON!)}
-                                              style={{ fontSize: '11px', height: '22px', padding: '0 6px' }}
+                                              style={{ fontSize: '12px', height: '22px', padding: '0 8px' }}
                                             >
                                               {t('alkaid.import') || '导入'}
                                             </Button>
@@ -710,13 +876,20 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
                                               size="small"
                                               icon={<DownloadOutlined />}
                                               onClick={() => handleDownloadWorkflow(parsed.workflowJSON!)}
-                                              style={{ fontSize: '11px', height: '22px', padding: '0 6px' }}
+                                              style={{ fontSize: '12px', height: '22px', padding: '0 8px' }}
                                             >
                                               {t('alkaid.download') || '下载'}
                                             </Button>
-                                          </Space>
+                                          </span>
                                         </>
-                                      ) : null}
+                                      ) : (
+                                        <>
+                                          <Spin size="small" style={{ marginRight: 2 }} />
+                                          <span className={styles.workflowFileStatus} style={{ color: 'var(--text-secondary)' }}>
+                                            {t('alkaid.loading') || '加载中'}
+                                          </span>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 )}
@@ -745,6 +918,29 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
               <div ref={messagesEndRef} />
             </div>
 
+            {/* Agentic：待确认工作流 / 待确认补丁（小巧横向卡片） */}
+            {useAgentic && (agenticPendingSummary || agenticPendingPatchCount != null) && (
+              <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border-secondary)', display: 'flex', flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                {agenticPendingSummary && (
+                  <AlkaidPendingWorkflow
+                    summary={agenticPendingSummary}
+                    onApply={handleApplyWorkflow}
+                    onDiscard={handleDiscardPendingWorkflow}
+                    loading={applyLoading}
+                  />
+                )}
+                {agenticPendingPatchCount != null && agenticPendingPatchCount > 0 && (
+                  <AlkaidPendingPatch
+                    patchCount={agenticPendingPatchCount}
+                    onApply={handleApplyPatch}
+                    onDiscard={handleDiscardPendingPatch}
+                    loading={applyPatchLoading}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* 配置行：试运行开关等 */}
             {/* 输入框 */}
             <div className={styles.inputContainer}>
               <div className={styles.inputWrapper}>

@@ -146,6 +146,10 @@ func (p *DoubaoProvider) Chat(config *providers.AIModelConfig, prompt string, co
 	}, nil
 }
 
+func (p *DoubaoProvider) ChatWithTools(ctx context.Context, config *providers.AIModelConfig, systemPrompt string, messages []providers.ChatMessage, tools []providers.ToolDef, providerConfig map[string]interface{}) (*providers.ChatResponseWithTools, error) {
+	return nil, fmt.Errorf("tool calling not implemented for Doubao provider")
+}
+
 // ChatStream 流式聊天对话
 func (p *DoubaoProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	log.Printf("[流式调试-豆包] ChatStream 开始执行")

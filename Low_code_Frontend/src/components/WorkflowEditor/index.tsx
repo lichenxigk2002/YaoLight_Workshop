@@ -369,6 +369,14 @@ const WorkflowEditor: React.FC = () => {
     }
   }, [nodes, edges, t]);
 
+  // 获取当前工作流（用于 AI 上下文）
+  const getCurrentWorkflow = useCallback(async () => {
+    return {
+      nodes: nodes,
+      edges: edges,
+    };
+  }, [nodes, edges]);
+
   // 导入工作流
   const handleImportWorkflow = useCallback(() => {
     if (nodes.length > 0 || edges.length > 0) {
@@ -538,6 +546,8 @@ const WorkflowEditor: React.FC = () => {
           <AlkaidAssistant
             workflowId={workflowId}
             hasExistingNodes={nodes.length > 0 || edges.length > 0}
+            onWorkflowApplied={loadWorkflowNodes}
+            getCurrentWorkflow={getCurrentWorkflow}
             onWorkflowGenerated={async (workflowData) => {
               try {
                 // 转换节点数据

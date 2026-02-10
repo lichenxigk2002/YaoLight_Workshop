@@ -133,6 +133,11 @@ func (p *OpenAIProvider) Chat(config *providers.AIModelConfig, prompt string, co
 	}, nil
 }
 
+// ChatWithTools 工具调用（当前未实现，Agent 请使用 DeepSeek）
+func (p *OpenAIProvider) ChatWithTools(ctx context.Context, config *providers.AIModelConfig, systemPrompt string, messages []providers.ChatMessage, tools []providers.ToolDef, providerConfig map[string]interface{}) (*providers.ChatResponseWithTools, error) {
+	return nil, fmt.Errorf("tool calling not implemented for OpenAI provider")
+}
+
 // ChatStream 流式聊天对话（OpenAI暂不支持，返回错误）
 func (p *OpenAIProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	select {

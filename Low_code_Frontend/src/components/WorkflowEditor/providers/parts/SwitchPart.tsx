@@ -14,7 +14,7 @@ export const SegmentedSwitch: React.FC<{
   return (
     <Segmented
       block
-      motion={false}
+      motion={undefined}
       value={value}
       onChange={(val) => onChange?.(val as boolean)}
       className={styles.segmentedControl}

@@ -1,14 +1,21 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { Form, Modal, InputNumber, Tooltip, Select, Input, type FormInstance } from 'antd';
-import { InfoCircleOutlined, SettingOutlined, EyeInvisibleOutlined, KeyOutlined, LinkOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { ProviderIcon } from '../../Icons/ProviderIcon';
 import styles from './AIModelConfigPopup.module.scss';
 import { ProviderPickerOption } from './ProviderPicker';
-import { getModelConfigSupport } from './modelConfigSupport';
+import {
+  getModelConfigSupport,
+  getMaxTokensLimitFromCapability,
+  getMaxTokensLimitFallback,
+  filterProviderOptionsBySupport,
+} from './modelConfigSupport';
 import { providerRegistry } from '../providers';
 import { StandardProviderConfig } from '../providers/parts/StandardProviderConfig';
 import { SegmentedSwitch } from '../providers/parts/SwitchPart';
+import { aiApi } from '@/api/ai';
+import type { ModelCapability } from '@/types/ai';
 
 const { Option } = Select;
 
@@ -72,6 +79,37 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
   const [modalStyle, setModalStyle] = useState<React.CSSProperties>({});
   const [modalWidth, setModalWidth] = useState<number | undefined>(undefined);
 
+  // 弹窗内按当前 provider+model 按需拉取能力，避免写死 configuration（与主面板一致）
+  const [popupCapability, setPopupCapability] = useState<ModelCapability | null | undefined>(undefined);
+  useEffect(() => {
+    if (!open || !currentProvider || !currentModelName) {
+      setPopupCapability(undefined);
+      return;
+    }
+    let cancelled = false;
+    aiApi.getModelCapability(currentProvider, currentModelName).then((cap) => {
+      if (!cancelled) setPopupCapability(cap ?? null);
+    });
+    return () => { cancelled = true; };
+  }, [open, currentProvider, currentModelName]);
+
+  // 根据当前模型能力计算 support 与过滤后的配置项（不再写死 providerReg.configuration）
+  const support = useMemo(
+    () => getModelConfigSupport(currentProvider ?? null, popupCapability ?? null),
+    [currentProvider, popupCapability]
+  );
+  const maxTokensLimit = useMemo(() => {
+    if (!currentProvider || !currentModelName) return 32768;
+    return popupCapability != null
+      ? getMaxTokensLimitFromCapability(popupCapability)
+      : getMaxTokensLimitFallback(currentProvider, currentModelName);
+  }, [currentProvider, currentModelName, popupCapability]);
+  const filteredOptions = useMemo(() => {
+    const reg = currentProvider ? providerRegistry.get(currentProvider) : null;
+    if (!reg?.configuration) return [];
+    return filterProviderOptionsBySupport(reg.configuration, support, maxTokensLimit);
+  }, [currentProvider, support, maxTokensLimit]);
+
   // 监听打开状态，计算水平位置（模仿 Popover left）但垂直居中
   useEffect(() => {
     if (open && triggerRef.current) {
@@ -106,9 +144,7 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
     }
   }, [open]);
 
-  // 获取当前选中提供商的配置支持情况
   const providerReg = currentProvider ? providerRegistry.get(currentProvider) : null;
-  const support = useMemo(() => getModelConfigSupport(currentProvider ?? null), [currentProvider]);
 
   // Popover 内容
   const content = (
@@ -204,14 +240,14 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
           </div>
         )}
 
-        {/* 3. 高级参数配置 */}
+        {/* 3. 高级参数配置（按当前选中模型能力过滤，与主面板一致） */}
         <div className={styles.section}>
           <div className={styles.sectionTitle}>
             {t('node.config.ai.advancedParams') || '高级参数'}
           </div>
           {providerReg?.configuration ? (
             <div className={styles.compactConfig}>
-              <StandardProviderConfig form={form} options={providerReg.configuration} />
+              <StandardProviderConfig form={form} options={filteredOptions} />
             </div>
           ) : (
             <div className={styles.paramsGrid}>
@@ -363,7 +399,7 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
         width={modalWidth}
         style={modalStyle}
         getContainer={false}
-        destroyOnClose
+        destroyOnHidden
         maskClosable={true}
         mask={false}
         centered

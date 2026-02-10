@@ -1,6 +1,7 @@
 import http from '@/http';
 import type {
   AIModel,
+  ModelCapability,
   ProviderTemplate,
   SystemPresetModel,
   CreateModelRequest,
@@ -27,9 +28,13 @@ const adaptAIModel = (raw: any): AIModel => ({
  * AI API
  */
 export const aiApi = {
-  // 获取供应商模板列表
+  // 获取供应商模板列表（不含 modelCapabilities，列表轻量）
   getProviderTemplates: (): Promise<ProviderTemplate[]> =>
-    http.get<ProviderTemplate[]>('/ai/providers/templates'),
+    http.get<ProviderTemplate[]>('/ai/providers/templates', { _t: Date.now() }),
+
+  // 按当前选中模型按需拉取能力（减轻负载，点哪个模型加载哪个）
+  getModelCapability: (provider: string, modelName: string): Promise<ModelCapability | null> =>
+    http.get<ModelCapability | null>('/ai/model-capabilities', { provider, model_name: modelName }).catch(() => null),
 
   // 获取系统预设模型列表
   getSystemPresetModels: (): Promise<SystemPresetModel[]> =>
