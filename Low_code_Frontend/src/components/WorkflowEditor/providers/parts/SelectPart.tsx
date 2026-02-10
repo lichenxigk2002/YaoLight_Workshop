@@ -11,7 +11,7 @@ const SegmentedSelect: React.FC<{
   return (
     <Segmented
       block
-      motion={false}
+      motion={undefined}
       value={value}
       onChange={onChange as any}
       options={options}

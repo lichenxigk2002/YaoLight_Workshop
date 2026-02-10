@@ -187,6 +187,148 @@ func (p *DeepSeekProvider) Chat(config *providers.AIModelConfig, prompt string, 
 	}, nil
 }
 
+// ChatWithTools 带工具调用的聊天（非流式，用于 Agent 循环）
+func (p *DeepSeekProvider) ChatWithTools(ctx context.Context, config *providers.AIModelConfig, systemPrompt string, messages []providers.ChatMessage, tools []providers.ToolDef, providerConfig map[string]interface{}) (*providers.ChatResponseWithTools, error) {
+	baseURL := config.BaseURL
+	if baseURL == "" {
+		baseURL = "https://api.deepseek.com"
+	}
+	url := fmt.Sprintf("%s/chat/completions", baseURL)
+
+	apiMessages := make([]map[string]interface{}, 0, 1+len(messages))
+	if systemPrompt != "" {
+		apiMessages = append(apiMessages, map[string]interface{}{
+			"role": "system", "content": systemPrompt,
+		})
+	}
+	for _, m := range messages {
+		msg := map[string]interface{}{"role": m.Role}
+		if m.Content != "" {
+			msg["content"] = m.Content
+		}
+		if m.Role == "tool" && m.ToolCallID != "" {
+			msg["tool_call_id"] = m.ToolCallID
+		}
+		if len(m.ToolCalls) > 0 {
+			tcList := make([]map[string]interface{}, 0, len(m.ToolCalls))
+			for _, tc := range m.ToolCalls {
+				tcList = append(tcList, map[string]interface{}{
+					"id":   tc.ID,
+					"type": "function",
+					"function": map[string]interface{}{
+						"name":      tc.Function.Name,
+						"arguments": tc.Function.Arguments,
+					},
+				})
+			}
+			msg["tool_calls"] = tcList
+		}
+		apiMessages = append(apiMessages, msg)
+	}
+
+	toolsPayload := make([]map[string]interface{}, 0, len(tools))
+	for _, t := range tools {
+		item := map[string]interface{}{"type": "function"}
+		if t.Function != nil {
+			item["function"] = map[string]interface{}{
+				"name":        t.Function.Name,
+				"description": t.Function.Description,
+				"parameters":  t.Function.Parameters,
+			}
+		}
+		toolsPayload = append(toolsPayload, item)
+	}
+
+	requestBody := map[string]interface{}{
+		"model":    config.ModelName,
+		"messages": apiMessages,
+		"stream":   false,
+	}
+	if len(toolsPayload) > 0 {
+		requestBody["tools"] = toolsPayload
+	}
+	requestBody["thinking"] = map[string]interface{}{"type": "disabled"}
+	if config.Temperature != nil {
+		requestBody["temperature"] = *config.Temperature
+	}
+	if config.MaxTokens != nil {
+		requestBody["max_tokens"] = *config.MaxTokens
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+config.APIKey)
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API failed status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var res struct {
+		Choices []struct {
+			Message struct {
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Type     string `json:"type"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	if len(res.Choices) == 0 {
+		return nil, fmt.Errorf("no choices in response")
+	}
+
+	out := &providers.ChatResponseWithTools{
+		Content:    res.Choices[0].Message.Content,
+		TokensUsed: res.Usage.TotalTokens,
+		Usage: &providers.TokenUsage{
+			PromptTokens:     res.Usage.PromptTokens,
+			CompletionTokens: res.Usage.CompletionTokens,
+			TotalTokens:      res.Usage.TotalTokens,
+		},
+		Model: config.ModelName,
+	}
+	for _, tc := range res.Choices[0].Message.ToolCalls {
+		out.ToolCalls = append(out.ToolCalls, &providers.ToolCall{
+			ID:   tc.ID,
+			Type: tc.Type,
+			Function: struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			}{Name: tc.Function.Name, Arguments: tc.Function.Arguments},
+		})
+	}
+	return out, nil
+}
+
 // ChatStream 流式聊天对话
 func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	// DeepSeek API地址

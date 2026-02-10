@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
@@ -11,17 +12,15 @@ import (
 type PromptBuilder struct {
 	capabilities      *WorkflowCapabilities
 	relevantKnowledge []alkaidModels.AlkaidKnowledge // 按需检索的知识库条目
+	currentWorkflow   interface{}                    // 当前画布上下文
 }
 
 // NewPromptBuilder 创建Prompt构建器
-func NewPromptBuilder(capabilities *WorkflowCapabilities, relevantKnowledge ...[]alkaidModels.AlkaidKnowledge) *PromptBuilder {
-	knowledge := []alkaidModels.AlkaidKnowledge{}
-	if len(relevantKnowledge) > 0 {
-		knowledge = relevantKnowledge[0]
-	}
+func NewPromptBuilder(capabilities *WorkflowCapabilities, relevantKnowledge []alkaidModels.AlkaidKnowledge, currentWorkflow interface{}) *PromptBuilder {
 	return &PromptBuilder{
 		capabilities:      capabilities,
-		relevantKnowledge: knowledge,
+		relevantKnowledge: relevantKnowledge,
+		currentWorkflow:   currentWorkflow,
 	}
 }
 
@@ -130,6 +129,21 @@ func (pb *PromptBuilder) BuildSystemPrompt() string {
 			builder.WriteString(kb.Content)
 			builder.WriteString("\n\n")
 		}
+	}
+
+	// 9. 当前画布上下文（如果有）
+	if pb.currentWorkflow != nil {
+		builder.WriteString("\n## 当前画布上下文\n")
+		builder.WriteString("用户当前画布上已有的工作流如下（请基于此进行修改、回答问题或提供建议）：\n")
+		builder.WriteString("```json\n")
+		// 尝试序列化
+		if jsonBytes, err := json.MarshalIndent(pb.currentWorkflow, "", "  "); err == nil {
+			builder.WriteString(string(jsonBytes))
+		} else {
+			builder.WriteString(fmt.Sprintf("%v", pb.currentWorkflow))
+		}
+		builder.WriteString("\n```\n")
+		builder.WriteString("注意：以上是用户当前的工作流状态。如果用户要求修改，请基于此结构生成新的完整工作流或补丁。\n")
 	}
 
 	return builder.String()

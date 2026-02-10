@@ -324,89 +324,83 @@
 }
 
 .messageBubble {
-  padding: 8px 8px;
+  padding: 6px 8px;
   word-wrap: break-word;
   word-break: break-word;
-  font-size: 13px; // 缩小字体
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.45;
   position: relative;
-  min-height: 28px; // 缩小最小高度
+  min-height: 24px;
   display: flex;
   align-items: center;
-  width: fit-content; // 宽度自适应内容
-  max-width: 100%; // 确保不超过容器
+  width: fit-content;
+  max-width: 100%;
 }
 
 .messageText {
   width: 100%;
-  font-size: 13px; // 缩小字体
-  line-height: 1.5;
-  // white-space: pre-wrap; // 移除，因为Markdown渲染器会处理
+  font-size: 12px;
+  line-height: 1.45;
+}
 
-  // 复用 MarkdownRenderer 的样式并做微调
-  :global(.markdown-container) {
-    font-size: 13px;
-    line-height: 1.5;
-    color: inherit; // 继承父级颜色（在用户消息中是白色，在助手消息中是默认色）
+// 瑶光星对话框内 Markdown：传入 className 后覆盖 MarkdownRenderer 内部类（需用 [class*="xxx"] 匹配）
+.markdownContent {
+  .alkaidMarkdown {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+    color: inherit;
 
-    p {
-      margin-bottom: 8px;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
-    }
-
-    ul,
-    ol {
-      padding-left: 20px;
-      margin-bottom: 8px;
-    }
-
-    li {
-      margin-bottom: 4px;
-    }
-
-    code {
-      background: rgba(0, 0, 0, 0.06);
-      padding: 1px 4px;
-      border-radius: 4px;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 12px;
-      color: inherit;
-    }
-
-    pre {
-      background: rgba(0, 0, 0, 0.04);
-      padding: 8px;
-      border-radius: 6px;
-      overflow-x: auto;
-      margin: 8px 0;
-      border: 1px solid rgba(0, 0, 0, 0.06);
-
-      code {
-        background: none;
-        padding: 0;
-        border: none;
-        font-size: 12px;
-        color: inherit;
-      }
-    }
-
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
-      margin-top: 12px;
-      margin-bottom: 6px;
-      font-weight: 600;
+    :global([class*="heading1"]) {
+      font-size: 13px !important;
+      margin: 10px 0 4px 0 !important;
+      padding-bottom: 4px !important;
+      border-bottom: 1px solid var(--border-secondary) !important;
       line-height: 1.4;
-
-      &:first-child {
-        margin-top: 0;
-      }
+    }
+    :global([class*="heading2"]) {
+      font-size: 13px !important;
+      margin: 10px 0 4px 0 !important;
+      padding-bottom: 4px !important;
+      border-bottom: 1px solid var(--border-secondary) !important;
+      line-height: 1.4;
+    }
+    :global([class*="heading3"]) {
+      font-size: 12px !important;
+      margin: 8px 0 3px 0 !important;
+      line-height: 1.4;
+    }
+    :global([class*="heading4"]),
+    :global([class*="heading5"]),
+    :global([class*="heading6"]) {
+      font-size: 12px !important;
+      margin: 8px 0 3px 0 !important;
+      line-height: 1.4;
+    }
+    :global([class*="paragraph"]) {
+      margin: 6px 0 !important;
+      line-height: 1.45;
+      font-size: 12px !important;
+    }
+    :global([class*="orderedList"]),
+    :global([class*="unorderedList"]) {
+      margin: 6px 0 !important;
+      padding-left: 20px !important;
+    }
+    :global([class*="listItem"]) {
+      margin: 3px 0 !important;
+      line-height: 1.45;
+      font-size: 12px !important;
+    }
+    :global([class*="inlineCode"]) {
+      font-size: 11px !important;
+      padding: 1px 4px !important;
+    }
+    :global([class*="pre"]) {
+      margin: 8px 0 !important;
+      padding: 6px !important;
+    }
+    :global([class*="codeBlock"]) {
+      font-size: 11px !important;
     }
   }
 }
@@ -418,21 +412,23 @@
 }
 
 .workflowFileCard {
-  display: flex;
-  align-items: center;
+  display: inline-flex;
+  align-items: flex-start;
   gap: 10px;
   margin-top: 8px;
-  padding: 8px;
+  padding: 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-secondary);
-  border-radius: 6px;
+  border-radius: 8px;
   transition: all 0.2s ease;
-  width: fit-content;
-  max-width: 100%;
+  width: 220px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
   &:hover {
     border-color: var(--primary);
     background: var(--bg-primary);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
   }
 }
 
@@ -441,18 +437,42 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: 6px;
   border: 1px solid var(--border-secondary);
 }
 
 .workflowFileInfo {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  flex-shrink: 0;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.workflowFileTitle {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workflowFileStatus {
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.workflowFileActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .inputContainer {
@@ -540,6 +560,20 @@
   :global(.anticon) {
     font-size: 18px;
   }
+}
+
+.optionsRow {
+  padding: 6px 12px 2px 12px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.optionLabel {
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 // 响应式设计

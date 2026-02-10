@@ -22,6 +22,27 @@ export interface AIModel {
 }
 
 /**
+ * 模型能力配置（来自后端 model_capability_configs，按 provider+model 返回）
+ * 0/1 表示该模型是否支持该项；用户是否启用、具体取值由节点/用户配置决定
+ */
+export interface ModelCapability {
+  support_temperature?: boolean;
+  support_max_tokens?: boolean;
+  support_top_p?: boolean;
+  support_stream?: boolean;
+  support_thinking?: boolean;
+  support_thinking_level?: boolean;
+  support_enable_thinking?: boolean;
+  support_frequency_penalty?: boolean;
+  support_presence_penalty?: boolean;
+  support_stop_sequences?: boolean;
+  support_vision?: boolean;
+  support_image_generation?: boolean;
+  max_tokens_limit?: number;
+  capability_options?: Record<string, any>; // 子配置，如图片生成分辨率等
+}
+
+/**
  * 供应商模板
  */
 export interface ProviderTemplate {
@@ -31,6 +52,8 @@ export interface ProviderTemplate {
   description?: string;
   defaultBaseUrl?: string;
   supportedModels: string[];
+  /** 该供应商下各模型的能力配置，key 为 modelName */
+  modelCapabilities?: Record<string, ModelCapability>;
   capabilities?: string[]; // 例如: ['LLM', 'TEXT EMBEDDING', 'TTS']
   defaultConfig: {
     temperature?: number;

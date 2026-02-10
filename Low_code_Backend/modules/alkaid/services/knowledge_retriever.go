@@ -2,6 +2,7 @@ package services
 
 import (
 	"strings"
+	"time"
 	"yaolight-workshop/backend/infrastructure/database"
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 )
@@ -47,6 +48,11 @@ func (kr *KnowledgeRetriever) RetrieveRelevantKnowledge(userMessage string, user
 	if len(results) < maxResults {
 		general, _ := kr.getGeneralKnowledge(userID, maxResults-len(results))
 		results = append(results, general...)
+	}
+
+	// 5. 若数据库无数据（未执行 migrations/006_insert_alkaid_knowledge.sql），返回内置兜底知识，保证「检索」有结果
+	if len(results) == 0 {
+		results = getBuiltinFallbackKnowledge(maxResults)
 	}
 
 	return results, nil
@@ -190,11 +196,43 @@ func (kr *KnowledgeRetriever) searchByKeywords(keywords []string, userID uint, m
 func (kr *KnowledgeRetriever) getGeneralKnowledge(userID uint, maxResults int) ([]alkaidModels.AlkaidKnowledge, error) {
 	var results []alkaidModels.AlkaidKnowledge
 
-	// 优先获取最佳实践和错误修复
-	err := database.DB.Where(
+	// 优先获取最佳实践和错误修复（系统公共 user_id IS NULL 或当前用户）
+	err := database.DB.Model(&alkaidModels.AlkaidKnowledge{}).Where(
 		"is_active = ? AND category IN (?) AND (user_id IS NULL OR user_id = ?)",
 		true, []string{"best_practice", "error_repair"}, userID,
 	).Order("category ASC").Limit(maxResults).Find(&results).Error
 
 	return results, err
+}
+
+// getBuiltinFallbackKnowledge 当知识库表为空时返回的内置兜底知识（无需执行 006 迁移即可有检索结果）
+func getBuiltinFallbackKnowledge(maxResults int) []alkaidModels.AlkaidKnowledge {
+	if maxResults <= 0 {
+		maxResults = 2
+	}
+	now := time.Now()
+	all := []alkaidModels.AlkaidKnowledge{
+		{
+			Category:  "best_practice",
+			Target:    "",
+			Title:     "工作流通用建议",
+			Content:   "1. 节点间使用变量引用：{{nodeId.输出变量}}，如 {{node-1.data.url}}。\n2. 典型链路：开始 → 爬虫 → 数据清洗 → AI处理 → 输出 → 结束。\n3. 爬虫节点用 urlVariable 引用开始节点的 URL；AI 节点用 contentVariable 引用上游文本。",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+		{
+			Category:  "error_repair",
+			Target:    "",
+			Title:     "常见问题与排查",
+			Content:   "变量引用错误：检查上游节点是否已输出对应变量名（如 data、text、cleaned）。\n超时：为爬虫节点增加 timeout 或重试配置。\nJSON 格式：工作流导出需包含 version、nodes、edges，节点需含 id、type、data、position。",
+			IsActive:  true,
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
+	if len(all) > maxResults {
+		all = all[:maxResults]
+	}
+	return all
 }

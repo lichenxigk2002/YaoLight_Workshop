@@ -94,6 +94,11 @@ func InitDatabase() error {
 		log.Printf("⚠️ Warning: failed to seed model pricing configs: %v", err)
 	}
 
+	// 初始化模型能力配置（基于计费表生成默认行）
+	if err := SeedModelCapabilityConfigs(); err != nil {
+		log.Printf("⚠️ Warning: failed to seed model capability configs: %v", err)
+	}
+
 	return nil
 }
 
@@ -182,6 +187,9 @@ func AutoMigrate() error {
 		&paymentModels.Order{}, // 订单表
 		// &aiModels.ProviderTemplate{},        // 已存在，注释掉以减少迁移检查
 		// &aiModels.ModelPricingConfig{},      // 已存在，注释掉以减少迁移检查
+
+		// AI 模型能力配置（按 provider+model_name）
+		&aiModels.ModelCapabilityConfig{},
 
 		// 依赖User的表
 		&projectModels.Project{},
@@ -1040,6 +1048,83 @@ func SeedModelPricingConfigs() error {
 
 	log.Printf("✅ Model pricing configs seeding completed (%d configs)", successCount)
 	return nil
+}
+
+// SeedModelCapabilityConfigs 根据计费表为每个 (provider, model_name) 生成默认能力配置
+func SeedModelCapabilityConfigs() error {
+	capRepo := aiRepos.NewCapabilityConfigRepository(DB)
+	pricingRepo := aiRepos.NewPricingConfigRepository(DB)
+	configs, err := pricingRepo.FindAll()
+	if err != nil {
+		return err
+	}
+	count := 0
+	for _, p := range configs {
+		c := defaultCapabilityForModel(p.Provider, p.ModelName)
+		if err := capRepo.CreateOrUpdate(c); err != nil {
+			log.Printf("⚠️ Failed to seed capability config provider=%s model=%s: %v", p.Provider, p.ModelName, err)
+			continue
+		}
+		count++
+	}
+	log.Printf("✅ Model capability configs seeding completed (%d configs)", count)
+	return nil
+}
+
+// defaultCapabilityForModel 返回某模型的默认能力配置（可按 provider/model 覆盖）
+func defaultCapabilityForModel(provider, modelName string) *aiModels.ModelCapabilityConfig {
+	c := &aiModels.ModelCapabilityConfig{
+		Provider:                provider,
+		ModelName:               modelName,
+		SupportTemperature:      true,
+		SupportMaxTokens:        true,
+		SupportTopP:             true,
+		SupportStream:           false,
+		SupportThinking:         false,
+		SupportThinkingLevel:    false,
+		SupportEnableThinking:   false,
+		SupportFrequencyPenalty: false,
+		SupportPresencePenalty:  false,
+		SupportStopSequences:    false,
+		SupportVision:           false,
+		SupportImageGeneration:  false,
+		MaxTokensLimit:          32768,
+		IsActive:                true,
+	}
+	switch provider {
+	case "deepseek":
+		c.SupportStream = true
+		c.SupportThinking = true
+		if modelName == "deepseek-reasoner" {
+			c.MaxTokensLimit = 65536
+		} else {
+			c.MaxTokensLimit = 8192
+		}
+	case "doubao":
+		c.SupportStream = true
+		c.SupportThinkingLevel = true
+		c.MaxTokensLimit = 32768
+	case "qwen":
+		c.SupportStream = true
+		c.SupportEnableThinking = true
+		c.MaxTokensLimit = 32768
+	case "zhipuai":
+		c.SupportStream = true
+		c.SupportThinking = true
+		c.MaxTokensLimit = 131072
+	case "spark":
+		c.SupportStream = true
+		c.MaxTokensLimit = 65535
+	case "hunyuan":
+		c.SupportStream = true
+		c.MaxTokensLimit = 32768
+	case "claude", "gpt", "gemini", "grok":
+		c.SupportFrequencyPenalty = true
+		c.SupportPresencePenalty = true
+		c.SupportStream = true
+		c.MaxTokensLimit = 131072
+	}
+	return c
 }
 
 // CloseDatabase 关闭数据库连接
