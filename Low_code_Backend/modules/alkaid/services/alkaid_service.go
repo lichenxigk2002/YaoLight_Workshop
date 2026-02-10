@@ -357,6 +357,23 @@ func (s *AlkaidService) GetMessages(sessionID uint, limit int) ([]alkaidModels.A
 	return s.repo.GetMessagesBySessionID(sessionID, 0)
 }
 
+// GetConversationHistoryForAgentic 获取最近 N 条消息并格式化为对话历史，供 Agentic 流带入上下文
+func (s *AlkaidService) GetConversationHistoryForAgentic(sessionID uint, maxMessages int) (string, error) {
+	if maxMessages <= 0 {
+		maxMessages = 20
+	}
+	messages, err := s.repo.GetLatestMessages(sessionID, maxMessages)
+	if err != nil {
+		return "", err
+	}
+	return s.buildConversationHistory(messages), nil
+}
+
+// GetCapabilities 获取瑶光星能力说明（节点类型、工作流格式、规则等），供智能体/前端使用
+func (s *AlkaidService) GetCapabilities() (*WorkflowCapabilities, error) {
+	return s.capabilitiesService.GetCapabilities()
+}
+
 // buildAIConfig 构建AI配置（使用deepseek系统预设）
 func (s *AlkaidService) buildAIConfig(userID uint) (*providers.AIModelConfig, error) {
 	// 检查系统是否配置了DeepSeek API Key
@@ -375,28 +392,42 @@ func (s *AlkaidService) buildAIConfig(userID uint) (*providers.AIModelConfig, er
 	}, nil
 }
 
+// BuildSystemPromptForAgentic 供 Agentic 流调用，构建生成工作流用的系统 Prompt
+func (s *AlkaidService) BuildSystemPromptForAgentic(userID uint, userMessage string) (string, error) {
+	return s.buildSystemPrompt(userID, userMessage)
+}
+
+// GetRelevantKnowledgeForAgentic 供 Agentic 流展示「检索知识库」步骤，返回检索到的知识库条目（可传入 nil 表示按需检索）
+func (s *AlkaidService) GetRelevantKnowledgeForAgentic(userID uint, userMessage string, maxResults int) ([]alkaidModels.AlkaidKnowledge, error) {
+	if maxResults <= 0 {
+		maxResults = 8
+	}
+	retriever := NewKnowledgeRetriever()
+	return retriever.RetrieveRelevantKnowledge(userMessage, userID, maxResults)
+}
+
+// BuildSystemPromptForAgenticWithKnowledge 使用已检索的知识库构建系统 Prompt，避免重复检索
+func (s *AlkaidService) BuildSystemPromptForAgenticWithKnowledge(userID uint, userMessage string, relevantKnowledge []alkaidModels.AlkaidKnowledge, currentWorkflow interface{}) (string, error) {
+	return s.buildSystemPromptWithKnowledge(userID, relevantKnowledge, currentWorkflow)
+}
+
 // buildSystemPrompt 构建系统Prompt（注入知识库上下文，按需检索）
 func (s *AlkaidService) buildSystemPrompt(userID uint, userMessage string) (string, error) {
-	// 1. 获取能力说明（硬约束，必须）
+	relevantKnowledge, err := s.GetRelevantKnowledgeForAgentic(userID, userMessage, 8)
+	if err != nil {
+		relevantKnowledge = []alkaidModels.AlkaidKnowledge{}
+	}
+	return s.buildSystemPromptWithKnowledge(userID, relevantKnowledge, nil)
+}
+
+// buildSystemPromptWithKnowledge 使用指定知识库条目构建系统 Prompt
+func (s *AlkaidService) buildSystemPromptWithKnowledge(userID uint, relevantKnowledge []alkaidModels.AlkaidKnowledge, currentWorkflow interface{}) (string, error) {
 	capabilities, err := s.capabilitiesService.GetCapabilities()
 	if err != nil {
 		return "", err
 	}
-
-	// 2. 智能检索相关知识库（软知识，按需加载）
-	// 默认检索5-8条，如果必要可以更多
-	retriever := NewKnowledgeRetriever()
-	relevantKnowledge, err := retriever.RetrieveRelevantKnowledge(userMessage, userID, 8)
-	if err != nil {
-		// 如果检索失败，继续使用 Capabilities（不影响核心功能）
-		relevantKnowledge = []alkaidModels.AlkaidKnowledge{}
-	}
-
-	// 3. 构建Prompt（包含Capabilities和按需检索的知识库）
-	promptBuilder := NewPromptBuilder(capabilities, relevantKnowledge)
-	systemPrompt := promptBuilder.BuildSystemPrompt()
-
-	return systemPrompt, nil
+	promptBuilder := NewPromptBuilder(capabilities, relevantKnowledge, currentWorkflow)
+	return promptBuilder.BuildSystemPrompt(), nil
 }
 
 // buildConversationHistory 构建对话历史文本

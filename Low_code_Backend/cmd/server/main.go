@@ -192,6 +192,7 @@ func main() {
 			aiController := aiControllers.NewAIController()
 			auth.GET("/ai/providers/templates", aiController.GetProviderTemplates)
 			auth.GET("/ai/models/system", aiController.GetSystemPresetModels)
+			auth.GET("/ai/model-capabilities", aiController.GetModelCapability)
 			auth.GET("/ai/models", aiController.GetModels)
 			auth.POST("/ai/models", aiController.CreateModel)
 			auth.PUT("/ai/models/:id", aiController.UpdateModel)
@@ -199,13 +200,17 @@ func main() {
 
 			// 瑶光星（Alkaid）对话相关路由
 			alkaidController := alkaidControllers.NewAlkaidController()
+			auth.GET("/alkaid/capabilities", alkaidController.GetCapabilities)
 			auth.POST("/alkaid/sessions", alkaidController.CreateSession)
 			auth.GET("/alkaid/sessions", alkaidController.GetSessions)
 			auth.GET("/alkaid/sessions/:id", alkaidController.GetSession)
 			auth.PUT("/alkaid/sessions/:id/title", alkaidController.UpdateSessionTitle)
 			auth.DELETE("/alkaid/sessions/:id", alkaidController.DeleteSession)
 			auth.POST("/alkaid/messages", alkaidController.SendMessage)
-			auth.POST("/alkaid/messages/stream", alkaidController.SendMessageStream) // 新增流式接口
+			auth.POST("/alkaid/messages/stream", alkaidController.SendMessageStream) // 原有流式接口
+			auth.POST("/alkaid/sessions/:id/stream", alkaidController.SessionStream) // Agentic 流式接口（SSE 进度事件）
+			auth.POST("/alkaid/apply-workflow", alkaidController.ApplyWorkflow)
+			auth.POST("/alkaid/apply-patch", alkaidController.ApplyPatch)
 			auth.GET("/alkaid/sessions/:id/messages", alkaidController.GetMessages)
 
 			// 支付相关路由（需要认证）
