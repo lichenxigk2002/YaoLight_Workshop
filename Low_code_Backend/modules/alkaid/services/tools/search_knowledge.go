@@ -16,6 +16,26 @@ func (r *Registry) runSearchKnowledge(params map[string]interface{}, sessionID u
 	if !ok || query == "" {
 		return nil, "", fmt.Errorf("query 参数不能为空")
 	}
+	// 可选：让 AI 决定检索条数（仍受后端硬上限保护）
+	maxResults := 5
+	if v, ok := params["maxResults"]; ok {
+		switch t := v.(type) {
+		case float64:
+			maxResults = int(t)
+		case int:
+			maxResults = t
+		case int32:
+			maxResults = int(t)
+		case int64:
+			maxResults = int(t)
+		}
+	}
+	if maxResults <= 0 {
+		maxResults = 5
+	}
+	if maxResults > 10 {
+		maxResults = 10
+	}
 
 	// 使用知识检索服务
 	retriever := alkaidServices.NewKnowledgeRetriever()
@@ -27,7 +47,7 @@ func (r *Registry) runSearchKnowledge(params map[string]interface{}, sessionID u
 		}
 	}
 
-	knowledge, err := retriever.RetrieveRelevantKnowledge(query, userID, 5)
+	knowledge, err := retriever.RetrieveRelevantKnowledge(query, userID, maxResults)
 	if err != nil {
 		return nil, "", fmt.Errorf("知识检索失败: %w", err)
 	}

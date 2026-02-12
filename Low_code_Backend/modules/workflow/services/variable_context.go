@@ -451,6 +451,7 @@ var nodeIODefinitions = map[string]NodeIODefinition{
 		},
 		Outputs: []NodeVariable{
 			{Variable: "data", Label: "输出数据", Type: "any", Description: "输出的数据"},
+			{Variable: "artifacts", Label: "输出制品", Type: "array", Description: "导出生成的文件/图片等制品列表"},
 		},
 	},
 	"end": {

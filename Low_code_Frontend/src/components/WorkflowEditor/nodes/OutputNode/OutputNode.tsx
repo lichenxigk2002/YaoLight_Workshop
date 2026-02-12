@@ -8,10 +8,19 @@ import styles from './OutputNode.module.scss';
 const OutputNode: React.FC<NodeProps> = ({ data, ...props }) => {
   const { t } = useTranslation();
   const renderContent = () => {
-    if (data.config?.format) {
+    if (data.config?.format || data.config?.destination) {
       return (
         <div className={styles.nodeInfo}>
-          <div className={styles.nodeInfoItem}>{t('node.labels.format')} {data.config.format}</div>
+          {data.config?.format ? (
+            <div className={styles.nodeInfoItem}>
+              {t('node.labels.format')} {data.config.format}
+            </div>
+          ) : null}
+          {data.config?.destination ? (
+            <div className={styles.nodeInfoItem}>
+              {t('node.labels.destination') || '目标'} {data.config.destination}
+            </div>
+          ) : null}
         </div>
       );
     }

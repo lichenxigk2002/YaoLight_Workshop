@@ -18,6 +18,12 @@ func GetToolDefsForLLM() []providers.ToolDef {
 							"type":        "string",
 							"description": "搜索关键词或问题，如：数据清洗最佳实践、如何使用 AI 节点、示例爬虫工作流",
 						},
+						"maxResults": map[string]interface{}{
+							"type":        "integer",
+							"description": "返回条数（可选，默认 5，最大 10）。建议按需取 3~8 条，避免上下文过长。",
+							"minimum":     1,
+							"maximum":     10,
+						},
 					},
 					"required": []string{"query"},
 				},
@@ -59,6 +65,48 @@ func GetToolDefsForLLM() []providers.ToolDef {
 						},
 					},
 					"required": []string{"nodeType"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
+				Name:        "list_workflows",
+				Description: "列出当前用户的工作流列表（摘要：id、name、description、status）。当用户说「用我之前的某个工作流」「在我已有的工作流里改」时调用，便于根据 id 或 name 选择后再用 get_workflow 获取详情。可选参数 page、pageSize 分页。",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"page": map[string]interface{}{
+							"type":        "number",
+							"description": "页码，从 1 开始，默认 1",
+						},
+						"pageSize": map[string]interface{}{
+							"type":        "number",
+							"description": "每页条数，默认 20，最大 100",
+						},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
+				Name:        "get_available_models",
+				Description: "获取当前系统可用的 AI 模型列表（provider 与 modelName）。在生成或修改 AI 节点时调用，用于填写正确的 provider 和 modelName，避免编造不存在的模型。",
+				Parameters: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
+				Name:        "get_user_constraints",
+				Description: "获取生成工作流时的约束（如最大节点数、应避免的节点类型等）。在生成工作流前调用可确保输出符合规范。",
+				Parameters: map[string]interface{}{
+					"type":       "object",
+					"properties": map[string]interface{}{},
 				},
 			},
 		},

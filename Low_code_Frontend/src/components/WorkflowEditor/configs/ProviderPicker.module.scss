@@ -72,17 +72,17 @@
   }
 }
 
-/* 选中状态 - 模仿 Emerald 风格 */
+/* 选中状态 - 与 AI 面板一致（黑底白字） */
 .cardSelected {
-  background: rgba(16, 185, 129, 1) !important; /* Emerald-500 */
-  color: #fff !important;
-  box-shadow: 0 2px 5px rgba(16, 185, 129, 0.2);
+  background: #000000 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
   /* Dark mode override: White background for selected state */
   :global([data-theme='dark']) & {
     background: #ffffff !important;
     color: #000000 !important;
-    box-shadow: 0 2px 5px rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
 
     .cardDesc {
       color: rgba(0, 0, 0, 0.8);

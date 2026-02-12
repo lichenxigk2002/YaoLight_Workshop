@@ -276,8 +276,30 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
 
   const providerPickerOptionsCustom = React.useMemo<ProviderPickerOption[]>(
     () => {
+      // 优先使用后端模板（数据库驱动），避免仍然依赖前端写死的 providerRegistry
+      if (Array.isArray(providerTemplates) && providerTemplates.length > 0) {
+        const priority = ['deepseek', 'doubao', 'qwen', 'hunyuan', 'spark', 'zhipuai', 'claude', 'gemini', 'gpt', 'grok', 'openai'];
+        const sorted = [...providerTemplates].sort((a, b) => {
+          const pA = (a.provider || '').toLowerCase();
+          const pB = (b.provider || '').toLowerCase();
+          const indexA = priority.indexOf(pA);
+          const indexB = priority.indexOf(pB);
+          if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+          if (indexA !== -1) return -1;
+          if (indexB !== -1) return 1;
+          return (a.name || a.provider).localeCompare(b.name || b.provider);
+        });
+
+        return sorted.map(tpl => ({
+          value: tpl.provider,
+          title: tpl.name || tpl.provider,
+          icon: <ProviderIcon provider={tpl.provider} size={18} />,
+        }));
+      }
+
+      // fallback：老版本/接口失败时回退到前端注册表
       const allProviders = providerRegistry.getAll();
-      const priority = ['deepseek', 'doubao', 'qwen', 'hunyuan', 'spark', 'zhipuai', 'claude', 'gemini', 'gpt', 'grok'];
+      const priority = ['deepseek', 'doubao', 'qwen', 'hunyuan', 'spark', 'zhipuai', 'claude', 'gemini', 'gpt', 'grok', 'openai'];
       const sorted = [...allProviders].sort((a, b) => {
         const pA = a.name.toLowerCase();
         const pB = b.name.toLowerCase();
@@ -294,7 +316,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
         icon: <ProviderIcon provider={p.name} size={18} />
       }));
     },
-    [],
+    [providerTemplates],
   );
 
   const providerPickerOptionsSystem = React.useMemo<ProviderPickerOption[]>(() => {

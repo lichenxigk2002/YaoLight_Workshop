@@ -164,7 +164,7 @@ func (kr *KnowledgeRetriever) searchByKeywords(keywords []string, userID uint, m
 	// 3. 如果还有空间，根据操作关键词检索
 	if len(results) < maxResults && len(operationKeywords) > 0 {
 		searchQuery := strings.Join(operationKeywords, " ")
-		searchResults, err := kr.knowledgeService.SearchKnowledge(searchQuery)
+		searchResults, err := kr.knowledgeService.SearchKnowledge(searchQuery, maxResults-len(results))
 		if err == nil {
 			// 去重并限制数量
 			existingTitles := make(map[string]bool)

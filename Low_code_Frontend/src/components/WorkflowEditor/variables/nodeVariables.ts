@@ -221,6 +221,12 @@ export const nodeIODefinitions: Record<string, NodeIODefinition> = {
         type: 'any',
         description: '输出的数据',
       },
+      {
+        variable: 'artifacts',
+        label: '输出制品',
+        type: 'array',
+        description: '导出生成的文件/图片等制品列表',
+      },
     ],
   },
   end: {

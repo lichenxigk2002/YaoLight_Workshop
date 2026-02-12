@@ -1,0 +1,126 @@
+.configContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section {
+  background: var(--bg-primary, #fff);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-secondary, #e8e8e8);
+  box-shadow: 0 1px 2px var(--shadow-sm, rgba(0, 0, 0, 0.03));
+
+  :global([data-theme='dark']) & {
+    background: var(--bg-secondary, #1f1f1f);
+    box-shadow: 0 1px 2px var(--shadow-sm, rgba(0, 0, 0, 0.3));
+  }
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, rgba(0, 0, 0, 0.88));
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sectionDescription {
+  font-size: 12px;
+  color: var(--text-tertiary, rgba(0, 0, 0, 0.45));
+  margin-top: -4px;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.pickerTrigger {
+  width: 100%;
+  height: 36px;
+  padding: 0 11px;
+  border: 1px solid var(--border-primary, rgba(0, 0, 0, 0.15));
+  border-radius: 8px;
+  background: var(--bg-primary, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: var(--primary, #1677ff);
+  }
+
+  :global([data-theme='dark']) & {
+    background: var(--bg-secondary, #1f1f1f);
+  }
+}
+
+.pickerTriggerInner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pickerTriggerText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary, rgba(0, 0, 0, 0.88));
+}
+
+.modeSegmented {
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  padding: 4px;
+
+  :global(.ant-segmented-item) {
+    border-radius: 6px;
+    transition: none;
+    color: var(--text-secondary, rgba(0, 0, 0, 0.45));
+  }
+
+  :global(.ant-segmented-item-selected) {
+    background: #000000 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    z-index: 2;
+
+    :global([data-theme='dark']) & {
+      background: #ffffff !important;
+      color: #000000 !important;
+    }
+  }
+
+  :global(.ant-segmented-thumb) {
+    background: #000000 !important;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+
+    :global([data-theme='dark']) & {
+      background: #ffffff !important;
+    }
+  }
+
+  :global([data-theme='dark']) & {
+    background: var(--bg-tertiary, #2a2a2a);
+  }
+}
+
+.modeLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  font-weight: 500;
+
+  span {
+    white-space: nowrap;
+  }
+}
+

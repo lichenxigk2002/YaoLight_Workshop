@@ -84,6 +84,13 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 	dataFlow := NewDataFlow(req.Edges)
 	// 创建变量上下文
 	variableContext := NewVariableContext()
+	execMeta := ExecutionMeta{
+		UserID: req.UserID,
+	}
+	if req.WorkflowID > 0 {
+		wid := req.WorkflowID
+		execMeta.WorkflowID = &wid
+	}
 
 	// 找到起始节点（没有入边的节点）
 	startNodes := e.findStartNodes(req.Nodes, req.Edges)
@@ -132,7 +139,7 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		variableContext.SetNodeType(nodeID, nodeConfig.Type)
 
 		// 执行节点（传递userID用于AI节点验证）
-		result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
+		result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
 		results = append(results, result)
 
 		// 保存节点输出数据到数据流和变量上下文
@@ -290,7 +297,7 @@ func (e *WorkflowExecutor) findStartNodes(nodes []NodeConfig, edges []EdgeConfig
 }
 
 // executeNode 执行单个节点
-func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, userID uint) NodeExecutionResult {
+func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, meta ExecutionMeta) NodeExecutionResult {
 	switch node.Type {
 	case "start":
 		return e.executeStartNode(node, dataFlow)
@@ -299,7 +306,7 @@ func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, vari
 	case "dataclean":
 		return e.executeDataCleanNode(node, dataFlow, variableContext)
 	case "ai":
-		return e.executeAINode(node, dataFlow, variableContext, userID)
+		return e.executeAINode(node, dataFlow, variableContext, meta.UserID)
 	case "condition":
 		return e.executeConditionNode(node, dataFlow, variableContext)
 	case "transform":
@@ -311,7 +318,7 @@ func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, vari
 	case "delay":
 		return e.executeDelayNode(node, dataFlow)
 	case "output":
-		return e.executeOutputNode(node, dataFlow, variableContext)
+		return e.executeOutputNode(node, dataFlow, variableContext, meta)
 	case "end":
 		return e.executeEndNode(node, dataFlow)
 	default:

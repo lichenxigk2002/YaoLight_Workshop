@@ -90,8 +90,10 @@ export const nodeFormats: Record<string, NodeFormatDefinition> = {
   // 输出节点：接受任意格式，无输出
   output: {
     inputFormats: ['any', 'json', 'array', 'text'],
-    outputFormat: 'null',
-    description: '输出节点不产生输出数据',
+    // 后端输出节点现在会返回 artifacts 与 data（并写入 variableContext）
+    // 这里用 json 以便允许连接到 end/merge 等节点，并可被变量面板引用
+    outputFormat: 'json',
+    description: '输出节点会生成导出制品（artifacts），并返回导出信息（JSON）',
   },
 
   // 结束节点：接受任意格式，无输出

@@ -282,22 +282,46 @@ func (s *CapabilitiesService) buildNodeCapabilities() []NodeCapability {
 		{
 			Type:        "output",
 			Label:       "输出节点",
-			Description: "输出处理结果到文件或显示",
+			Description: "导出处理结果为文件/图表，并生成 artifacts（制品）供站内下载/预览或对外导出 API 获取",
 			Stability:   "stable",
 			Config: map[string]interface{}{
-				"format":      "markdown",
+				"format":      "json",
 				"destination": "file",
+				"fileName":    "",
+				// chartType/chartTitle 仅当 format=chart 时使用（前端可配置）
+				"chartType":  "scatter",
+				"chartTitle": "",
 			},
 			ConfigRules: ConfigRules{
 				Required: []string{"format"},
 				Enums: map[string][]string{
-					"format":      {"json", "markdown", "text"},
-					"destination": {"file", "console"},
+					// 与后端 export.DefaultFactory 对齐
+					"format": {
+						"json",
+						"markdown", "md",
+						"text", "txt",
+						"pdf",
+						"docx", "word",
+						"mermaid",
+						"timeline",
+						"sankey",
+						"network",
+						"chart", "chart_svg",
+					},
+					// 当前版本 destination=api 会要求存在 taskId（用于 /tasks/:id/artifacts）
+					"destination": {"file", "api"},
+					// chartType 仅当 format=chart 时生效
+					"chartType": {"line", "bar", "scatter", "histogram", "heatmap", "pie"},
 				},
-				AllowVars: []string{},
+				AllowVars: []string{"fileName"},
 				Defaults: map[string]interface{}{
 					"format":      "json",
 					"destination": "file",
+					"chartType":   "scatter",
+				},
+				Constraints: map[string]string{
+					"destination=api": "需要 TaskID；执行完成后可通过 GET /api/tasks/:id/artifacts 查询并下载 /api/artifacts/:id/download",
+					"format=chart":    "上游建议输出严格 JSON；若仅输出 data，后端会按 chartType 自动包装为 {type,title,data}",
 				},
 			},
 		},
@@ -379,6 +403,17 @@ func (s *CapabilitiesService) buildNodeExamples(nodeType string) []NodeExample {
 				"provider":        "deepseek",
 				"modelName":       "deepseek-chat",
 				"temperature":     0.2,
+			},
+		})
+	case "output":
+		examples = append(examples, NodeExample{
+			Description: "将 AI 输出导出为 SVG 柱状图（artifact）",
+			Config: map[string]interface{}{
+				"format":      "chart",
+				"destination": "file",
+				"chartType":   "bar",
+				"chartTitle":  "示例图表",
+				"fileName":    "report.svg",
 			},
 		})
 	}

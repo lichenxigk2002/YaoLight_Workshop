@@ -15,8 +15,163 @@ import { ProviderIcon, MessageIcon, CollapseIcon } from '@/components/Icons';
 import { AIPreviewModal } from './components/AIPreviewModal';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
 import styles from './ExecutionResultPanel.module.scss';
+import http from '@/http';
 
 const { Text, Paragraph } = Typography;
+
+const normalizeDownloadPathForHttp = (p: string) => {
+  // 后端当前返回 /api/artifacts/:id/download
+  // 前端 http.baseURL 通常也是 /api，所以这里需要去重 /api 前缀
+  if (typeof p !== 'string') return '';
+  return p.startsWith('/api/') ? p.replace(/^\/api/, '') : p;
+};
+
+const canPreviewArtifact = (mimeType: string) => {
+  if (!mimeType) return false;
+  const m = mimeType.toLowerCase();
+  return (
+    m.includes('text/') ||
+    m.includes('application/json') ||
+    m.includes('text/markdown') ||
+    m.includes('image/svg+xml')
+  );
+};
+
+const getTokenForFetch = () => {
+  try {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      const authData = JSON.parse(authStorage);
+      return authData.state?.token || null;
+    }
+  } catch { }
+  return null;
+};
+
+const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
+  const artifacts = Array.isArray(data?.artifacts) ? data.artifacts : [];
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [mime, setMime] = useState('');
+  const [content, setContent] = useState('');
+
+  const previewArtifact = async (a: any) => {
+    const downloadUrl = normalizeDownloadPathForHttp(a.downloadUrl || '');
+    if (!downloadUrl) return;
+    const token = getTokenForFetch();
+    try {
+      const baseURL = import.meta.env.VITE_BASE_URL || '/api';
+      const base = baseURL.replace(/\/$/, '');
+      const fullUrl = base.startsWith('http')
+        ? `${base}${downloadUrl}`
+        : `${base}${downloadUrl}`; // base 通常为 /api
+
+      const resp = await fetch(fullUrl, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!resp.ok) return;
+      const text = await resp.text();
+      setTitle(a.name || '预览');
+      setMime(a.mimeType || '');
+      setContent(text);
+      setOpen(true);
+    } catch { }
+  };
+
+  return (
+    <div className={styles.dataPreview}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+        <Tag color="orange">format: {data?.format || '-'}</Tag>
+        <Tag color="blue">destination: {data?.destination || '-'}</Tag>
+        {data?.taskId ? <Tag color="purple">taskId: {String(data.taskId)}</Tag> : null}
+      </div>
+
+      {artifacts.length === 0 ? (
+        <Empty description="暂无导出制品（artifacts）" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {artifacts.map((a: any) => (
+            <div
+              key={String(a.id || a.downloadUrl || a.name)}
+              style={{
+                border: '1px solid var(--border-secondary)',
+                borderRadius: 8,
+                padding: 10,
+                background: 'var(--bg-secondary)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 12,
+                alignItems: 'center',
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {a.name || `artifact#${a.id}`}
+                </div>
+                <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {a.kind ? <Tag>{a.kind}</Tag> : null}
+                  {a.mimeType ? <Tag color="geekblue">{a.mimeType}</Tag> : null}
+                  {a.size != null ? <Tag color="default">{a.size} bytes</Tag> : null}
+                </div>
+              </div>
+
+              <Space>
+                {canPreviewArtifact(a.mimeType) && (
+                  <Button
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => previewArtifact(a)}
+                  >
+                    预览
+                  </Button>
+                )}
+                <Button
+                  size="small"
+                  icon={<DownloadOutlined />}
+                  onClick={() => {
+                    const p = normalizeDownloadPathForHttp(a.downloadUrl || '');
+                    if (!p) return;
+                    http.download(p, undefined, a.name);
+                  }}
+                >
+                  下载
+                </Button>
+              </Space>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        title={title}
+        open={open}
+        onCancel={() => setOpen(false)}
+        footer={null}
+        width={800}
+        centered
+        styles={{ body: { padding: '12px 24px 24px' } }}
+      >
+        {mime.toLowerCase().includes('image/svg+xml') ? (
+          <div style={{ width: '100%', overflow: 'auto' }}>
+            <img
+              alt={title}
+              style={{ maxWidth: '100%', height: 'auto' }}
+              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(content)}`}
+            />
+          </div>
+        ) : mime.toLowerCase().includes('markdown') ? (
+          <MarkdownRenderer content={content} />
+        ) : mime.toLowerCase().includes('application/json') ? (
+          <pre className={styles.jsonDisplay}>{content}</pre>
+        ) : (
+          <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{content}</Paragraph>
+        )}
+      </Modal>
+    </div>
+  );
+};
 
 interface NodeExecutionResult {
   node_id: string;
@@ -180,6 +335,11 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   const renderDataPreview = (data: any, nodeType: string, nodeId?: string) => {
     if (!data) {
       return <Empty description={t('node.execution.noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    }
+
+    // 输出节点：展示 artifacts（下载/预览）
+    if (nodeType === 'output') {
+      return <OutputArtifactsView data={data} />;
     }
 
     // 如果是爬虫节点，特殊处理

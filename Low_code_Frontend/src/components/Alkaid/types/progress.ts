@@ -74,7 +74,7 @@ export interface SSEPendingPatch {
 }
 
 /** SSE 事件：done */
-export interface SSEDone {}
+export interface SSEDone { }
 
 /** SSE 事件：error */
 export interface SSEError {
