@@ -450,7 +450,7 @@ export default function ModelProviders() {
               allowClear
             >
               <Select.Option value="__provider_default__">{t('settings.allModels')}</Select.Option>
-              {editingProvider && templates.find(t => t.provider === editingProvider)?.supportedModels.map(model => (
+              {editingProvider && templates.find(t => t.provider === editingProvider)?.supportedModels?.map(model => (
                 <Select.Option key={model} value={model}>{model}</Select.Option>
               ))}
             </Select>

@@ -227,11 +227,11 @@
       "noSystemModels": "No system preset models",
       "loadUserModelsFailed": "Failed to load user models"
     },
-      "changes": "changes",
+    "changes": "changes",
     "alkaid": {
-        "workflow": "Workflow",
-        "patch": "Patch",
-        "pendingWorkflow": "Pending Workflow",
+      "workflow": "Workflow",
+      "patch": "Patch",
+      "pendingWorkflow": "Pending Workflow",
       "applyToCanvas": "Apply to Canvas",
       "discard": "Discard",
       "pendingPatch": "Pending Patch",
@@ -260,7 +260,18 @@
       "progressFinishing": "Confirmation & Delivery",
       "progressFinishingDesc": "Prepare final results for confirmation",
       "progressInProgress": "In progress...",
-      "enableTrial": "Run trial (may be slower)"
+      "enableTrial": "Run trial (may be slower)",
+      "toolSearchKnowledge": "Search knowledge base",
+      "toolGetCapabilities": "Get capabilities",
+      "toolGetWorkflow": "Get current workflow",
+      "toolGetNodeSpec": "Get node spec",
+      "toolListWorkflows": "List workflows",
+      "toolGetAvailableModels": "Get available models",
+      "toolGetUserConstraints": "Get constraints",
+      "toolValidateWorkflow": "Validate workflow",
+      "toolRunWorkflowTrial": "Run workflow trial",
+      "toolProposeWorkflow": "Propose workflow",
+      "toolProposePatch": "Propose patch"
     }
   },
   "alkaid": {
@@ -394,6 +405,37 @@
         "random": "Random Delay",
         "delayTime": "Delay Time (seconds)",
         "delayTimeRequired": "Please enter delay time"
+      },
+      "output": {
+        "format": "Export Format",
+        "destination": "Export Destination",
+        "file": "File",
+        "database": "Database",
+        "chartType": "Chart Type",
+        "chartTitle": "Chart Title (optional)",
+        "chartTitlePlaceholder": "e.g. Population trend / Keyword heatmap",
+        "fileName": "File Name (optional)",
+        "fileNameTip": "Only applies when a single file is generated; leave empty to use default name",
+        "fileNamePlaceholder": "e.g. report.md / output.json",
+        "formatDesc": "Choose an export format (sections + card picker).",
+        "chartTypeDesc": "Choose a chart subtype; upstream output will be wrapped into the chart input structure automatically.",
+        "destinationDesc": "Choose an export destination (artifacts will be generated; you can download/preview in-app; choose Export API for external retrieval).",
+        "destinationFile": "In-app download",
+        "destinationApi": "Export API",
+        "exportApiTip": "After choosing Export API, artifacts will be generated and can be fetched via:",
+        "chartTypes": {
+          "line": "Line",
+          "bar": "Bar",
+          "scatter": "Scatter",
+          "histogram": "Histogram",
+          "heatmap": "Heatmap",
+          "pie": "Pie"
+        },
+        "categories": {
+          "doc": "Documents / Data",
+          "diagram": "Diagrams / Flows",
+          "chart": "Charts (SVG)"
+        }
       },
       "dataclean": {
         "cleanType": "Clean Type",
@@ -572,12 +614,6 @@
         "loadSystemModelsFailed": "Failed to load system preset models",
         "loadUserModelsFailed": "Failed to load user models",
         "noSystemModels": "No system preset models available"
-      },
-      "output": {
-        "format": "Output Format",
-        "destination": "Output Destination",
-        "file": "File",
-        "database": "Database"
       }
     },
     "formats": {
@@ -650,6 +686,7 @@
       "seconds": "s",
       "model": "Model:",
       "format": "Format:",
+      "destination": "Destination:",
       "cleanTypeLabels": {
         "html": "Clean HTML",
         "text": "Clean Text",

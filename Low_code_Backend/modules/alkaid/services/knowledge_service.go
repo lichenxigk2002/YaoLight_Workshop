@@ -52,10 +52,17 @@ func (s *KnowledgeService) GetAlkaidContext(userID uint) (map[string]interface{}
 }
 
 // SearchKnowledge 根据关键词搜索相关知识（简单的 RAG 模拟）
-func (s *KnowledgeService) SearchKnowledge(query string) ([]alkaidModels.AlkaidKnowledge, error) {
+// limit: 期望返回条数；<=0 时默认 5；最大 10（避免 token 过多）
+func (s *KnowledgeService) SearchKnowledge(query string, limit int) ([]alkaidModels.AlkaidKnowledge, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 10 {
+		limit = 10
+	}
 	var results []alkaidModels.AlkaidKnowledge
 	err := database.DB.Where("is_active = ? AND (title LIKE ? OR content LIKE ?)",
-		true, "%"+query+"%", "%"+query+"%").Limit(5).Find(&results).Error
+		true, "%"+query+"%", "%"+query+"%").Limit(limit).Find(&results).Error
 	return results, err
 }
 

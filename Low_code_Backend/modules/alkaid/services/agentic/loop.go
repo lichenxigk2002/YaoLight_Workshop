@@ -16,6 +16,7 @@ import (
 	alkaidRepos "yaolight-workshop/backend/modules/alkaid/repositories"
 	alkaidServices "yaolight-workshop/backend/modules/alkaid/services"
 	"yaolight-workshop/backend/modules/alkaid/services/tools"
+	workflowModels "yaolight-workshop/backend/modules/workflow/models"
 	workflowRepos "yaolight-workshop/backend/modules/workflow/repositories"
 	workflowSvc "yaolight-workshop/backend/modules/workflow/services"
 )
@@ -535,6 +536,29 @@ func (a *workflowServiceAdapter) SaveWorkflowNodes(workflowID uint, req interfac
 		return fmt.Errorf("invalid request type")
 	}
 	return a.WorkflowService.SaveWorkflowNodes(workflowID, r)
+}
+
+func (a *workflowServiceAdapter) ListWorkflowsByUserID(userID uint, page, pageSize int) (interface{}, int64, error) {
+	list, total, err := a.WorkflowService.GetWorkflowsByUserID(userID, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	// 转为 []map 供 LLM 使用（list 为 []*workflowModels.Workflow，引用类型以使用 import）
+	var _ []*workflowModels.Workflow = list
+	out := make([]map[string]interface{}, 0, len(list))
+	for _, w := range list {
+		if w == nil {
+			continue
+		}
+		desc := ""
+		if w.Description != nil {
+			desc = *w.Description
+		}
+		out = append(out, map[string]interface{}{
+			"id": w.ID, "name": w.Name, "description": desc, "status": w.Status,
+		})
+	}
+	return out, total, nil
 }
 
 func extractWorkflowJSON(content string) string {

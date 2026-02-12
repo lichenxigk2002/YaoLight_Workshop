@@ -176,7 +176,7 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
       // 后端现在返回 { messages, toolSteps }
       const msgs = response.messages || [];
       const toolSteps = response.toolSteps || [];
-      
+
       const formattedMessages: Message[] = msgs.map((msg: any) => ({
         id: msg.id.toString(),
         role: msg.role,
@@ -184,7 +184,7 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
         timestamp: new Date(msg.createdAt),
       }));
       setMessages(formattedMessages);
-      
+
       // 加载历史工具步（仅用于前端展示，不传给 AI）
       setAgenticToolSteps(toolSteps);
     } catch (error) {
@@ -276,7 +276,7 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
     // 重置工作流需求标志
     setNeedsWorkflow(null);
     needsWorkflowRef.current = null;
-    
+
     // 初始化步骤为空（意图分析阶段不显示，等第二阶段AI开始处理时才显示）
     setProcessSteps([]);
 
@@ -360,12 +360,12 @@ const AlkaidAssistant: React.FC<AlkaidAssistantProps> = ({
               setAgenticToolSteps(prev => prev.map(s =>
                 s.stepId === data.stepId
                   ? {
-                      ...s,
-                      status: data.status as AgentToolStep['status'],
-                      finishedAt: new Date().toISOString(),
-                      resultSummary: data.resultSummary,
-                      errorMessage: data.errorMessage,
-                    }
+                    ...s,
+                    status: data.status as AgentToolStep['status'],
+                    finishedAt: new Date().toISOString(),
+                    resultSummary: data.resultSummary,
+                    errorMessage: data.errorMessage,
+                  }
                   : s
               ));
             },

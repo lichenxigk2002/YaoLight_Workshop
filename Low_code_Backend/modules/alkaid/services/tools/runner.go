@@ -26,4 +26,6 @@ type CapabilitiesProvider interface {
 type WorkflowServiceProvider interface {
 	GetWorkflowNodes(workflowID uint) (interface{}, error)
 	SaveWorkflowNodes(workflowID uint, req interface{}) error
+	// ListWorkflowsByUserID 按用户分页列出工作流摘要（id、name、description、status），供 list_workflows 工具使用
+	ListWorkflowsByUserID(userID uint, page, pageSize int) (list interface{}, total int64, err error)
 }

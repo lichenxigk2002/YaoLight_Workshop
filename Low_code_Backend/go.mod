@@ -3,6 +3,7 @@ module yaolight-workshop/backend
 go 1.24.0
 
 require (
+	baliance.com/gooxml v1.0.1
 	github.com/PuerkitoBio/goquery v1.8.1
 	github.com/chromedp/cdproto v0.0.0-20250803210736-d308e07a266d
 	github.com/chromedp/chromedp v0.14.2
@@ -11,7 +12,9 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
+	github.com/jung-kurt/gofpdf/v2 v2.17.3
 	github.com/redis/go-redis/v9 v9.0.5
+	github.com/tencentyun/cos-go-sdk-v5 v0.7.72
 	golang.org/x/crypto v0.14.0
 	golang.org/x/net v0.16.0
 	golang.org/x/oauth2 v0.34.0
@@ -47,7 +50,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/jung-kurt/gofpdf/v2 v2.17.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
@@ -58,7 +60,6 @@ require (
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/tencentyun/cos-go-sdk-v5 v0.7.72 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	golang.org/x/arch v0.5.0 // indirect
