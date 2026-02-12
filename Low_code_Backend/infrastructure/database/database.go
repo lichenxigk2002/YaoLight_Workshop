@@ -1,8 +1,10 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -13,6 +15,7 @@ import (
 	aiModels "yaolight-workshop/backend/modules/ai/models"
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
+	artifactModels "yaolight-workshop/backend/modules/artifact/models"
 	crawlerModels "yaolight-workshop/backend/modules/crawler/models"
 	fileModels "yaolight-workshop/backend/modules/file/models"
 	nodeModels "yaolight-workshop/backend/modules/node/models"
@@ -89,9 +92,19 @@ func InitDatabase() error {
 		log.Printf("⚠️ Warning: failed to seed alkaid specs: %v", err)
 	}
 
+	// 初始化输出节点新能力相关知识（确保瑶光星能检索到 PDF/图表/Artifacts/导出API 等）
+	if err := SeedAlkaidOutputNodeKnowledge(); err != nil {
+		log.Printf("⚠️ Warning: failed to seed output node knowledge: %v", err)
+	}
+
 	// 初始化模型计费配置
 	if err := SeedModelPricingConfigs(); err != nil {
 		log.Printf("⚠️ Warning: failed to seed model pricing configs: %v", err)
+	}
+
+	// 初始化供应商模板（如果表为空或缺少 provider，自动补齐）
+	if err := SeedProviderTemplates(); err != nil {
+		log.Printf("⚠️ Warning: failed to seed provider templates: %v", err)
 	}
 
 	// 初始化模型能力配置（基于计费表生成默认行）
@@ -184,9 +197,9 @@ func AutoMigrate() error {
 		&nodeModels.NodeType{},
 		&systemModels.SystemConfig{},
 		&systemModels.Statistics{},
-		&paymentModels.Order{}, // 订单表
-		// &aiModels.ProviderTemplate{},        // 已存在，注释掉以减少迁移检查
-		// &aiModels.ModelPricingConfig{},      // 已存在，注释掉以减少迁移检查
+		&paymentModels.Order{},         // 订单表
+		&aiModels.ProviderTemplate{},   // 供应商模板（用于前端展示/创建模型时校验）
+		&aiModels.ModelPricingConfig{}, // 模型计费配置（用于 supportedModels + 星尘计费）
 
 		// AI 模型能力配置（按 provider+model_name）
 		&aiModels.ModelCapabilityConfig{},
@@ -199,6 +212,7 @@ func AutoMigrate() error {
 		&taskModels.Task{},
 		&taskModels.TaskSchedule{},
 		&fileModels.File{},
+		&artifactModels.Artifact{},
 		&notificationModels.Notification{},
 		&systemModels.OperationLog{},
 
@@ -219,6 +233,101 @@ func AutoMigrate() error {
 	)
 
 	return err
+}
+
+// SeedProviderTemplates 初始化供应商模板数据：
+// - 若模板表为空，或新增了 pricing_configs 的 provider，则自动补齐模板行
+// - 避免“只加模型但前端无供应商模板可展示”的问题
+func SeedProviderTemplates() error {
+	// 确保表存在（兼容首次启动）
+	if err := DB.AutoMigrate(&aiModels.ProviderTemplate{}); err != nil {
+		return err
+	}
+
+	// 从计费表聚合 provider（你“只加模型”通常是加这张表）
+	pricingRepo := aiRepos.NewPricingConfigRepository(DB)
+	pricing, err := pricingRepo.FindAll()
+	if err != nil {
+		return err
+	}
+
+	providerSet := map[string]struct{}{}
+	for _, p := range pricing {
+		if p.Provider == "" {
+			continue
+		}
+		providerSet[strings.ToLower(p.Provider)] = struct{}{}
+	}
+
+	// 内置默认信息（用于友好显示名与默认 BaseURL）
+	type providerSeed struct {
+		name        string
+		description string
+		baseURL     string
+		defaultCfg  map[string]interface{}
+	}
+	defaults := map[string]providerSeed{
+		"deepseek": {name: "DeepSeek", description: "DeepSeek AI模型", baseURL: "https://api.deepseek.com", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"doubao":   {name: "豆包", description: "字节跳动豆包AI模型", baseURL: "https://ark.cn-beijing.volces.com/api/v3", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"qwen":     {name: "通义千问", description: "阿里云通义千问AI模型（OpenAI兼容模式）", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"zhipuai":  {name: "智谱AI GLM", description: "智谱AI GLM系列模型", baseURL: "https://open.bigmodel.cn/api/paas/v4", defaultCfg: map[string]interface{}{"temperature": 1.0, "maxTokens": 1024}},
+		"spark":    {name: "讯飞星火", description: "讯飞星火（OpenAI兼容接口）", baseURL: "https://spark-api-open.xf-yun.com/v2", defaultCfg: map[string]interface{}{"temperature": 1.2, "maxTokens": 65535}},
+		"hunyuan":  {name: "腾讯混元", description: "腾讯混元（OpenAI兼容接口）", baseURL: "https://api.hunyuan.cloud.tencent.com/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"gpt":      {name: "GPT", description: "OpenAI GPT 系列模型（通过 OpenRouter 访问）", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},
+		"claude":   {name: "Claude", description: "Anthropic Claude 系列模型（通过 OpenRouter 访问）", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},
+		"gemini":   {name: "Google Gemini", description: "Google Gemini 系列模型（通过 OpenRouter 访问）", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"grok":     {name: "Grok", description: "xAI Grok 系列模型（通过 OpenRouter 访问）", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},
+		"openai":   {name: "OpenAI", description: "OpenAI 官方接口", baseURL: "https://api.openai.com/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+	}
+
+	// 同时补齐默认 providers（即使 pricing 没有，也能在前端看到可配置入口）
+	for p := range defaults {
+		providerSet[p] = struct{}{}
+	}
+
+	// 对每个 provider，若模板不存在则创建
+	for provider := range providerSet {
+		var existing aiModels.ProviderTemplate
+		q := DB.Where("provider = ?", provider).First(&existing)
+		if q.Error == nil {
+			continue
+		}
+		if q.Error != nil && !errors.Is(q.Error, gorm.ErrRecordNotFound) {
+			return q.Error
+		}
+
+		def, ok := defaults[provider]
+		if !ok {
+			// 未知 provider：至少保证前端能展示/可配置
+			def = providerSeed{name: provider, description: "", baseURL: "", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}}
+		}
+
+		var descPtr *string
+		if def.description != "" {
+			descPtr = shared.Ptr(def.description)
+		}
+		var basePtr *string
+		if def.baseURL != "" {
+			basePtr = shared.Ptr(def.baseURL)
+		}
+
+		row := &aiModels.ProviderTemplate{
+			Provider:        provider,
+			Name:            def.name,
+			Description:     descPtr,
+			DefaultBaseURL:  basePtr,
+			SupportedModels: shared.JSONB{Data: []interface{}{}},
+			ConfigSchema:    shared.JSONB{Data: map[string]interface{}{}},
+			DefaultConfig:   shared.JSONB{Data: def.defaultCfg},
+			IsActive:        true,
+		}
+
+		if err := DB.Create(row).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // SeedNodeTypes 初始化系统节点类型数据

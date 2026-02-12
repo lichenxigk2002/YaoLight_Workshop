@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"yaolight-workshop/backend/domain/entity"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/config"
@@ -49,113 +50,6 @@ func NewAIService(
 
 // GetProviderTemplates 获取所有供应商模板（从数据库动态获取模型列表）
 func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
-	// Provider 基本信息（硬编码，因为这些是固定的配置）
-	providerBaseInfo := map[string]map[string]interface{}{
-		"deepseek": {
-			"provider":       "deepseek",
-			"name":           "DeepSeek",
-			"description":    "DeepSeek AI模型",
-			"defaultBaseUrl": "https://api.deepseek.com",
-			"defaultConfig": map[string]interface{}{
-				"temperature": 0.7,
-				"maxTokens":   2000,
-			},
-		},
-		"doubao": {
-			"provider":       "doubao",
-			"name":           "豆包",
-			"description":    "字节跳动豆包AI模型",
-			"defaultBaseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-			"defaultConfig": map[string]interface{}{
-				"temperature": 0.7,
-				"maxTokens":   2000,
-			},
-		},
-		"qwen": {
-			"provider":       "qwen",
-			"name":           "通义千问",
-			"description":    "阿里云通义千问AI模型（OpenAI兼容模式）",
-			"defaultBaseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-			"defaultConfig": map[string]interface{}{
-				"temperature": 0.7,
-				"maxTokens":   2000,
-			},
-		},
-		"zhipuai": {
-			"provider":       "zhipuai",
-			"name":           "智谱AI GLM",
-			"description":    "智谱AI GLM系列模型（支持深度思考和流式输出）",
-			"defaultBaseUrl": "https://open.bigmodel.cn/api/paas/v4",
-			"defaultConfig": map[string]interface{}{
-				"temperature": 1.0,
-				"maxTokens":   1024,
-			},
-		},
-		"gpt": {
-			"provider":       "gpt",
-			"name":           "GPT",
-			"description":    "OpenAI GPT 系列模型（通过 OpenRouter 访问）",
-			"defaultBaseUrl": "https://openrouter.ai/api/v1",
-			"defaultConfig": map[string]interface{}{
-				"temperature": 0.7,
-				"maxTokens":   4096,
-			},
-		},
-		"spark": {
-			"provider":       "spark",
-			"name":           "讯飞星火",
-			"description":    "讯飞星火深度推理模型（OpenAI兼容接口）",
-			"defaultBaseUrl": "https://spark-api-open.xf-yun.com/v2",
-			"defaultConfig": map[string]interface{}{
-				"temperature":  1.2,
-				"topP":         0.95,
-				"maxTokens":    65535,
-				"thinkingType": "enabled",
-			},
-		},
-		"hunyuan": {
-			"provider":       "hunyuan",
-			"name":           "腾讯混元",
-			"description":    "腾讯混元大模型（OpenAI兼容接口）",
-			"defaultBaseUrl": "https://api.hunyuan.cloud.tencent.com/v1",
-			"defaultConfig": map[string]interface{}{
-				"temperature":       0.7,
-				"maxTokens":         2000,
-				"enableEnhancement": true,
-			},
-		},
-		"claude": {
-			"provider":       "claude",
-			"name":           "Claude",
-			"description":    "Anthropic Claude 系列模型（通过 OpenRouter 访问）",
-			"defaultBaseUrl": "https://openrouter.ai/api/v1",
-			"defaultConfig": map[string]interface{}{
-				"temperature": 0.7,
-				"maxTokens":   4096,
-			},
-		},
-		"gemini": {
-			"provider":       "gemini",
-			"name":           "Google Gemini",
-			"description":    "Google Gemini 系列模型（通过 OpenRouter 访问）",
-			"defaultBaseUrl": "https://openrouter.ai/api/v1",
-			"defaultConfig": map[string]interface{}{
-				"temperature": 0.7,
-				"maxTokens":   2000,
-			},
-		},
-		"grok": {
-			"provider":       "grok",
-			"name":           "Grok",
-			"description":    "xAI Grok 系列模型（通过 OpenRouter 访问）",
-			"defaultBaseUrl": "https://openrouter.ai/api/v1",
-			"defaultConfig": map[string]interface{}{
-				"temperature": 0.7,
-				"maxTokens":   4096,
-			},
-		},
-	}
-
 	// 从数据库获取所有活跃的计费配置
 	allPricingConfigs, err := s.pricingRepo.FindAll()
 	if err != nil {
@@ -166,29 +60,61 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 	modelsByProvider := make(map[string][]string)
 	for _, config := range allPricingConfigs {
 		if config.IsActive {
-			modelsByProvider[config.Provider] = append(modelsByProvider[config.Provider], config.ModelName)
+			p := strings.ToLower(config.Provider)
+			modelsByProvider[p] = append(modelsByProvider[p], config.ModelName)
 		}
 	}
 
-	// 构建结果列表
-	result := []map[string]interface{}{}
-	for provider, baseInfo := range providerBaseInfo {
-		// 从数据库获取该 provider 的模型列表
-		supportedModels, exists := modelsByProvider[provider]
-		if !exists || len(supportedModels) == 0 {
-			// 如果数据库中没有该 provider 的计费配置，使用空列表
-			// 注意：这不会影响用户使用自己的 API Key 配置该 provider
-			// 计费配置仅用于系统预设模型的星尘计费，用户自己的 API Key 不通过星尘计费
+	// 从数据库读取供应商模板（来源：ai_provider_templates）
+	templatesFromDB, err := s.templateRepo.FindAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch provider templates: %w", err)
+	}
+
+	// 兼容兜底：如果数据库还没种子数据，返回空数组（由前端自行兜底/提示）
+	if len(templatesFromDB) == 0 {
+		return []map[string]interface{}{}, nil
+	}
+
+	// 构建结果列表（以 DB 模板为准；supportedModels 优先取计费表动态聚合，否则回退模板自带 supported_models）
+	result := make([]map[string]interface{}, 0, len(templatesFromDB))
+	for _, t := range templatesFromDB {
+		provider := strings.ToLower(t.Provider)
+
+		// 计费配置中的子模型（动态），用于 UI 展示和系统星尘计费
+		supportedModels := modelsByProvider[provider]
+		if len(supportedModels) == 0 {
+			// 回退到模板字段（如果模板里也维护了 supported_models）
+			if arr, ok := t.SupportedModels.Data.([]interface{}); ok {
+				for _, v := range arr {
+					if s, ok := v.(string); ok && s != "" {
+						supportedModels = append(supportedModels, s)
+					}
+				}
+			} else if arr, ok := t.SupportedModels.Data.([]string); ok {
+				supportedModels = append(supportedModels, arr...)
+			}
+		}
+		if supportedModels == nil {
 			supportedModels = []string{}
 		}
 
-		// 复制基础信息
-		template := make(map[string]interface{})
-		for k, v := range baseInfo {
-			template[k] = v
+		// defaultConfig 回退为空对象，避免前端类型/渲染异常
+		defaultConfig := map[string]interface{}{}
+		if m, ok := t.DefaultConfig.Data.(map[string]interface{}); ok && m != nil {
+			defaultConfig = m
 		}
-		// 添加从数据库获取的模型列表（可能为空）
-		template["supportedModels"] = supportedModels
+
+		template := map[string]interface{}{
+			"provider":        provider,
+			"name":            t.Name,
+			"description":     t.Description,
+			"icon":            t.Icon,
+			"defaultBaseUrl":  t.DefaultBaseURL,
+			"defaultEndpoint": t.DefaultEndpoint,
+			"defaultConfig":   defaultConfig,
+			"supportedModels": supportedModels,
+		}
 
 		// 附加该 provider 下各模型的能力配置（按 model_name 索引）
 		modelCapabilities := make(map[string]map[string]interface{})
@@ -431,22 +357,33 @@ type CreateModelRequest struct {
 
 // CreateModel 创建模型配置
 func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error) {
-	req.Provider = normalizeProvider(req.Provider)
+	req.Provider = strings.ToLower(normalizeProvider(req.Provider))
 
-	// 验证提供商是否支持
-	supportedProviders := map[string]bool{
-		"deepseek": true,
-		"doubao":   true,
-		"qwen":     true,
-		"spark":    true,
-		"hunyuan":  true,
-		"zhipuai":  true,
-		"gemini":   true,
-		"gpt":      true,
-		"grok":     true,
+	// 验证提供商是否支持：优先以数据库模板为准，兼容老版本再回退硬编码白名单
+	var providerTemplate *entity.ProviderTemplate
+	if s.templateRepo != nil {
+		if tpl, err := s.templateRepo.FindByProvider(req.Provider); err == nil {
+			providerTemplate = tpl
+		}
 	}
-	if !supportedProviders[req.Provider] {
-		return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, req.Provider)
+	if providerTemplate == nil {
+		// fallback：避免旧环境未种子数据时直接不可用
+		supportedProviders := map[string]bool{
+			"deepseek": true,
+			"doubao":   true,
+			"qwen":     true,
+			"spark":    true,
+			"hunyuan":  true,
+			"zhipuai":  true,
+			"gemini":   true,
+			"gpt":      true,
+			"grok":     true,
+			"claude":   true,
+			"openai":   true,
+		}
+		if !supportedProviders[req.Provider] {
+			return nil, fmt.Errorf("%w: %s", ErrUnsupportedProvider, req.Provider)
+		}
 	}
 
 	// 加密API Key
@@ -458,26 +395,36 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 	// 使用默认值
 	baseURL := req.BaseURL
 	if baseURL == nil {
-		var defaultURL string
-		switch req.Provider {
-		case "deepseek":
-			defaultURL = "https://api.deepseek.com"
-		case "doubao":
-			defaultURL = "https://ark.cn-beijing.volces.com/api/v3"
-		case "qwen":
-			defaultURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-		case "spark":
-			defaultURL = "https://spark-api-open.xf-yun.com/v2"
-		case "hunyuan":
-			defaultURL = "https://api.hunyuan.cloud.tencent.com/v1"
-		case "zhipuai":
-			defaultURL = "https://open.bigmodel.cn/api/paas/v4"
-		case "claude", "gemini", "gpt", "grok":
-			defaultURL = "https://openrouter.ai/api/v1"
-		default:
-			defaultURL = "https://api.deepseek.com"
+		// 优先使用数据库模板的默认 BaseURL
+		if providerTemplate != nil && providerTemplate.DefaultBaseURL != nil && *providerTemplate.DefaultBaseURL != "" {
+			baseURL = providerTemplate.DefaultBaseURL
+		} else {
+			var defaultURL string
+			switch req.Provider {
+			case "deepseek":
+				defaultURL = "https://api.deepseek.com"
+			case "doubao":
+				defaultURL = "https://ark.cn-beijing.volces.com/api/v3"
+			case "qwen":
+				defaultURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+			case "spark":
+				defaultURL = "https://spark-api-open.xf-yun.com/v2"
+			case "hunyuan":
+				defaultURL = "https://api.hunyuan.cloud.tencent.com/v1"
+			case "zhipuai":
+				defaultURL = "https://open.bigmodel.cn/api/paas/v4"
+			case "claude", "gemini", "gpt", "grok", "openai":
+				// 注意：gpt/claude/gemini/grok 依旧是 OpenRouter；openai 这里给一个可用默认值
+				if req.Provider == "openai" {
+					defaultURL = "https://api.openai.com/v1"
+				} else {
+					defaultURL = "https://openrouter.ai/api/v1"
+				}
+			default:
+				defaultURL = "https://api.deepseek.com"
+			}
+			baseURL = &defaultURL
 		}
-		baseURL = &defaultURL
 	}
 
 	temperature := req.Temperature

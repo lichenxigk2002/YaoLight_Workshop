@@ -225,11 +225,11 @@
       "noSystemModels": "暂无系统预设模型",
       "loadUserModelsFailed": "加载用户模型失败"
     },
-      "changes": "项变更",
+    "changes": "项变更",
     "alkaid": {
-        "workflow": "工作流",
-        "patch": "补丁",
-        "pendingWorkflow": "待确认工作流",
+      "workflow": "工作流",
+      "patch": "补丁",
+      "pendingWorkflow": "待确认工作流",
       "applyToCanvas": "应用到画布",
       "discard": "放弃",
       "pendingPatch": "待确认补丁",
@@ -258,7 +258,18 @@
       "progressFinishing": "确认与交付",
       "progressFinishingDesc": "准备最终结果供确认",
       "progressInProgress": "正在执行...",
-      "enableTrial": "执行试运行（可能稍慢）"
+      "enableTrial": "执行试运行（可能稍慢）",
+      "toolSearchKnowledge": "检索知识库",
+      "toolGetCapabilities": "获取能力说明",
+      "toolGetWorkflow": "获取当前工作流",
+      "toolGetNodeSpec": "获取节点规格",
+      "toolListWorkflows": "列出工作流列表",
+      "toolGetAvailableModels": "获取可用模型",
+      "toolGetUserConstraints": "获取生成约束",
+      "toolValidateWorkflow": "校验工作流",
+      "toolRunWorkflowTrial": "试跑工作流",
+      "toolProposeWorkflow": "提出工作流",
+      "toolProposePatch": "提出补丁"
     }
   },
   "alkaid": {
@@ -576,10 +587,35 @@
         "noSystemModels": "暂无系统预设模型"
       },
       "output": {
-        "format": "输出格式",
-        "destination": "输出目标",
+        "format": "导出格式",
+        "destination": "导出目标",
         "file": "文件",
-        "database": "数据库"
+        "database": "数据库",
+        "chartType": "图表类型",
+        "chartTitle": "图表标题（可选）",
+        "chartTitlePlaceholder": "例如：人口变化趋势 / 词频热力图",
+        "fileName": "文件名（可选）",
+        "fileNameTip": "仅当导出生成单个文件时生效；不填则使用默认文件名",
+        "fileNamePlaceholder": "例如：report.md / output.json",
+        "formatDesc": "选择导出格式（区块 + 卡片式选择）。",
+        "chartTypeDesc": "选择图表小类；上游输出会被自动包装为对应的 chart 输入结构。",
+        "destinationDesc": "选择导出目标（当前版本都会生成 artifacts，可站内下载/预览；选择“导出 API”可供外部系统获取）。",
+        "destinationFile": "站内下载",
+        "destinationApi": "导出 API",
+        "exportApiTip": "选择“导出 API”后，执行完成会生成 artifacts，可通过任务产物接口获取：",
+        "chartTypes": {
+          "line": "折线",
+          "bar": "柱状",
+          "scatter": "散点",
+          "histogram": "直方",
+          "heatmap": "热力",
+          "pie": "饼图"
+        },
+        "categories": {
+          "doc": "文档 / 数据",
+          "diagram": "关系图 / 流程图",
+          "chart": "可视化图表（SVG）"
+        }
       }
     },
     "formats": {
@@ -652,6 +688,7 @@
       "seconds": "秒",
       "model": "模型:",
       "format": "格式:",
+      "destination": "目标:",
       "cleanTypeLabels": {
         "html": "清洗HTML",
         "text": "清洗文本",

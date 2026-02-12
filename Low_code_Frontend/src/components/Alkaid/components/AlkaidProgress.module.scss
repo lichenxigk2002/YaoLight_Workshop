@@ -217,16 +217,19 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 6px;
+  padding: 3px 6px;
   margin-bottom: 4px;
-  background: var(--bg-primary);
-  border-radius: 3px;
-  border: 1px dashed var(--border-secondary);
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  border: none;
 }
 
 .messageIcon {
-  font-size: 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .messageContent {

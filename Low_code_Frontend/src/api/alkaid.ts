@@ -153,7 +153,7 @@ export const alkaidApi = {
         const authData = JSON.parse(authStorage);
         token = authData.state?.token || null;
       }
-    } catch (e) {}
+    } catch (e) { }
     const baseURL = import.meta.env.VITE_BASE_URL || '/api';
     const url = `${baseURL}/alkaid/sessions/${sessionId}/stream`;
     const abortController = new AbortController();
@@ -194,7 +194,7 @@ export const alkaidApi = {
                   else if (eventType === 'done') callbacks.onDone?.();
                   else if (eventType === 'interrupted') callbacks.onDone?.(); // 打断视为结束，与 onDone 一致清理状态
                   else if (eventType === 'error') callbacks.onError?.(data.message ?? '');
-                } catch (_) {}
+                } catch (_) { }
               }
             }
             return process();

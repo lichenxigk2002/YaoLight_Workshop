@@ -796,6 +796,17 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	// 创建数据流和变量上下文
 	dataFlow := NewDataFlow(req.Edges)
 	variableContext := NewVariableContext()
+	execMeta := ExecutionMeta{
+		UserID: req.UserID,
+	}
+	if req.WorkflowID > 0 {
+		wid := req.WorkflowID
+		execMeta.WorkflowID = &wid
+	}
+	if task != nil && task.ID > 0 {
+		tid := task.ID
+		execMeta.TaskID = &tid
+	}
 
 	// 保存节点执行记录的辅助函数
 	saveNodeExecution := func(nodeID string, nodeType string, result NodeExecutionResult, executionTime int64) {
@@ -928,7 +939,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 		// 执行节点
 		nodeStartTime := time.Now()
-		result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
+		result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
 		executionTime := time.Since(nodeStartTime).Milliseconds()
 
 		// 保存节点执行记录
@@ -1211,7 +1222,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 				log.Printf("[流式调试-后端] 节点 %s 使用非流式执行", nodeConfig.ID)
 				// 非流式AI节点，使用普通执行（包含计费逻辑）
 				nodeStartTime := time.Now()
-				result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
+				result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
 				executionTime := time.Since(nodeStartTime).Milliseconds()
 
 				// 保存节点执行记录
@@ -1238,7 +1249,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		} else {
 			// 普通节点或非流式AI节点，使用普通执行
 			nodeStartTime := time.Now()
-			result := e.executeNode(*nodeConfig, dataFlow, variableContext, req.UserID)
+			result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
 			executionTime := time.Since(nodeStartTime).Milliseconds()
 
 			// 保存节点执行记录

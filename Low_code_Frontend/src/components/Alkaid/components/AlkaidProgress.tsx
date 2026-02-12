@@ -9,6 +9,7 @@ import {
   SafetyCertificateOutlined,
   RocketOutlined,
   CloseOutlined,
+  CommentOutlined,
 } from '@ant-design/icons';
 import type { Phase, AgentToolStep } from '../types';
 import styles from './AlkaidProgress.module.scss';
@@ -26,6 +27,12 @@ interface PipelineStep {
   descriptionKey: string;
   phases: Phase[];
   icon: React.ReactNode;
+}
+
+/** 后端工具名（snake_case）转前端 i18n key，用于展示可读名称 */
+function toolNameToI18nKey(toolName: string): string {
+  const key = 'tool' + toolName.split('_').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+  return `workflowEditor.alkaid.${key}`;
 }
 
 const PIPELINE_STEPS: PipelineStep[] = [
@@ -72,7 +79,7 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
 }) => {
   const { t } = useTranslation();
   const [collapsedSteps, setCollapsedSteps] = useState<Record<string, boolean>>({});
-  
+
   // 按 userMessageId 分组工具步
   const toolStepsByMessage = useMemo(() => {
     const groups: Record<number, AgentToolStep[]> = {};
@@ -84,34 +91,37 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
     });
     return groups;
   }, [toolSteps]);
-  
+
   // 获取所有唯一的 userMessageId，按顺序排列
   const messageIds = useMemo(() => {
     return Object.keys(toolStepsByMessage).map(Number).sort((a, b) => a - b);
   }, [toolStepsByMessage]);
-  
+
   // Determine the index of the current phase in our simplified pipeline
   const currentStepIndex = useMemo(() => {
+    // 未开始或纯闲聊：没有任何工具步时只展示到第 0 步（意图与规划），不展示后续步骤
+    if (phase === 'idle' && toolSteps.length === 0) {
+      return 0;
+    }
     if (phase === 'idle') {
-      // If idle and we have steps, usually means finished
-      // But check if last tool failed
+      // 已有步骤且 idle，表示整条管道跑完
       const hasError = toolSteps.some(s => s.status === 'error');
       if (hasError) {
-         // Fallback to error logic
+        // Fallback to error logic below
       } else {
-         return PIPELINE_STEPS.length; 
+        return PIPELINE_STEPS.length;
       }
     }
-    
+
     if (phase === 'error' || (phase === 'idle' && toolSteps.some(s => s.status === 'error'))) {
-       // If error, find the step where it happened
-       if (toolSteps.length > 0) {
-          const lastTool = toolSteps[toolSteps.length - 1];
-          // Find pipeline step for this tool
-          const idx = PIPELINE_STEPS.findIndex(step => step.phases.includes(lastTool.phase));
-          return idx !== -1 ? idx : 0;
-       }
-       return 0;
+      // If error, find the step where it happened
+      if (toolSteps.length > 0) {
+        const lastTool = toolSteps[toolSteps.length - 1];
+        // Find pipeline step for this tool
+        const idx = PIPELINE_STEPS.findIndex(step => step.phases.includes(lastTool.phase));
+        return idx !== -1 ? idx : 0;
+      }
+      return 0;
     }
 
     // Find which pipeline step contains the current phase
@@ -119,8 +129,13 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
     if (idx !== -1) return idx;
 
     // Fallback
-    return 0; 
+    return 0;
   }, [phase, toolSteps]);
+
+  // 只展示到当前步骤为止，未到的步骤不展示（避免闲聊时也展示「内容生成」「校验与交付」等）
+  const visibleSteps = useMemo(() => {
+    return PIPELINE_STEPS.slice(0, currentStepIndex + 1);
+  }, [currentStepIndex]);
 
   // Group tool steps by pipeline step key
   const stepsByPipeline = useMemo(() => {
@@ -157,26 +172,26 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
   return (
     <div className={styles.wrapper}>
       <div className={styles.timeline}>
-        {PIPELINE_STEPS.map((step, index) => {
+        {visibleSteps.map((step, index) => {
           let status: 'pending' | 'inProgress' | 'completed' | 'skipped' | 'error' = 'pending';
           const stepTools = stepsByPipeline[step.key] || [];
           const stepHasError = stepTools.some(t => t.status === 'error');
           const hasSubSteps = stepTools.length > 0;
           const isCollapsed = collapsedSteps[step.key] ?? false;
-          
+
           if (stepHasError) {
-             status = 'error';
+            status = 'error';
           } else if (phase === 'idle' && !toolSteps.some(s => s.status === 'error')) {
-             status = 'completed';
+            status = 'completed';
           } else if (index < currentStepIndex) {
             status = 'completed';
           } else if (index === currentStepIndex) {
             // If global phase is error or idle-with-error, but this step didn't have tool error (maybe phase changed before tool ran?)
             // If currentStepIndex points here, it's InProgress or Error
             if (phase === 'error' || (phase === 'idle' && toolSteps.some(s => s.status === 'error'))) {
-                status = 'error'; // Mark as error if we stopped here
+              status = 'error'; // Mark as error if we stopped here
             } else {
-                status = 'inProgress';
+              status = 'inProgress';
             }
           } else {
             status = 'pending';
@@ -197,9 +212,9 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
           return (
             <div key={step.key} className={styles.timelineItem}>
               {/* Vertical Line */}
-              {index < PIPELINE_STEPS.length - 1 && (
-                <div 
-                  className={`${styles.timelineLine} ${isActive || isCompleted ? styles.active : ''} ${isCompleted ? styles.completed : ''} ${isError ? styles.error : ''}`} 
+              {index < visibleSteps.length - 1 && (
+                <div
+                  className={`${styles.timelineLine} ${isActive || isCompleted ? styles.active : ''} ${isCompleted ? styles.completed : ''} ${isError ? styles.error : ''}`}
                 />
               )}
 
@@ -218,19 +233,19 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
                       {t(step.labelKey)}
                     </div>
                     {hasSubSteps && (
-                    <button
-                      type="button"
-                      className={`${styles.collapseToggle} ${isCollapsed ? styles.collapsed : styles.expanded}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleCollapse();
-                      }}
-                      aria-label={isCollapsed
-                        ? t('workflowEditor.alkaid.expandSubSteps', '展开工具步骤')
-                        : t('workflowEditor.alkaid.collapseSubSteps', '收起工具步骤')}
-                    >
-                      <RoundedChevronDown />
-                    </button>
+                      <button
+                        type="button"
+                        className={`${styles.collapseToggle} ${isCollapsed ? styles.collapsed : styles.expanded}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCollapse();
+                        }}
+                        aria-label={isCollapsed
+                          ? t('workflowEditor.alkaid.expandSubSteps', '展开工具步骤')
+                          : t('workflowEditor.alkaid.collapseSubSteps', '收起工具步骤')}
+                      >
+                        <RoundedChevronDown />
+                      </button>
                     )}
                   </div>
                   {(status === 'pending' || isActive || isError) && (
@@ -244,19 +259,18 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
               {/* Sub-steps (Tool Executions) - 按消息分组显示 */}
               {hasSubSteps && (
                 <div
-                  className={`${styles.subSteps} ${
-                    isCollapsed ? styles.subStepsCollapsed : styles.subStepsExpanded
-                  }`}
+                  className={`${styles.subSteps} ${isCollapsed ? styles.subStepsCollapsed : styles.subStepsExpanded
+                    }`}
                 >
                   {messageIds.map((messageId, msgIndex) => {
                     const messageTools = stepTools.filter(t => t.userMessageId === messageId);
                     if (messageTools.length === 0) return null;
-                    
+
                     const messageContent = messageTools[0]?.userMessageContent || '';
-                    const truncatedContent = messageContent.length > 30 
-                      ? messageContent.slice(0, 30) + '...' 
+                    const truncatedContent = messageContent.length > 30
+                      ? messageContent.slice(0, 30) + '...'
                       : messageContent;
-                    
+
                     return (
                       <div key={messageId} className={styles.messageGroup}>
                         {/* 消息分组标题 */}
@@ -267,11 +281,11 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
                         )}
                         {messageIds.length > 1 && (
                           <div className={styles.messageHeader}>
-                            <span className={styles.messageIcon}>💬</span>
+                            <span className={styles.messageIcon}><CommentOutlined /></span>
                             <span className={styles.messageContent}>{truncatedContent}</span>
                           </div>
                         )}
-                        
+
                         {/* 该消息的工具步 */}
                         {messageTools.map((tool) => (
                           <div key={tool.stepId} className={styles.subStepItem}>
@@ -288,7 +302,7 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
                             </div>
                             <div className={styles.subStepContent}>
                               <div className={styles.subStepTitle}>
-                                <span>{tool.toolName}</span>
+                                <span>{t(toolNameToI18nKey(tool.toolName), tool.toolName)}</span>
                               </div>
                               {tool.resultSummary && (
                                 <div className={styles.subStepResult}>

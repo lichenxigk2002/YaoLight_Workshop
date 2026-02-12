@@ -13,6 +13,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/redis"
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
+	artifactControllers "yaolight-workshop/backend/modules/artifact/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	notificationModule "yaolight-workshop/backend/modules/notification"
 	notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
@@ -187,6 +188,12 @@ func main() {
 			auth.GET("/tasks/:id", taskController.GetTaskDetail)                         // 获取任务详情
 			auth.GET("/tasks/:id/node-executions", taskController.GetTaskNodeExecutions) // 获取任务的节点执行记录
 			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs)                      // 获取任务日志
+
+			// 导出制品（输出节点生成的文件/图表等）
+			artifactController := artifactControllers.NewArtifactController()
+			auth.GET("/tasks/:id/artifacts", artifactController.ListByTask)
+			auth.GET("/artifacts/:id", artifactController.GetByID)
+			auth.GET("/artifacts/:id/download", artifactController.Download)
 
 			// AI模型相关路由
 			aiController := aiControllers.NewAIController()
