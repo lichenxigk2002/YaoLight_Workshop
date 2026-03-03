@@ -14,6 +14,9 @@ import Billing from '../pages/Settings/Billing'
 import SettingsNotifications from '../pages/Settings/Notifications'
 import Payment from '../pages/Payment'
 import Help from '../pages/Help'
+import AssistantWorkspace from '../pages/AssistantWorkspace'
+import ConversationsPage from '../pages/Conversations'
+import AssistantSettings from '../pages/Settings/Assistant'
 
 const router = createBrowserRouter([
   {
@@ -84,7 +87,31 @@ const router = createBrowserRouter([
         path: 'notifications',
         element: <SettingsNotifications />,
       },
+      {
+        path: 'assistant',
+        element: <AssistantSettings />,
+      },
     ],
+  },
+  {
+    path: '/assistant',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <AssistantWorkspace />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/conversations',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <ConversationsPage />
+        </Layout>
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/payment',

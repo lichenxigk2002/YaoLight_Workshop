@@ -62,6 +62,31 @@
     border-bottom-left-radius: 8px !important;
     border-bottom-right-radius: 8px !important;
   }
+
+  // 补丁预览样式
+  &.diffAdd {
+    background: #f6ffed !important;
+    background-color: #f6ffed !important;
+    border: 2px solid #52c41a !important;
+  }
+  
+  &.diffRemove {
+    background: #fff1f0 !important;
+    background-color: #fff1f0 !important;
+    border: 2px solid #ff4d4f !important;
+    opacity: 0.7;
+    
+    // 给内部内容加半透明，防止文字过深
+    :global(.ant-card-body) {
+      opacity: 0.8;
+    }
+  }
+
+  &.diffUpdate {
+    background: #fffbe6 !important;
+    background-color: #fffbe6 !important;
+    border: 2px solid #faad14 !important;
+  }
 }
 
 .nodeHeader {

@@ -217,4 +217,7 @@ export const alkaidApi = {
 
   applyPatch: (sessionId: number, workflowId?: number) =>
     http.post<{ code: number; message: string }>('/alkaid/apply-patch', { sessionId, workflowId }),
+
+  discardPending: (sessionId: number, type: 'workflow' | 'patch') =>
+    http.post<{ code: number; message: string }>('/alkaid/discard-pending', { sessionId, type }),
 };

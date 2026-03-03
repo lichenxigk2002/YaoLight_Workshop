@@ -1,14 +1,17 @@
 package email
 
 import (
+	"bytes"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/smtp"
 	"os"
 	"strings"
 )
 
-// EmailService 邮件服务
 type EmailService struct {
 	host     string
 	port     string
@@ -17,7 +20,12 @@ type EmailService struct {
 	from     string
 }
 
-// NewEmailService 创建邮件服务
+type Attachment struct {
+	Filename string
+	MimeType string
+	Data     []byte
+}
+
 func NewEmailService() *EmailService {
 	return &EmailService{
 		host:     getEnv("TENCENT_CLOUD_MAIL_HOST", "gz-smtp.qcloudmail.com"),
@@ -28,7 +36,6 @@ func NewEmailService() *EmailService {
 	}
 }
 
-// SendVerificationCode 发送验证码邮件
 func (s *EmailService) SendVerificationCode(to string, code string) error {
 	subject := "【瑶光工坊】验证码"
 	body := fmt.Sprintf(`
@@ -73,13 +80,11 @@ func (s *EmailService) SendVerificationCode(to string, code string) error {
 	return s.SendHTML(to, subject, body)
 }
 
-// SendHTML 发送HTML邮件
 func (s *EmailService) SendHTML(to, subject, body string) error {
 	if s.username == "" || s.password == "" {
 		return fmt.Errorf("邮件服务未配置，请设置环境变量 TENCENT_CLOUD_MAIL_USERNAME 和 TENCENT_CLOUD_MAIL_PASSWORD")
 	}
 
-	// 构建邮件内容
 	message := []byte(fmt.Sprintf(
 		"From: %s\r\n"+
 			"To: %s\r\n"+
@@ -91,63 +96,9 @@ func (s *EmailService) SendHTML(to, subject, body string) error {
 		s.from, to, subject, body,
 	))
 
-	// 使用 SSL/TLS 连接
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
-
-	// 建立 TLS 连接
-	tlsConfig := &tls.Config{
-		ServerName:         s.host,
-		InsecureSkipVerify: false,
-	}
-
-	addr := fmt.Sprintf("%s:%s", s.host, s.port)
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
-	if err != nil {
-		return fmt.Errorf("连接邮件服务器失败: %v", err)
-	}
-	defer conn.Close()
-
-	client, err := smtp.NewClient(conn, s.host)
-	if err != nil {
-		return fmt.Errorf("创建SMTP客户端失败: %v", err)
-	}
-	defer client.Quit()
-
-	// 认证
-	if err := client.Auth(auth); err != nil {
-		return fmt.Errorf("邮件认证失败: %v", err)
-	}
-
-	// 设置发件人
-	if err := client.Mail(s.from); err != nil {
-		return fmt.Errorf("设置发件人失败: %v", err)
-	}
-
-	// 设置收件人
-	if err := client.Rcpt(to); err != nil {
-		return fmt.Errorf("设置收件人失败: %v", err)
-	}
-
-	// 发送邮件内容
-	w, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("准备发送邮件失败: %v", err)
-	}
-
-	_, err = w.Write(message)
-	if err != nil {
-		return fmt.Errorf("写入邮件内容失败: %v", err)
-	}
-
-	err = w.Close()
-	if err != nil {
-		return fmt.Errorf("关闭邮件写入失败: %v", err)
-	}
-
-	return nil
+	return s.sendRaw(to, message)
 }
 
-// SendPlain 发送纯文本邮件
 func (s *EmailService) SendPlain(to, subject, body string) error {
 	if s.username == "" || s.password == "" {
 		return fmt.Errorf("邮件服务未配置")
@@ -162,18 +113,132 @@ func (s *EmailService) SendPlain(to, subject, body string) error {
 		s.from, to, subject, body,
 	))
 
+	return s.sendRaw(to, message)
+}
+
+func (s *EmailService) SendWithAttachments(to, subject, body string, attachments []Attachment) error {
+	if s.username == "" || s.password == "" {
+		return fmt.Errorf("邮件服务未配置")
+	}
+
+	boundary := s.randomBoundary()
+
+	var buf bytes.Buffer
+	buf.WriteString(fmt.Sprintf("From: %s\r\n", s.from))
+	buf.WriteString(fmt.Sprintf("To: %s\r\n", to))
+	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	buf.WriteString("MIME-Version: 1.0\r\n")
+	buf.WriteString(fmt.Sprintf("Content-Type: multipart/mixed; boundary=%q\r\n", boundary))
+	buf.WriteString("\r\n")
+
+	buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	buf.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
+	buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+	buf.WriteString("\r\n")
+	buf.WriteString(encodeBase64(body))
+	buf.WriteString("\r\n")
+
+	for _, att := range attachments {
+		buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+		mt := att.MimeType
+		if strings.TrimSpace(mt) == "" {
+			mt = "application/octet-stream"
+		}
+		buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, att.Filename))
+		buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+		buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", att.Filename))
+		buf.WriteString("\r\n")
+		buf.WriteString(encodeBase64Bytes(att.Data))
+		buf.WriteString("\r\n")
+	}
+
+	buf.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+
+	return s.sendRaw(to, buf.Bytes())
+}
+
+func (s *EmailService) sendRaw(to string, message []byte) error {
 	auth := smtp.PlainAuth("", s.username, s.password, s.host)
 	addr := fmt.Sprintf("%s:%s", s.host, s.port)
 
-	err := smtp.SendMail(addr, auth, s.from, strings.Split(to, ","), message)
+	tlsConfig := &tls.Config{
+		ServerName:         s.host,
+		InsecureSkipVerify: false,
+	}
+
+	conn, err := tls.Dial("tcp", addr, tlsConfig)
 	if err != nil {
-		return fmt.Errorf("发送邮件失败: %v", err)
+		return fmt.Errorf("连接邮件服务器失败: %v", err)
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, s.host)
+	if err != nil {
+		return fmt.Errorf("创建SMTP客户端失败: %v", err)
+	}
+	defer client.Quit()
+
+	if err := client.Auth(auth); err != nil {
+		return fmt.Errorf("邮件认证失败: %v", err)
+	}
+
+	if err := client.Mail(s.from); err != nil {
+		return fmt.Errorf("设置发件人失败: %v", err)
+	}
+
+	recipients := strings.Split(to, ",")
+	for _, r := range recipients {
+		addrStr := strings.TrimSpace(r)
+		if addrStr == "" {
+			continue
+		}
+		if err := client.Rcpt(addrStr); err != nil {
+			return fmt.Errorf("设置收件人失败: %v", err)
+		}
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("准备发送邮件失败: %v", err)
+	}
+
+	if _, err := w.Write(message); err != nil {
+		return fmt.Errorf("写入邮件内容失败: %v", err)
+	}
+
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("关闭邮件写入失败: %v", err)
 	}
 
 	return nil
 }
 
-// getEnv 获取环境变量，如果不存在则返回默认值
+func (s *EmailService) randomBoundary() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "mixed-boundary"
+	}
+	return "mixed-" + hex.EncodeToString(b)
+}
+
+func encodeBase64(s string) string {
+	return encodeBase64Bytes([]byte(s))
+}
+
+func encodeBase64Bytes(b []byte) string {
+	enc := base64.StdEncoding.EncodeToString(b)
+	var buf strings.Builder
+	for i := 0; i < len(enc); i += 76 {
+		end := i + 76
+		if end > len(enc) {
+			end = len(enc)
+		}
+		buf.WriteString(enc[i:end])
+		buf.WriteString("\r\n")
+	}
+	return buf.String()
+}
+
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {

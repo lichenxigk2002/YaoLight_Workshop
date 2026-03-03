@@ -68,9 +68,9 @@ export const nodeFormats: Record<string, NodeFormatDefinition> = {
 
   // 循环节点：接受数组或JSON，输出数组
   loop: {
-    inputFormats: ['array', 'json'],
-    outputFormat: 'array',
-    description: '循环节点输出数组数据',
+    inputFormats: ['any', 'array', 'json'],
+    outputFormat: 'json',
+    description: '循环节点输出 results（数组）与统计信息（JSON格式）',
   },
 
   // 合并节点：接受任意格式（多个输入），输出JSON

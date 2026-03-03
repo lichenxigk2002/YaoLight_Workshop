@@ -19,6 +19,12 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   fmt.Sprintf("获取输入数据失败: %v", err),
+		}
 	}
 
 	// 获取提示词配置

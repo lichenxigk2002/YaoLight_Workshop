@@ -71,9 +71,12 @@ export function useWorkflowSave(
 
   /**
    * 保存工作流（内部函数）
+   * @param silent 是否静默保存
+   * @param overrideNodes 可选：覆盖当前状态的节点数据
+   * @param overrideEdges 可选：覆盖当前状态的边数据
    */
   const saveWorkflowInternal = useCallback(
-    async (silent: boolean = false) => {
+    async (silent: boolean = false, overrideNodes?: Node[], overrideEdges?: Edge[]) => {
       if (!workflowId) {
         if (!silent) {
           message.warning(t('workflowEditor.workflowIdMissing') || '工作流ID不存在，无法保存');
@@ -81,13 +84,16 @@ export function useWorkflowSave(
         return false;
       }
 
+      const nodesToSave = overrideNodes || nodes;
+      const edgesToSave = overrideEdges || edges;
+
       try {
         setIsSaving(true);
 
         // 转换数据格式
-        const nodesData = transformNodesToSaveFormat(nodes);
-        const commentCardsData = transformCommentCardsToSaveFormat(nodes);
-        const edgesData = transformEdgesToSaveFormat(edges, nodes);
+        const nodesData = transformNodesToSaveFormat(nodesToSave);
+        const commentCardsData = transformCommentCardsToSaveFormat(nodesToSave);
+        const edgesData = transformEdgesToSaveFormat(edgesToSave, nodesToSave);
 
         await workflowApi.saveWorkflowNodes(Number(workflowId), {
           nodes: nodesData,

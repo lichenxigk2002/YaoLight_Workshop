@@ -105,8 +105,9 @@ export interface WorkflowExportData {
 
 /** 补丁项（propose_patch 用） */
 export interface PatchItem {
-  op: 'set' | 'add' | 'remove';
-  nodeId: string;
-  path: string;
+  op: 'set' | 'add' | 'remove' | 'set_edges';
+  nodeId?: string;
+  path?: string;
   value?: unknown;
+  node?: unknown;
 }

@@ -101,11 +101,22 @@ const CommentCard: React.FC<NodeProps> = ({ data, selected, id }) => {
     setIsEditing(false);
   }, []);
 
+  const diffMark = (data as any).diffMark;
+  const getBorderColor = () => {
+      if (diffMark === 'add') return '#52c41a';
+      if (diffMark === 'remove') return '#ff4d4f';
+      if (diffMark === 'update') return '#faad14';
+      if (selected) return 'var(--primary)';
+      return 'transparent';
+  };
+
   return (
     <div
       className={`${styles.commentCard} ${selected ? styles.selected : ''}`}
       style={{
         backgroundColor: color,
+        border: `2px solid ${getBorderColor()}`,
+        opacity: diffMark === 'remove' ? 0.7 : 1,
       }}
       onClick={handleCardClick}
     >

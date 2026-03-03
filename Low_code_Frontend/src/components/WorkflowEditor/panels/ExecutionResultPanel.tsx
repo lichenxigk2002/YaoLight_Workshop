@@ -54,6 +54,7 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
   const [title, setTitle] = useState('');
   const [mime, setMime] = useState('');
   const [content, setContent] = useState('');
+  const [smartContent, setSmartContent] = useState<any>(null);
 
   const previewArtifact = async (a: any) => {
     const downloadUrl = normalizeDownloadPathForHttp(a.downloadUrl || '');
@@ -64,7 +65,7 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
       const base = baseURL.replace(/\/$/, '');
       const fullUrl = base.startsWith('http')
         ? `${base}${downloadUrl}`
-        : `${base}${downloadUrl}`; // base 通常为 /api
+        : `${base}${downloadUrl}`;
 
       const resp = await fetch(fullUrl, {
         headers: {
@@ -76,8 +77,107 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
       setTitle(a.name || '预览');
       setMime(a.mimeType || '');
       setContent(text);
+
+      // 尝试解析 JSON 并提取智能内容
+      try {
+        const json = JSON.parse(text);
+        if (json && typeof json === 'object' && !Array.isArray(json)) {
+          // 优先顺序: content > result > data
+          const extracted = json.content || json.result || json.data;
+          if (extracted) {
+            setSmartContent(extracted);
+          } else {
+            setSmartContent(null);
+          }
+        } else {
+          setSmartContent(null);
+        }
+      } catch {
+        setSmartContent(null);
+      }
+
       setOpen(true);
     } catch { }
+  };
+
+  const downloadSmartContent = () => {
+    if (!smartContent) return;
+
+    let blobPart = smartContent;
+    let type = 'text/plain';
+    let ext = 'txt';
+
+    if (typeof smartContent === 'object') {
+      blobPart = JSON.stringify(smartContent, null, 2);
+      type = 'application/json';
+      ext = 'json';
+    } else if (typeof smartContent === 'string') {
+      if (smartContent.startsWith('data:image/')) {
+        const link = document.createElement('a');
+        link.href = smartContent;
+        // 简单尝试解析图片扩展名
+        const mimeMatch = smartContent.match(/data:image\/(\w+);/);
+        const imgExt = mimeMatch ? mimeMatch[1] : 'png';
+        link.download = `${title.replace(/\.[^/.]+$/, "")}_extracted.${imgExt}`;
+        link.click();
+        return;
+      }
+      // 默认视作 Markdown
+      type = 'text/markdown';
+      ext = 'md';
+    }
+
+    const blob = new Blob([blobPart], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title.replace(/\.[^/.]+$/, "")}_extracted.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const renderContent = () => {
+    if (smartContent) {
+      if (typeof smartContent === 'string') {
+        // 图片检测
+        if (smartContent.startsWith('data:image/') || smartContent.match(/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
+          return (
+            <div style={{ width: '100%', overflow: 'auto', textAlign: 'center' }}>
+              <img
+                src={smartContent}
+                alt="Preview"
+                style={{ maxWidth: '100%', maxHeight: '600px', objectFit: 'contain' }}
+              />
+            </div>
+          );
+        }
+        // Markdown
+        return <MarkdownRenderer content={smartContent} />;
+      }
+      // JSON Object
+      return <pre className={styles.jsonDisplay}>{JSON.stringify(smartContent, null, 2)}</pre>;
+    }
+
+    // Fallback to original logic
+    if (mime.toLowerCase().includes('image/svg+xml')) {
+      return (
+        <div style={{ width: '100%', overflow: 'auto' }}>
+          <img
+            alt={title}
+            style={{ maxWidth: '100%', height: 'auto' }}
+            src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(content)}`}
+          />
+        </div>
+      );
+    } else if (mime.toLowerCase().includes('markdown')) {
+      return <MarkdownRenderer content={content} />;
+    } else if (mime.toLowerCase().includes('application/json')) {
+      return <pre className={styles.jsonDisplay}>{content}</pre>;
+    } else {
+      return <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{content}</Paragraph>;
+    }
   };
 
   return (
@@ -148,26 +248,17 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
         title={title}
         open={open}
         onCancel={() => setOpen(false)}
-        footer={null}
+        footer={smartContent ? [
+          <Button key="close" onClick={() => setOpen(false)}>关闭</Button>,
+          <Button key="download-smart" type="primary" icon={<DownloadOutlined />} onClick={downloadSmartContent}>
+            下载内容
+          </Button>
+        ] : null}
         width={800}
         centered
         styles={{ body: { padding: '12px 24px 24px' } }}
       >
-        {mime.toLowerCase().includes('image/svg+xml') ? (
-          <div style={{ width: '100%', overflow: 'auto' }}>
-            <img
-              alt={title}
-              style={{ maxWidth: '100%', height: 'auto' }}
-              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(content)}`}
-            />
-          </div>
-        ) : mime.toLowerCase().includes('markdown') ? (
-          <MarkdownRenderer content={content} />
-        ) : mime.toLowerCase().includes('application/json') ? (
-          <pre className={styles.jsonDisplay}>{content}</pre>
-        ) : (
-          <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{content}</Paragraph>
-        )}
+        {renderContent()}
       </Modal>
     </div>
   );
@@ -311,11 +402,75 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   };
 
   // 复制数据到剪贴板
-  const copyToClipboard = (data: any) => {
-    const text = JSON.stringify(data, null, 2);
+  const copyToClipboard = (nodeResult: NodeExecutionResult) => {
+    // 智能复制：如果 AI 或 Output 节点有内容文本，优先复制文本，否则复制 JSON
+    let text = '';
+    if (nodeResult.type === 'ai') {
+        text = nodeResult.data?.content || nodeResult.data?.result || '';
+    } else if (nodeResult.type === 'output') {
+        if (nodeResult.data?.data?.content && typeof nodeResult.data.data.content === 'string') {
+            text = nodeResult.data.data.content;
+        } else if (nodeResult.data?.data?.result && typeof nodeResult.data.data.result === 'string') {
+            text = nodeResult.data.data.result;
+        }
+    }
+
+    if (!text) {
+        text = JSON.stringify(nodeResult.data, null, 2);
+    }
+
     navigator.clipboard.writeText(text).then(() => {
       message.success(t('node.execution.copied'));
     });
+  };
+
+  // 下载数据
+  const handleDownload = (nodeResult: NodeExecutionResult) => {
+    // 智能下载：如果是 output 节点且有 artifacts，优先下载第一个 artifact
+    if (nodeResult.type === 'output' && nodeResult.data?.artifacts?.length > 0) {
+        const artifact = nodeResult.data.artifacts[0];
+        if (artifact && artifact.downloadUrl) {
+             const p = normalizeDownloadPathForHttp(artifact.downloadUrl);
+             http.download(p, undefined, artifact.name);
+             return;
+        }
+    }
+    
+    // 如果是 AI 节点或 Output 节点有文本内容，下载为 .md 文件
+    let content = '';
+    let ext = 'json';
+    let mime = 'application/json';
+
+    if (nodeResult.type === 'ai') {
+        content = nodeResult.data?.content || nodeResult.data?.result;
+        if (content) {
+            ext = 'md';
+            mime = 'text/markdown';
+        }
+    } else if (nodeResult.type === 'output') {
+        // 尝试获取文本内容
+        if (nodeResult.data?.data?.content && typeof nodeResult.data.data.content === 'string') {
+            content = nodeResult.data.data.content;
+            ext = 'md';
+            mime = 'text/markdown';
+        }
+    }
+
+    if (content) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${getNodeLabel(nodeResult.node_id)}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+    }
+
+    // 默认下载 JSON
+    downloadAsJson(nodeResult.data, `${getNodeLabel(nodeResult.node_id)}_result.json`);
   };
 
   // 下载数据为JSON文件
@@ -339,6 +494,30 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
 
     // 输出节点：展示 artifacts（下载/预览）
     if (nodeType === 'output') {
+      // 检查是否是 Markdown 格式的输出，如果是，尝试渲染 Markdown 内容
+      const artifacts = data?.artifacts || [];
+      if (artifacts.length > 0) {
+        const mdArtifact = artifacts.find((a: any) => 
+          a.mimeType?.toLowerCase().includes('text/markdown') || 
+          a.kind?.toLowerCase() === 'markdown'
+        );
+        
+        // 如果找到了 Markdown 制品，且 data.data 中包含 content，则直接渲染内容
+        if (mdArtifact && data.data && typeof data.data === 'object' && (data.data.content || data.data.result)) {
+           const mdContent = data.data.content || data.data.result;
+           if (typeof mdContent === 'string') {
+             return (
+               <div className={styles.dataPreview}>
+                 <OutputArtifactsView data={data} />
+                 <div style={{ marginTop: 16, borderTop: '1px solid var(--border-secondary)', paddingTop: 16 }}>
+                   <div style={{ marginBottom: 8, fontWeight: 500 }}>预览内容：</div>
+                   <MarkdownRenderer content={mdContent} />
+                 </div>
+               </div>
+             );
+           }
+        }
+      }
       return <OutputArtifactsView data={data} />;
     }
 
@@ -768,18 +947,13 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                     type="text"
                     size="small"
                     icon={<CopyOutlined />}
-                    onClick={() => copyToClipboard(nodeResult.data)}
+                    onClick={() => copyToClipboard(nodeResult)}
                   />
                   <Button
                     type="text"
                     size="small"
                     icon={<DownloadOutlined />}
-                    onClick={() =>
-                      downloadAsJson(
-                        nodeResult.data,
-                        `${getNodeLabel(nodeResult.node_id)}_result.json`
-                      )
-                    }
+                    onClick={() => handleDownload(nodeResult)}
                   />
                 </Space>
               );

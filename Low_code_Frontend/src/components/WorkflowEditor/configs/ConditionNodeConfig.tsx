@@ -22,6 +22,11 @@ export const ConditionNodeConfig: React.FC<ConditionNodeConfigProps> = ({
 }) => {
   const { t } = useTranslation();
 
+
+  const needsCompareValue = (operator?: string) => {
+    return operator !== 'empty' && operator !== 'notEmpty';
+  };
+
   return (
     <>
       <Form.Item
@@ -71,14 +76,44 @@ export const ConditionNodeConfig: React.FC<ConditionNodeConfigProps> = ({
           <Option value=">=">{t('node.config.condition.operatorGreaterEqual')}</Option>
           <Option value="<=">{t('node.config.condition.operatorLessEqual')}</Option>
           <Option value="contains">{t('node.config.condition.operatorContains')}</Option>
+          <Option value="startsWith">{t('node.config.condition.operatorStartsWith')}</Option>
+          <Option value="endsWith">{t('node.config.condition.operatorEndsWith')}</Option>
+          <Option value="regex">{t('node.config.condition.operatorRegex')}</Option>
+          <Option value="in">{t('node.config.condition.operatorIn')}</Option>
+          <Option value="notIn">{t('node.config.condition.operatorNotIn')}</Option>
+          <Option value="empty">{t('node.config.condition.operatorEmpty')}</Option>
+          <Option value="notEmpty">{t('node.config.condition.operatorNotEmpty')}</Option>
         </Select>
       </Form.Item>
+
       <Form.Item
-        label={t('node.config.condition.compareValue')}
-        name="value"
-        rules={[{ required: true, message: t('node.config.condition.compareValueRequired') }]}
+        label={t('node.config.condition.missingAs')}
+        name="missingAs"
+        initialValue="false"
+        tooltip={t('node.config.condition.missingAsTooltip')}
       >
-        <Input placeholder="100" />
+        <Select>
+          <Option value="false">{t('node.config.condition.missingAsFalse')}</Option>
+          <Option value="true">{t('node.config.condition.missingAsTrue')}</Option>
+          <Option value="error">{t('node.config.condition.missingAsError')}</Option>
+        </Select>
+      </Form.Item>
+
+      <Form.Item shouldUpdate noStyle>
+        {({ getFieldValue }) => {
+          const operator = getFieldValue('operator');
+          const required = needsCompareValue(operator);
+          return (
+            <Form.Item
+              label={t('node.config.condition.compareValue')}
+              name="value"
+              rules={required ? [{ required: true, message: t('node.config.condition.compareValueRequired') }] : []}
+              tooltip={t('node.config.condition.compareValueTooltip')}
+            >
+              <Input placeholder={operator === 'in' || operator === 'notIn' ? 'a,b,c' : '100'} />
+            </Form.Item>
+          );
+        }}
       </Form.Item>
       <Form.Item
         label="比较值变量"
