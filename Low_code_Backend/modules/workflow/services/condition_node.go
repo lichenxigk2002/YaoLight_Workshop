@@ -1,6 +1,9 @@
 package services
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // executeConditionNode 执行条件节点
 func (e *WorkflowExecutor) executeConditionNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext) NodeExecutionResult {
@@ -19,8 +22,9 @@ func (e *WorkflowExecutor) executeConditionNode(node NodeConfig, dataFlow *DataF
 	field := getString(node.Config, "field", "")
 	fieldVariable := getString(node.Config, "fieldVariable", "")
 	operator := getString(node.Config, "operator", "==")
-	value := getString(node.Config, "value", "")
+	value := node.Config["value"]
 	valueVariable := getString(node.Config, "valueVariable", "")
+	missingAs := strings.ToLower(strings.TrimSpace(getString(node.Config, "missingAs", "false")))
 
 	// 如果配置了字段变量，优先使用变量值
 	if fieldVariable != "" {
@@ -33,16 +37,23 @@ func (e *WorkflowExecutor) executeConditionNode(node NodeConfig, dataFlow *DataF
 			}
 		}
 	}
+	if strings.Contains(field, "{{") {
+		resolved, err := variableContext.ResolveTemplate(field)
+		if err == nil && strings.TrimSpace(resolved) != "" {
+			field = resolved
+		}
+	}
 
 	// 如果配置了值变量，优先使用变量值
 	if valueVariable != "" {
 		resolved, err := variableContext.ResolveTemplateToInterface(valueVariable)
 		if err == nil {
-			if str, ok := resolved.(string); ok {
-				value = str
-			} else {
-				value = fmt.Sprintf("%v", resolved)
-			}
+			value = resolved
+		}
+	} else if s, ok := value.(string); ok && strings.Contains(s, "{{") {
+		resolved, err := variableContext.ResolveTemplateToInterface(s)
+		if err == nil {
+			value = resolved
 		}
 	}
 
@@ -56,7 +67,7 @@ func (e *WorkflowExecutor) executeConditionNode(node NodeConfig, dataFlow *DataF
 	}
 
 	// 从输入数据中获取字段值
-	fieldValue, err := GetDataByPath(ExtractPayload(inputData), field)
+	fieldValue, found, err := TryGetDataByPath(ExtractPayload(inputData), field)
 	if err != nil {
 		return NodeExecutionResult{
 			NodeID:  node.ID,
@@ -65,9 +76,48 @@ func (e *WorkflowExecutor) executeConditionNode(node NodeConfig, dataFlow *DataF
 			Error:   fmt.Sprintf("获取字段值失败: %v", err),
 		}
 	}
+	if !found {
+		switch missingAs {
+		case "true":
+			return NodeExecutionResult{
+				NodeID:  node.ID,
+				Type:    "condition",
+				Success: true,
+				Data: map[string]interface{}{
+					"result":       true,
+					"field":        field,
+					"fieldValue":   nil,
+					"operator":     operator,
+					"compareValue": value,
+					"data":         ExtractPayload(inputData),
+				},
+			}
+		case "error":
+			return NodeExecutionResult{
+				NodeID:  node.ID,
+				Type:    "condition",
+				Success: false,
+				Error:   fmt.Sprintf("字段不存在: %s", field),
+			}
+		default:
+			return NodeExecutionResult{
+				NodeID:  node.ID,
+				Type:    "condition",
+				Success: true,
+				Data: map[string]interface{}{
+					"result":       false,
+					"field":        field,
+					"fieldValue":   nil,
+					"operator":     operator,
+					"compareValue": value,
+					"data":         ExtractPayload(inputData),
+				},
+			}
+		}
+	}
 
 	// 执行条件判断
-	result := evaluateCondition(fieldValue, operator, value)
+	result := evaluateConditionAny(fieldValue, operator, value)
 
 	return NodeExecutionResult{
 		NodeID:  node.ID,

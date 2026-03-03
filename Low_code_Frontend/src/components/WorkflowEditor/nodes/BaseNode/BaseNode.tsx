@@ -31,6 +31,11 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
 }) => {
   const displayLabel = data.label || label;
   const connectionDirection = data.connectionDirection || 'vertical';
+  const diffMark = (data as any).diffMark; // 'add' | 'remove' | 'update' | undefined
+  
+  const diffClass = diffMark === 'add' ? styles.diffAdd :
+                    diffMark === 'remove' ? styles.diffRemove :
+                    diffMark === 'update' ? styles.diffUpdate : '';
 
   return (
     <div
@@ -133,10 +138,10 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
       )}
 
       {/* 节点卡片 */}
-  <Card
+      <Card
         size="small"
         variant="filled"
-        className={styles.nodeCard}
+        className={`${styles.nodeCard} ${diffClass}`}
         style={{
           border: selected ? `2px solid ${color}` : `1px solid var(--border-primary)`,
           boxShadow: selected ? `0 0 0 2px ${color}20` : 'none',

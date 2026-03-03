@@ -11,7 +11,9 @@ import {
   Descriptions,
   Divider,
   Card,
-  Tabs
+  Tabs,
+  Form,
+  Input,
 } from 'antd';
 import {
   CheckCircleOutlined,
@@ -22,13 +24,16 @@ import {
   RightOutlined,
   StopOutlined,
   FileTextOutlined,
-  CodeOutlined
+  CodeOutlined,
+  MailOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { Task, TaskNodeExecution, NodeExecutionStatus } from '@/types/task';
 import { workflowApi } from '@/api/workflow';
+import { taskApi } from '@/api/task';
+import http from '@/http';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
 import { ProviderIcon } from '@/components/Icons';
 import styles from './TaskExecutionDetailModal.module.scss';
@@ -42,6 +47,11 @@ interface TaskExecutionDetailModalProps {
   executions: TaskNodeExecution[];
 }
 
+const normalizeDownloadPathForHttp = (p: string) => {
+  if (typeof p !== 'string') return '';
+  return p.startsWith('/api/') ? p.replace(/^\/api/, '') : p;
+};
+
 /**
  * 数据展示组件
  */
@@ -49,15 +59,36 @@ const DataViewer: React.FC<{
   title: string;
   data: any;
   filename?: string;
-  nodeType?: string;  // 节点类型，用于判断是否显示文本预览
-}> = ({ title, data, filename, nodeType }) => {
+  nodeType?: string;
+  taskId?: number;
+}> = ({ title, data, filename, nodeType, taskId }) => {
   const { message } = App.useApp();
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<'preview' | 'json'>('preview');
+  const [sendEmailModalOpen, setSendEmailModalOpen] = useState(false);
+  const [sendEmailForm] = Form.useForm();
 
-  // 检查是否是AI节点，并且有content字段可以预览
   const isAI = nodeType === 'ai';
-  const hasContent = data && typeof data === 'object' && (data.content || data.result);
-  const contentText = hasContent ? (data.content || data.result || '') : '';
+  const isOutput = nodeType === 'output';
+
+  let contentText = '';
+  if (data && typeof data === 'object') {
+    if (data.content || data.result) {
+      contentText = data.content || data.result || '';
+    } else if (
+      isOutput &&
+      data.data &&
+      typeof data.data === 'object' &&
+      (data.data.content || data.data.result)
+    ) {
+      contentText = data.data.content || data.data.result || '';
+    }
+  }
+  const hasContent = !!contentText;
+
+  if (typeof contentText === 'object') {
+    contentText = JSON.stringify(contentText);
+  }
 
   // 智能处理 reasoningContent，避免显示 [object Object]
   let reasoningText = '';
@@ -80,6 +111,69 @@ const DataViewer: React.FC<{
       }
     }
   }
+
+  // 尝试解析 contentText 为 JSON
+  let parsedContent: any = null;
+  try {
+      if (contentText && typeof contentText === 'string') {
+          // 检查是否看起来像 JSON
+          const trimmed = contentText.trim();
+          if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+              (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+              parsedContent = JSON.parse(trimmed);
+          }
+      }
+  } catch (e) {
+      // 忽略解析错误，视为普通文本
+  }
+
+  // 如果解析成功且包含 content 字段，尝试提取真正的 markdown 内容
+  let finalMarkdown = contentText;
+  if (parsedContent && typeof parsedContent === 'object') {
+      if (parsedContent.content && typeof parsedContent.content === 'string') {
+          finalMarkdown = parsedContent.content;
+      } else if (parsedContent.result && typeof parsedContent.result === 'string') {
+          finalMarkdown = parsedContent.result;
+      }
+  }
+  
+  const cleanIntro = (text: string) => {
+      if (!text || typeof text !== 'string') return text;
+      
+      // 匹配常见的 AI 开场白
+      const patterns = [
+        /^好的[，,。！!]?.*?\n\n/s,     // "好的，这是一个..." + 双换行
+        /^Sure[.,!].*?\n\n/s,
+        /^Okay[.,!].*?\n\n/s,
+        /^Here is.*?\n\n/s,
+        /^这是.*?\n\n/s
+      ];
+      
+      for (const p of patterns) {
+          if (p.test(text)) {
+              return text.replace(p, '');
+          }
+      }
+      return text;
+  };
+
+  const unwrapFencedMarkdown = (text: string) => {
+    if (!text || typeof text !== 'string') return text;
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('```')) return text;
+    const nl = trimmed.indexOf('\n');
+    if (nl <= 0) return text;
+    const firstLine = trimmed.slice(0, nl).toLowerCase();
+    if (!firstLine.startsWith('```')) return text;
+    let body = trimmed.slice(nl + 1);
+    const end = body.lastIndexOf('```');
+    if (end >= 0) {
+      body = body.slice(0, end);
+    }
+    return body.trim();
+  };
+
+  const finalMarkdownText = unwrapFencedMarkdown(cleanIntro(finalMarkdown));
 
   // 检查是否有有效的思考内容（排除 [object Object] 等无效字符串）
   const invalidStrings = ['[object Object]', '[object Array]', 'null', 'undefined'];
@@ -123,9 +217,20 @@ const DataViewer: React.FC<{
 
   const modelInfo = getModelInfo();
 
-  const handleCopy = (text?: string) => {
+  const handleCopy = () => {
     try {
-      const copyText = text || (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+      let copyText = '';
+
+      if ((isAI || isOutput) && hasContent) {
+        if (activeTab === 'preview') {
+          copyText = finalMarkdownText || contentText;
+        } else {
+          copyText = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        }
+      } else {
+        copyText = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      }
+
       navigator.clipboard.writeText(copyText);
       message.success(t('taskHistory.executionDetail.copiedToClipboard'));
     } catch (error) {
@@ -134,9 +239,45 @@ const DataViewer: React.FC<{
   };
 
   const handleDownload = () => {
-    if (!filename) return;
     try {
-      const blob = new Blob([typeof data === 'string' ? data : JSON.stringify(data, null, 2)], { type: 'application/json' });
+      if ((isAI || isOutput) && hasContent) {
+        if (
+          isOutput &&
+          data &&
+          typeof data === 'object' &&
+          Array.isArray((data as any).artifacts) &&
+          (data as any).artifacts.length > 0
+        ) {
+          const artifacts = (data as any).artifacts as any[];
+          const mdArtifact = artifacts.find((a) =>
+            String(a.mimeType || '').toLowerCase().includes('text/markdown') ||
+            String(a.kind || '').toLowerCase() === 'markdown'
+          ) || artifacts[0];
+          const p = normalizeDownloadPathForHttp(mdArtifact.downloadUrl || '');
+          if (p) {
+            http.download(p, undefined, mdArtifact.name);
+            message.success(t('taskHistory.executionDetail.downloadSuccess'));
+            return;
+          }
+        }
+
+        const baseName = filename ? filename.replace(/\.[^/.]+$/, '') : 'output';
+        const blob = new Blob([finalMarkdownText || contentText], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${baseName}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        message.success(t('taskHistory.executionDetail.downloadSuccess'));
+        return;
+      }
+
+      if (!filename) return;
+      const blob = new Blob(
+        [typeof data === 'string' ? data : JSON.stringify(data, null, 2)],
+        { type: 'application/json' },
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -151,8 +292,59 @@ const DataViewer: React.FC<{
 
   const jsonContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
 
-  // 如果支持文本预览，显示标签页切换
-  if (isAI && hasContent) {
+  const artifacts = data &&
+    typeof data === 'object' &&
+    Array.isArray((data as any).artifacts)
+    ? ((data as any).artifacts as any[])
+    : [];
+
+  const handleSendEmail = () => {
+    if (!isOutput || !taskId) {
+      return;
+    }
+    if (!artifacts || artifacts.length === 0) {
+      message.error('当前输出没有可发送的附件');
+      return;
+    }
+    const defaultSubject = filename || '工作流输出结果';
+    const defaultBody = finalMarkdownText || contentText || '';
+    sendEmailForm.setFieldsValue({
+      to: '',
+      subject: defaultSubject,
+      body: defaultBody,
+    });
+    setSendEmailModalOpen(true);
+  };
+
+  const handleSendEmailSubmit = async () => {
+    try {
+      const values = await sendEmailForm.validateFields();
+      if (!taskId) {
+        message.error('缺少任务ID，无法发送邮件');
+        return;
+      }
+      const artifactIds = artifacts.map((a) => a.id).filter((id) => typeof id === 'number');
+      if (artifactIds.length === 0) {
+        message.error('当前输出没有可发送的附件');
+        return;
+      }
+      await taskApi.sendArtifactsEmail(taskId, {
+        to: values.to,
+        subject: values.subject || '工作流输出结果',
+        artifactIds,
+        body: values.body || (finalMarkdownText || contentText || ''),
+      });
+      message.success('邮件已发送');
+      setSendEmailModalOpen(false);
+    } catch (error: any) {
+      if (error?.errorFields) {
+        return;
+      }
+      message.error(error?.message || '发送邮件失败');
+    }
+  };
+
+  if ((isAI || isOutput) && hasContent) {
     const tabItems = [
       {
         key: 'preview',
@@ -164,7 +356,7 @@ const DataViewer: React.FC<{
         ),
         children: (
           <div className={styles.markdownPreview}>
-            {hasReasoning && reasoningText && (
+            {isAI && hasReasoning && reasoningText && (
               <div style={{ marginBottom: 24 }}>
                 <Text strong style={{ display: 'block', marginBottom: 12, fontSize: '13px' }}>思考过程：</Text>
                 <MarkdownRenderer content={reasoningText} />
@@ -172,7 +364,7 @@ const DataViewer: React.FC<{
             )}
             {contentText && (
               <div>
-                {modelInfo && (
+                {isAI && modelInfo && (
                   <Space size={6} align="center" style={{ marginBottom: 12, display: 'flex' }}>
                     {modelInfo.provider && (
                       <ProviderIcon provider={modelInfo.provider} size={16} />
@@ -182,7 +374,7 @@ const DataViewer: React.FC<{
                     </Text>
                   </Space>
                 )}
-                <MarkdownRenderer content={contentText} />
+                <MarkdownRenderer content={finalMarkdownText} />
               </div>
             )}
           </div>
@@ -227,15 +419,8 @@ const DataViewer: React.FC<{
               type="text"
               size="small"
               icon={<CopyOutlined />}
-              onClick={() => handleCopy(contentText)}
-              title="复制文本内容"
-            />
-            <Button
-              type="text"
-              size="small"
-              icon={<CopyOutlined />}
               onClick={() => handleCopy()}
-              title="复制JSON"
+              title={t('taskHistory.executionDetail.copy')}
             />
             {filename && (
               <Button
@@ -246,13 +431,50 @@ const DataViewer: React.FC<{
                 title={t('taskHistory.executionDetail.download')}
               />
             )}
+            {isOutput && taskId && (
+              <Button
+                type="text"
+                size="small"
+                icon={<MailOutlined />}
+                onClick={handleSendEmail}
+                title="发送邮件"
+              />
+            )}
           </Space>
         </div>
         <Tabs
           items={tabItems}
-          defaultActiveKey="preview"
+          activeKey={activeTab}
+          onChange={(key) => setActiveTab(key as 'preview' | 'json')}
           size="small"
         />
+        {isOutput && taskId && (
+          <Modal
+            open={sendEmailModalOpen}
+            title="发送邮件"
+            onCancel={() => setSendEmailModalOpen(false)}
+            onOk={handleSendEmailSubmit}
+            okText="发送"
+            cancelText="取消"
+            destroyOnClose
+          >
+            <Form form={sendEmailForm} layout="vertical">
+              <Form.Item
+                label="收件邮箱"
+                name="to"
+                rules={[{ required: true, message: '请输入收件邮箱' }, { type: 'email', message: '请输入有效的邮箱地址' }]}
+              >
+                <Input placeholder="example@example.com" />
+              </Form.Item>
+              <Form.Item label="邮件主题" name="subject">
+                <Input />
+              </Form.Item>
+              <Form.Item label="正文预览" name="body">
+                <Input.TextArea rows={4} />
+              </Form.Item>
+            </Form>
+          </Modal>
+        )}
       </div>
     );
   }
@@ -423,6 +645,7 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
                 data={execution.outputData}
                 filename={`${execution.nodeId}_output.json`}
                 nodeType={execution.nodeType}
+                taskId={task.id}
               />
             )}
 

@@ -11,6 +11,7 @@ import {
   LinkOutlined,
   RightOutlined,
 } from '@ant-design/icons';
+import { MessagesSquare, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +46,10 @@ export default function Layout({ children }: LayoutProps) {
   const handleUserMenu = (key: string) => {
     if (key === 'models') {
       navigate('/settings/models');
+    } else if (key === 'assistant') {
+      navigate('/assistant');
+    } else if (key === 'conversations') {
+      navigate('/conversations');
     } else if (key === 'help') {
       navigate('/help');
     } else if (key === 'github') {
@@ -75,6 +80,8 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const menuRows = [
+    { key: 'assistant', icon: <Sparkles size={16} />, label: '瑶光星AI助手', external: false },
+    { key: 'conversations', icon: <MessagesSquare size={16} />, label: '会话管理', external: false },
     { key: 'models', icon: <CloudServerOutlined />, label: t('layout.modelProviders'), external: false },
     { key: 'help', icon: <FileTextOutlined />, label: t('layout.helpDocs'), external: false },
     { key: 'github', icon: <GithubOutlined />, label: t('layout.githubStar'), external: true },

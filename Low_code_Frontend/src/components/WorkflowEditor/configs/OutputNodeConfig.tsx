@@ -25,6 +25,7 @@ import {
 import '../outputProviders';
 import { outputProviderRegistry } from '../outputProviders';
 import { ProviderPicker, type ProviderPickerOption } from './ProviderPicker';
+import { SegmentedSwitch } from '../providers/parts/SwitchPart';
 import styles from './AINodeConfig.module.scss';
 
 const { Text } = Typography;
@@ -281,6 +282,25 @@ export const OutputNodeConfig: React.FC = () => {
               </div>
             );
           }}
+        </Form.Item>
+      </div>
+
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>
+          {t('node.config.output.emailSectionTitle')}
+        </div>
+        <div className={styles.sectionDescription}>
+          {t('node.config.output.emailSectionDesc')}
+        </div>
+        <Form.Item
+          name="sendEmail"
+          initialValue={false}
+          style={{ marginBottom: 0 }}
+        >
+          <SegmentedSwitch
+            checkedChildren={t('workflowEditor.enable') || '开启'}
+            unCheckedChildren={t('workflowEditor.disable') || '关闭'}
+          />
         </Form.Item>
       </div>
 

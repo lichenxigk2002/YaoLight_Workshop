@@ -8,6 +8,7 @@ export { CrawlerNodeConfig } from './CrawlerNodeConfig';
 export { AINodeConfig } from './AINodeConfig';
 export { TransformNodeConfig } from './TransformNodeConfig';
 export { LoopNodeConfig } from './LoopNodeConfig';
+export { MergeNodeConfig } from './MergeNodeConfig';
 export { DelayNodeConfig } from './DelayNodeConfig';
 export { OutputNodeConfig } from './OutputNodeConfig';
 

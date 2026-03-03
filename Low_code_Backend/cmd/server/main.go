@@ -194,6 +194,7 @@ func main() {
 			auth.GET("/tasks/:id/artifacts", artifactController.ListByTask)
 			auth.GET("/artifacts/:id", artifactController.GetByID)
 			auth.GET("/artifacts/:id/download", artifactController.Download)
+			auth.POST("/tasks/:id/artifacts/send-email", artifactController.SendByEmail)
 
 			// AI模型相关路由
 			aiController := aiControllers.NewAIController()
@@ -218,6 +219,7 @@ func main() {
 			auth.POST("/alkaid/sessions/:id/stream", alkaidController.SessionStream) // Agentic 流式接口（SSE 进度事件）
 			auth.POST("/alkaid/apply-workflow", alkaidController.ApplyWorkflow)
 			auth.POST("/alkaid/apply-patch", alkaidController.ApplyPatch)
+			auth.POST("/alkaid/discard-pending", alkaidController.DiscardPending)
 			auth.GET("/alkaid/sessions/:id/messages", alkaidController.GetMessages)
 
 			// 支付相关路由（需要认证）

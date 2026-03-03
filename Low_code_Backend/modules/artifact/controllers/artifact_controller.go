@@ -7,9 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"yaolight-workshop/backend/infrastructure/database"
+	"yaolight-workshop/backend/infrastructure/email"
 	artifactModels "yaolight-workshop/backend/modules/artifact/models"
 	artifactRepos "yaolight-workshop/backend/modules/artifact/repositories"
 	artifactServices "yaolight-workshop/backend/modules/artifact/services"
@@ -24,6 +26,13 @@ func NewArtifactController() *ArtifactController {
 	return &ArtifactController{
 		repo: artifactRepos.NewArtifactRepository(database.DB),
 	}
+}
+
+type SendArtifactEmailRequest struct {
+	To          string  `json:"to" binding:"required,email"`
+	Subject     string  `json:"subject" binding:"required"`
+	Body        *string `json:"body"`
+	ArtifactIDs []uint  `json:"artifactIds" binding:"required"`
 }
 
 // ListByTask 获取某任务生成的制品列表（分页）
@@ -125,6 +134,76 @@ func (c *ArtifactController) Download(ctx *gin.Context) {
 	ctx.Header("Content-Type", a.MimeType)
 	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(a.Name)))
 	ctx.File(absPath)
+}
+
+func (c *ArtifactController) SendByEmail(ctx *gin.Context) {
+	userIDAny, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	userID := userIDAny.(uint)
+
+	var req SendArtifactEmailRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误", "data": nil})
+		return
+	}
+	if len(req.ArtifactIDs) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少附件", "data": nil})
+		return
+	}
+
+	root := artifactServices.ArtifactStorageRoot()
+	attachments := make([]email.Attachment, 0, len(req.ArtifactIDs))
+	body := ""
+	if req.Body != nil {
+		body = strings.TrimSpace(*req.Body)
+	}
+
+	for _, id := range req.ArtifactIDs {
+		a, err := c.repo.GetByIDAndUser(id, userID)
+		if err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "制品不存在", "data": nil})
+			return
+		}
+
+		if a.Storage != "local" {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "暂不支持该存储类型", "data": nil})
+			return
+		}
+
+		absPath := filepath.Join(root, filepath.FromSlash(a.Path))
+		b, err := os.ReadFile(absPath)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "读取文件失败", "data": nil})
+			return
+		}
+
+		attachments = append(attachments, email.Attachment{
+			Filename: a.Name,
+			MimeType: a.MimeType,
+			Data:     b,
+		})
+
+		if body == "" {
+			if strings.EqualFold(a.Kind, "markdown") || strings.HasPrefix(strings.ToLower(a.MimeType), "text/markdown") {
+				body = string(b)
+			}
+		}
+	}
+
+	if body == "" {
+		body = "请查收附件。"
+	}
+
+	svc := email.NewEmailService()
+	if err := svc.SendWithAttachments(req.To, req.Subject, body, attachments); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "邮件已发送", "data": nil})
 }
 
 func artifactToDTO(a *artifactModels.Artifact) map[string]interface{} {

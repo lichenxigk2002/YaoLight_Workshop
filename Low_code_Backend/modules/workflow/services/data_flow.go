@@ -42,6 +42,11 @@ type DataFlow struct {
 	edges []EdgeConfig
 }
 
+type NodeInput struct {
+	Edge EdgeConfig
+	Data *NodeData
+}
+
 // NewDataFlow 创建数据流管理器
 func NewDataFlow(edges []EdgeConfig) *DataFlow {
 	return &DataFlow{
@@ -75,6 +80,21 @@ func (df *DataFlow) GetNodeInput(nodeID string) ([]*NodeData, error) {
 		}
 	}
 
+	return inputs, nil
+}
+
+func (df *DataFlow) GetNodeInputWithEdges(nodeID string) ([]NodeInput, error) {
+	inputs := make([]NodeInput, 0)
+	for _, edge := range df.edges {
+		if edge.Target != nodeID {
+			continue
+		}
+		ni := NodeInput{Edge: edge}
+		if output, exists := df.nodeOutputs[edge.Source]; exists {
+			ni.Data = output
+		}
+		inputs = append(inputs, ni)
+	}
 	return inputs, nil
 }
 
@@ -124,7 +144,14 @@ func GetDataByPath(data interface{}, path string) (interface{}, error) {
 		// 处理数组索引，如 items[0]
 		if idx := strings.Index(part, "["); idx != -1 {
 			key := part[:idx]
-			indexStr := part[idx+1 : strings.Index(part, "]")]
+			closeIdx := strings.Index(part, "]")
+			if closeIdx == -1 || closeIdx < idx+1 {
+				return nil, fmt.Errorf("无效的数组访问路径: %s", part)
+			}
+			if closeIdx != len(part)-1 {
+				return nil, fmt.Errorf("无效的数组访问路径: %s", part)
+			}
+			indexStr := part[idx+1 : closeIdx]
 			var index int
 			if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
 				return nil, fmt.Errorf("无效的数组索引: %s", indexStr)
@@ -145,6 +172,103 @@ func GetDataByPath(data interface{}, path string) (interface{}, error) {
 	return current, nil
 }
 
+// TryGetDataByPath 根据路径获取数据，并区分“路径不存在”与“路径语法错误”。
+// found=false 表示路径上的某个字段/索引不存在或越界。
+func TryGetDataByPath(data interface{}, path string) (value interface{}, found bool, err error) {
+	if path == "" {
+		return data, true, nil
+	}
+
+	parts := strings.Split(path, ".")
+	current := data
+	for _, part := range parts {
+		if part == "" {
+			return nil, false, fmt.Errorf("无效的数据路径: %s", path)
+		}
+		if current == nil {
+			return nil, false, nil
+		}
+
+		if idx := strings.Index(part, "["); idx != -1 {
+			key := part[:idx]
+			closeIdx := strings.Index(part, "]")
+			if closeIdx == -1 || closeIdx < idx+1 || closeIdx != len(part)-1 {
+				return nil, false, fmt.Errorf("无效的数组访问路径: %s", part)
+			}
+			indexStr := part[idx+1 : closeIdx]
+			var index int
+			if _, err := fmt.Sscanf(indexStr, "%d", &index); err != nil {
+				return nil, false, fmt.Errorf("无效的数组索引: %s", indexStr)
+			}
+
+			if key != "" {
+				mv, ok := tryGetMapValue(current, key)
+				if !ok {
+					return nil, false, nil
+				}
+				current = mv
+			}
+
+			av, ok := tryGetArrayValue(current, index)
+			if !ok {
+				return nil, false, nil
+			}
+			current = av
+			continue
+		}
+
+		mv, ok := tryGetMapValue(current, part)
+		if !ok {
+			return nil, false, nil
+		}
+		current = mv
+	}
+
+	return current, true, nil
+}
+
+func tryGetMapValue(data interface{}, key string) (interface{}, bool) {
+	if m, ok := data.(map[string]interface{}); ok {
+		v, exists := m[key]
+		return v, exists
+	}
+	val := reflect.ValueOf(data)
+	if val.Kind() != reflect.Map {
+		return nil, false
+	}
+	keyVal := reflect.ValueOf(key)
+	mapKeyType := val.Type().Key()
+	if keyVal.Type().AssignableTo(mapKeyType) {
+		// ok
+	} else if keyVal.Type().ConvertibleTo(mapKeyType) {
+		keyVal = keyVal.Convert(mapKeyType)
+	} else {
+		return nil, false
+	}
+	result := val.MapIndex(keyVal)
+	if !result.IsValid() {
+		return nil, false
+	}
+	return result.Interface(), true
+}
+
+func tryGetArrayValue(data interface{}, index int) (interface{}, bool) {
+	if arr, ok := data.([]interface{}); ok {
+		if index >= 0 && index < len(arr) {
+			return arr[index], true
+		}
+		return nil, false
+	}
+	val := reflect.ValueOf(data)
+	if val.Kind() == reflect.Slice || val.Kind() == reflect.Array {
+		if index >= 0 && index < val.Len() {
+			return val.Index(index).Interface(), true
+		}
+		return nil, false
+	}
+	return nil, false
+}
+
 // getMapValue 从 map 中获取值
 func getMapValue(data interface{}, key string) interface{} {
 	if m, ok := data.(map[string]interface{}); ok {
@@ -153,7 +277,20 @@ func getMapValue(data interface{}, key string) interface{} {
 	// 使用反射处理其他类型
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Map {
-		return val.MapIndex(reflect.ValueOf(key)).Interface()
+		keyVal := reflect.ValueOf(key)
+		mapKeyType := val.Type().Key()
+		if keyVal.Type().AssignableTo(mapKeyType) {
+			// ok
+		} else if keyVal.Type().ConvertibleTo(mapKeyType) {
+			keyVal = keyVal.Convert(mapKeyType)
+		} else {
+			return nil
+		}
+		result := val.MapIndex(keyVal)
+		if !result.IsValid() {
+			return nil
+		}
+		return result.Interface()
 	}
 	return nil
 }

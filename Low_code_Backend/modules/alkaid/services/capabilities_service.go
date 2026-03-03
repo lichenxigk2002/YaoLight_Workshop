@@ -146,8 +146,8 @@ func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
 	// 5. 构建工作流规则
 	rules := WorkflowRules{
 		VariableSyntax: "{{nodeId.variableName}} 或 {{nodeId.variableName.field}}",
-		MaxNodes:       -1,                            // -1 表示无限制，根据用户需求灵活决定
-		AvoidNodeTypes: []string{"loop", "transform"}, // 第一阶段应避免这些节点
+		MaxNodes:       -1,         // -1 表示无限制，根据用户需求灵活决定
+		AvoidNodeTypes: []string{}, // 已支持 condition/transform/loop/merge 等节点
 		ConnectionRules: []string{
 			"start 节点只能作为入口，不能有入边",
 			"end 节点只能作为出口，不能有出边",
@@ -181,6 +181,106 @@ func (s *CapabilitiesService) buildNodeCapabilities() []NodeCapability {
 		Config      map[string]interface{}
 		ConfigRules ConfigRules
 	}{
+		{
+			Type:        "condition",
+			Label:       "条件判断节点",
+			Description: "根据输入数据字段进行条件判断，用于分支控制",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"field":     "data.status",
+				"operator":  "==",
+				"value":     "ok",
+				"missingAs": "false",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"field", "operator"},
+				Enums: map[string][]string{
+					"operator":  {"==", "!=", ">", "<", ">=", "<=", "contains", "startsWith", "endsWith", "regex", "in", "notIn", "empty", "notEmpty"},
+					"missingAs": {"false", "true", "error"},
+				},
+				AllowVars: []string{"fieldVariable", "valueVariable", "value"},
+				Defaults: map[string]interface{}{
+					"operator":  "==",
+					"missingAs": "false",
+				},
+			},
+		},
+		{
+			Type:        "transform",
+			Label:       "数据转换节点",
+			Description: "对输入数据进行映射/过滤/排序/分组等转换",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"transformType": "map",
+				"script":        "{\"title\":\"data.title\",\"url\":\"data.url\"}",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"transformType"},
+				Enums: map[string][]string{
+					"transformType": {"map", "filter", "sort", "group"},
+				},
+				AllowVars: []string{"script"},
+				Defaults: map[string]interface{}{
+					"transformType": "map",
+					"script":        "",
+				},
+			},
+		},
+		{
+			Type:        "loop",
+			Label:       "循环节点",
+			Description: "遍历数组输入并输出 results 数组（当前版本支持 foreach）",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"loopType": "foreach",
+				"items":    "data.items",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"loopType"},
+				Enums: map[string][]string{
+					"loopType": {"foreach"},
+				},
+				AllowVars: []string{"items"},
+				Defaults: map[string]interface{}{
+					"loopType": "foreach",
+				},
+			},
+		},
+		{
+			Type:        "merge",
+			Label:       "合并节点",
+			Description: "将多个上游输入按 targetHandle 顺序合并为一个结果",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"mergeType": "concat",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"mergeType"},
+				Enums: map[string][]string{
+					"mergeType": {"concat", "union", "intersect"},
+				},
+				AllowVars: []string{},
+				Defaults: map[string]interface{}{
+					"mergeType": "concat",
+				},
+			},
+		},
+		{
+			Type:        "delay",
+			Label:       "延迟节点",
+			Description: "延迟指定秒数后继续执行（透传上游数据）",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"seconds": 1,
+			},
+			ConfigRules: ConfigRules{
+				Required:  []string{"seconds"},
+				AllowVars: []string{},
+				Defaults: map[string]interface{}{
+					"seconds": 1,
+				},
+			},
+		},
 		{
 			Type:        "start",
 			Label:       "开始节点",
@@ -375,6 +475,38 @@ func (s *CapabilitiesService) buildNodeExamples(nodeType string) []NodeExample {
 	examples := []NodeExample{}
 
 	switch nodeType {
+	case "condition":
+		examples = append(examples, NodeExample{
+			Description: "判断字段是否包含关键字，用于分支控制",
+			Config: map[string]interface{}{
+				"field":    "text",
+				"operator": "contains",
+				"value":    "招聘",
+			},
+		})
+	case "transform":
+		examples = append(examples, NodeExample{
+			Description: "映射：从输入中提取并重命名字段",
+			Config: map[string]interface{}{
+				"transformType": "map",
+				"script":        "{\"title\":\"data.title\",\"url\":\"data.url\"}",
+			},
+		})
+	case "loop":
+		examples = append(examples, NodeExample{
+			Description: "遍历数组：输出 results 数组供下游使用",
+			Config: map[string]interface{}{
+				"loopType": "foreach",
+				"items":    "data.items",
+			},
+		})
+	case "merge":
+		examples = append(examples, NodeExample{
+			Description: "合并多个输入：concat/union/intersect",
+			Config: map[string]interface{}{
+				"mergeType": "concat",
+			},
+		})
 	case "crawler":
 		examples = append(examples, NodeExample{
 			Description: "使用URL变量引用start节点的数据",

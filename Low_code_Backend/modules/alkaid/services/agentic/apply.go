@@ -172,3 +172,32 @@ func ApplyPatch(req ApplyPatchRequest) error {
 	session.PendingPatchJSON.Data = nil
 	return repo.UpdateSession(session)
 }
+
+// DiscardPendingRequest 放弃待处理内容请求
+type DiscardPendingRequest struct {
+	SessionID uint
+	UserID    uint
+	Type      string // "workflow" or "patch"
+}
+
+// DiscardPending 清空会话的 pending 状态
+func DiscardPending(req DiscardPendingRequest) error {
+	repo := alkaidRepos.NewAlkaidRepository()
+	session, err := repo.GetSessionByID(req.SessionID)
+	if err != nil {
+		return err
+	}
+	if session.UserID != req.UserID {
+		return fmt.Errorf("无权操作该会话")
+	}
+
+	if req.Type == "workflow" {
+		session.PendingWorkflowJSON.Data = nil
+	} else if req.Type == "patch" {
+		session.PendingPatchJSON.Data = nil
+	} else {
+		return fmt.Errorf("无效的类型: %s", req.Type)
+	}
+
+	return repo.UpdateSession(session)
+}

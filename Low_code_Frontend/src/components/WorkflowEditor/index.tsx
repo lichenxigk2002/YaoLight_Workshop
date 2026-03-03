@@ -42,6 +42,14 @@ import { isCommentNode } from '@/utils/nodeUtils';
 import { exportWorkflow, importWorkflow } from '@/utils/workflowImportExport';
 import { AlkaidAssistant } from '@/components/Alkaid';
 import { transformNodesFromLoadFormat, transformEdgesFromLoadFormat } from '@/utils/workflowTransformers';
+import { 
+  applyPatchForPreview, 
+  getFinalGraphFromPreview, 
+  PatchItemExt, 
+  PatchPreviewResult 
+} from '@/utils/alkaid/patch';
+import { PatchItem } from '@/components/Alkaid/types/progress';
+import { Checkbox } from 'antd';
 
 // 导入自定义Hooks
 import { useWorkflowNodes } from './hooks/useWorkflowNodes';
@@ -109,6 +117,15 @@ const WorkflowEditor: React.FC = () => {
 
   // 按钮组展开/收起状态
   const [buttonsExpanded, setButtonsExpanded] = useState(true);
+
+  const [workflowPreviewMode, setWorkflowPreviewMode] = useState<'none' | 'workflow'>('none');
+  const originalWorkflowRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
+
+  // Patch Preview State
+  const [patchPreviewMode, setPatchPreviewMode] = useState<'none' | 'previewing'>('none');
+  const [patchList, setPatchList] = useState<PatchItemExt[]>([]);
+  const originalWorkflowForPatchRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
+  const patchConfirmCallbackRef = useRef<(() => Promise<void>) | null>(null);
 
   const defaultViewport = React.useMemo(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0, zoom: 1 };
@@ -180,6 +197,154 @@ const WorkflowEditor: React.FC = () => {
     setHistoryVisible(false);
     originalHandleRun();
   }, [originalHandleRun]);
+
+  const enterWorkflowPreview = useCallback(
+    (newNodes: Node[], newEdges: Edge[]) => {
+      if (!originalWorkflowRef.current) {
+        originalWorkflowRef.current = { nodes, edges };
+      }
+      setNodes(newNodes);
+      setEdges(newEdges);
+      updateNodeIdCounter(newNodes);
+      setWorkflowPreviewMode('workflow');
+      message.success(
+        t('workflowEditor.alkaid.previewWorkflowBanner', '已载入瑶光星生成的新工作流，请确认是否覆盖并保存')
+      );
+    },
+    [nodes, edges, setNodes, setEdges, updateNodeIdCounter, message, t]
+  );
+
+  const handleConfirmWorkflowPreview = useCallback(async () => {
+    const ok = await saveWorkflowInternal(false);
+    if (ok) {
+      originalWorkflowRef.current = null;
+      setWorkflowPreviewMode('none');
+    }
+  }, [saveWorkflowInternal]);
+
+  const handleCancelWorkflowPreview = useCallback(() => {
+    if (originalWorkflowRef.current) {
+      setNodes(originalWorkflowRef.current.nodes);
+      setEdges(originalWorkflowRef.current.edges);
+      updateNodeIdCounter(originalWorkflowRef.current.nodes);
+    }
+    originalWorkflowRef.current = null;
+    setWorkflowPreviewMode('none');
+  }, [setNodes, setEdges, updateNodeIdCounter]);
+
+  // Update Graph with Preview Result (Apply Styles)
+  const updateGraphWithPreview = useCallback((result: PatchPreviewResult) => {
+      const styledNodes = result.nodes.map(n => {
+          const mark = result.nodeMark[n.id];
+          let style = { ...n.style };
+          let data = { ...n.data, diffMark: mark }; // Inject diffMark into data for custom nodes
+
+          if (mark === 'add') {
+              style.border = '2px solid #52c41a'; // Green
+          } else if (mark === 'remove') {
+              style.border = '2px solid #ff4d4f'; // Red
+              style.opacity = 0.6;
+          } else if (mark === 'update') {
+              style.border = '2px solid #faad14'; // Orange
+          }
+          return { ...n, style, data };
+      });
+
+      const styledEdges = result.edges.map(e => {
+          const mark = result.edgeMark[e.id];
+          let style = { ...e.style };
+          let animated = e.animated;
+          // Inject diffMark into data if needed, but edges use style directly usually
+          
+          if (mark === 'add') {
+              style.stroke = '#52c41a';
+              style.strokeWidth = 2;
+              animated = true;
+          } else if (mark === 'remove') {
+              style.stroke = '#ff4d4f';
+              style.strokeWidth = 2;
+              style.strokeDasharray = '5 5';
+          } else if (mark === 'update') {
+              style.stroke = '#faad14';
+              style.strokeWidth = 2;
+          }
+          return { ...e, style, animated };
+      });
+
+      setNodes(styledNodes);
+      setEdges(styledEdges);
+      updateNodeIdCounter(styledNodes);
+  }, [setNodes, setEdges, updateNodeIdCounter]);
+
+  // Enter Patch Preview
+  const handlePatchGenerated = useCallback((rawPatches: PatchItem[], onConfirm?: () => Promise<void>) => {
+    patchConfirmCallbackRef.current = onConfirm || null;
+
+    if (workflowPreviewMode === 'workflow') {
+        handleCancelWorkflowPreview();
+    }
+    
+    // Save original if not already saved
+    if (!originalWorkflowForPatchRef.current) {
+        originalWorkflowForPatchRef.current = { nodes, edges };
+    }
+
+    const extendedPatches: PatchItemExt[] = rawPatches.map((p, index) => ({
+      ...p,
+      id: `patch-${index}-${Date.now()}`,
+      selected: true,
+      targetType: p.op === 'set_edges' ? 'graph' : (p.node ? 'node' : (p.nodeId ? 'node' : 'graph')),
+    }));
+
+    setPatchList(extendedPatches);
+    setPatchPreviewMode('previewing');
+    
+    // Apply initial preview
+    const result = applyPatchForPreview(nodes, edges, extendedPatches, getNodeLabel);
+    updateGraphWithPreview(result);
+  }, [nodes, edges, workflowPreviewMode, handleCancelWorkflowPreview, getNodeLabel, updateGraphWithPreview]);
+
+  // Cancel Patch Preview
+  const handleCancelPatchPreview = useCallback(() => {
+      if (originalWorkflowForPatchRef.current) {
+          setNodes(originalWorkflowForPatchRef.current.nodes);
+          setEdges(originalWorkflowForPatchRef.current.edges);
+          updateNodeIdCounter(originalWorkflowForPatchRef.current.nodes);
+      }
+      originalWorkflowForPatchRef.current = null;
+      setPatchList([]);
+      setPatchPreviewMode('none');
+      patchConfirmCallbackRef.current = null;
+  }, [setNodes, setEdges, updateNodeIdCounter]);
+
+  // Confirm Patch Preview
+  const handleConfirmPatchPreview = useCallback(async () => {
+      if (!originalWorkflowForPatchRef.current) return;
+
+      const result = applyPatchForPreview(
+          originalWorkflowForPatchRef.current.nodes, 
+          originalWorkflowForPatchRef.current.edges, 
+          patchList, 
+          getNodeLabel
+      );
+      const finalGraph = getFinalGraphFromPreview(result);
+      
+      const ok = await saveWorkflowInternal(false, finalGraph.nodes, finalGraph.edges);
+      if (ok) {
+          // Explicitly update current state to the clean final graph
+          setNodes(finalGraph.nodes);
+          setEdges(finalGraph.edges);
+          updateNodeIdCounter(finalGraph.nodes);
+
+          originalWorkflowForPatchRef.current = null;
+          setPatchList([]);
+          setPatchPreviewMode('none');
+          if (patchConfirmCallbackRef.current) {
+              await patchConfirmCallbackRef.current();
+              patchConfirmCallbackRef.current = null;
+          }
+      }
+  }, [patchList, getNodeLabel, saveWorkflowInternal, setNodes, setEdges, updateNodeIdCounter]);
 
   // 使用右键菜单Hook
   const {
@@ -523,6 +688,39 @@ const WorkflowEditor: React.FC = () => {
             <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
           </ReactFlow>
 
+          {workflowPreviewMode === 'workflow' && (
+            <div className={styles.previewBanner}>
+              <span>
+                {t(
+                  'workflowEditor.alkaid.previewWorkflowBannerDetail',
+                  '当前正在预览瑶光星生成的新工作流，确认后将覆盖并保存当前画布'
+                )}
+              </span>
+              <Space size="small">
+                <Button size="small" type="primary" onClick={handleConfirmWorkflowPreview}>
+                  {t('workflowEditor.alkaid.previewConfirm', '确认覆盖并保存')}
+                </Button>
+                <Button size="small" onClick={handleCancelWorkflowPreview}>
+                  {t('workflowEditor.alkaid.previewCancel', '取消预览')}
+                </Button>
+              </Space>
+            </div>
+          )}
+
+          {patchPreviewMode === 'previewing' && (
+            <div className={styles.previewBanner} style={{ backgroundColor: '#fffbe6', borderBottom: '1px solid #ffe58f' }}>
+              <Space>
+                <span>正在预览补丁修改效果（绿色=新增，红色=删除，橙色=修改）</span>
+                <Button size="small" type="primary" onClick={handleConfirmPatchPreview}>
+                  确认应用全部
+                </Button>
+                <Button size="small" onClick={handleCancelPatchPreview}>
+                  取消预览
+                </Button>
+              </Space>
+            </div>
+          )}
+
           {/* 保存状态显示 */}
           {lastSaveTime && (
             <div className={styles.saveStatus}>
@@ -548,6 +746,7 @@ const WorkflowEditor: React.FC = () => {
             hasExistingNodes={nodes.length > 0 || edges.length > 0}
             onWorkflowApplied={loadWorkflowNodes}
             getCurrentWorkflow={getCurrentWorkflow}
+            onPatchGenerated={handlePatchGenerated}
             onWorkflowGenerated={async (workflowData) => {
               try {
                 // 转换节点数据
@@ -555,19 +754,7 @@ const WorkflowEditor: React.FC = () => {
                 // 转换边数据
                 const importedEdges = transformEdgesFromLoadFormat(workflowData.edges);
 
-                // 如果当前有节点，询问是否替换
-                if (nodes.length > 0 || edges.length > 0) {
-                  // 直接替换（可以根据需要改为确认对话框）
-                  setNodes(importedNodes);
-                  setEdges(importedEdges);
-                  updateNodeIdCounter(importedNodes);
-                  message.success(t('alkaid.workflowImported') || '工作流已导入');
-                } else {
-                  setNodes(importedNodes);
-                  setEdges(importedEdges);
-                  updateNodeIdCounter(importedNodes);
-                  message.success(t('alkaid.workflowImported') || '工作流已导入');
-                }
+                enterWorkflowPreview(importedNodes, importedEdges);
 
                 // 自动适配视图
                 setTimeout(() => {
