@@ -73,7 +73,8 @@
     "confirm": "确定",
     "deleteConfirm": "删除确认",
     "search": "搜索",
-    "operationFailed": "操作失败"
+    "operationFailed": "操作失败",
+    "noDescription": "暂无描述"
   },
   "login": {
     "title": "让每一次启程<br/>都成为美好的相遇",
@@ -218,7 +219,20 @@
     "newProject": "新建项目",
     "namePlaceholder": "请输入项目名称",
     "descriptionPlaceholder": "请输入项目描述（可选）",
-    "nameRequired": "请输入项目名称"
+    "nameRequired": "请输入项目名称",
+    "searchPlaceholder": "搜索项目...",
+    "welcomeBack": "欢迎回来",
+    "welcomeSubtitle": "今天想构建什么工作流？",
+    "startFromBlank": "从空白开始",
+    "viewDocs": "查看文档",
+    "startWithTemplate": "从模板开始",
+    "myProjects": "我的项目",
+    "templateCrawler": "网页采集助手",
+    "templateCrawlerDesc": "自动抓取网页数据并结构化提取",
+    "templateAI": "AI 智能助手",
+    "templateAIDesc": "构建基于大模型的对话或处理应用",
+    "templateData": "数据清洗流水线",
+    "templateDataDesc": "对多源数据进行清洗、转换和整合"
   },
   "workflow": {
     "title": "工作流管理",
@@ -238,7 +252,8 @@
     "description": "描述",
     "status": "状态",
     "createdAt": "创建时间",
-    "paginationTotal": "共 {{total}} 条"
+    "paginationTotal": "共 {{total}} 条",
+    "searchPlaceholder": "搜索工作流..."
   },
   "workflowEditor": {
     "save": "保存",

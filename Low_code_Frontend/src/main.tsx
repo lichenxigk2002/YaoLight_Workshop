@@ -8,6 +8,7 @@ import { useThemeStore } from './store/theme'
 import { getThemeConfig } from './theme/antd-theme'
 import './styles/themes/index.scss'
 import './i18n/config' // i18n 国际化配置
+import { AuthProvider } from '@/components/AuthContext'
 
 const App = () => {
   const { theme } = useThemeStore()
@@ -20,12 +21,14 @@ const App = () => {
     <ConfigProvider theme={getThemeConfig(theme)}>
       <AntdApp>
         <AntdGlobal />
-        <RouterProvider
-          router={router}
-          future={{
-            v7_startTransition: true,
-          }}
-        />
+        <AuthProvider>
+          <RouterProvider
+            router={router}
+            future={{
+              v7_startTransition: true,
+            }}
+          />
+        </AuthProvider>
       </AntdApp>
     </ConfigProvider>
   )

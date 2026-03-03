@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Card, Button, Table, Space, Modal, Form, Input, Popconfirm, Tag, Breadcrumb, App } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { Button, Modal, Form, Input, Popconfirm, Tag, Breadcrumb, App, Tooltip, Pagination } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, SearchOutlined, CalendarOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { projectApi } from '@/api/project';
@@ -22,9 +22,10 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(12); // Use 12 for grid layout (divisible by 2, 3, 4)
   const [modalVisible, setModalVisible] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
+  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
 
   // 加载项目信息
@@ -126,10 +127,8 @@ export default function ProjectDetail() {
   const handleExecute = async (workflow: Workflow) => {
     try {
       const hide = message.loading(t('workflow.executeWorkflow'), 0);
-      // 使用 workflowId 让后端从数据库加载配置，而不是从前端传递 nodes 和 edges
-      // 因为工作流列表接口可能不返回完整的 nodes 和 edges 数据
       await workflowApi.executeWorkflow({
-        workflowId: workflow.id,  // 传递 workflowId，让后端从数据库加载配置
+        workflowId: workflow.id,
       });
       hide();
       message.success(t('workflow.execSuccess'));
@@ -138,115 +137,140 @@ export default function ProjectDetail() {
     }
   };
 
-  const columns = [
-    {
-      title: t('workflow.workflowName'),
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string, record: Workflow) => (
-        <a onClick={() => handleEditWorkflow(record)}>{text}</a>
-      ),
-    },
-    {
-      title: t('workflow.description'),
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: true,
-    },
-    {
-      title: t('workflow.status'),
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => {
-        const statusMap: Record<string, { color: string; text: string }> = {
-          draft: { color: 'default', text: t('workflow.statusDraft') },
-          published: { color: 'green', text: t('workflow.statusPublished') },
-          archived: { color: 'orange', text: t('workflow.statusArchived') },
-        };
-        const statusInfo = statusMap[status] || { color: 'default', text: status };
-        return <Tag color={statusInfo.color}>{statusInfo.text}</Tag>;
-      },
-    },
-    {
-      title: t('workflow.createdAt'),
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (text: string) => new Date(text).toLocaleString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US'),
-    },
-    {
-      title: t('common.actions'),
-      key: 'action',
-      render: (_: any, record: Workflow) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
-            {t('common.edit')}
-          </Button>
-          <Button
-            type="link"
-            icon={<PlayCircleOutlined />}
-            onClick={() => handleExecute(record)}
-          >
-            {t('common.execute')}
-          </Button>
-          <Popconfirm
-            title={t('workflow.deleteConfirm')}
-            onConfirm={() => handleDelete(record.id)}
-            okText={t('common.ok')}
-            cancelText={t('common.cancel')}
-          >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              {t('common.delete')}
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
+  const filteredWorkflows = workflows.filter(w => 
+    w.name.toLowerCase().includes(searchText.toLowerCase()) || 
+    (w.description || '').toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const getStatusInfo = (status: string) => {
+    const statusMap: Record<string, { color: string; text: string }> = {
+      draft: { color: 'default', text: t('workflow.statusDraft') },
+      published: { color: 'green', text: t('workflow.statusPublished') },
+      archived: { color: 'orange', text: t('workflow.statusArchived') },
+    };
+    return statusMap[status] || { color: 'default', text: status };
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return '-';
+      
+      return date.toLocaleDateString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (e) {
+      return '-';
+    }
+  };
 
   return (
     <div className={styles.container}>
-      <Breadcrumb
-        style={{ marginBottom: 16 }}
-        items={[
-          { title: <a onClick={() => navigate('/')}>{t('dashboard.projectsList')}</a> },
-          { title: project?.name || t('dashboard.projectDetail') },
-        ]}
-      />
+      <div className={styles.header}>
+        <div className={styles.titleSection}>
+          <div className={styles.breadcrumb}>
+            <Breadcrumb
+              items={[
+                { title: <a onClick={() => navigate('/')}>{t('dashboard.projectsList')}</a> },
+                { title: project?.name || t('dashboard.projectDetail') },
+              ]}
+            />
+          </div>
+          <h1>{project?.name || t('dashboard.projectDetail')}</h1>
+        </div>
+        
+        <div className={styles.actions}>
+          <Input 
+            prefix={<SearchOutlined style={{ color: 'var(--text-tertiary)' }} />} 
+            placeholder={t('workflow.searchPlaceholder', '搜索工作流...')} 
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)} 
+            style={{ width: 240, borderRadius: '8px' }}
+            allowClear
+          />
+        </div>
+      </div>
 
-      <Card
-        title={project?.name || t('dashboard.projectDetail')}
-        extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleCreate}
-          >
-            {t('workflow.createWorkflow')}
-          </Button>
-        }
-      >
-        <Table
-          columns={columns}
-          dataSource={workflows}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            current: page,
-            pageSize: pageSize,
-            total: total,
-            showSizeChanger: true,
-            showTotal: (total) => t('workflow.paginationTotal', { total }),
-            onChange: (page, pageSize) => {
-              setPage(page);
-              setPageSize(pageSize);
-            },
-          }}
-        />
-      </Card>
+      <div className={styles.workflowGrid}>
+        <div className={styles.createCard} onClick={handleCreate}>
+          <PlusOutlined className={styles.createIcon} />
+          <div className={styles.createText}>{t('workflow.createWorkflow')}</div>
+        </div>
+
+        {filteredWorkflows.map(workflow => {
+          const statusInfo = getStatusInfo(workflow.status);
+          return (
+            <div 
+              key={workflow.id} 
+              className={styles.workflowCard}
+              onClick={() => handleEditWorkflow(workflow)}
+            >
+              <div className={styles.cardHeader}>
+                <div className={styles.title} title={workflow.name}>{workflow.name}</div>
+                <Tag color={statusInfo.color} style={{ margin: 0 }}>{statusInfo.text}</Tag>
+              </div>
+              
+              <div className={styles.cardBody}>
+                <div className={styles.description} title={workflow.description}>
+                  {workflow.description || t('common.noDescription', '暂无描述')}
+                </div>
+                <div className={styles.meta}>
+                  <div className={styles.metaItem}>
+                    <CalendarOutlined />
+                    {formatDate(workflow.createdAt)}
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.cardFooter} onClick={e => e.stopPropagation()}>
+                <Tooltip title={t('common.edit')}>
+                  <Button 
+                    type="text" 
+                    icon={<EditOutlined />} 
+                    onClick={() => handleEdit(workflow)} 
+                  />
+                </Tooltip>
+                <Tooltip title={t('common.execute')}>
+                  <Button 
+                    type="text" 
+                    icon={<PlayCircleOutlined />} 
+                    onClick={() => handleExecute(workflow)} 
+                  />
+                </Tooltip>
+                <Popconfirm
+                  title={t('workflow.deleteConfirm')}
+                  onConfirm={() => handleDelete(workflow.id)}
+                  okText={t('common.ok')}
+                  cancelText={t('common.cancel')}
+                >
+                  <Tooltip title={t('common.delete')}>
+                    <Button type="text" danger icon={<DeleteOutlined />} />
+                  </Tooltip>
+                </Popconfirm>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {total > 0 && (
+        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center' }}>
+          <Pagination
+            current={page}
+            pageSize={pageSize}
+            total={total}
+            showSizeChanger
+            showTotal={(total) => t('workflow.paginationTotal', { total })}
+            onChange={(p, ps) => {
+              setPage(p);
+              setPageSize(ps);
+            }}
+          />
+        </div>
+      )}
 
       <Modal
         title={editingWorkflow ? t('workflow.editWorkflow') : t('workflow.createWorkflow')}
@@ -259,6 +283,7 @@ export default function ProjectDetail() {
         onOk={() => form.submit()}
         okText={t('common.ok')}
         cancelText={t('common.cancel')}
+        centered
       >
         <Form
           form={form}
@@ -286,4 +311,3 @@ export default function ProjectDetail() {
     </div>
   );
 }
-
