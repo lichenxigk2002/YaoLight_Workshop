@@ -74,6 +74,7 @@
     "deleteConfirm": "Delete Confirmation",
     "search": "Search",
     "operationFailed": "Operation Failed",
+    "noDescription": "No description",
     "loading": "Loading...",
     "success": "Success"
   },
@@ -220,7 +221,20 @@
     "newProject": "New Project",
     "namePlaceholder": "Please enter project name",
     "descriptionPlaceholder": "Please enter project description (optional)",
-    "nameRequired": "Please enter project name"
+    "nameRequired": "Please enter project name",
+    "searchPlaceholder": "Search projects...",
+    "welcomeBack": "Welcome back",
+    "welcomeSubtitle": "What would you like to build today?",
+    "startFromBlank": "Start from Blank",
+    "viewDocs": "View Documentation",
+    "startWithTemplate": "Start with Template",
+    "myProjects": "My Projects",
+    "templateCrawler": "Web Scraper",
+    "templateCrawlerDesc": "Automatically scrape and extract structured data",
+    "templateAI": "AI Assistant",
+    "templateAIDesc": "Build LLM-based chat or processing apps",
+    "templateData": "Data Pipeline",
+    "templateDataDesc": "Clean, transform and integrate multi-source data"
   },
   "workflow": {
     "title": "Workflow Management",
@@ -240,7 +254,8 @@
     "description": "Description",
     "status": "Status",
     "createdAt": "Created At",
-    "paginationTotal": "Total {{total}} items"
+    "paginationTotal": "Total {{total}} items",
+    "searchPlaceholder": "Search workflows..."
   },
   "workflowEditor": {
     "save": "Save",
