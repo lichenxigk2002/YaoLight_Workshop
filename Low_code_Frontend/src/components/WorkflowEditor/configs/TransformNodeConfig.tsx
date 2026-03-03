@@ -22,12 +22,28 @@ export const TransformNodeConfig: React.FC = () => {
           <Option value="group">{t('node.config.transform.group')}</Option>
         </Select>
       </Form.Item>
-      <Form.Item
-        label={t('node.config.transform.script')}
-        name="script"
-        tooltip={t('node.config.transform.scriptTooltip')}
-      >
-        <TextArea rows={3} placeholder="item * 2" />
+
+      <Form.Item shouldUpdate noStyle>
+        {({ getFieldValue }) => {
+          const transformType = getFieldValue('transformType');
+          const placeholder =
+            transformType === 'map'
+              ? '{"title":"data.title","url":"data.url"}'
+              : transformType === 'filter'
+              ? '{"field":"name","operator":"contains","value":"abc"}'
+              : transformType === 'sort'
+              ? '{"field":"score","order":"asc"}'
+              : '{"field":"category"}';
+          return (
+            <Form.Item
+              label={t('node.config.transform.script')}
+              name="script"
+              tooltip={t('node.config.transform.scriptTooltip')}
+            >
+              <TextArea rows={4} placeholder={placeholder} />
+            </Form.Item>
+          );
+        }}
       </Form.Item>
     </>
   );

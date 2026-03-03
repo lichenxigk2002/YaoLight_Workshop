@@ -37,6 +37,7 @@ export function getDefaultConfig(type: string): any {
         field: '',
         value: '',
         operator: '==', // ==, !=, >, <, >=, <=, contains
+        missingAs: 'false',
       };
     case 'transform':
       return {
@@ -45,9 +46,8 @@ export function getDefaultConfig(type: string): any {
       };
     case 'loop':
       return {
-        loopType: 'foreach', // foreach, while, for
+        loopType: 'foreach', // foreach
         items: '',
-        condition: '',
       };
     case 'merge':
       return {

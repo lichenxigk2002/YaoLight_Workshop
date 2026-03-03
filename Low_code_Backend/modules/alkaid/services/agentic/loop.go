@@ -1,6 +1,7 @@
 package agentic
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -28,6 +29,10 @@ type RunStreamRequest struct {
 	Message   string
 	Interrupt bool
 	Context   map[string]interface{} // 前端传入的上下文（如 currentWorkflow）
+}
+
+type toolStreamingProvider interface {
+	ChatWithToolsStream(ctx context.Context, config *providers.AIModelConfig, systemPrompt string, messages []providers.ChatMessage, tools []providers.ToolDef, providerConfig map[string]interface{}, callback providers.StreamCallback) (*providers.ChatResponseWithTools, error)
 }
 
 // RunStream 执行 Agentic 流：保存用户消息、推送进度事件、执行工具链、调用 LLM 生成、校验并 propose
@@ -149,6 +154,8 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 	messages := []providers.ChatMessage{{Role: "user", Content: contentForLLM}}
 	const maxTurns = 15
 	var assistantContent string
+	assistantContentStreamed := false
+	toolsUsed := false
 
 	for turn := 0; turn < maxTurns; turn++ {
 		if checkCancel() {
@@ -167,8 +174,31 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 
 		if len(resp.ToolCalls) == 0 {
 			assistantContent = resp.Content
+			if toolsUsed {
+				if streamer, ok := aiProvider.(toolStreamingProvider); ok {
+					var streamed strings.Builder
+					_ = sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
+					streamResp, streamErr := streamer.ChatWithToolsStream(reqCtx, aiConfig, systemPrompt, messages, nil, map[string]interface{}{"thinking": false}, func(content string, done bool, err error, usage *providers.TokenUsage) {
+						if err != nil || content == "" {
+							return
+						}
+						streamed.WriteString(content)
+						_ = sw.WriteContent(content)
+					})
+					if streamErr == nil && streamResp != nil {
+						if streamed.Len() > 0 {
+							assistantContent = streamed.String()
+							assistantContentStreamed = true
+						} else if streamResp.Content != "" {
+							assistantContent = streamResp.Content
+							assistantContentStreamed = true
+						}
+					}
+				}
+			}
 			break
 		}
+		toolsUsed = true
 
 		// 追加 assistant 消息（含 tool_calls）
 		messages = append(messages, providers.ChatMessage{
@@ -224,7 +254,7 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 	// 将最终回复「伪流式」推送给前端：
 	// - 正文部分（含 JSON 前后的解释文字）：按小块流式输出，模拟打字；
 	// - 工作流 JSON 本体：一次性输出，避免长 JSON 慢慢「打字」影响体验。
-	if assistantContent != "" {
+	if assistantContent != "" && !assistantContentStreamed {
 		_ = sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
 
 		// 尝试从回复中抽取工作流 JSON，用于拆分「普通文本」和「工作流文件」部分

@@ -645,3 +645,31 @@ func (c *AlkaidController) GetMessages(ctx *gin.Context) {
 		},
 	})
 }
+
+// DiscardPending 放弃待处理内容
+func (c *AlkaidController) DiscardPending(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var body struct {
+		SessionID uint   `json:"sessionId"`
+		Type      string `json:"type"` // "workflow" or "patch"
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	if body.SessionID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "sessionId 必填", "data": nil})
+		return
+	}
+	if err := agentic.DiscardPending(agentic.DiscardPendingRequest{
+		SessionID: body.SessionID, UserID: userID.(uint), Type: body.Type,
+	}); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已放弃", "data": nil})
+}

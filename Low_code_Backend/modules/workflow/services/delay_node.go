@@ -1,6 +1,9 @@
 package services
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // executeDelayNode 执行延迟节点
 func (e *WorkflowExecutor) executeDelayNode(node NodeConfig, dataFlow *DataFlow) NodeExecutionResult {
@@ -13,6 +16,12 @@ func (e *WorkflowExecutor) executeDelayNode(node NodeConfig, dataFlow *DataFlow)
 	// 获取上游节点的输入数据
 	inputData, err := dataFlow.GetNodeInputData(node.ID)
 	if err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "delay",
+			Success: false,
+			Error:   fmt.Sprintf("获取输入数据失败: %v", err),
+		}
 	}
 
 	// 执行延迟

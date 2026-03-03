@@ -3,11 +3,15 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"yaolight-workshop/backend/infrastructure/database"
+	"yaolight-workshop/backend/infrastructure/email"
 	artifactRepos "yaolight-workshop/backend/modules/artifact/repositories"
 	artifactServices "yaolight-workshop/backend/modules/artifact/services"
+	userModels "yaolight-workshop/backend/modules/user/models"
+	workflowModels "yaolight-workshop/backend/modules/workflow/models"
 	"yaolight-workshop/backend/modules/workflow/services/export"
 )
 
@@ -44,10 +48,37 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 		}
 	}
 
-	// 获取输出格式
+	sendEmail := getBool(node.Config, "sendEmail", false)
+
 	format := getString(node.Config, "format", "json")
 	destination := getString(node.Config, "destination", "file")
 	fileName := getString(node.Config, "fileName", "")
+	if strings.Contains(fileName, "{{") {
+		resolved, err := variableContext.ResolveTemplate(fileName)
+		if err != nil {
+			return NodeExecutionResult{
+				NodeID:  node.ID,
+				Type:    "output",
+				Success: false,
+				Error:   fmt.Sprintf("解析 fileName 变量失败: %v", err),
+				Data: map[string]interface{}{
+					"fileName": fileName,
+				},
+			}
+		}
+		if strings.TrimSpace(resolved) == "" {
+			return NodeExecutionResult{
+				NodeID:  node.ID,
+				Type:    "output",
+				Success: false,
+				Error:   "解析 fileName 变量失败: 结果为空",
+				Data: map[string]interface{}{
+					"fileName": fileName,
+				},
+			}
+		}
+		fileName = resolved
+	}
 
 	// destination=api 依赖 taskId，便于外部系统通过 /tasks/:id/artifacts 查询
 	if strings.EqualFold(destination, "api") && (meta.TaskID == nil || *meta.TaskID == 0) {
@@ -63,6 +94,22 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 	// 统一导出：将输入数据通过 provider 生成文件，再落为 artifact
 	payload := ExtractPayload(inputData)
 	exportInput := payload
+
+	// 文本类导出：优先从对象结构里抽取正文（避免导出成整包 JSON）
+	switch strings.ToLower(format) {
+	case "markdown", "md", "text", "txt":
+		if pm, ok := payload.(map[string]interface{}); ok && pm != nil {
+			if s, ok := pm["content"].(string); ok && strings.TrimSpace(s) != "" {
+				exportInput = tryExtractJSONFromFencedCodeBlock(s)
+			} else if s, ok := pm["result"].(string); ok && strings.TrimSpace(s) != "" {
+				exportInput = tryExtractJSONFromFencedCodeBlock(s)
+			} else if s, ok := pm["data"].(string); ok && strings.TrimSpace(s) != "" {
+				exportInput = tryExtractJSONFromFencedCodeBlock(s)
+			}
+		} else if s, ok := payload.(string); ok && strings.TrimSpace(s) != "" {
+			exportInput = tryExtractJSONFromFencedCodeBlock(s)
+		}
+	}
 
 	// 便捷配置：当选择 chart 且未在 payload 中提供 type/data 时，自动包装成 chart provider 期望的结构
 	if strings.EqualFold(format, "chart") {
@@ -157,6 +204,8 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 	artifactSvc := artifactServices.NewArtifactService(artifactRepo)
 
 	artifacts := make([]map[string]interface{}, 0, len(files))
+	emailAttachments := make([]email.Attachment, 0, len(files))
+
 	for _, f := range files {
 		a, aErr := artifactSvc.CreateLocalFileArtifact(artifactServices.CreateArtifactInput{
 			UserID:     meta.UserID,
@@ -193,6 +242,20 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 			"size":        a.Size,
 			"downloadUrl": fmt.Sprintf("/api/artifacts/%d/download", a.ID),
 		})
+
+		emailAttachments = append(emailAttachments, email.Attachment{
+			Filename: f.Name,
+			MimeType: f.MimeType,
+			Data:     f.Bytes,
+		})
+	}
+
+	if sendEmail && meta.UserID > 0 && len(emailAttachments) > 0 {
+		go func(userID uint, nodeID string, fmtStr string, files []email.Attachment, payload interface{}, workflowID *uint) {
+			if err := sendOutputEmailForUser(userID, nodeID, fmtStr, files, payload, workflowID); err != nil {
+				log.Printf("发送输出节点邮件失败: %v", err)
+			}
+		}(meta.UserID, node.ID, format, emailAttachments, payload, meta.WorkflowID)
 	}
 
 	return NodeExecutionResult{
@@ -209,4 +272,52 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 			"data": payload,
 		},
 	}
+}
+
+func sendOutputEmailForUser(userID uint, nodeID, format string, attachments []email.Attachment, payload interface{}, workflowID *uint) error {
+	var user userModels.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		return err
+	}
+	emailAddr := strings.TrimSpace(user.Email)
+	if emailAddr == "" || strings.HasPrefix(emailAddr, "unbound_") {
+		return nil
+	}
+
+	markdownBody := ""
+	if pm, ok := payload.(map[string]interface{}); ok && pm != nil {
+		if s, ok := pm["content"].(string); ok && strings.TrimSpace(s) != "" {
+			markdownBody = s
+		} else if s, ok := pm["result"].(string); ok && strings.TrimSpace(s) != "" {
+			markdownBody = s
+		}
+	} else if s, ok := payload.(string); ok && strings.TrimSpace(s) != "" {
+		markdownBody = s
+	}
+
+	var workflowName string
+	if workflowID != nil && *workflowID > 0 {
+		var workflow workflowModels.Workflow
+		if err := database.DB.Select("name").Where("id = ?", *workflowID).First(&workflow).Error; err == nil {
+			workflowName = strings.TrimSpace(workflow.Name)
+		}
+	}
+
+	if strings.TrimSpace(markdownBody) == "" {
+		if workflowName != "" {
+			markdownBody = fmt.Sprintf("工作流「%s」的输出已生成附件，请查收。", workflowName)
+		} else {
+			markdownBody = fmt.Sprintf("工作流输出节点 %s 已生成附件，请查收。", nodeID)
+		}
+	}
+
+	subject := "工作流输出结果"
+	title := ""
+	if workflowName != "" {
+		title = fmt.Sprintf("工作流「%s」的执行结果（格式：%s）", workflowName, format)
+	} else {
+		title = fmt.Sprintf("输出节点 %s 的结果（格式：%s）", nodeID, format)
+	}
+
+	return email.SendWorkflowOutputEmail(emailAddr, subject, title, markdownBody, attachments)
 }

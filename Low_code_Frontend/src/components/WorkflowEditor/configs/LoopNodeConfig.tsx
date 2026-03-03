@@ -16,8 +16,6 @@ export const LoopNodeConfig: React.FC = () => {
       >
         <Select>
           <Option value="foreach">{t('node.config.loop.foreach')}</Option>
-          <Option value="while">{t('node.config.loop.while')}</Option>
-          <Option value="for">{t('node.config.loop.for')}</Option>
         </Select>
       </Form.Item>
       <Form.Item
@@ -25,13 +23,7 @@ export const LoopNodeConfig: React.FC = () => {
         name="items"
         tooltip={t('node.config.loop.dataSourceTooltip')}
       >
-        <Input placeholder="data.items" />
-      </Form.Item>
-      <Form.Item
-        label={t('node.config.loop.loopCondition')}
-        name="condition"
-      >
-        <Input placeholder="data.count < 10" />
+        <Input placeholder="data.items 或 {{node-1.data.items}}" />
       </Form.Item>
     </>
   );

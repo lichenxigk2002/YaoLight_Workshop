@@ -9,9 +9,6 @@ import type {
   GetTaskLogsParams,
 } from '@/types/task';
 
-/**
- * 任务 API
- */
 export const taskApi = {
   /**
    * 获取工作流的任务历史列表
@@ -56,5 +53,16 @@ export const taskApi = {
       page: params?.page || 1,
       limit: params?.limit || 100,
     }),
+
+  sendArtifactsEmail: (
+    taskId: number,
+    payload: {
+      to: string;
+      subject: string;
+      artifactIds: number[];
+      body?: string;
+    },
+  ) =>
+    http.post(`/tasks/${taskId}/artifacts/send-email`, payload),
 };
 

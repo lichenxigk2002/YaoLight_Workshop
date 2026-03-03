@@ -189,8 +189,14 @@ func ApplyPatchToWorkflow(current *workflowSvc.SaveWorkflowNodesRequest, patchRa
 			if data == nil {
 				data = map[string]interface{}{}
 			}
-			nodes = append(nodes, workflowSvc.WorkflowNodeData{ID: id, Type: typ, Position: pos, Data: data})
-			nodesByID[id] = len(nodes) - 1
+
+			// 检查是否已存在同名 ID 节点，如果存在则替换，否则追加
+			if idx, exists := nodesByID[id]; exists {
+				nodes[idx] = workflowSvc.WorkflowNodeData{ID: id, Type: typ, Position: pos, Data: data}
+			} else {
+				nodes = append(nodes, workflowSvc.WorkflowNodeData{ID: id, Type: typ, Position: pos, Data: data})
+				nodesByID[id] = len(nodes) - 1
+			}
 
 		case PatchOpRemove:
 			nodeId, _ := opMap["nodeId"].(string)

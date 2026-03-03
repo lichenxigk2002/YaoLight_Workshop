@@ -1,0 +1,9 @@
+.container {
+  height: calc(100vh - 64px);
+  min-height: 680px;
+  border: 1px solid var(--alkaid-stroke-0);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--alkaid-shadow-0);
+}
+

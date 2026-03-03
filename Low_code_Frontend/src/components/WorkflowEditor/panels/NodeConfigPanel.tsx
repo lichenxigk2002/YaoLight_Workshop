@@ -14,6 +14,7 @@ import {
   AINodeConfig,
   TransformNodeConfig,
   LoopNodeConfig,
+  MergeNodeConfig,
   DelayNodeConfig,
   OutputNodeConfig,
 } from '../configs';
@@ -136,7 +137,7 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       case 'output':
         return <OutputNodeConfig />;
       case 'merge':
-        return <div>{t('node.config.mergeAutoMerge')}</div>;
+        return <MergeNodeConfig />;
       case 'end':
         return <div>{t('node.config.endNoConfig')}</div>;
       default:

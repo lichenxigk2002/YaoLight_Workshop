@@ -8,6 +8,7 @@ import {
   FileTextOutlined,
   BellOutlined,
 } from '@ant-design/icons';
+import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import styles from './index.module.scss';
@@ -61,6 +62,11 @@ export default function Settings() {
           key: 'language',
           icon: <GlobalOutlined />,
           label: t('settings.language'),
+        },
+        {
+          key: 'assistant',
+          icon: <Sparkles size={16} />,
+          label: '瑶光星AI助手',
         },
       ],
     },
