@@ -90,20 +90,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 可选：部署到你的服务器（需在仓库 Settings → Secrets 配置 SSH 等）
-  # deploy:
-  #   runs-on: ubuntu-latest
-  #   needs: [build-backend, build-frontend]
-  #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-  #   steps:
-  #     - name: Deploy to server
-  #       uses: appleboy/ssh-action@v1.0.3
-  #       with:
-  #         host: ${{ secrets.DEPLOY_HOST }}
-  #         username: ${{ secrets.DEPLOY_USER }}
-  #         key: ${{ secrets.DEPLOY_SSH_KEY }}
-  #         script: |
-  #           cd /path/to/YaoLight_Workshop
-  #           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-  #           docker compose -f docker-compose.prod.yml pull
-  #           docker compose -f docker-compose.prod.yml up -d
+  # deploy 分支构建成功后，在 self-hosted runner（你的服务器）上拉取镜像并重启
+  deploy:
+    runs-on: self-hosted
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/deploy'
+    steps:
+      - name: Pull and restart on server
+        run: |
+          cd /root/yaolight
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d
