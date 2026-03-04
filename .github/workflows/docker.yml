@@ -90,20 +90,29 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # 可选：部署到你的服务器（需在仓库 Settings → Secrets 配置 SSH 等）
-  # deploy:
-  #   runs-on: ubuntu-latest
-  #   needs: [build-backend, build-frontend]
-  #   if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-  #   steps:
-  #     - name: Deploy to server
-  #       uses: appleboy/ssh-action@v1.0.3
-  #       with:
-  #         host: ${{ secrets.DEPLOY_HOST }}
-  #         username: ${{ secrets.DEPLOY_USER }}
-  #         key: ${{ secrets.DEPLOY_SSH_KEY }}
-  #         script: |
-  #           cd /path/to/YaoLight_Workshop
-  #           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-  #           docker compose -f docker-compose.prod.yml pull
-  #           docker compose -f docker-compose.prod.yml up -d
+  # deploy 分支构建成功后，通过 SSH 在服务器上拉取镜像并重启（无需 self-hosted runner）
+  # 需在仓库 Settings → Secrets and variables → Actions 中配置：
+  #   DEPLOY_SSH_KEY: 服务器 SSH 私钥（用于登录）
+  #   DEPLOY_HOST: 服务器 IP 或域名
+  #   DEPLOY_USER: SSH 用户名（如 root）
+  #   GHCR_PAT: GitHub PAT，权限勾选 read:packages（用于服务器从 GHCR 拉取镜像）
+  # 可选：DEPLOY_PORT（默认 22）、DEPLOY_WORKDIR（默认 /yaolight）
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/deploy'
+    steps:
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          script: |
+            set -e
+            cd ${{ secrets.DEPLOY_WORKDIR || '/yaolight' }}
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f
