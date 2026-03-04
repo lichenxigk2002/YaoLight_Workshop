@@ -56,9 +56,13 @@ func main() {
 	// 4. 创建Gin路由
 	r := gin.Default()
 
-	// 配置 CORS（允许跨域请求）
+	// 配置 CORS（允许跨域请求：本地开发 + 生产环境 FRONTEND_URL）
+	allowOrigins := []string{"http://localhost:3000", "http://127.0.0.1:3000"}
+	if config.FrontendURL != "" {
+		allowOrigins = append(allowOrigins, config.FrontendURL)
+	}
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "http://127.0.0.1:3000"},
+		AllowOrigins:     allowOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cache-Control"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
