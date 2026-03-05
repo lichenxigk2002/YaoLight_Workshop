@@ -605,6 +605,9 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 		"model":    config.ModelName,
 		"messages": messages,
 		"stream":   true,
+		"stream_options": map[string]interface{}{
+			"include_usage": true,
+		},
 	}
 
 	// DeepSeek特有的thinking参数
@@ -745,16 +748,9 @@ func (p *DeepSeekProvider) ChatStream(ctx context.Context, config *providers.AIM
 				}
 
 				if streamResponse.Choices[0].FinishReason != "" {
-					// 构造最终内容
-					finalContent := ""
-					if fullReasoningContent.Len() > 0 {
-						finalContent = "[REASONING]" + fullReasoningContent.String() + "[/REASONING]"
-					}
-					if fullContent.Len() > 0 {
-						finalContent += "[CONTENT]" + fullContent.String() + "[/CONTENT]"
-					}
-					callback(finalContent, true, nil, nil)
-					return nil
+					// 遇到结束标记，不立即结束，继续读取可能的Usage信息
+					// 等待 [DONE] 消息或流结束再调用完成回调
+					continue
 				}
 			}
 		}

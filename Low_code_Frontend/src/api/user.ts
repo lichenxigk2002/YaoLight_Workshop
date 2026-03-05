@@ -129,8 +129,18 @@ export const userApi = {
     pageSize?: number;
     start_date?: string; // YYYY-MM-DD
     end_date?: string;   // YYYY-MM-DD
+    provider?: string;
+    model?: string;
   }) =>
     http.get<{ list: TokenTransaction[]; total: number; page: number; pageSize: number }>('/users/token-transactions', params),
+
+  /** 获取Token统计数据 */
+  getTokenStats: () =>
+    http.get<import('@/types/user').TokenStats>('/users/token-transactions/stats'),
+
+  /** 获取筛选选项（Provider/Model） */
+  getTransactionOptions: () =>
+    http.get<import('@/types/user').TransactionOptions>('/users/token-transactions/options'),
 
   /** 账单汇总：按日/月/季/年 */
   getBillSummary: (params: BillSummaryParams) => {
