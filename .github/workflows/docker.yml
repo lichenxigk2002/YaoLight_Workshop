@@ -114,7 +114,5 @@ jobs:
             cd ${{ secrets.DEPLOY_WORKDIR || '/yaolight' }}
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d postgres redis
-            docker compose -f docker-compose.prod.yml run --rm backend /app/server migrate
             docker compose -f docker-compose.prod.yml up -d
             docker image prune -f
