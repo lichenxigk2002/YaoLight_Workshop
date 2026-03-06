@@ -18,6 +18,7 @@ type User struct {
 	LastLoginIP   *string
 	LoginCount    int
 	TokenBalance  int64
+	InviterID     *uint   // 邀请人ID
 	OAuthProvider string  // 第三方登录来源：google, github，空表示非 OAuth
 	OAuthID       *string // 第三方平台用户 ID
 	CreatedAt     time.Time

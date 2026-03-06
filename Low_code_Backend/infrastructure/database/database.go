@@ -193,6 +193,8 @@ func AutoMigrate() error {
 		&userModels.User{},
 		&userModels.UserOAuthBinding{},
 		&userModels.UserAvatarHistory{},
+		&userModels.UserInviteCode{},
+		&userModels.UserInvitation{},
 		&userModels.TokenTransaction{},
 		&nodeModels.NodeType{},
 		&systemModels.SystemConfig{},

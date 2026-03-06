@@ -23,6 +23,7 @@ type User struct {
 	LastLoginIP   *string        `gorm:"type:varchar(45)" json:"last_login_ip"`
 	LoginCount    int            `gorm:"default:0" json:"login_count"`
 	TokenBalance  int64          `gorm:"default:2000000" json:"token_balance"` // 用户Token余额，注册赠送200万星尘
+	InviterID     *uint          `gorm:"index" json:"inviter_id"`               // 邀请人ID（通过邀请链接注册时填写）
 	OAuthProvider string         `gorm:"type:varchar(20);index" json:"-"`      // google, github
 	OAuthID       *string        `gorm:"type:varchar(100);index" json:"-"`
 	Preferences   shared.JSONB   `gorm:"type:jsonb;default:'{}'" json:"preferences"`

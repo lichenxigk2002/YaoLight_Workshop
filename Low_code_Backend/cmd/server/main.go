@@ -64,7 +64,7 @@ func main() {
 	r := gin.Default()
 
 	// 配置 CORS（允许跨域请求：本地开发 + 生产环境 FRONTEND_URL）
-	allowOrigins := []string{"http://localhost:3000", "http://127.0.0.1:3000"}
+	allowOrigins := []string{"http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173"}
 	if config.FrontendURL != "" {
 		allowOrigins = append(allowOrigins, config.FrontendURL)
 	}
@@ -163,6 +163,11 @@ func main() {
 			auth.GET("/users/oauth-bindings", authController.GetOAuthBindings)
 			auth.POST("/users/oauth-bindings/request", authController.RequestOAuthBind)
 			auth.DELETE("/users/oauth-bindings/:provider", authController.UnbindOAuth)
+			// 邀请好友
+			invitationController := authControllers.NewInvitationController()
+			auth.GET("/users/invite/link", invitationController.GetInviteLink)
+			auth.GET("/users/invite/stats", invitationController.GetInviteStats)
+			auth.GET("/users/invite/list", invitationController.GetInvitationList)
 			// 账号注销（确认 + 邮箱验证码）
 			auth.POST("/auth/send-deactivate-code", authController.SendDeactivateCode)
 			auth.POST("/auth/confirm-deactivate", authController.ConfirmDeactivate)

@@ -1,0 +1,79 @@
+.container {
+  padding: 0 24px 24px;
+}
+
+.inviteCard {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.inviteHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.inviteIcon {
+  font-size: 32px;
+  color: #1890ff;
+}
+
+.inviteDesc {
+  margin-top: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+.inviteActions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.inviteUrlBox {
+  padding: 12px 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+}
+
+.inviteUrl {
+  display: block;
+  margin-top: 8px;
+  word-break: break-all;
+}
+
+.statsCard {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.statsRow {
+  display: flex;
+  gap: 48px;
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.statIcon {
+  font-size: 28px;
+  color: #52c41a;
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.listCard {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}

@@ -121,7 +121,11 @@ func (c *OAuthController) GoogleCallback(ctx *gin.Context) {
 		ctx.Redirect(302, config.FrontendURL+"/settings/profile?oauth=bound")
 		return
 	}
-	loginResp, err := c.authService.OAuthLogin("google", u.ID, u.Email, u.Name, u.Picture)
+	inviteCode := ""
+	if strings.HasPrefix(state, "invite_") {
+		inviteCode = strings.TrimPrefix(state, "invite_")
+	}
+	loginResp, err := c.authService.OAuthLogin("google", u.ID, u.Email, u.Name, u.Picture, inviteCode)
 	if err != nil {
 		log.Printf("OAuth login error: %v", err)
 		ctx.Redirect(302, config.FrontendURL+"/login?error=login_failed")
@@ -224,7 +228,11 @@ func (c *OAuthController) GitHubCallback(ctx *gin.Context) {
 		ctx.Redirect(302, config.FrontendURL+"/settings/profile?oauth=bound")
 		return
 	}
-	loginResp, err := c.authService.OAuthLogin("github", oauthID, email, name, u.AvatarURL)
+	inviteCode := ""
+	if strings.HasPrefix(state, "invite_") {
+		inviteCode = strings.TrimPrefix(state, "invite_")
+	}
+	loginResp, err := c.authService.OAuthLogin("github", oauthID, email, name, u.AvatarURL, inviteCode)
 	if err != nil {
 		log.Printf("OAuth login error: %v", err)
 		ctx.Redirect(302, config.FrontendURL+"/login?error=login_failed")

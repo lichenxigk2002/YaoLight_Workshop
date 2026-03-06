@@ -64,10 +64,11 @@ func NewAuthService(userRepo repository.UserRepository, oauthBindingRepo *reposi
 
 // RegisterRequest 注册请求
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required,min=3,max=50"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	Phone    string `json:"phone,omitempty"`
+	Username   string `json:"username" binding:"required,min=3,max=50"`
+	Email      string `json:"email" binding:"required,email"`
+	Password   string `json:"password" binding:"required,min=6"`
+	Phone      string `json:"phone,omitempty"`
+	InviteCode string `json:"inviteCode,omitempty"` // 选填，邀请码
 }
 
 // LoginRequest 登录请求
@@ -78,8 +79,9 @@ type LoginRequest struct {
 
 // EmailLoginRequest 邮箱验证码登录请求
 type EmailLoginRequest struct {
-	Email string `json:"email" binding:"required,email"`
-	Code  string `json:"code" binding:"required,len=6"`
+	Email      string `json:"email" binding:"required,email"`
+	Code       string `json:"code" binding:"required,len=6"`
+	InviteCode string `json:"inviteCode,omitempty"` // 选填，邀请码（新用户自动注册时有效）
 }
 
 // SendCodeRequest 发送验证码请求
@@ -114,6 +116,10 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 		return nil, err
 	}
 
+	// 解析邀请码
+	invSvc := NewInvitationService()
+	inviterID := invSvc.GetInviterID(req.InviteCode)
+
 	// 创建用户领域实体（使用随机用户编号，非自增）
 	// 注册赠送200万星尘
 	const registerBonusStardust = 2000000 // 200万星尘
@@ -126,12 +132,14 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 		Status:       "active",
 		TokenBalance: registerBonusStardust, // 注册赠送200万星尘
 	}
-
+	if inviterID != 0 {
+		user.InviterID = &inviterID
+	}
 	if req.Phone != "" {
 		user.Phone = &req.Phone
 	}
 
-	// 在事务中创建用户 + 注册赠送流水，保证原子性
+	// 在事务中创建用户 + 注册赠送流水 + 邀请奖励，保证原子性
 	if err := database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := s.userRepo.CreateWithDB(tx, user); err != nil {
 			return err
@@ -147,6 +155,11 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 		}
 		if err := tx.Create(&transaction).Error; err != nil {
 			return err
+		}
+		if inviterID != 0 {
+			if err := invSvc.ProcessInviteReward(tx, inviterID, user.ID, req.InviteCode); err != nil {
+				return err
+			}
 		}
 		return nil
 	}); err != nil {
@@ -310,43 +323,52 @@ func (s *AuthService) EmailLogin(req *EmailLoginRequest) (*LoginResponse, error)
 
 	// 如果用户不存在，自动注册
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		invSvc := NewInvitationService()
+		inviterID := invSvc.GetInviterID(req.InviteCode)
+
 		// 生成随机用户名
 		username := generateRandomUsername()
 
 		// 创建新用户
-		// 注册赠送200万星尘
 		const registerBonusStardust = 2000000 // 200万星尘
 		user = &entity.User{
+			UserNo:       s.generateUniqueUserNo(),
 			Username:     username,
 			Email:        req.Email,
 			Password:     "", // 邮箱注册无密码
 			Role:         "user",
 			Status:       "active",
-			TokenBalance: registerBonusStardust, // 注册赠送200万星尘
+			TokenBalance: registerBonusStardust,
+		}
+		if inviterID != 0 {
+			user.InviterID = &inviterID
 		}
 
-		// 创建用户
-		if err := s.userRepo.Create(user); err != nil {
+		// 在事务中创建用户 + 注册赠送流水 + 邀请奖励
+		if err := database.DB.Transaction(func(tx *gorm.DB) error {
+			if err := s.userRepo.CreateWithDB(tx, user); err != nil {
+				return err
+			}
+			transaction := userModels.TokenTransaction{
+				UserID:      user.ID,
+				Amount:      registerBonusStardust,
+				Type:        "bonus",
+				RelatedID:   fmt.Sprintf("email_login_%d", user.ID),
+				Description: "注册赠送200万星尘",
+				Cost:        0,
+				Currency:    "CNY",
+			}
+			if err := tx.Create(&transaction).Error; err != nil {
+				return err
+			}
+			if inviterID != 0 {
+				return invSvc.ProcessInviteReward(tx, inviterID, user.ID, req.InviteCode)
+			}
+			return nil
+		}); err != nil {
 			return nil, fmt.Errorf("自动注册失败: %v", err)
 		}
-
-		// 记录注册赠送星尘的流水
-		transaction := userModels.TokenTransaction{
-			UserID:      user.ID,
-			Amount:      registerBonusStardust, // 增加星尘
-			Type:        "bonus",               // 类型：奖励/赠送
-			RelatedID:   fmt.Sprintf("email_login_%d", user.ID),
-			Description: "注册赠送200万星尘",
-			Cost:        0, // 赠送无费用
-			Currency:    "CNY",
-		}
-		if err := database.DB.Create(&transaction).Error; err != nil {
-			log.Printf("⚠️ Failed to create register bonus transaction for user %d: %v", user.ID, err)
-		} else {
-			log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus via email login", user.ID, user.Username)
-		}
-
-		log.Printf("用户自动注册成功: %s (%s)", user.Username, user.Email)
+		log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus via email login", user.ID, user.Username)
 	} else if err != nil {
 		// 其他数据库错误
 		return nil, err
@@ -406,6 +428,10 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 		return nil, err
 	}
 
+	// 解析邀请码
+	invSvc := NewInvitationService()
+	inviterID := invSvc.GetInviterID(req.InviteCode)
+
 	// 生成随机用户名
 	username := generateRandomUsername()
 
@@ -421,27 +447,35 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 		Status:       "active",
 		TokenBalance: registerBonusStardust, // 注册赠送200万星尘
 	}
+	if inviterID != 0 {
+		user.InviterID = &inviterID
+	}
 
-	// 通过仓储创建用户
-	if err := s.userRepo.Create(user); err != nil {
+	// 在事务中创建用户 + 注册赠送流水 + 邀请奖励
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := s.userRepo.CreateWithDB(tx, user); err != nil {
+			return err
+		}
+		transaction := userModels.TokenTransaction{
+			UserID:      user.ID,
+			Amount:      registerBonusStardust,
+			Type:        "bonus",
+			RelatedID:   fmt.Sprintf("email_register_%d", user.ID),
+			Description: "注册赠送200万星尘",
+			Cost:        0,
+			Currency:    "CNY",
+		}
+		if err := tx.Create(&transaction).Error; err != nil {
+			return err
+		}
+		if inviterID != 0 {
+			return invSvc.ProcessInviteReward(tx, inviterID, user.ID, req.InviteCode)
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	// 记录注册赠送星尘的流水
-	transaction := userModels.TokenTransaction{
-		UserID:      user.ID,
-		Amount:      registerBonusStardust, // 增加星尘
-		Type:        "bonus",               // 类型：奖励/赠送
-		RelatedID:   fmt.Sprintf("email_register_%d", user.ID),
-		Description: "注册赠送200万星尘",
-		Cost:        0, // 赠送无费用
-		Currency:    "CNY",
-	}
-	if err := database.DB.Create(&transaction).Error; err != nil {
-		log.Printf("⚠️ Failed to create register bonus transaction for user %d: %v", user.ID, err)
-	} else {
-		log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus via email register", user.ID, user.Username)
-	}
+	log.Printf("✅ Registered user %d (%s) with 2,000,000 stardust bonus via email register", user.ID, user.Username)
 
 	// 删除已使用的验证码
 	if err := s.verifyCache.Delete(req.Email); err != nil {
@@ -473,7 +507,12 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 }
 
 // OAuthLogin 第三方登录：按 provider+oauth_id 或 email 查找/创建用户，返回 JWT
-func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL string) (*LoginResponse, error) {
+// inviteCode 可选，新用户注册时有效，邀请人将获得20万星尘奖励
+func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL string, inviteCode ...string) (*LoginResponse, error) {
+	invCode := ""
+	if len(inviteCode) > 0 {
+		invCode = inviteCode[0]
+	}
 	if provider == "" || oauthID == "" {
 		return nil, errors.New("invalid oauth provider or id")
 	}
@@ -528,6 +567,9 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 			return nil, err
 		} else {
 			// 3) 新用户：创建用户并写入绑定表
+			invSvc := NewInvitationService()
+			inviterID := invSvc.GetInviterID(invCode)
+
 			for {
 				_, err = s.userRepo.FindByUsername(username)
 				if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
@@ -547,6 +589,9 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 				Role:         "user",
 				Status:       "active",
 				TokenBalance: registerBonusStardust,
+			}
+			if inviterID != 0 {
+				user.InviterID = &inviterID
 			}
 			if err := s.userRepo.Create(user); err != nil {
 				return nil, err
@@ -573,6 +618,11 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 				Currency:    "CNY",
 			}
 			_ = database.DB.Create(&transaction).Error
+			if inviterID != 0 {
+				_ = database.DB.Transaction(func(tx *gorm.DB) error {
+					return invSvc.ProcessInviteReward(tx, inviterID, user.ID, invCode)
+				})
+			}
 		}
 	}
 
