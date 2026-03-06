@@ -1,179 +1,104 @@
 .container {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
+  padding-bottom: 40px;
 
-  .summary {
+  .billFilterCard {
     background: #fff;
-    border: 1px solid #e5e5e5;
-    border-radius: 16px;
-    padding: 0; // Card组件自带padding，这里设为0，由body控制
-    margin-bottom: 40px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 
     [data-theme='dark'] & {
-      background: #000; // 纯黑背景
-      border-color: rgba(255, 255, 255, 0.15);
-    }
-
-    :global(.ant-card-body) {
-      background: transparent !important; // 强制去除body背景色
-      padding: 32px;
-      font-size: 24px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: #000;
-
-      [data-theme='dark'] & {
-        color: #fff;
-      }
+      background: #1f1f1f;
+      border: 1px solid #303030;
     }
   }
 
-  :global(.ant-table-wrapper) {
-    .ant-table {
-      background: transparent;
-    }
-
-    .ant-table-thead>tr>th {
-      background: #f9f9f9;
-      color: #666;
-      font-weight: 600;
-      border-bottom: 1px solid #f0f0f0;
-
-      [data-theme='dark'] & {
-        background: rgba(255, 255, 255, 0.05);
-        color: #999;
-        border-bottom-color: rgba(255, 255, 255, 0.1);
-      }
-    }
-
-    .ant-table-tbody>tr>td {
-      border-bottom: 1px solid #f0f0f0;
-
-      [data-theme='dark'] & {
-        border-bottom-color: rgba(255, 255, 255, 0.05);
-        color: #fff;
-
-        &:hover {
-          background: rgba(255, 255, 255, 0.05) !important;
-        }
-      }
-    }
-
-    .ant-table-tbody>tr:hover>td {
-      background: #fafafa !important;
-
-      [data-theme='dark'] & {
-        background: rgba(255, 255, 255, 0.08) !important;
-      }
-    }
+  .billFilterHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
   }
 
-  .filterHint {
-    margin-bottom: 12px;
-    font-size: 13px;
-    color: #666;
-
-    [data-theme='dark'] & {
-      color: #999;
-    }
-
-    a {
-      margin-left: 8px;
-    }
-  }
-
-  .billPeriodBar {
-    margin-bottom: 20px;
+  .leftControls {
     display: flex;
     align-items: center;
     gap: 12px;
+  }
 
-    .billPeriodLabel {
-      font-weight: 500;
-      color: #333;
+  .rightControls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 
-      [data-theme='dark'] & {
-        color: #ccc;
-      }
+  .billSummaryContent {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+
+    [data-theme='dark'] & {
+      background: rgba(255, 255, 255, 0.04);
     }
   }
 
-  .billSummaryGrid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 16px;
-  }
-
-  .billSummaryCard {
-    text-align: center;
-    min-height: 80px;
-
-    :global(.ant-card-body) {
-      padding: 16px;
-    }
-  }
-
-  .billSummaryLabel {
-    font-size: 12px;
+  .periodInfo {
+    font-size: 13px;
     color: #666;
-    margin-bottom: 4px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 
     [data-theme='dark'] & {
-      color: #999;
+      color: #aaa;
     }
   }
 
-  .billSummaryValue {
-    font-size: 20px;
-    font-weight: 600;
+  .metricsGrid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .metricItem {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .metricDivider {
+    width: 1px;
+    height: 40px;
+    background: #e8e8e8;
+    margin: 0 24px;
 
     [data-theme='dark'] & {
-      color: #fff;
+      background: #424242;
     }
   }
 
-  .billSummaryValueIncome {
-    font-size: 20px;
-    font-weight: 600;
-    color: #52c41a;
-  }
-
-  .billSummaryValueExpense {
-    font-size: 20px;
-    font-weight: 600;
-    color: #ff4d4f;
-  }
-
-  .billRange {
-    font-size: 12px;
-    color: #999;
-    margin-bottom: 12px;
-
+  .metricLabel {
+    font-size: 13px;
+    color: #888;
+    
     [data-theme='dark'] & {
-      color: #666;
+      color: #888;
     }
   }
 
-  .billActions {
-    display: block;
-    margin-top: 8px;
-  }
-
-  .viewTransactionsLink {
-    display: inline-block;
-  }
-
-  .billEmpty {
-    color: #999;
-    text-align: center;
-    padding: 24px;
+  .metricValue {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #333;
 
     [data-theme='dark'] & {
-      color: #666;
+      color: #e5e5e5;
     }
   }
 }

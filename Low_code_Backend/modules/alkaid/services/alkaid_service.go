@@ -9,6 +9,7 @@ import (
 	"yaolight-workshop/backend/modules/ai/services/providers/deepseek"
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 	alkaidRepos "yaolight-workshop/backend/modules/alkaid/repositories"
+	userServices "yaolight-workshop/backend/modules/user/services"
 )
 
 // AlkaidService 瑶光星服务
@@ -18,6 +19,7 @@ type AlkaidService struct {
 	knowledgeService    *KnowledgeService
 	intentAnalyzer      *IntentAnalyzer
 	aiProvider          providers.AIProvider
+	transactionService  *userServices.TransactionService
 }
 
 // NewAlkaidService 创建瑶光星服务
@@ -28,6 +30,7 @@ func NewAlkaidService() *AlkaidService {
 		knowledgeService:    &KnowledgeService{},
 		intentAnalyzer:      NewIntentAnalyzer(),
 		aiProvider:          deepseek.NewDeepSeekProvider(),
+		transactionService:  userServices.NewTransactionService(),
 	}
 }
 
@@ -191,6 +194,7 @@ func (s *AlkaidService) SendMessageStream(req SendMessageRequest, callback SendM
 	var fullReasoningContent strings.Builder
 	var streamErr error
 	var assistantMessage *alkaidModels.AlkaidMessage
+	var finalUsage *providers.TokenUsage // 用于捕获流式过程中返回的Token用量
 
 	// 使用 context 来支持取消操作
 	ctx := context.Background()
@@ -209,6 +213,11 @@ func (s *AlkaidService) SendMessageStream(req SendMessageRequest, callback SendM
 				streamErr = err
 				callback("", "", true, fmt.Errorf("AI流式调用失败: %w", err))
 				return
+			}
+
+			// 捕获Usage信息（Provider可能会在done=false时发送Usage）
+			if usage != nil {
+				finalUsage = usage
 			}
 
 			// 处理流式内容
@@ -282,6 +291,31 @@ func (s *AlkaidService) SendMessageStream(req SendMessageRequest, callback SendM
 
 				// 通知前端：完成
 				callback("", "completed", true, nil)
+
+				// 10. 记录Token使用情况（无论是否成功）
+				if finalUsage != nil {
+					// 瑶光星助手对话目前不扣费（cost=0），只记录使用量
+					// 后续如果需要收费，可以将ModelMode改为"system"
+					// 构造描述信息
+					desc := fmt.Sprintf("瑶光星AI助手对话（会话ID: %d）", req.SessionID)
+					
+					// 使用 TransactionService 记录
+					recordErr := s.transactionService.RecordTokenUsage(userServices.RecordTokenUsageRequest{
+						UserID:    req.UserID,
+						Usage:     finalUsage,
+						Provider:  aiConfig.Provider,
+						ModelName: aiConfig.ModelName,
+						ModelMode: "system", // 使用 system 模式，启用扣费
+						ModelID:   nil,      // 系统内置模型，无 ModelID
+						RelatedID: fmt.Sprintf("%d", req.SessionID),
+						Type:      "chat",
+						Desc:      desc,
+					})
+					
+					if recordErr != nil {
+						fmt.Printf("记录Token使用失败: %v\n", recordErr)
+					}
+				}
 			}
 		},
 	)

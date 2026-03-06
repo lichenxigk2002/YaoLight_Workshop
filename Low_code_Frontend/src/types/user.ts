@@ -70,6 +70,37 @@ export interface BillSummary {
   transaction_count: number;
 }
 
+/** Token使用统计 */
+export interface TokenUsageStats {
+  cost: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+}
+
+/** 模型维度统计 */
+export interface ModelTokenStats {
+  provider: string;
+  model_name: string;
+  today: TokenUsageStats;
+  total: TokenUsageStats;
+}
+
+/** 整体统计响应 */
+export interface TokenStats {
+  today: TokenUsageStats;
+  total: TokenUsageStats;
+  models: ModelTokenStats[];
+}
+
+/** 筛选选项响应 */
+export interface TransactionOptions {
+  items: {
+    provider: string;
+    models: string[];
+  }[];
+}
+
 /**
  * 登录请求
  */
