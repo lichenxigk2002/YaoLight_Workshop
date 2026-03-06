@@ -31,6 +31,8 @@ export default function Login() {
   const [activeTab, setActiveTab] = useState('login');
   const [countdown, setCountdown] = useState(0);
   const anchorRef = useRef<HTMLDivElement>(null);
+  // 从 URL 获取邀请码（?invite=xxx），用于注册/邮箱登录/OAuth
+  const inviteCode = searchParams.get('invite') || '';
   const circularTextRef = useRef<HTMLDivElement>(null);
 
   // 如果已登录，重定向到首页
@@ -184,6 +186,7 @@ export default function Login() {
       await userApi.register({
         ...registerData,
         password: encryptedPassword,
+        inviteCode: inviteCode || undefined,
       });
 
       message.success('注册成功！请登录');
@@ -215,7 +218,7 @@ export default function Login() {
   const onEmailLogin = async (values: { email: string; code: string }) => {
     try {
       setLoading(true);
-      const response = await userApi.emailLogin(values.email, values.code);
+      const response = await userApi.emailLogin(values.email, values.code, inviteCode || undefined);
 
       if (response && response.token && response.user) {
         loginStore(response.token, response.user);
@@ -466,7 +469,9 @@ export default function Login() {
                 className={styles.socialBtn}
                 block
                 onClick={() => {
-                  window.location.href = getOAuthBaseUrl() + '/auth/github';
+                  const state = inviteCode ? `invite_${inviteCode}` : '';
+                  const url = getOAuthBaseUrl() + '/auth/github' + (state ? `?state=${encodeURIComponent(state)}` : '');
+                  window.location.href = url;
                 }}
               >
                 {t('login.githubLogin')}
@@ -476,7 +481,9 @@ export default function Login() {
                 className={styles.socialBtn}
                 block
                 onClick={() => {
-                  window.location.href = getOAuthBaseUrl() + '/auth/google';
+                  const state = inviteCode ? `invite_${inviteCode}` : '';
+                  const url = getOAuthBaseUrl() + '/auth/google' + (state ? `?state=${encodeURIComponent(state)}` : '');
+                  window.location.href = url;
                 }}
               >
                 {t('login.googleLogin')}

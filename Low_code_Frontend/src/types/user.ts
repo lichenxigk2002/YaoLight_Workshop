@@ -125,6 +125,7 @@ export interface RegisterRequest {
   password: string;
   email: string;
   phone?: string;
+  inviteCode?: string; // 选填，邀请码
 }
 
 /**

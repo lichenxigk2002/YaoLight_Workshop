@@ -11,6 +11,7 @@ import Settings from '../pages/Settings'
 import ProfileInfo from '../pages/Settings/Profile'
 import ModelProviders from '../pages/Settings/Models'
 import Billing from '../pages/Settings/Billing'
+import Invite from '../pages/Settings/Invite'
 import SettingsNotifications from '../pages/Settings/Notifications'
 import Payment from '../pages/Payment'
 import Help from '../pages/Help'
@@ -82,6 +83,10 @@ const router = createBrowserRouter([
       {
         path: 'billing',
         element: <Billing />,
+      },
+      {
+        path: 'invite',
+        element: <Invite />,
       },
       {
         path: 'notifications',

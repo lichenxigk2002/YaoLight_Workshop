@@ -7,6 +7,7 @@ import {
   GlobalOutlined,
   FileTextOutlined,
   BellOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +41,11 @@ export default function Settings() {
           key: 'billing',
           icon: <FileTextOutlined />,
           label: t('settings.billing'),
+        },
+        {
+          key: 'invite',
+          icon: <TeamOutlined />,
+          label: t('settings.inviteFriends', '邀请好友'),
         },
         {
           key: 'notifications',
