@@ -132,7 +132,7 @@ func main() {
 		paymentController := paymentControllers.NewPaymentController()
 		api.GET("/payment/packages", paymentController.GetPackages)              // 获取套餐列表（无需认证）
 		api.POST("/payment/alipay/notify", paymentController.HandleAlipayNotify) // 支付宝异步通知（无需认证，由支付宝调用）
-		r.GET("/payment/callback", paymentController.HandleAlipayReturn)         // 支付宝同步跳转（无需认证）
+		api.GET("/payment/callback", paymentController.HandleAlipayReturn)       // 支付宝同步跳转（无需认证）
 
 		// 站内通知 WebSocket（通过 query token 鉴权，不加 JWT 中间件）
 		notificationHubInstance := notificationHub.NewHub()
