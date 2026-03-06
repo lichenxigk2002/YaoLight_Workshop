@@ -152,6 +152,8 @@ func main() {
 			auth.GET("/users/notification-preferences", authController.GetNotificationPreferences)
 			auth.PUT("/users/notification-preferences", authController.UpdateNotificationPreferences)
 			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
+			auth.GET("/users/token-transactions/options", authController.GetTransactionOptions)
+			auth.GET("/users/token-transactions/stats", authController.GetTokenStats)
 			auth.GET("/users/bills/summary", authController.GetBillSummary)
 			auth.GET("/users/bills/export", authController.GetBillsExport)
 			auth.POST("/users/avatar", authController.UploadAvatar)

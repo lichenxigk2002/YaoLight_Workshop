@@ -450,6 +450,12 @@ func (c *AuthController) GetTokenTransactions(ctx *gin.Context) {
 			db = db.Where("created_at <= ?", endOfDay)
 		}
 	}
+	if provider := ctx.Query("provider"); provider != "" {
+		db = db.Where("provider = ?", provider)
+	}
+	if model := ctx.Query("model"); model != "" {
+		db = db.Where("model_name = ?", model)
+	}
 
 	var total int64
 	if err := db.Count(&total).Error; err != nil {

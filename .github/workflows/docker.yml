@@ -96,7 +96,7 @@ jobs:
   #   DEPLOY_HOST: 服务器 IP 或域名
   #   DEPLOY_USER: SSH 用户名（如 root）
   #   GHCR_PAT: GitHub PAT，权限勾选 read:packages（用于服务器从 GHCR 拉取镜像）
-  # 可选：DEPLOY_PORT（默认 22）。工作目录固定为 /root/yaolight，若不同请改下面 script 里的 cd 路径
+  # 可选：DEPLOY_PORT（默认 22）。工作目录固定为 /yaolight（与服务器上实际目录一致）
   deploy:
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
@@ -112,7 +112,7 @@ jobs:
           command_timeout: 10m
           script: |
             set -e
-            cd /root/yaolight
+            cd /yaolight
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d postgres redis
