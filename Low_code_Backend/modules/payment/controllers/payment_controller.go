@@ -228,16 +228,8 @@ func (c *PaymentController) HandleAlipayReturn(ctx *gin.Context) {
 	}
 
 	// 返回订单状态（前端可以根据状态跳转）
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "success",
-		"data": gin.H{
-			"orderId": order.OrderID,
-			"status":  string(order.Status),
-			"amount":  order.Amount,
-			"stardust": order.Stardust,
-		},
-	})
+	// 重定向到前端充值页面
+	ctx.Redirect(http.StatusFound, "/settings/recharge?status=success&orderId="+order.OrderID)
 }
 
 // MockPay 模拟支付（仅开发环境）
