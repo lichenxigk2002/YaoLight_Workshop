@@ -248,6 +248,9 @@ func (s *CrawlerService) executeSinglePage(config CrawlerConfig) (*CrawlerResult
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: !config.VerifySSL,
 		},
+		// 禁用HTTP/2，强制使用HTTP/1.1
+		// 这有助于绕过某些基于TLS指纹（JA3）的反爬检测，因为Go的标准HTTP/2指纹非常明显
+		TLSNextProto: make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
 	}
 
 	// 配置代理
@@ -290,7 +293,10 @@ func (s *CrawlerService) executeSinglePage(config CrawlerConfig) (*CrawlerResult
 		}, err
 	}
 
-	// 设置User-Agent
+	// 设置默认浏览器 Headers（模拟真实浏览器行为）
+	s.addDefaultBrowserHeaders(req, config.UserAgent)
+
+	// 设置User-Agent (覆盖默认)
 	req.Header.Set("User-Agent", config.UserAgent)
 
 	// 设置Content-Type
@@ -755,6 +761,27 @@ func (s *CrawlerService) getErrorMessage(statusCode int, method string) string {
 			return fmt.Sprintf("HTTP %d - 服务器错误: 服务器出现问题，请稍后重试", statusCode)
 		}
 		return fmt.Sprintf("HTTP状态码: %d", statusCode)
+	}
+}
+
+// addDefaultBrowserHeaders 添加默认的浏览器请求头
+func (s *CrawlerService) addDefaultBrowserHeaders(req *http.Request, ua string) {
+	// 基础 Headers
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req.Header.Set("Cache-Control", "max-age=0")
+
+	// 根据 UA 设置 Client Hints（模拟 Chrome）
+	if strings.Contains(ua, "Chrome") {
+		req.Header.Set("Sec-Ch-Ua", `"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"`)
+		req.Header.Set("Sec-Ch-Ua-Mobile", "?0")
+		req.Header.Set("Sec-Ch-Ua-Platform", `"Windows"`)
+		req.Header.Set("Sec-Fetch-Dest", "document")
+		req.Header.Set("Sec-Fetch-Mode", "navigate")
+		req.Header.Set("Sec-Fetch-Site", "none")
+		req.Header.Set("Sec-Fetch-User", "?1")
 	}
 }
 

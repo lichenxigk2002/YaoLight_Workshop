@@ -1,23 +1,63 @@
-import { useEffect, useMemo, useState } from 'react';
-import { App, Card, Table } from 'antd';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { App, Button, Card, DatePicker, Segmented, Tabs, Typography } from 'antd';
+import type { DatePickerProps } from 'antd';
 import { useTranslation } from 'react-i18next';
+import type { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { userApi } from '@/api/user';
 import { useAuthStore } from '@/store/auth';
-import { ProviderIcon, StardustIcon } from '@/components/Icons';
+import { StardustIcon } from '@/components/Icons';
 import SettingsPageTitle from '@/components/SettingsPageTitle';
-import type { TokenTransaction } from '@/types/user';
+import type {
+  BillPeriod,
+  BillSummary,
+  BillSummaryParams,
+} from '@/types/user';
+import Statistics from './components/Statistics';
+import TransactionList from './components/TransactionList';
 import styles from './index.module.scss';
+
+const { Text } = Typography;
 
 export default function Billing() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const { user, setUser } = useAuthStore();
 
-  const [loading, setLoading] = useState(false);
-  const [list, setList] = useState<TokenTransaction[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [billLoading, setBillLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [period, setPeriod] = useState<BillPeriod>('month');
+  const [billDate, setBillDate] = useState<Dayjs>(() => dayjs());
+  const [billSummary, setBillSummary] = useState<BillSummary | null>(null);
+  const [filterStartDate, setFilterStartDate] = useState<string | undefined>();
+  const [filterEndDate, setFilterEndDate] = useState<string | undefined>();
+  const [activeTab, setActiveTab] = useState('statistics');
+
+  const buildBillParams = useCallback(
+    (p: BillPeriod, d: Dayjs): BillSummaryParams => {
+      const year = d.year();
+      const month = d.month() + 1;
+      const day = d.date();
+
+      if (p === 'day') {
+        return { period: 'day', year, month, day };
+      }
+      if (p === 'month') {
+        return { period: 'month', year, month };
+      }
+      if (p === 'quarter') {
+        const quarter = Math.floor((month - 1) / 3) + 1;
+        return { period: 'quarter', year, month: quarter };
+      }
+      return { period: 'year', year };
+    },
+    []
+  );
+
+  const billParams = useMemo(
+    () => buildBillParams(period, billDate),
+    [billDate, buildBillParams, period]
+  );
 
   useEffect(() => {
     const refreshUserInfo = async () => {
@@ -32,104 +72,153 @@ export default function Billing() {
   }, [message, setUser, t]);
 
   useEffect(() => {
-    const fetchTransactions = async () => {
+    const fetchBillSummary = async () => {
       try {
-        setLoading(true);
-        const res = await userApi.getTokenTransactions({ page, pageSize });
-        setList(Array.isArray(res?.list) ? res.list : []);
-        setTotal(typeof res?.total === 'number' ? res.total : 0);
+        setBillLoading(true);
+        const sum = await userApi.getBillSummary(billParams);
+        setBillSummary(sum);
       } catch (error: any) {
-        message.error(error.message || t('common.operationFailed'));
+        message.error(error?.message || t('settings.getBillSummaryFailed'));
+        setBillSummary(null);
       } finally {
-        setLoading(false);
+        setBillLoading(false);
       }
     };
-    fetchTransactions();
-  }, [message, page, pageSize, t]);
+    fetchBillSummary();
+  }, [billParams, message, t]);
 
-  const columns = useMemo(
-    () => [
-      {
-        title: t('settings.time'),
-        dataIndex: 'created_at',
-        key: 'created_at',
-        width: 180,
-        render: (value: string) => {
-          const d = value ? new Date(value) : null;
-          return d && !Number.isNaN(d.getTime()) ? d.toLocaleString() : '-';
-        },
-      },
-      {
-        title: t('settings.model'),
-        key: 'model',
-        render: (_: any, record: TokenTransaction) => {
-          const provider = record.provider || '';
-          const model = record.model_name || '';
-          const text = provider && model ? `${provider} / ${model}` : model || provider || '-';
-          return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {provider && <ProviderIcon provider={provider} size={20} />}
-              <span>{text}</span>
-            </div>
-          );
-        },
-      },
-      {
-        title: t('settings.stardustConsumption'),
-        dataIndex: 'amount',
-        key: 'amount',
-        width: 120,
-        render: (value: number) => {
-          // amount 可能是负数（扣除），显示时取绝对值
-          const absValue = typeof value === 'number' ? Math.abs(value) : 0;
-          return absValue.toLocaleString();
-        },
-      },
-      {
-        title: t('settings.amount'),
-        key: 'cost',
-        width: 160,
-        render: (_: any, record: TokenTransaction) => {
-          const cost = typeof record.cost === 'number' ? record.cost : 0;
-          const currency = record.currency || 'USD';
-          if (!cost) return <span>-</span>;
-          return (
-            <span>
-              {cost.toFixed(6)} {currency}
-            </span>
-          );
-        },
-      },
-    ],
-    [t]
+  const formatDateRangeLabel = (start?: string, end?: string) => {
+    if (!start && !end) return '-';
+    const fmt = (v?: string) => (v ? v.slice(0, 10) : '-');
+    return `${fmt(start)} ~ ${fmt(end)}`;
+  };
+
+  const handleApplyPeriodToTransactions = () => {
+    if (!billSummary) return;
+    const start = billSummary.start_at?.slice(0, 10);
+    const end = billSummary.end_at?.slice(0, 10);
+    setFilterStartDate(start);
+    setFilterEndDate(end);
+    setActiveTab('transactions');
+  };
+
+  const handleClearFilter = () => {
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setExporting(true);
+      await userApi.exportBillPDF(billParams);
+      message.success(t('settings.exportBillPDFSuccess'));
+    } catch (error: any) {
+      message.error(error?.message || t('settings.exportBillPDFFailed'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const pickerMode = useMemo<Exclude<DatePickerProps['picker'], undefined>>(
+    () => {
+      if (period === 'day') return 'date';
+      if (period === 'month') return 'month';
+      if (period === 'quarter') return 'quarter';
+      return 'year';
+    },
+    [period]
   );
+
+  const items = [
+    {
+      key: 'statistics',
+      label: t('settings.usageStatistics'),
+      children: <Statistics />,
+    },
+    {
+      key: 'transactions',
+      label: t('settings.transactionHistory'),
+      children: (
+        <TransactionList
+          filterStartDate={filterStartDate}
+          filterEndDate={filterEndDate}
+          onClearDateFilter={handleClearFilter}
+        />
+      ),
+    },
+  ];
 
   return (
     <div className={styles.container}>
-      <SettingsPageTitle title={t('settings.billing')} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <SettingsPageTitle title={t('settings.billing')} style={{ marginBottom: 0 }} />
+        <Card bordered={false} size="small" bodyStyle={{ padding: '8px 16px' }} style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <Text type="secondary" style={{ marginRight: 8 }}>{t('settings.currentStardustBalance')}:</Text>
+          <Text strong style={{ fontSize: 16 }}>{user?.token_balance?.toLocaleString() || 0}</Text>
+          <StardustIcon size={16} style={{ marginLeft: 4, verticalAlign: '-2px' }} />
+        </Card>
+      </div>
 
-      <Card className={styles.summary}>
-        {t('settings.currentStardustBalance')}: {user?.token_balance?.toLocaleString() || 0} <StardustIcon size={16} style={{ marginLeft: '4px', verticalAlign: 'middle' }} />
+      <Card bordered={false} className={styles.billFilterCard}>
+        <div className={styles.billFilterHeader}>
+           <div className={styles.leftControls}>
+              <Segmented
+                value={period}
+                onChange={(val) => setPeriod(val as BillPeriod)}
+                options={[
+                  { label: t('settings.billDay'), value: 'day' },
+                  { label: t('settings.billMonth'), value: 'month' },
+                  { label: t('settings.billQuarter'), value: 'quarter' },
+                  { label: t('settings.billYear'), value: 'year' },
+                ]}
+              />
+              <DatePicker
+                picker={pickerMode}
+                value={billDate}
+                onChange={(val) => setBillDate(val || dayjs())}
+                allowClear={false}
+                style={{ width: 140 }}
+                disabled={billLoading}
+              />
+           </div>
+           <div className={styles.rightControls}>
+              <Button onClick={handleApplyPeriodToTransactions} disabled={!billSummary}>
+                {t('settings.viewTransactionsInPeriod')}
+              </Button>
+              <Button type="primary" ghost onClick={handleExportPDF} loading={exporting}>
+                {t('settings.exportBillPDF')}
+              </Button>
+           </div>
+        </div>
+
+        {billSummary && (
+          <div className={styles.billSummaryContent}>
+             <div className={styles.periodInfo}>
+               <Text type="secondary">{t('settings.currentPeriod')}:</Text> {formatDateRangeLabel(billSummary.start_at, billSummary.end_at)}
+             </div>
+             <div className={styles.metricsGrid}>
+                <div className={styles.metricItem}>
+                   <div className={styles.metricLabel}>{t('settings.income')}</div>
+                   <div className={styles.metricValue} style={{ color: '#52c41a' }}>+{billSummary.total_income?.toLocaleString() ?? 0}</div>
+                </div>
+                <div className={styles.metricDivider} />
+                <div className={styles.metricItem}>
+                   <div className={styles.metricLabel}>{t('settings.expense')}</div>
+                   <div className={styles.metricValue} style={{ color: '#ff4d4f' }}>-{billSummary.total_expense?.toLocaleString() ?? 0}</div>
+                </div>
+                <div className={styles.metricDivider} />
+                <div className={styles.metricItem}>
+                   <div className={styles.metricLabel}>{t('settings.transactionCount')}</div>
+                   <div className={styles.metricValue}>{billSummary.transaction_count?.toLocaleString() ?? 0}</div>
+                </div>
+             </div>
+          </div>
+        )}
       </Card>
 
-      <Table
-        rowKey="id"
-        columns={columns as any}
-        dataSource={list}
-        loading={loading}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          pageSizeOptions: [10, 20, 50, 100],
-          onChange: (nextPage, nextPageSize) => {
-            setPage(nextPage);
-            setPageSize(nextPageSize);
-          },
-        }}
-      />
+      <div style={{ marginTop: 24 }}>
+        <Tabs activeKey={activeTab} onChange={setActiveTab} items={items} type="card" />
+      </div>
     </div>
   );
 }
-

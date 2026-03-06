@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,12 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer database.CloseDatabase()
+
+	// 仅执行数据库迁移后退出（用于 CI/CD：先 migrate 再 up -d）
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		log.Println("✅ Database migration completed (migrate-only mode)")
+		return
+	}
 
 	// 2.5 初始化 Redis（可选，失败不影响运行）
 	if err := redis.InitRedis(); err != nil {
@@ -145,6 +152,8 @@ func main() {
 			auth.GET("/users/notification-preferences", authController.GetNotificationPreferences)
 			auth.PUT("/users/notification-preferences", authController.UpdateNotificationPreferences)
 			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
+			auth.GET("/users/token-transactions/options", authController.GetTransactionOptions)
+			auth.GET("/users/token-transactions/stats", authController.GetTokenStats)
 			auth.GET("/users/bills/summary", authController.GetBillSummary)
 			auth.GET("/users/bills/export", authController.GetBillsExport)
 			auth.POST("/users/avatar", authController.UploadAvatar)
