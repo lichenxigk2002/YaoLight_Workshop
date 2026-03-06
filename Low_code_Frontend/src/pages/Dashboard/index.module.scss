@@ -19,8 +19,11 @@
       right: 0;
       bottom: 0;
       width: 40%;
-      background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.1) 100%);
+      background: linear-gradient(135deg, rgba(0, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0.06) 100%);
       clip-path: polygon(20% 0, 100% 0, 100% 100%, 0% 100%);
+    }
+    [data-theme='dark'] &::before {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.06) 100%);
     }
 
     .welcomeContent {
@@ -43,14 +46,55 @@
       gap: 16px;
 
       .startBtn {
-        background: var(--text-primary);
-        color: var(--bg-primary) !important;
-        border: none;
+        // 亮色：白底黑字；暗色：深色底白字；去掉底部阴影
+        background: var(--bg-primary) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-primary) !important;
+        box-shadow: none !important;
+        
+        .anticon {
+          color: var(--text-primary) !important;
+        }
         
         &:hover {
-          background: var(--text-primary);
-          opacity: 0.9;
-          color: var(--bg-primary) !important;
+          background: var(--bg-secondary) !important;
+          border-color: var(--primary) !important;
+          color: var(--text-primary) !important;
+          box-shadow: none !important;
+          .anticon {
+            color: var(--text-primary) !important;
+          }
+        }
+      }
+      
+      // 暗色模式下深色背景白字
+      [data-theme='dark'] & .startBtn {
+        background: var(--bg-secondary) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-primary) !important;
+        box-shadow: none !important;
+        .anticon {
+          color: var(--text-primary) !important;
+        }
+        &:hover {
+          background: var(--bg-tertiary) !important;
+          border-color: var(--primary) !important;
+          color: var(--text-primary) !important;
+          box-shadow: none !important;
+          .anticon {
+            color: var(--text-primary) !important;
+          }
+        }
+      }
+      
+      .viewDocsBtn {
+        border-color: var(--border-primary);
+        color: var(--text-primary);
+        background: var(--bg-secondary);
+        &:hover {
+          border-color: var(--primary);
+          color: var(--primary);
+          background: var(--bg-tertiary);
         }
       }
     }

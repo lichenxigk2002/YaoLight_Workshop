@@ -18,6 +18,7 @@ import type { Project, CreateProjectRequest } from '@/types/project';
 import type { PageRequest } from '@/types/api';
 import styles from './index.module.scss';
 import { useAuth } from '@/components/AuthContext';
+import { useThemeStore } from '@/store/theme';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -27,6 +28,8 @@ export default function Dashboard() {
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const { user } = useAuth();
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -165,10 +168,10 @@ export default function Dashboard() {
       {/* 欢迎 Banner */}
       <div className={styles.welcomeSection}>
         <div className={styles.welcomeContent}>
-          <Title level={2} style={{ margin: 0, color: 'var(--text-primary)' }}>
+          <Title level={2} style={{ margin: 0, color: isDark ? '#ffffff' : '#000000' }}>
             {t('dashboard.welcomeBack', '欢迎回来')}, {user?.username || 'User'} 👋
           </Title>
-          <Text style={{ fontSize: 16, color: 'var(--text-secondary)', marginTop: 8, display: 'block' }}>
+          <Text style={{ fontSize: 16, color: isDark ? '#d9d9d9' : '#333333', marginTop: 8, display: 'block' }}>
             {t('dashboard.welcomeSubtitle', '今天想构建什么工作流？')}
           </Text>
           <div className={styles.quickStart}>
@@ -183,6 +186,7 @@ export default function Dashboard() {
             </Button>
             <Button 
               size="large" 
+              className={styles.viewDocsBtn}
               onClick={() => window.open('https://github.com/YaoLight/workshop', '_blank')}
             >
               {t('dashboard.viewDocs', '查看文档')}
