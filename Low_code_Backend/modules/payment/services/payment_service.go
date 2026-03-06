@@ -753,6 +753,22 @@ func (s *PaymentService) HandleAlipayNotify(params map[string]string) error {
 			Update("token_balance", gorm.Expr("token_balance + ?", order.Stardust)).Error; err != nil {
 			return fmt.Errorf("更新用户余额失败: %w", err)
 		}
+
+		// 创建充值流水记录
+		transaction := &userModels.TokenTransaction{
+			UserID:      order.UserID,
+			Amount:      int64(order.Stardust),
+			Type:        "recharge", // 交易类型：充值
+			RelatedID:   order.OrderID,
+			Description: fmt.Sprintf("购买套餐: %s", order.PackageName),
+			Cost:        order.Amount, // 实际支付金额
+			Currency:    "CNY",        // 货币单位
+			CreatedAt:   now,
+		}
+		if err := tx.Create(transaction).Error; err != nil {
+			return fmt.Errorf("创建交易流水失败: %w", err)
+		}
+
 		return nil
 	}); err != nil {
 		return err
