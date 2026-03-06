@@ -191,13 +191,22 @@ export default function TransactionList({
         },
       },
       {
-        title: t('settings.stardustConsumption'),
+        title: t('settings.stardustChange'), // 修改标题为"星尘变动"
         dataIndex: 'amount',
         key: 'amount',
         width: 120,
-        render: (value: number) => {
+        render: (value: number, record: TokenTransaction) => {
+          const isIncome = record.type === 'recharge' || record.type === 'bonus';
           const absValue = typeof value === 'number' ? Math.abs(value) : 0;
-          return <span style={{ whiteSpace: 'nowrap' }}>{absValue.toLocaleString()}</span>;
+          return (
+            <span style={{ 
+              whiteSpace: 'nowrap',
+              color: isIncome ? '#52c41a' : '#ff4d4f', // 收入显示绿色，支出显示红色
+              fontWeight: 'bold'
+            }}>
+              {isIncome ? '+' : '-'}{absValue.toLocaleString()}
+            </span>
+          );
         },
       },
       {
