@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"mime"
 	"net/smtp"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -147,9 +148,19 @@ func (s *EmailService) SendWithAttachments(to, subject, body string, attachments
 		}
 
 		encodedFilename := mime.BEncoding.Encode("UTF-8", att.Filename)
-		buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, encodedFilename))
-		buf.WriteString("Content-Transfer-Encoding: base64\r\n")
-		buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", encodedFilename))
+		// 腾讯云SES要求附件名不能包含特殊字符，即便是Base64编码后的字符串也可能有问题
+		// 如果是腾讯云环境，尝试使用更保守的编码方式或简化文件名
+		if strings.Contains(s.host, "qcloud") || strings.Contains(s.host, "tencent") {
+			buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, encodedFilename))
+			buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+			// Content-Disposition 使用 filename*=UTF-8''... 格式，这是现代标准
+            // 同时保留 filename="..." 以兼容旧客户端
+			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"; filename*=UTF-8''%s\r\n", encodedFilename, url.PathEscape(att.Filename)))
+		} else {
+			buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, encodedFilename))
+			buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", encodedFilename))
+		}
 		buf.WriteString("\r\n")
 		buf.WriteString(encodeBase64Bytes(att.Data))
 		buf.WriteString("\r\n")
