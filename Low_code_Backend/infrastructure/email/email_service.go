@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"mime"
 	"net/smtp"
 	"os"
 	"strings"
@@ -144,9 +145,11 @@ func (s *EmailService) SendWithAttachments(to, subject, body string, attachments
 		if strings.TrimSpace(mt) == "" {
 			mt = "application/octet-stream"
 		}
-		buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, att.Filename))
+
+		encodedFilename := mime.BEncoding.Encode("UTF-8", att.Filename)
+		buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, encodedFilename))
 		buf.WriteString("Content-Transfer-Encoding: base64\r\n")
-		buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", att.Filename))
+		buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", encodedFilename))
 		buf.WriteString("\r\n")
 		buf.WriteString(encodeBase64Bytes(att.Data))
 		buf.WriteString("\r\n")
