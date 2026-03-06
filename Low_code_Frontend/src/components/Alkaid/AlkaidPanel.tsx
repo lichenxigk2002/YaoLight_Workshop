@@ -712,7 +712,7 @@ export default function AlkaidPanel({
       .join(' ')
   }, [variant, density, accent, reduceMotion])
 
-  const TopRight = () => (
+  const renderTopRight = () => (
     <Space size={6} className={styles.topRight}>
       {variant === 'floating' && (
         <Button
@@ -781,7 +781,7 @@ export default function AlkaidPanel({
     </Space>
   )
 
-  const Sidebar = () => (
+  const renderSidebar = () => (
     <div className={styles.sidebar}>
       <div className={styles.sidebarHeader}>
         <div className={styles.sidebarTitle}>{t('alkaid.conversations', '会话')}</div>
@@ -901,7 +901,7 @@ export default function AlkaidPanel({
     </div>
   )
 
-  const EmptyChat = () => (
+  const renderEmptyChat = () => (
     <div className={styles.emptyState}>
       <div className={styles.emptyIcon}>
         <AlkaidIcon size={40} />
@@ -916,7 +916,7 @@ export default function AlkaidPanel({
     </div>
   )
 
-  const MessageBubble = (msg: MessageItem) => {
+  const renderMessageBubble = (msg: MessageItem) => {
     const isCurrentLoadingMessage = msg.role === 'assistant' && msg.id === currentLoadingMessageId && loading
     const showAgenticProgress = useAgentic && isCurrentLoadingMessage
     const showLegacySteps = !useAgentic && isCurrentLoadingMessage && processSteps.length > 0
@@ -1021,10 +1021,10 @@ export default function AlkaidPanel({
     )
   }
 
-  const ChatView = () => (
+  const renderChatView = () => (
     <div className={styles.chatMain}>
       <div className={styles.messages}>
-        {messages.length === 0 ? <EmptyChat /> : messages.map((m) => MessageBubble(m))}
+        {messages.length === 0 ? renderEmptyChat() : messages.map((m) => renderMessageBubble(m))}
         <div ref={messagesEndRef} />
       </div>
 
@@ -1091,7 +1091,7 @@ export default function AlkaidPanel({
     </div>
   )
 
-  const ConversationsView = () => (
+  const renderConversationsView = () => (
     <div className={styles.convMain}>
       <div className={styles.convTop}>
         <div className={styles.convTitle}>会话管理</div>
@@ -1196,7 +1196,7 @@ export default function AlkaidPanel({
     </div>
   )
 
-  const SettingsView = () => (
+  const renderSettingsView = () => (
     <div className={styles.settingsMain}>
       <div className={styles.settingsTitle}>{t('alkaid.appearance', '外观与交互')}</div>
       <div className={styles.settingsGrid}>
@@ -1252,10 +1252,10 @@ export default function AlkaidPanel({
     </div>
   )
 
-  const Body = () => {
-    if (view === 'conversations') return <ConversationsView />
-    if (view === 'settings') return <SettingsView />
-    return <ChatView />
+  const renderBody = () => {
+    if (view === 'conversations') return renderConversationsView()
+    if (view === 'settings') return renderSettingsView()
+    return renderChatView()
   }
 
   const title = (
@@ -1291,20 +1291,21 @@ export default function AlkaidPanel({
             : t('alkaid.settings', '设置')}
         </span>
       </div>
-      <TopRight />
+      {renderTopRight()}
     </div>
   )
 
   const panelBody = (
     <div className={[styles.shell, !showSessionList ? styles.shellNoSidebar : ''].filter(Boolean).join(' ')}>
-      {showSessionList && <Sidebar />}
+      {showSessionList && renderSidebar()}
       <div className={styles.main}>
         <div className={styles.mainInner}>
-          <Body />
+          {renderBody()}
         </div>
       </div>
     </div>
   )
+
 
   const main = (
     <div className={rootClassName}>
