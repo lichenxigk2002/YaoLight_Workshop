@@ -26,6 +26,7 @@ type User struct {
 	InviterID     *uint          `gorm:"index" json:"inviter_id"`               // 邀请人ID（通过邀请链接注册时填写）
 	OAuthProvider string         `gorm:"type:varchar(20);index" json:"-"`      // google, github
 	OAuthID       *string        `gorm:"type:varchar(100);index" json:"-"`
+	HasPassword   bool           `gorm:"-" json:"has_password"`                // 是否已设置密码（仅 API 返回，不存库）
 	Preferences   shared.JSONB   `gorm:"type:jsonb;default:'{}'" json:"preferences"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`

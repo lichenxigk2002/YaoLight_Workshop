@@ -11,6 +11,7 @@ import Settings from '../pages/Settings'
 import ProfileInfo from '../pages/Settings/Profile'
 import ModelProviders from '../pages/Settings/Models'
 import Billing from '../pages/Settings/Billing'
+import OrdersPage from '../pages/Settings/Orders'
 import Invite from '../pages/Settings/Invite'
 import SettingsNotifications from '../pages/Settings/Notifications'
 import Payment from '../pages/Payment'
@@ -18,6 +19,7 @@ import Help from '../pages/Help'
 import AssistantWorkspace from '../pages/AssistantWorkspace'
 import ConversationsPage from '../pages/Conversations'
 import AssistantSettings from '../pages/Settings/Assistant'
+import TokenTransactions from '../pages/Settings/TokenTransactions'
 
 const router = createBrowserRouter([
   {
@@ -77,12 +79,20 @@ const router = createBrowserRouter([
         element: <ModelProviders />,
       },
       {
+        path: 'orders',
+        element: <OrdersPage />,
+      },
+      {
         path: 'recharge',
         element: <Payment />,
       },
       {
         path: 'billing',
         element: <Billing />,
+      },
+      {
+        path: 'token-transactions',
+        element: <TokenTransactions />,
       },
       {
         path: 'invite',

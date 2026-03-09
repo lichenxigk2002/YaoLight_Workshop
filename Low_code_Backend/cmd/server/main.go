@@ -130,6 +130,8 @@ func main() {
 		api.POST("/auth/send-register-code", authController.SendRegisterCode)
 		api.POST("/auth/email-login", authController.EmailLogin)
 		api.POST("/auth/email-register", authController.EmailRegister)
+		api.POST("/auth/send-forgot-password-code", authController.SendForgotPasswordCode)
+		api.POST("/auth/reset-password", authController.ResetPasswordByEmail)
 		// OAuth 登录（Google / GitHub）
 		api.GET("/auth/google", oauthController.GoogleRedirect)
 		api.GET("/auth/google/callback", oauthController.GoogleCallback)
@@ -157,6 +159,7 @@ func main() {
 			// 用户相关路由
 			auth.GET("/users/current", authController.GetCurrentUser)
 			auth.PUT("/users/username", authController.UpdateUsername)
+			auth.POST("/users/change-password", authController.ChangePassword)
 			auth.GET("/users/notification-preferences", authController.GetNotificationPreferences)
 			auth.PUT("/users/notification-preferences", authController.UpdateNotificationPreferences)
 			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
@@ -279,7 +282,11 @@ func main() {
 			// 支付相关路由（需要认证）
 			paymentController := paymentControllers.NewPaymentController()
 			auth.POST("/payment/orders", paymentController.CreateOrder)                   // 创建订单
-			auth.GET("/payment/orders/:orderId/status", paymentController.GetOrderStatus) // 查询订单状态
+			auth.GET("/payment/orders", paymentController.ListUserOrders)                 // 获取当前用户订单列表
+			auth.GET("/payment/orders/:orderId/status", paymentController.GetOrderStatus)  // 查询订单状态
+			auth.GET("/payment/orders/:orderId/detail", paymentController.GetOrderDetail)  // 订单详情（含继续支付链接）
+			auth.POST("/payment/orders/:orderId/cancel", paymentController.CancelOrder)    // 取消订单
+			auth.DELETE("/payment/orders/:orderId", paymentController.DeleteOrder)       // 删除订单
 			auth.POST("/payment/orders/:orderId/mock-pay", paymentController.MockPay)     // 模拟支付（仅开发用）
 
 			// 站内通知 REST

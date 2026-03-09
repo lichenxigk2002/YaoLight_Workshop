@@ -54,6 +54,18 @@ export const userApi = {
     http.post<LoginResponse>('/auth/email-register', { email, code }),
 
   /**
+   * 发送忘记密码验证码（仅已注册邮箱）
+   */
+  sendForgotPasswordCode: (email: string) =>
+    http.post('/auth/send-forgot-password-code', { email }),
+
+  /**
+   * 通过邮箱验证码重置密码（忘记密码）
+   */
+  resetPasswordByEmail: (data: { email: string; code: string; newPassword: string }) =>
+    http.post('/auth/reset-password', data),
+
+  /**
    * 修改用户名
    */
   updateUsername: (username: string) =>

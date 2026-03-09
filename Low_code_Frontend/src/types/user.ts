@@ -20,6 +20,8 @@ export interface User {
   token_balance?: number;
   created_at: string;
   updated_at: string;
+  /** 是否已设置密码（邮箱验证码注册未设置时为 false，可在此处设置密码） */
+  has_password?: boolean;
 }
 
 /** 头像历史项（用于头像历史列表） */
@@ -129,10 +131,10 @@ export interface RegisterRequest {
 }
 
 /**
- * 修改密码请求
+ * 修改密码请求（已设置密码时必填 oldPassword；未设置密码时仅填 newPassword）
  */
 export interface ChangePasswordRequest {
-  oldPassword: string;
+  oldPassword?: string;
   newPassword: string;
 }
 

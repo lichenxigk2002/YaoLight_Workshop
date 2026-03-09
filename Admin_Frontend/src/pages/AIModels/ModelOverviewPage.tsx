@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Descriptions, Statistic, Tag, Typography } from 'antd';
+import { App, Button, Card, Descriptions, Statistic, Switch, Tag, Typography } from 'antd';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import ProviderIcon from '@/components/Icons/ProviderIcon';
-import { getAIModelPricing } from '@/api/aiModels';
+import { getAIModelPricing, updateAIModel } from '@/api/aiModels';
 import { PRICING_TYPE_LABELS, PROVIDER_LABELS } from '@/types/aiModels';
 import type { AIModelPricingRule } from '@/types/aiModels';
 import type { ModelDetailOutletContext } from './ModelDetailLayout';
@@ -29,8 +29,23 @@ function getStatusLabel(status: string) {
 
 export default function ModelOverviewPage() {
   const navigate = useNavigate();
-  const { model } = useOutletContext<ModelDetailOutletContext>();
+  const { message } = App.useApp();
+  const { model, setModel } = useOutletContext<ModelDetailOutletContext>();
   const [activeRule, setActiveRule] = useState<AIModelPricingRule | null>(null);
+  const [updatingActive, setUpdatingActive] = useState(false);
+
+  const handleToggleActive = async (checked: boolean) => {
+    try {
+      setUpdatingActive(true);
+      const updated = await updateAIModel(model.id, { is_active: checked });
+      setModel(updated);
+      message.success(checked ? '已启用该模型' : '已停用该模型');
+    } catch (e: unknown) {
+      message.error(e instanceof Error ? e.message : '更新启用状态失败');
+    } finally {
+      setUpdatingActive(false);
+    }
+  };
 
   useEffect(() => {
     void getAIModelPricing(model.id).then((rules) => {
@@ -74,7 +89,15 @@ export default function ModelOverviewPage() {
                   {getStatusLabel(model.status)}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="启用">{model.is_active ? '是' : '否'}</Descriptions.Item>
+              <Descriptions.Item label="启用">
+                <Switch
+                  checked={model.is_active}
+                  loading={updatingActive}
+                  checkedChildren="启用"
+                  unCheckedChildren="停用"
+                  onChange={handleToggleActive}
+                />
+              </Descriptions.Item>
               <Descriptions.Item label="最后使用">{model.usage.last_used_at ?? '--'}</Descriptions.Item>
               <Descriptions.Item label="成功率">{renderMetric(model.usage.success_rate, '%')}</Descriptions.Item>
             </Descriptions>

@@ -90,6 +90,19 @@ type SendCodeRequest struct {
 	Email string `json:"email" binding:"required,email"`
 }
 
+// ChangePasswordRequest 修改/设置密码请求（已设置密码时必填旧密码，邮箱注册未设置密码时仅填新密码）
+type ChangePasswordRequest struct {
+	OldPassword string `json:"oldPassword"` // 当前密码，已设置密码时必填
+	NewPassword string `json:"newPassword" binding:"required,min=6"` // 新密码，至少 6 位
+}
+
+// ResetPasswordByEmailRequest 忘记密码：邮箱+验证码重置
+type ResetPasswordByEmailRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	Code        string `json:"code" binding:"required,len=6"`
+	NewPassword string `json:"newPassword" binding:"required,min=6"`
+}
+
 // LoginResponse 登录响应
 type LoginResponse struct {
 	Token string           `json:"token"`
@@ -236,11 +249,102 @@ func (s *AuthService) GetUserByID(userID uint) (*userModels.User, error) {
 		return nil, ErrUserNotFound
 	}
 
-	// 清除密码字段
+	hasPassword := user.Password != ""
+	// 清除密码字段，不返回给前端
 	user.Password = ""
 
-	// 转换为持久化实体返回（保持向后兼容）
-	return toPersistenceModel(user), nil
+	out := toPersistenceModel(user)
+	out.HasPassword = hasPassword
+	return out, nil
+}
+
+// ChangePassword 修改密码或设置密码（邮箱注册未设置密码时仅需新密码）
+func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest) error {
+	if len(req.NewPassword) < 6 {
+		return ErrPasswordTooShort
+	}
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return ErrUserNotFound
+	}
+	hasPassword := user.Password != ""
+	if hasPassword {
+		if strings.TrimSpace(req.OldPassword) == "" {
+			return errors.New("请输入当前密码")
+		}
+		if err := comparePassword(user.Password, req.OldPassword); err != nil {
+			return ErrInvalidPassword
+		}
+	}
+	// 新密码用 bcrypt 加密（与注册一致，支持明文或前端 MD5 后传入均可，这里按明文处理）
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("加密密码失败: %w", err)
+	}
+	user.Password = string(hashed)
+	return s.userRepo.Update(user)
+}
+
+// SendForgotPasswordCode 发送忘记密码验证码（仅已注册邮箱）
+func (s *AuthService) SendForgotPasswordCode(req *SendCodeRequest) error {
+	canSend, err := s.verifyCache.CheckRateLimit(req.Email)
+	if err != nil {
+		return err
+	}
+	if !canSend {
+		remaining, _ := s.verifyCache.GetRemainingTime(req.Email)
+		return fmt.Errorf("发送太频繁，请%d秒后再试", remaining)
+	}
+	_, err = s.userRepo.FindByUsernameOrEmail("", req.Email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("该邮箱未注册，请先注册或检查邮箱是否正确")
+		}
+		return err
+	}
+	code := s.verifyCache.GenerateCode()
+	if err := s.emailService.SendVerificationCode(req.Email, code); err != nil {
+		log.Printf("发送忘记密码验证码失败: %v", err)
+		return errors.New("发送验证码失败，请稍后重试")
+	}
+	if err := s.verifyCache.Set(req.Email, code); err != nil {
+		return err
+	}
+	if err := s.verifyCache.SetRateLimit(req.Email); err != nil {
+		log.Printf("设置频率限制失败: %v", err)
+	}
+	return nil
+}
+
+// ResetPasswordByEmail 通过邮箱验证码重置密码（忘记密码）
+func (s *AuthService) ResetPasswordByEmail(req *ResetPasswordByEmailRequest) error {
+	if len(req.NewPassword) < 6 {
+		return ErrPasswordTooShort
+	}
+	isValid, err := s.verifyCache.Verify(req.Email, req.Code)
+	if err != nil {
+		return err
+	}
+	if !isValid {
+		return ErrInvalidCode
+	}
+	user, err := s.userRepo.FindByUsernameOrEmail("", req.Email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("加密密码失败: %w", err)
+	}
+	user.Password = string(hashed)
+	if err := s.userRepo.Update(user); err != nil {
+		return err
+	}
+	_ = s.verifyCache.Delete(req.Email)
+	return nil
 }
 
 // SendVerificationCode 发送邮箱验证码（登录/注册通用）
