@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"io"
@@ -145,13 +146,14 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 			return err
 		}
 		transaction := userModels.TokenTransaction{
-			UserID:      user.ID,
-			Amount:      registerBonusStardust,
-			Type:        "bonus",
-			RelatedID:   fmt.Sprintf("register_%d", user.ID),
-			Description: "注册赠送200万星尘",
-			Cost:        0,
-			Currency:    "CNY",
+			UserID:           user.ID,
+			Amount:           registerBonusStardust,
+			Type:             "bonus",
+			RelatedID:        fmt.Sprintf("register_%d", user.ID),
+			Description:      "注册赠送200万星尘",
+			TotalTokens:      int(registerBonusStardust),
+			Cost:             0,
+			Currency:         "CNY",
 		}
 		if err := tx.Create(&transaction).Error; err != nil {
 			return err
@@ -185,7 +187,7 @@ func (s *AuthService) Login(req *LoginRequest) (*LoginResponse, error) {
 	}
 
 	// 验证密码（前端传来的已经是 MD5，这里验证 bcrypt）
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+	if err := comparePassword(user.Password, req.Password); err != nil {
 		return nil, ErrInvalidPassword
 	}
 
@@ -211,6 +213,20 @@ func (s *AuthService) Login(req *LoginRequest) (*LoginResponse, error) {
 		Token: token,
 		User:  toPersistenceModel(user),
 	}, nil
+}
+
+func comparePassword(hashedPassword, input string) error {
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(input)); err == nil {
+		return nil
+	}
+
+	sum := md5.Sum([]byte(input))
+	md5Input := fmt.Sprintf("%x", sum)
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(md5Input)); err == nil {
+		return nil
+	}
+
+	return ErrInvalidPassword
 }
 
 // GetUserByID 根据 ID 获取用户
@@ -350,13 +366,14 @@ func (s *AuthService) EmailLogin(req *EmailLoginRequest) (*LoginResponse, error)
 				return err
 			}
 			transaction := userModels.TokenTransaction{
-				UserID:      user.ID,
-				Amount:      registerBonusStardust,
-				Type:        "bonus",
-				RelatedID:   fmt.Sprintf("email_login_%d", user.ID),
-				Description: "注册赠送200万星尘",
-				Cost:        0,
-				Currency:    "CNY",
+				UserID:           user.ID,
+				Amount:           registerBonusStardust,
+				Type:             "bonus",
+				RelatedID:        fmt.Sprintf("email_login_%d", user.ID),
+				Description:      "注册赠送200万星尘",
+				TotalTokens:      int(registerBonusStardust),
+				Cost:             0,
+				Currency:         "CNY",
 			}
 			if err := tx.Create(&transaction).Error; err != nil {
 				return err
@@ -457,13 +474,14 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 			return err
 		}
 		transaction := userModels.TokenTransaction{
-			UserID:      user.ID,
-			Amount:      registerBonusStardust,
-			Type:        "bonus",
-			RelatedID:   fmt.Sprintf("email_register_%d", user.ID),
-			Description: "注册赠送200万星尘",
-			Cost:        0,
-			Currency:    "CNY",
+			UserID:           user.ID,
+			Amount:           registerBonusStardust,
+			Type:             "bonus",
+			RelatedID:        fmt.Sprintf("email_register_%d", user.ID),
+			Description:      "注册赠送200万星尘",
+			TotalTokens:      int(registerBonusStardust),
+			Cost:             0,
+			Currency:         "CNY",
 		}
 		if err := tx.Create(&transaction).Error; err != nil {
 			return err
@@ -609,13 +627,14 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 				}
 			}
 			transaction := userModels.TokenTransaction{
-				UserID:      user.ID,
-				Amount:      registerBonusStardust,
-				Type:        "bonus",
-				RelatedID:   fmt.Sprintf("oauth_%s_%d", provider, user.ID),
-				Description: "OAuth 注册赠送200万星尘",
-				Cost:        0,
-				Currency:    "CNY",
+				UserID:           user.ID,
+				Amount:           registerBonusStardust,
+				Type:             "bonus",
+				RelatedID:        fmt.Sprintf("oauth_%s_%d", provider, user.ID),
+				Description:      "OAuth 注册赠送200万星尘",
+				TotalTokens:      int(registerBonusStardust),
+				Cost:             0,
+				Currency:         "CNY",
 			}
 			_ = database.DB.Create(&transaction).Error
 			if inviterID != 0 {

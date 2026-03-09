@@ -32,6 +32,10 @@ var (
 	ServerPort string
 	ServerMode string
 
+	AdminBootstrapUsername string
+	AdminBootstrapEmail    string
+	AdminBootstrapPassword string
+
 	// AI预设模型配置（从.env读取，系统级别的共享配置）
 	DeepSeekAPIKey string // DeepSeek预设API Key
 	DoubaoAPIKey   string // 豆包预设API Key
@@ -148,6 +152,9 @@ func LoadConfig() error {
 	// 服务器配置
 	ServerPort = getEnv("SERVER_PORT", "8080")
 	ServerMode = getEnv("SERVER_MODE", "debug")
+	AdminBootstrapUsername = getEnv("ADMIN_BOOTSTRAP_USERNAME", "")
+	AdminBootstrapEmail = getEnv("ADMIN_BOOTSTRAP_EMAIL", "")
+	AdminBootstrapPassword = getEnv("ADMIN_BOOTSTRAP_PASSWORD", "")
 
 	// AI预设模型配置（可选，如果未配置则用户需要自己配置）
 	DeepSeekAPIKey = getEnv("DEEPSEEK_API_KEY", "")
