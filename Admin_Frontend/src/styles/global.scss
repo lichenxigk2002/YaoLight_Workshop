@@ -1,0 +1,55 @@
+:root {
+  color-scheme: light;
+  --admin-bg: #f5f3ff;
+  --admin-panel: #fafaff;
+  --admin-ink: #1f2937;
+  --admin-ink-soft: #5b6472;
+  --admin-line: rgba(31, 41, 55, 0.1);
+  --admin-brand: #8b5cf6;
+  --admin-accent: #60a5fa;
+  --admin-shadow: 0 20px 40px rgba(139, 92, 246, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "IBM Plex Sans", "Aptos", "Segoe UI", sans-serif;
+  color: var(--admin-ink);
+  background: var(--admin-bg);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.ant-app,
+.ant-layout {
+  min-height: 100vh;
+}
+
+.ant-card {
+  border: 1px solid var(--admin-line);
+}
+
+.ant-table-wrapper .ant-table {
+  border-radius: 16px;
+  overflow: hidden;
+}
+

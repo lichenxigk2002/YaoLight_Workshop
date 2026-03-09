@@ -56,13 +56,14 @@ func (s *InvitationService) ProcessInviteReward(tx *gorm.DB, inviterID, inviteeI
 	}
 	// 2. 创建邀请人流水（收入）
 	transaction := userModels.TokenTransaction{
-		UserID:      inviterID,
-		Amount:      inviteBonusStardust,
-		Type:        "bonus",
-		RelatedID:   fmt.Sprintf("invite_%d", inviteeID),
-		Description: "邀请新用户",
-		Cost:        0,
-		Currency:    "CNY",
+		UserID:       inviterID,
+		Amount:       inviteBonusStardust,
+		Type:         "bonus",
+		RelatedID:    fmt.Sprintf("invite_%d", inviteeID),
+		Description:  "邀请新用户",
+		TotalTokens:  int(inviteBonusStardust),
+		Cost:         0,
+		Currency:     "CNY",
 	}
 	if err := tx.Create(&transaction).Error; err != nil {
 		return fmt.Errorf("创建邀请流水失败: %w", err)

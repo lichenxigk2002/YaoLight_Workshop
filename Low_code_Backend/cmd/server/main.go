@@ -14,6 +14,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/redis"
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
+	billingControllers "yaolight-workshop/backend/modules/billing/controllers"
 	artifactControllers "yaolight-workshop/backend/modules/artifact/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	notificationModule "yaolight-workshop/backend/modules/notification"
@@ -64,7 +65,14 @@ func main() {
 	r := gin.Default()
 
 	// 配置 CORS（允许跨域请求：本地开发 + 生产环境 FRONTEND_URL）
-	allowOrigins := []string{"http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173"}
+	allowOrigins := []string{
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+		"http://localhost:3200",
+		"http://127.0.0.1:3200",
+		"http://localhost:5173",
+		"http://127.0.0.1:5173",
+	}
 	if config.FrontendURL != "" {
 		allowOrigins = append(allowOrigins, config.FrontendURL)
 	}
@@ -223,6 +231,34 @@ func main() {
 			auth.POST("/ai/models", aiController.CreateModel)
 			auth.PUT("/ai/models/:id", aiController.UpdateModel)
 			auth.DELETE("/ai/models/:id", aiController.DeleteModel)
+			adminAIController := aiControllers.NewAdminAIController()
+			adminAI := auth.Group("/admin/ai-models")
+			adminAI.Use(middleware.AdminOnlyMiddleware())
+			adminAI.GET("", adminAIController.GetModels)
+			adminAI.GET("/providers", adminAIController.GetProviders)
+			adminAI.GET("/providers/:provider", adminAIController.GetProvider)
+			adminAI.GET("/models", adminAIController.GetModels)
+			adminAI.POST("/models", adminAIController.CreateModel)
+			adminAI.GET("/models/:id", adminAIController.GetModel)
+			adminAI.PUT("/models/:id", adminAIController.UpdateModel)
+			adminAI.GET("/models/:id/capability", adminAIController.GetModelCapability)
+			adminAI.PUT("/models/:id/capability", adminAIController.UpdateModelCapability)
+			adminAI.GET("/models/:id/pricing", adminAIController.GetModelPricing)
+			adminAI.PUT("/models/:id/pricing", adminAIController.UpdateModelPricing)
+			adminAI.GET("/pricing-rules", adminAIController.GetPricingRules)
+			adminAI.GET("/usage", adminAIController.GetUsage)
+
+			// 计费运营：补救配额、管理员赠送、配额流水、订单与 Token 流水
+			adminQuotaController := billingControllers.NewAdminQuotaController()
+			adminBillingController := billingControllers.NewAdminBillingController()
+			adminBilling := auth.Group("/admin/billing")
+			adminBilling.Use(middleware.AdminOnlyMiddleware())
+			adminBilling.POST("/quotas/recover", adminQuotaController.RecoverQuota)
+			adminBilling.POST("/quotas/grant", adminQuotaController.GrantQuota)
+			adminBilling.GET("/quotas/ledger", adminQuotaController.GetQuotaLedger)
+			adminBilling.GET("/quotas/summary", adminQuotaController.GetQuotaSummary)
+			adminBilling.GET("/orders", adminBillingController.ListOrders)
+			adminBilling.GET("/token-transactions", adminBillingController.ListTokenTransactions)
 
 			// 瑶光星（Alkaid）对话相关路由
 			alkaidController := alkaidControllers.NewAlkaidController()

@@ -1,0 +1,130 @@
+﻿.page {
+  display: grid;
+  gap: 18px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metricCard {
+  border-radius: 20px;
+  box-shadow: var(--admin-shadow);
+}
+
+.metricLabel {
+  color: var(--admin-ink-soft);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.metricValue {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.metricHint {
+  color: var(--admin-ink-soft);
+  margin-top: 10px;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 18px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  border-radius: 22px;
+  box-shadow: var(--admin-shadow);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sectionTitle {
+  margin: 0;
+}
+
+.muted {
+  color: var(--admin-ink-soft);
+}
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stack {
+  display: grid;
+  gap: 16px;
+}
+
+.modelTabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.modelTab {
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  color: var(--admin-ink-soft);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--admin-line);
+}
+
+.modelTabActive {
+  color: #fff;
+  background: linear-gradient(135deg, var(--admin-accent), #b45309);
+}
+
+.jsonBox {
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: #13252a;
+  color: #effbf8;
+  font-size: 13px;
+  overflow: auto;
+}
+
+.tableSummary {
+  display: grid;
+  gap: 6px;
+}
+
+@media (max-width: 1200px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .split {
+    grid-template-columns: 1fr;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+}

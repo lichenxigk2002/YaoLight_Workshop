@@ -1,0 +1,37 @@
+﻿.shell {
+  display: grid;
+  gap: 20px;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid var(--admin-line);
+  box-shadow: var(--admin-shadow);
+}
+
+.navLink {
+  padding: 10px 14px;
+  border-radius: 999px;
+  color: var(--admin-ink-soft);
+  font-weight: 600;
+  transition: 160ms ease;
+}
+
+.navLink:hover {
+  color: var(--admin-brand);
+  background: rgba(15, 118, 110, 0.08);
+}
+
+.navLinkActive {
+  color: #fff;
+  background: linear-gradient(135deg, var(--admin-brand), #0b5a54);
+}
+
+.workspaceAlert {
+  border-radius: 18px;
+}
