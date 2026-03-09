@@ -41,6 +41,29 @@ export interface OrderStatus {
   paidAt?: string; // ISO8601 时间
 }
 
+export interface UserOrderItem {
+  orderId: string;
+  packageName: string;
+  amount: number;
+  stardust: number;
+  status: 'pending' | 'paid' | 'cancelled' | 'failed';
+  paymentMethod: 'alipay_pc' | 'alipay_qr' | 'mock';
+  paidAt?: string;
+  createdAt: string;
+}
+
+export interface UserOrderListResponse {
+  list: UserOrderItem[];
+  total: number;
+}
+
+/** 订单详情（含继续支付链接，仅待支付时有 payUrl/qrCode） */
+export interface UserOrderDetail extends UserOrderItem {
+  expiresAt?: string;
+  payUrl?: string;
+  qrCode?: string;
+}
+
 /**
  * 支付 API
  */
@@ -61,6 +84,30 @@ export const paymentApi = {
    */
   getOrderStatus: (orderId: string) =>
     http.get<OrderStatus>(`/payment/orders/${orderId}/status`),
+
+  /**
+   * 获取当前用户的订单列表
+   */
+  getMyOrders: (params: { page: number; pageSize: number }) =>
+    http.get<UserOrderListResponse>('/payment/orders', { params }),
+
+  /**
+   * 获取订单详情（含继续支付链接，仅待支付时返回 payUrl）
+   */
+  getOrderDetail: (orderId: string) =>
+    http.get<UserOrderDetail>(`/payment/orders/${orderId}/detail`),
+
+  /**
+   * 取消订单（仅待支付可取消）
+   */
+  cancelOrder: (orderId: string) =>
+    http.post(`/payment/orders/${orderId}/cancel`),
+
+  /**
+   * 删除订单（仅待支付或已取消可删）
+   */
+  deleteOrder: (orderId: string) =>
+    http.delete(`/payment/orders/${orderId}`),
 
   /**
    * 模拟支付（仅开发环境）

@@ -364,6 +364,27 @@ export async function getAIModel(id: string): Promise<AIAdminModel | null> {
   }
 }
 
+export interface UpdateAIModelPayload {
+  display_name?: string;
+  description?: string | null;
+  status?: string;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export async function updateAIModel(id: string, payload: UpdateAIModelPayload): Promise<AIAdminModel> {
+  const body: Record<string, unknown> = {};
+  if (payload.display_name !== undefined) body.display_name = payload.display_name;
+  if (payload.description !== undefined) body.description = payload.description;
+  if (payload.status !== undefined) body.status = payload.status;
+  if (payload.is_active !== undefined) body.is_active = payload.is_active;
+  if (payload.sort_order !== undefined) body.sort_order = payload.sort_order;
+  const result = await unwrap(
+    http.put<ApiEnvelope<BackendAdminModel>>(`/admin/ai-models/models/${id}`, body),
+  );
+  return mapModel(result);
+}
+
 export async function createAIModel(input: CreateAIModelInput): Promise<AIAdminModel> {
   const payload = await unwrap(
     http.post<ApiEnvelope<BackendAdminModel>>('/admin/ai-models/models', {

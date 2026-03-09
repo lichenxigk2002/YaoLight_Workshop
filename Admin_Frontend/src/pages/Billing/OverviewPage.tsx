@@ -88,9 +88,7 @@ export default function OverviewPage() {
                   <Title level={4}>
                     <UnorderedListOutlined /> 配额流水
                   </Title>
-                  <Paragraph className={styles.muted}>
-                    查看所有配额变动记录，区分「支付失败补发」与「管理员赠送」。
-                  </Paragraph>
+                  <Paragraph className={styles.muted}>查看所有配额变动记录。</Paragraph>
                 </div>
               </div>
               <div className={styles.resourceFooter}>
@@ -107,9 +105,7 @@ export default function OverviewPage() {
                   <Title level={4}>
                     <WalletOutlined /> 订单与 Token
                   </Title>
-                  <Paragraph className={styles.muted}>
-                    查看全站订单列表与 Token 流水（按用户与模型维度对齐）。
-                  </Paragraph>
+                  <Paragraph className={styles.muted}>查看全站订单列表与 Token 流水。</Paragraph>
                 </div>
               </div>
               <div className={styles.resourceFooter}>

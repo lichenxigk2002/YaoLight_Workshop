@@ -10,6 +10,7 @@ import styles from './AIModels.module.scss';
 export interface ModelDetailOutletContext {
   model: AIAdminModel;
   isDraft: boolean;
+  setModel: (model: AIAdminModel) => void;
 }
 
 function getActiveModelTab(pathname: string, id: string) {
@@ -100,7 +101,7 @@ export default function ModelDetailLayout() {
         />
       </Card>
 
-      <Outlet context={{ model, isDraft: model.id.startsWith('draft-') }} />
+      <Outlet context={{ model, isDraft: model.id.startsWith('draft-'), setModel }} />
     </div>
   );
 }

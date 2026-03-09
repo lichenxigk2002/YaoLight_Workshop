@@ -60,7 +60,9 @@ export const adminMenuItems: AdminMenuItem[] = [
       { key: 'billing-overview', path: '/billing', label: '概览' },
       { key: 'billing-quota-recovery', path: '/billing/quota-recovery', label: '补救配额' },
       { key: 'billing-admin-grant', path: '/billing/admin-grant', label: '管理员赠送' },
+      { key: 'billing-orders', path: '/billing/orders', label: '订单列表' },
       { key: 'billing-ledger', path: '/billing/ledger', label: '配额流水' },
+      { key: 'billing-token-ledger', path: '/billing/token-ledger', label: 'Token 流水' },
     ],
   },
   {

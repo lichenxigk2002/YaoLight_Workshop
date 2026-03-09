@@ -38,9 +38,19 @@ export default function Settings() {
           label: t('settings.recharge'),
         },
         {
+          key: 'orders',
+          icon: <FileTextOutlined />,
+          label: t('settings.orders', '我的订单'),
+        },
+        {
           key: 'billing',
           icon: <FileTextOutlined />,
-          label: t('settings.billing'),
+          label: t('settings.billingOverview', '账单概览'),
+        },
+        {
+          key: 'token-transactions',
+          icon: <FileTextOutlined />,
+          label: t('settings.tokenTransactionsTitle', 'Token 流水'),
         },
         {
           key: 'invite',
