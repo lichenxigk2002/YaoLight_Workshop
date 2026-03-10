@@ -1,4 +1,5 @@
 import {
+  ClockCircleOutlined,
   ApartmentOutlined,
   AuditOutlined,
   BellOutlined,
@@ -20,6 +21,7 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   TeamOutlined,
+  WarningOutlined,
   WalletFilled,
   WalletOutlined,
 } from '@ant-design/icons';
@@ -65,7 +67,16 @@ export const adminMenuItems: AdminMenuItem[] = [
       { key: 'ai-models-usage', path: '/ai-models/usage', label: 'menu.aiModelsUsage', icon: <FundProjectionScreenOutlined /> },
     ],
   },
-  { key: 'tasks', path: '/tasks', label: 'menu.tasks', icon: <DatabaseOutlined /> },
+  {
+    key: 'tasks',
+    label: 'menu.tasks',
+    icon: <DatabaseOutlined />,
+    children: [
+      { key: 'tasks-overview', path: '/tasks', label: 'menu.tasksOverview', icon: <RadarChartOutlined /> },
+      { key: 'tasks-running', path: '/tasks/running', label: 'menu.tasksRunning', icon: <ClockCircleOutlined /> },
+      { key: 'tasks-failures', path: '/tasks/failures', label: 'menu.tasksFailures', icon: <WarningOutlined /> },
+    ],
+  },
   {
     key: 'billing',
     label: 'menu.billing',

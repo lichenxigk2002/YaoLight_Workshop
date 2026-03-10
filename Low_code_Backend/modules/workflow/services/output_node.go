@@ -207,7 +207,7 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 	emailAttachments := make([]email.Attachment, 0, len(files))
 
 	for _, f := range files {
-		a, aErr := artifactSvc.CreateLocalFileArtifact(artifactServices.CreateArtifactInput{
+		a, aErr := artifactSvc.CreateArtifact(artifactServices.CreateArtifactInput{
 			UserID:     meta.UserID,
 			WorkflowID: meta.WorkflowID,
 			TaskID:     meta.TaskID,

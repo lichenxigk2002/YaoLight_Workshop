@@ -11,10 +11,10 @@ import NotFoundPage from '@/pages/NotFound';
 import OperationLogsPage from '@/pages/OperationLogs';
 import PermissionsPage from '@/pages/Permissions';
 import SystemConfigsPage from '@/pages/SystemConfigs';
-import TasksPage from '@/pages/Tasks';
 import UsersPage from '@/pages/Users';
 import WorkflowTemplatesPage from '@/pages/WorkflowTemplates';
 import aiAdminRoutes from '@/pages/AIModels/routes';
+import tasksRoutes from '@/pages/Tasks/routes';
 
 const router = createBrowserRouter(
   [
@@ -37,7 +37,7 @@ const router = createBrowserRouter(
         { path: 'node-types', element: <NodeTypesPage /> },
         { path: 'crawler-rules', element: <CrawlerRulesPage /> },
         aiAdminRoutes,
-        { path: 'tasks', element: <TasksPage /> },
+        tasksRoutes,
         billingRoutes,
         { path: 'system-configs', element: <SystemConfigsPage /> },
         { path: 'notifications', element: <NotificationsPage /> },

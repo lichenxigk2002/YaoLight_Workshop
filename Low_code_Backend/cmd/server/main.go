@@ -16,6 +16,7 @@ import (
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
 	artifactControllers "yaolight-workshop/backend/modules/artifact/controllers"
 	billingControllers "yaolight-workshop/backend/modules/billing/controllers"
+	crawlerControllers "yaolight-workshop/backend/modules/crawler/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	notificationModule "yaolight-workshop/backend/modules/notification"
 	notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
@@ -78,7 +79,7 @@ func main() {
 	}
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     allowOrigins,
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cache-Control"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
 		AllowCredentials: true,
@@ -218,6 +219,22 @@ func main() {
 			auth.GET("/tasks/:id/node-executions", taskController.GetTaskNodeExecutions) // 获取任务的节点执行记录
 			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs)                      // 获取任务日志
 
+			adminTaskController := taskControllers.NewAdminTaskController()
+			adminTasks := auth.Group("/admin/tasks")
+			adminTasks.Use(middleware.AdminOnlyMiddleware())
+			adminTasks.GET("", adminTaskController.ListTasks)
+			adminTasks.GET("/summary", adminTaskController.GetSummary)
+			adminTasks.GET("/running", adminTaskController.ListRunningTasks)
+			adminTasks.GET("/failures", adminTaskController.ListFailureTasks)
+			adminTasks.GET("/failure-stats", adminTaskController.GetFailureStats)
+			adminTasks.POST("/:id/cancel", adminTaskController.CancelTask)
+			adminTasks.POST("/:id/retry", adminTaskController.RetryTask)
+			adminTasks.GET("/:id", adminTaskController.GetTaskDetail)
+			adminTasks.GET("/:id/artifacts", adminTaskController.ListTaskArtifacts)
+			adminTasks.GET("/:id/node-executions", adminTaskController.GetTaskNodeExecutions)
+			adminTasks.GET("/:id/logs", adminTaskController.GetTaskLogs)
+			adminTasks.GET("/artifacts/:artifactId/download", adminTaskController.DownloadArtifact)
+
 			// 导出制品（输出节点生成的文件/图表等）
 			artifactController := artifactControllers.NewArtifactController()
 			auth.GET("/tasks/:id/artifacts", artifactController.ListByTask)
@@ -272,6 +289,19 @@ func main() {
 			adminUsers.GET("/:id", adminUserController.GetUser)
 			adminUsers.PUT("/:id/status", adminUserController.UpdateUserStatus)
 			adminUsers.POST("/:id/reset-password", adminUserController.ResetPassword)
+
+			adminCrawlerRuleController := crawlerControllers.NewAdminCrawlerRuleController()
+			adminCrawlerRules := auth.Group("/admin/crawler-rules")
+			adminCrawlerRules.Use(middleware.AdminOnlyMiddleware())
+			adminCrawlerRules.GET("", adminCrawlerRuleController.ListRules)
+			adminCrawlerRules.GET("/:id", adminCrawlerRuleController.GetRule)
+			adminCrawlerRules.POST("", adminCrawlerRuleController.CreateRule)
+			adminCrawlerRules.PUT("/:id", adminCrawlerRuleController.UpdateRule)
+			adminCrawlerRules.DELETE("/:id", adminCrawlerRuleController.DeleteRule)
+			adminCrawlerRules.PATCH("/:id/status", adminCrawlerRuleController.SetRuleStatus)
+			adminCrawlerRules.POST("/test", adminCrawlerRuleController.TestRule)
+			adminCrawlerRules.GET("/:id/usages", adminCrawlerRuleController.GetRuleUsages)
+			adminCrawlerRules.POST("/:id/clone", adminCrawlerRuleController.CloneRule)
 
 			// 瑶光星（Alkaid）对话相关路由
 			alkaidController := alkaidControllers.NewAlkaidController()
