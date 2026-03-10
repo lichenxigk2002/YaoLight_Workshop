@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 	"yaolight-workshop/backend/infrastructure/database"
 	artifactRepos "yaolight-workshop/backend/modules/artifact/repositories"
+	artifactServices "yaolight-workshop/backend/modules/artifact/services"
 	"yaolight-workshop/backend/modules/task/repositories"
 	"yaolight-workshop/backend/modules/task/services"
 	workflowRepos "yaolight-workshop/backend/modules/workflow/repositories"
@@ -272,7 +273,26 @@ func (c *AdminTaskController) DownloadArtifact(ctx *gin.Context) {
 		ctx.Header("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(filepath.Base(info.Name)))
 		ctx.File(info.LocalPath)
 	case "cos":
-		ctx.Redirect(http.StatusFound, info.RedirectURL)
+		// 管理端任务制品下载：为避免浏览器在 XHR/fetch 中跟随 302 重定向到 COS 域名触发 CORS，
+		// 这里不再跳转到 COS 预签名 URL，而是由后端从 COS 拉取文件内容并直接返回。
+		artifact := info.Artifact
+		if artifact == nil {
+			internalError(ctx, "failed to load artifact", errors.New("artifact model is nil for cos storage"))
+			return
+		}
+		content, err := artifactServices.ArtifactContent(artifact)
+		if err != nil {
+			internalError(ctx, "failed to read artifact content", err)
+			return
+		}
+		ctx.Header("Content-Type", info.MimeType)
+		ctx.Header("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(filepath.Base(info.Name)))
+		ctx.Header("Content-Length", strconv.FormatInt(int64(len(content)), 10))
+		ctx.Writer.WriteHeader(http.StatusOK)
+		if _, err := ctx.Writer.Write(content); err != nil {
+			// 写回客户端失败，仅记录错误
+			return
+		}
 	default:
 		internalError(ctx, "failed to load artifact", errors.New("unsupported artifact storage"))
 	}
