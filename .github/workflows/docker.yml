@@ -79,11 +79,11 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/deploy' }}
 
-      - name: Build and push frontend
+      - name: Build and push frontend (user + admin at /admin)
         uses: docker/build-push-action@v5
         with:
-          context: ./Low_code_Frontend
-          file: ./Low_code_Frontend/Dockerfile
+          context: .
+          file: ./Dockerfile.frontend
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}

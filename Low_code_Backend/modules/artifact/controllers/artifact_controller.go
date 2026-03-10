@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -120,20 +119,36 @@ func (c *ArtifactController) Download(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "制品不存在", "data": nil})
 		return
 	}
-	if a.Storage != "local" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "暂不支持该存储类型", "data": nil})
-		return
-	}
 
-	root := artifactServices.ArtifactStorageRoot()
-	absPath := filepath.Join(root, filepath.FromSlash(a.Path))
-	if _, err := os.Stat(absPath); err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "文件不存在", "data": nil})
-		return
+	switch a.Storage {
+	case "local":
+		absPath := artifactServices.ArtifactAbsolutePath(a.Path)
+		if _, err := os.Stat(absPath); err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "文件不存在", "data": nil})
+			return
+		}
+		ctx.Header("Content-Type", a.MimeType)
+		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(a.Name)))
+		ctx.File(absPath)
+	case "cos":
+		// 为避免浏览器在 XHR/fetch 中跟随 302 跳转到 COS 域名而触发 CORS，
+		// 这里不再重定向到 COS 预签名 URL，而是由后端拉取文件内容并直接返回给前端。
+		content, err := artifactServices.ArtifactContent(a)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "读取文件失败", "data": nil})
+			return
+		}
+		ctx.Header("Content-Type", a.MimeType)
+		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(a.Name)))
+		ctx.Header("Content-Length", strconv.FormatInt(int64(len(content)), 10))
+		ctx.Writer.WriteHeader(http.StatusOK)
+		if _, err := ctx.Writer.Write(content); err != nil {
+			// 写回客户端失败只能记录日志，这里简单返回
+			return
+		}
+	default:
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "暂不支持该存储类型", "data": nil})
 	}
-	ctx.Header("Content-Type", a.MimeType)
-	ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", url.PathEscape(a.Name)))
-	ctx.File(absPath)
 }
 
 func (c *ArtifactController) SendByEmail(ctx *gin.Context) {
@@ -154,7 +169,6 @@ func (c *ArtifactController) SendByEmail(ctx *gin.Context) {
 		return
 	}
 
-	root := artifactServices.ArtifactStorageRoot()
 	attachments := make([]email.Attachment, 0, len(req.ArtifactIDs))
 	body := ""
 	if req.Body != nil {
@@ -168,13 +182,7 @@ func (c *ArtifactController) SendByEmail(ctx *gin.Context) {
 			return
 		}
 
-		if a.Storage != "local" {
-			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "暂不支持该存储类型", "data": nil})
-			return
-		}
-
-		absPath := filepath.Join(root, filepath.FromSlash(a.Path))
-		b, err := os.ReadFile(absPath)
+		b, err := artifactServices.ArtifactContent(a)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "读取文件失败", "data": nil})
 			return

@@ -36,10 +36,10 @@ export const userApi = {
     http.post('/auth/send-code', { email }),
 
   /**
-   * 邮箱验证码登录
+   * 邮箱验证码登录（新用户自动注册时可传 inviteCode）
    */
-  emailLogin: (email: string, code: string) =>
-    http.post<LoginResponse>('/auth/email-login', { email, code }),
+  emailLogin: (email: string, code: string, inviteCode?: string) =>
+    http.post<LoginResponse>('/auth/email-login', { email, code, inviteCode }),
 
   /**
    * 发送注册验证码
@@ -52,6 +52,18 @@ export const userApi = {
    */
   emailRegister: (email: string, code: string) =>
     http.post<LoginResponse>('/auth/email-register', { email, code }),
+
+  /**
+   * 发送忘记密码验证码（仅已注册邮箱）
+   */
+  sendForgotPasswordCode: (email: string) =>
+    http.post('/auth/send-forgot-password-code', { email }),
+
+  /**
+   * 通过邮箱验证码重置密码（忘记密码）
+   */
+  resetPasswordByEmail: (data: { email: string; code: string; newPassword: string }) =>
+    http.post('/auth/reset-password', data),
 
   /**
    * 修改用户名
@@ -232,4 +244,26 @@ export const userApi = {
    */
   deleteAvatarHistory: (id: number) =>
     http.delete(`/users/avatar/history/${id}`),
+
+  /** 获取邀请链接 */
+  getInviteLink: () =>
+    http.get<{ inviteCode: string; inviteUrl: string }>('/users/invite/link'),
+
+  /** 获取邀请统计 */
+  getInviteStats: () =>
+    http.get<{ inviteCount: number }>('/users/invite/stats'),
+
+  /** 获取邀请记录列表 */
+  getInviteList: (params?: { page?: number; pageSize?: number }) =>
+    http.get<{ list: InviteRecord[]; total: number; page: number; pageSize: number }>('/users/invite/list', params),
 };
+
+export interface InviteRecord {
+  id: number;
+  invitee_id: number;
+  username: string;
+  email: string;
+  invite_code: string;
+  created_at: string;
+}
+

@@ -1,0 +1,100 @@
+.container {
+  padding: 0 24px 24px;
+}
+
+.inviteCard {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.inviteHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.inviteIcon {
+  font-size: 32px;
+  color: #1890ff;
+}
+
+.inviteDesc {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.inviteActions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.inviteUrlBox {
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-secondary);
+}
+
+.inviteUrl {
+  display: block;
+  margin-top: 8px;
+  word-break: break-all;
+  color: var(--text-primary);
+}
+
+.statsCard {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.statsRow {
+  display: flex;
+  gap: 48px;
+}
+
+.statItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.statIcon {
+  font-size: 28px;
+  color: var(--success);
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.listCard {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  
+  // 分页组件暗色适配
+  :global(.ant-pagination) {
+    .ant-pagination-item,
+    .ant-pagination-prev,
+    .ant-pagination-next {
+      background: var(--bg-primary) !important;
+      border-color: var(--border-primary) !important;
+      a, .anticon {
+        color: var(--text-primary) !important;
+      }
+    }
+    .ant-pagination-options {
+      .ant-select-selector {
+        background: var(--bg-primary) !important;
+        border-color: var(--border-primary) !important;
+        color: var(--text-primary) !important;
+      }
+    }
+  }
+}

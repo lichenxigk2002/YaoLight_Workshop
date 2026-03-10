@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Button, Card, DatePicker, Segmented, Tabs, Typography } from 'antd';
+import { App, Button, Card, DatePicker, Segmented, Typography } from 'antd';
 import type { DatePickerProps } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import { useNavigate } from 'react-router-dom';
 import { userApi } from '@/api/user';
 import { useAuthStore } from '@/store/auth';
 import { StardustIcon } from '@/components/Icons';
@@ -23,15 +24,13 @@ export default function Billing() {
   const { t } = useTranslation();
   const { message } = App.useApp();
   const { user, setUser } = useAuthStore();
+  const navigate = useNavigate();
 
   const [billLoading, setBillLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [period, setPeriod] = useState<BillPeriod>('month');
   const [billDate, setBillDate] = useState<Dayjs>(() => dayjs());
   const [billSummary, setBillSummary] = useState<BillSummary | null>(null);
-  const [filterStartDate, setFilterStartDate] = useState<string | undefined>();
-  const [filterEndDate, setFilterEndDate] = useState<string | undefined>();
-  const [activeTab, setActiveTab] = useState('statistics');
 
   const buildBillParams = useCallback(
     (p: BillPeriod, d: Dayjs): BillSummaryParams => {
@@ -97,14 +96,10 @@ export default function Billing() {
     if (!billSummary) return;
     const start = billSummary.start_at?.slice(0, 10);
     const end = billSummary.end_at?.slice(0, 10);
-    setFilterStartDate(start);
-    setFilterEndDate(end);
-    setActiveTab('transactions');
-  };
-
-  const handleClearFilter = () => {
-    setFilterStartDate(undefined);
-    setFilterEndDate(undefined);
+    const searchParams = new URLSearchParams();
+    if (start) searchParams.set('start', start);
+    if (end) searchParams.set('end', end);
+    navigate(`/settings/token-transactions?${searchParams.toString()}`);
   };
 
   const handleExportPDF = async () => {
@@ -128,25 +123,6 @@ export default function Billing() {
     },
     [period]
   );
-
-  const items = [
-    {
-      key: 'statistics',
-      label: t('settings.usageStatistics'),
-      children: <Statistics />,
-    },
-    {
-      key: 'transactions',
-      label: t('settings.transactionHistory'),
-      children: (
-        <TransactionList
-          filterStartDate={filterStartDate}
-          filterEndDate={filterEndDate}
-          onClearDateFilter={handleClearFilter}
-        />
-      ),
-    },
-  ];
 
   return (
     <div className={styles.container}>
@@ -217,7 +193,9 @@ export default function Billing() {
       </Card>
 
       <div style={{ marginTop: 24 }}>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={items} type="card" />
+        <Card bordered={false}>
+          <Statistics />
+        </Card>
       </div>
     </div>
   );

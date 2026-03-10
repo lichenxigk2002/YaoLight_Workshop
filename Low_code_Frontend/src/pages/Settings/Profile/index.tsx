@@ -18,6 +18,7 @@ import {
   LinkOutlined,
   IdcardOutlined,
   LeftOutlined,
+  LockOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -62,6 +63,14 @@ export default function ProfileInfo() {
   const [formDeactivate] = Form.useForm();
   const [formEmailChange] = Form.useForm();
   const [formEmailUnbind] = Form.useForm();
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [formPassword] = Form.useForm();
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [forgotPasswordModalOpen, setForgotPasswordModalOpen] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState<1 | 2>(1);
+  const [forgotPasswordCountdown, setForgotPasswordCountdown] = useState(0);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [formForgotPassword] = Form.useForm();
 
   const refreshUserInfo = async () => {
     try {
@@ -134,6 +143,11 @@ export default function ProfileInfo() {
     const t = setTimeout(() => setEmailUnbindCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [emailUnbindCountdown]);
+  useEffect(() => {
+    if (forgotPasswordCountdown <= 0) return;
+    const timer = setTimeout(() => setForgotPasswordCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [forgotPasswordCountdown]);
 
   const handleUpdateUsername = async (values: { username: string }) => {
     try {
@@ -344,6 +358,65 @@ export default function ProfileInfo() {
 
   const displayEmail = user?.email && !isUnboundEmail(user.email) ? user.email : t('profile.emailUnboundDisplay');
 
+  const handlePasswordSubmit = async (values: { oldPassword?: string; newPassword: string; confirmPassword?: string }) => {
+    try {
+      setPasswordLoading(true);
+      await userApi.changePassword({
+        oldPassword: user?.has_password ? values.oldPassword : undefined,
+        newPassword: values.newPassword,
+      });
+      message.success(user?.has_password ? t('profile.passwordUpdated', '密码已更新') : t('profile.setPasswordSuccess', '密码设置成功'));
+      setPasswordModalOpen(false);
+      formPassword.resetFields();
+      await refreshUserInfo();
+    } catch (e: any) {
+      message.error(e?.message || t('common.operationFailed'));
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleForgotPasswordSendCode = async () => {
+    const email = user?.email;
+    if (!email || isUnboundEmail(email)) {
+      message.error(t('profile.forgotPasswordNeedEmail', '请先绑定邮箱后再使用忘记密码'));
+      return;
+    }
+    try {
+      await userApi.sendForgotPasswordCode(email);
+      message.success(t('profile.forgotCodeSent', '验证码已发送，请查收邮件'));
+      setForgotPasswordStep(2);
+      setForgotPasswordCountdown(60);
+    } catch (e: any) {
+      message.error(e?.message || t('common.operationFailed'));
+    }
+  };
+
+  const handleForgotPasswordReset = async (values: { code: string; newPassword: string; confirmPassword: string }) => {
+    const email = user?.email;
+    if (!email || isUnboundEmail(email)) {
+      message.error(t('profile.forgotPasswordNeedEmail', '请先绑定邮箱后再使用忘记密码'));
+      return;
+    }
+    try {
+      setForgotPasswordLoading(true);
+      await userApi.resetPasswordByEmail({
+        email,
+        code: values.code,
+        newPassword: values.newPassword,
+      });
+      message.success(t('profile.resetPasswordSuccess', '密码已重置'));
+      setForgotPasswordModalOpen(false);
+      setForgotPasswordStep(1);
+      formForgotPassword.resetFields();
+      await refreshUserInfo();
+    } catch (e: any) {
+      message.error(e?.message || t('common.operationFailed'));
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
   const detailItems: { key: string; label: string; value: string; icon: React.ReactNode }[] = [
     { key: 'username', label: t('profile.username'), value: user?.username ?? '', icon: <UserOutlined /> },
     { key: 'email', label: t('profile.email'), value: displayEmail, icon: <MailOutlined /> },
@@ -533,6 +606,45 @@ export default function ProfileInfo() {
       </div>
 
       <div className={styles.detailCard} style={{ marginTop: 24 }}>
+        <div className={styles.detailRow}>
+          <span className={styles.detailLabel}>
+            <span className={styles.detailIcon}><LockOutlined /></span>
+            {t('profile.password', '登录密码')}
+          </span>
+          <span className={styles.detailValue}>
+            {user?.has_password
+              ? t('profile.passwordSet', '已设置')
+              : t('profile.passwordNotSet', '未设置（建议设置后可使用账号密码登录）')}
+            <Button
+              type="link"
+              size="small"
+              style={{ marginLeft: 8 }}
+              onClick={() => {
+                formPassword.resetFields();
+                setPasswordModalOpen(true);
+              }}
+            >
+              {user?.has_password ? t('profile.changePassword', '修改密码') : t('profile.setPassword', '设置密码')}
+            </Button>
+            {user?.has_password && (
+              <Button
+                type="link"
+                size="small"
+                style={{ marginLeft: 4 }}
+                onClick={() => {
+                  setForgotPasswordStep(1);
+                  formForgotPassword.resetFields();
+                  setForgotPasswordModalOpen(true);
+                }}
+              >
+                {t('profile.forgotPassword', '忘记密码？')}
+              </Button>
+            )}
+          </span>
+        </div>
+      </div>
+
+      <div className={styles.detailCard} style={{ marginTop: 24 }}>
         <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 8, marginBottom: 4 }}>
           <span className={styles.detailLabel} style={{ fontWeight: 600 }}>
             <span className={styles.detailIcon}><LinkOutlined /></span>
@@ -591,6 +703,180 @@ export default function ProfileInfo() {
           </span>
         </div>
       </div>
+
+      <Modal
+        title={user?.has_password ? t('profile.changePassword', '修改密码') : t('profile.setPassword', '设置密码')}
+        open={passwordModalOpen}
+        onCancel={() => {
+          setPasswordModalOpen(false);
+          formPassword.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+        className={styles.centeredModal}
+      >
+        <div className={styles.modalFormWrap}>
+          <Form
+            form={formPassword}
+            layout="vertical"
+            onFinish={handlePasswordSubmit}
+          >
+            {user?.has_password && (
+              <Form.Item
+                name="oldPassword"
+                label={t('profile.oldPassword', '当前密码')}
+                rules={[{ required: true, message: t('profile.oldPasswordRequired', '请输入当前密码') }]}
+              >
+                <Input.Password placeholder={t('profile.oldPasswordPlaceholder', '请输入当前密码')} size="small" autoComplete="current-password" />
+              </Form.Item>
+            )}
+            <Form.Item
+              name="newPassword"
+              label={t('profile.newPassword', '新密码')}
+              rules={[
+                { required: true, message: t('profile.newPasswordRequired', '请输入新密码') },
+                { min: 6, message: t('profile.passwordMinLength', '密码至少 6 位') },
+              ]}
+            >
+              <Input.Password placeholder={t('profile.newPasswordPlaceholder', '至少 6 位')} size="small" autoComplete="new-password" />
+            </Form.Item>
+            <Form.Item
+              name="confirmPassword"
+              label={t('profile.confirmPassword', '确认新密码')}
+              dependencies={['newPassword']}
+              rules={[
+                { required: true, message: t('profile.confirmPasswordRequired', '请再次输入新密码') },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('newPassword') === value) return Promise.resolve();
+                    return Promise.reject(new Error(t('profile.passwordMismatch', '两次输入的密码不一致')));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password placeholder={t('profile.confirmPasswordPlaceholder', '再次输入新密码')} size="small" autoComplete="new-password" />
+            </Form.Item>
+            <Form.Item style={{ marginBottom: 0 }}>
+              <Button type="primary" size="small" htmlType="submit" loading={passwordLoading} style={{ marginRight: 8 }}>
+                {t('common.ok')}
+              </Button>
+              <Button size="small" onClick={() => { setPasswordModalOpen(false); formPassword.resetFields(); }}>
+                {t('common.cancel')}
+              </Button>
+            </Form.Item>
+          </Form>
+        </div>
+      </Modal>
+
+      <Modal
+        title={t('profile.forgotPassword', '忘记密码？')}
+        open={forgotPasswordModalOpen}
+        onCancel={() => {
+          setForgotPasswordModalOpen(false);
+          setForgotPasswordStep(1);
+          formForgotPassword.resetFields();
+        }}
+        footer={null}
+        destroyOnClose
+        className={styles.centeredModal}
+      >
+        <div className={styles.modalFormWrap}>
+          {forgotPasswordStep === 1 ? (
+            <>
+              <Form layout="vertical">
+                <Form.Item label={t('profile.email')}>
+                  <Input value={user?.email && !isUnboundEmail(user.email) ? user.email : ''} readOnly size="small" />
+                </Form.Item>
+                {isUnboundEmail(user?.email) ? (
+                  <p style={{ color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+                    {t('profile.forgotPasswordNeedEmail', '请先绑定邮箱后再使用忘记密码')}
+                  </p>
+                ) : null}
+              </Form>
+              <div style={{ marginTop: 16 }}>
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={handleForgotPasswordSendCode}
+                  disabled={isUnboundEmail(user?.email)}
+                >
+                  {t('profile.getCode', '获取验证码')}
+                </Button>
+                <Button size="small" style={{ marginLeft: 8 }} onClick={() => { setForgotPasswordModalOpen(false); setForgotPasswordStep(1); }}>
+                  {t('common.cancel')}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <Form
+              form={formForgotPassword}
+              layout="vertical"
+              onFinish={handleForgotPasswordReset}
+            >
+              <Form.Item label={t('profile.email')}>
+                <Input value={user?.email} readOnly size="small" />
+              </Form.Item>
+              <Form.Item
+                name="code"
+                label={t('profile.verifyCode', '验证码')}
+                rules={[
+                  { required: true, message: t('profile.codeRequired', '请输入验证码') },
+                  { len: 6, message: t('profile.codeInvalid', '验证码为 6 位') },
+                ]}
+              >
+                <Input placeholder={t('profile.codePlaceholder', '请输入 6 位验证码')} maxLength={6} size="small" />
+              </Form.Item>
+              <div style={{ marginTop: -16, marginBottom: 16 }}>
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={handleForgotPasswordSendCode}
+                  disabled={forgotPasswordCountdown > 0}
+                >
+                  {forgotPasswordCountdown > 0 ? `${forgotPasswordCountdown} s` : t('profile.resendCode', '重新发送')}
+                </Button>
+              </div>
+              <Form.Item
+                name="newPassword"
+                label={t('profile.newPassword', '新密码')}
+                rules={[
+                  { required: true, message: t('profile.newPasswordRequired', '请输入新密码') },
+                  { min: 6, message: t('profile.passwordMinLength', '密码至少 6 位') },
+                ]}
+              >
+                <Input.Password placeholder={t('profile.newPasswordPlaceholder', '至少 6 位')} size="small" autoComplete="new-password" />
+              </Form.Item>
+              <Form.Item
+                name="confirmPassword"
+                label={t('profile.confirmPassword', '确认新密码')}
+                dependencies={['newPassword']}
+                rules={[
+                  { required: true, message: t('profile.confirmPasswordRequired', '请再次输入新密码') },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (!value || getFieldValue('newPassword') === value) return Promise.resolve();
+                      return Promise.reject(new Error(t('profile.passwordMismatch', '两次输入的密码不一致')));
+                    },
+                  }),
+                ]}
+              >
+                <Input.Password placeholder={t('profile.confirmPasswordPlaceholder', '再次输入新密码')} size="small" autoComplete="new-password" />
+              </Form.Item>
+              <Form.Item style={{ marginBottom: 0 }}>
+                <Button type="primary" size="small" htmlType="submit" loading={forgotPasswordLoading} style={{ marginRight: 8 }}>
+                  {t('profile.resetPasswordButton', '重置密码')}
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => { setForgotPasswordStep(1); formForgotPassword.resetFields(); }}
+                >
+                  {t('profile.changeEmail', '更换邮箱')}
+                </Button>
+              </Form.Item>
+            </Form>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         title={t('profile.modifyUsername')}

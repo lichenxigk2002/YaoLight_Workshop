@@ -3,6 +3,20 @@
 
 <head>
   <meta charset="UTF-8" />
+  <script>
+    (function(){
+      try {
+        var s = localStorage.getItem('theme-storage');
+        if (s) {
+          var j = JSON.parse(s);
+          var theme = j && j.state && j.state.theme;
+          if (theme === 'dark' || theme === 'light') {
+            document.documentElement.setAttribute('data-theme', theme);
+          }
+        }
+      } catch(e) {}
+    })();
+  </script>
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/YaoLight.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />

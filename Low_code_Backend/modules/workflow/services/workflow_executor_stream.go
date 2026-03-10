@@ -26,6 +26,54 @@ import (
 // contentType: "reasoning" 表示思考内容, "content" 表示正式内容, "" 表示未指定（向后兼容）
 type StreamCallback func(nodeID string, content string, done bool, contentType string, err error)
 
+func jsonbFromPayload(payload interface{}) *shared.JSONB {
+	if payload == nil {
+		return nil
+	}
+	return &shared.JSONB{Data: payload}
+}
+
+func collectTerminalNodes(nodes []NodeConfig, edges []EdgeConfig) []NodeConfig {
+	hasOutgoing := make(map[string]bool, len(nodes))
+	for _, edge := range edges {
+		hasOutgoing[edge.Source] = true
+	}
+
+	terminalNodes := make([]NodeConfig, 0)
+	for _, node := range nodes {
+		if !hasOutgoing[node.ID] {
+			terminalNodes = append(terminalNodes, node)
+		}
+	}
+	return terminalNodes
+}
+
+func collectTaskResultPayload(dataFlow *DataFlow, terminalNodes []NodeConfig) *shared.JSONB {
+	if len(terminalNodes) == 0 {
+		return nil
+	}
+
+	resultsByNode := make(map[string]interface{}, len(terminalNodes))
+	for _, node := range terminalNodes {
+		output := dataFlow.GetNodeOutput(node.ID)
+		if output == nil || output.Payload == nil {
+			continue
+		}
+		resultsByNode[node.ID] = output.Payload
+	}
+
+	if len(resultsByNode) == 0 {
+		return nil
+	}
+	if len(resultsByNode) == 1 {
+		for _, payload := range resultsByNode {
+			return jsonbFromPayload(payload)
+		}
+	}
+
+	return jsonbFromPayload(resultsByNode)
+}
+
 // ExecuteAINodeStream 流式执行AI节点
 func (e *WorkflowExecutor) ExecuteAINodeStream(
 	ctx context.Context,
@@ -738,6 +786,12 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 	taskRepo := taskRepos.NewTaskRepository(database.DB)
 	nodeExecutionRepo := taskRepos.NewTaskNodeExecutionRepository(database.DB)
+	startNodes := e.findStartNodes(req.Nodes, req.Edges)
+	startNodeIDs := make(map[string]struct{}, len(startNodes))
+	for _, node := range startNodes {
+		startNodeIDs[node.ID] = struct{}{}
+	}
+	terminalNodes := collectTerminalNodes(req.Nodes, req.Edges)
 
 	if err := taskRepo.CreateTask(task); err != nil {
 		log.Printf("创建任务记录失败: %v", err)
@@ -845,8 +899,27 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		// 将输入输出数据转换为 JSONB
 		var inputData *shared.JSONB
 		var outputData *shared.JSONB
+		if nodeInput, err := dataFlow.GetNodeInputData(nodeID); err == nil && nodeInput != nil && nodeInput.Payload != nil {
+			inputData = jsonbFromPayload(nodeInput.Payload)
+		}
 		if result.Data != nil {
-			outputData = &shared.JSONB{Data: result.Data}
+			outputData = jsonbFromPayload(result.Data)
+		}
+
+		if outputData != nil {
+			if _, isStartNode := startNodeIDs[nodeID]; isStartNode && task.InputData == nil {
+				if len(startNodeIDs) == 1 {
+					task.InputData = outputData
+				} else {
+					task.InputData = jsonbFromPayload(map[string]interface{}{nodeID: outputData.Data})
+				}
+			} else if _, isStartNode := startNodeIDs[nodeID]; isStartNode && len(startNodeIDs) > 1 {
+				if current, ok := task.InputData.Data.(map[string]interface{}); ok {
+					current[nodeID] = outputData.Data
+				} else {
+					task.InputData = jsonbFromPayload(map[string]interface{}{nodeID: outputData.Data})
+				}
+			}
 		}
 
 		// 将 int64 转换为 int
@@ -857,6 +930,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		if err == nil && existingExecution != nil {
 			// 更新已存在的记录
 			existingExecution.Status = status
+			existingExecution.InputData = inputData
 			existingExecution.OutputData = outputData
 			existingExecution.ExecutionTime = &execTimeInt
 			existingExecution.CompletedAt = &nodeCompletedTime
@@ -967,10 +1041,85 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 	// 执行所有节点（按拓扑顺序）
 	// 找到所有起始节点（没有入边的节点）
-	startNodes := e.findStartNodes(req.Nodes, req.Edges)
 	queue := make([]string, 0)
 	for _, node := range startNodes {
 		queue = append(queue, node.ID)
+	}
+
+	cancelTaskExecution := func(cancelledBy *uint) error {
+		if task.ID == 0 {
+			return context.Canceled
+		}
+
+		cancelledAt := time.Now()
+		actualDuration := int(time.Since(taskStartTime).Milliseconds())
+
+		task.Status = "cancelled"
+		task.CancelledAt = &cancelledAt
+		task.CancelledBy = cancelledBy
+		task.ActualDuration = &actualDuration
+		task.UpdatedAt = time.Now()
+
+		executedCount := 0
+		for _, exec := range executed {
+			if exec {
+				executedCount++
+			}
+		}
+		if len(req.Nodes) > 0 {
+			task.Progress = int(float64(executedCount) / float64(len(req.Nodes)) * 100)
+		}
+
+		if err := taskRepo.UpdateTask(task); err != nil {
+			log.Printf("update cancelled task failed: %v", err)
+		}
+
+		executions, err := nodeExecutionRepo.GetByTaskID(task.ID)
+		if err == nil {
+			for i := range executions {
+				if executions[i].Status == "running" ||
+					executions[i].Status == "pending" ||
+					(executions[i].Status == "failed" && executions[i].NodeID == currentExecutingNodeID) {
+					executions[i].Status = "cancelled"
+					completedAt := time.Now()
+					executions[i].CompletedAt = &completedAt
+					if err := nodeExecutionRepo.Update(&executions[i]); err != nil {
+						log.Printf("update cancelled node execution failed: %v", err)
+					}
+				}
+			}
+		}
+
+		for _, node := range req.Nodes {
+			if !executed[node.ID] {
+				existingExecutions, err := nodeExecutionRepo.GetByTaskID(task.ID)
+				exists := false
+				if err == nil {
+					for _, exec := range existingExecutions {
+						if exec.NodeID == node.ID {
+							exists = true
+							break
+						}
+					}
+				}
+
+				if !exists {
+					pendingExecution := &taskModels.TaskNodeExecution{
+						TaskID:     task.ID,
+						NodeID:     node.ID,
+						NodeType:   node.Type,
+						Status:     "pending",
+						RetryCount: 0,
+						CreatedAt:  time.Now(),
+					}
+					if err := nodeExecutionRepo.Create(pendingExecution); err != nil {
+						log.Printf("create pending node execution failed: %v", err)
+					}
+				}
+			}
+		}
+
+		return context.Canceled
 	}
 
 	// 执行所有节点
@@ -1062,6 +1211,18 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			return ctx.Err()
 		default:
 			// 继续执行
+		}
+
+		if task.ID > 0 {
+			updatedTask, err := taskRepo.GetTaskByID(task.ID)
+			if err == nil && updatedTask != nil && updatedTask.Status == "cancelled" && updatedTask.CancelledBy != nil {
+				task.Status = updatedTask.Status
+				task.CancelledAt = updatedTask.CancelledAt
+				task.CancelledBy = updatedTask.CancelledBy
+				task.UpdatedAt = updatedTask.UpdatedAt
+				task.ActualDuration = updatedTask.ActualDuration
+				return cancelTaskExecution(updatedTask.CancelledBy)
+			}
 		}
 
 		nodeID := queue[0]
@@ -1362,6 +1523,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		task.Progress = 100
 		task.CompletedAt = &completedAt
 		task.ActualDuration = &actualDuration
+		task.Result = collectTaskResultPayload(dataFlow, terminalNodes)
 		task.UpdatedAt = time.Now()
 
 		if err := taskRepo.UpdateTask(task); err != nil {

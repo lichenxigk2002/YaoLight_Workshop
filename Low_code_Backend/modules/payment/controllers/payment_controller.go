@@ -187,6 +187,131 @@ func (c *PaymentController) HandleAlipayNotify(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "success")
 }
 
+// ListUserOrders 获取当前用户的订单列表
+// @Summary 获取当前用户的订单列表
+// @Description 按创建时间倒序返回当前登录用户的充值订单
+// @Tags 支付
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "页码，从 1 开始，默认 1"
+// @Param pageSize query int false "每页数量，默认 20，最大 100"
+// @Success 200 {object} map[string]interface{} "订单列表"
+// @Router /api/payment/orders [get]
+func (c *PaymentController) ListUserOrders(ctx *gin.Context) {
+	// 获取用户ID
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"code":    401,
+			"message": "未授权",
+			"data":    nil,
+		})
+		return
+	}
+
+	pageStr := ctx.DefaultQuery("page", "1")
+	pageSizeStr := ctx.DefaultQuery("pageSize", "20")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	pageSize, err := strconv.Atoi(pageSizeStr)
+	if err != nil || pageSize <= 0 {
+		pageSize = 20
+	}
+
+	result, err := c.paymentService.ListUserOrders(userID.(uint), page, pageSize)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取订单列表失败: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "success",
+		"data":    result,
+	})
+}
+
+// GetOrderDetail 获取当前用户的订单详情（含支付链接，仅待支付时返回）
+// @Router /api/payment/orders/:orderId/detail [get]
+func (c *PaymentController) GetOrderDetail(ctx *gin.Context) {
+	orderID := ctx.Param("orderId")
+	if orderID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "订单号不能为空", "data": nil})
+		return
+	}
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	detail, err := c.paymentService.GetOrderDetailForUser(orderID, userID.(uint))
+	if err != nil {
+		if err == services.ErrOrderNotFound {
+			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "订单不存在", "data": nil})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "success", "data": detail})
+}
+
+// CancelOrder 取消订单（仅待支付可取消）
+// @Router /api/payment/orders/:orderId/cancel [post]
+func (c *PaymentController) CancelOrder(ctx *gin.Context) {
+	orderID := ctx.Param("orderId")
+	if orderID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "订单号不能为空", "data": nil})
+		return
+	}
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	if err := c.paymentService.CancelOrder(orderID, userID.(uint)); err != nil {
+		if err == services.ErrOrderNotFound {
+			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "订单不存在", "data": nil})
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已取消订单", "data": nil})
+}
+
+// DeleteOrder 删除订单（仅待支付或已取消可删，软删除）
+// @Router /api/payment/orders/:orderId [delete]
+func (c *PaymentController) DeleteOrder(ctx *gin.Context) {
+	orderID := ctx.Param("orderId")
+	if orderID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "订单号不能为空", "data": nil})
+		return
+	}
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	if err := c.paymentService.DeleteOrder(orderID, userID.(uint)); err != nil {
+		if err == services.ErrOrderNotFound {
+			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "订单不存在", "data": nil})
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已删除", "data": nil})
+}
+
 // HandleAlipayReturn 处理支付宝同步跳转
 // @Summary 支付宝同步跳转
 // @Description 用户支付完成后跳转回网站
@@ -228,16 +353,8 @@ func (c *PaymentController) HandleAlipayReturn(ctx *gin.Context) {
 	}
 
 	// 返回订单状态（前端可以根据状态跳转）
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "success",
-		"data": gin.H{
-			"orderId": order.OrderID,
-			"status":  string(order.Status),
-			"amount":  order.Amount,
-			"stardust": order.Stardust,
-		},
-	})
+	// 重定向到前端充值页面
+	ctx.Redirect(http.StatusFound, "/settings/recharge?status=success&orderId="+order.OrderID)
 }
 
 // MockPay 模拟支付（仅开发环境）
