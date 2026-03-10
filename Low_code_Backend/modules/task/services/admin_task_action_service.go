@@ -53,6 +53,7 @@ type ArtifactDownloadInfo struct {
 	Storage     string
 	LocalPath   string
 	RedirectURL string
+	Artifact    *artifactModels.Artifact
 }
 
 func (s *AdminTaskService) CancelTask(taskID, operatorID uint) (*AdminTaskActionResponse, error) {
@@ -197,6 +198,7 @@ func (s *AdminTaskService) GetArtifactDownloadInfo(artifactID uint) (*ArtifactDo
 		Name:     artifact.Name,
 		MimeType: artifact.MimeType,
 		Storage:  artifact.Storage,
+		Artifact: artifact,
 	}
 
 	switch artifact.Storage {
