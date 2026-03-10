@@ -9,6 +9,7 @@ import NodeTypesPage from '@/pages/NodeTypes';
 import NotificationsPage from '@/pages/Notifications';
 import NotFoundPage from '@/pages/NotFound';
 import OperationLogsPage from '@/pages/OperationLogs';
+import PermissionsPage from '@/pages/Permissions';
 import SystemConfigsPage from '@/pages/SystemConfigs';
 import TasksPage from '@/pages/Tasks';
 import UsersPage from '@/pages/Users';
@@ -29,23 +30,26 @@ const router = createBrowserRouter(
         </AdminGuard>
       ),
       children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'users', element: <UsersPage /> },
-      { path: 'workflow-templates', element: <WorkflowTemplatesPage /> },
-      { path: 'node-types', element: <NodeTypesPage /> },
-      { path: 'crawler-rules', element: <CrawlerRulesPage /> },
-      aiAdminRoutes,
-      { path: 'tasks', element: <TasksPage /> },
-      billingRoutes,
-      { path: 'system-configs', element: <SystemConfigsPage /> },
-      { path: 'notifications', element: <NotificationsPage /> },
-      { path: 'operation-logs', element: <OperationLogsPage /> },
-    ],
-  },
-  {
-    path: '*',
-    element: <NotFoundPage />,
-  },
-], { basename: '/admin' });
+        { index: true, element: <DashboardPage /> },
+        { path: 'users', element: <UsersPage /> },
+        { path: 'permissions', element: <PermissionsPage /> },
+        { path: 'workflow-templates', element: <WorkflowTemplatesPage /> },
+        { path: 'node-types', element: <NodeTypesPage /> },
+        { path: 'crawler-rules', element: <CrawlerRulesPage /> },
+        aiAdminRoutes,
+        { path: 'tasks', element: <TasksPage /> },
+        billingRoutes,
+        { path: 'system-configs', element: <SystemConfigsPage /> },
+        { path: 'notifications', element: <NotificationsPage /> },
+        { path: 'operation-logs', element: <OperationLogsPage /> },
+      ],
+    },
+    {
+      path: '*',
+      element: <NotFoundPage />,
+    },
+  ],
+  { basename: '/admin' },
+);
 
 export default router;

@@ -146,6 +146,25 @@ func (c *AdminAIController) UpdateModel(ctx *gin.Context) {
 	ok(ctx, "updated", model)
 }
 
+func (c *AdminAIController) DeleteModel(ctx *gin.Context) {
+	id, okID := parseUintParam(ctx, "id")
+	if !okID {
+		return
+	}
+
+	if err := c.service.DeleteModel(id); err != nil {
+		switch {
+		case errors.Is(err, aiServices.ErrManagedModelNotFound):
+			notFound(ctx, "model not found")
+		default:
+			internalError(ctx, "failed to delete model", err)
+		}
+		return
+	}
+
+	ok(ctx, "deleted", gin.H{"id": id})
+}
+
 func (c *AdminAIController) GetModelCapability(ctx *gin.Context) {
 	id, okID := parseUintParam(ctx, "id")
 	if !okID {

@@ -14,8 +14,8 @@ import (
 	"yaolight-workshop/backend/infrastructure/redis"
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
-	billingControllers "yaolight-workshop/backend/modules/billing/controllers"
 	artifactControllers "yaolight-workshop/backend/modules/artifact/controllers"
+	billingControllers "yaolight-workshop/backend/modules/billing/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	notificationModule "yaolight-workshop/backend/modules/notification"
 	notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
@@ -244,6 +244,7 @@ func main() {
 			adminAI.POST("/models", adminAIController.CreateModel)
 			adminAI.GET("/models/:id", adminAIController.GetModel)
 			adminAI.PUT("/models/:id", adminAIController.UpdateModel)
+			adminAI.DELETE("/models/:id", adminAIController.DeleteModel)
 			adminAI.GET("/models/:id/capability", adminAIController.GetModelCapability)
 			adminAI.PUT("/models/:id/capability", adminAIController.UpdateModelCapability)
 			adminAI.GET("/models/:id/pricing", adminAIController.GetModelPricing)
@@ -262,6 +263,15 @@ func main() {
 			adminBilling.GET("/quotas/summary", adminQuotaController.GetQuotaSummary)
 			adminBilling.GET("/orders", adminBillingController.ListOrders)
 			adminBilling.GET("/token-transactions", adminBillingController.ListTokenTransactions)
+
+			adminUserController := authControllers.NewAdminUserController()
+			adminUsers := auth.Group("/admin/users")
+			adminUsers.Use(middleware.AdminOnlyMiddleware())
+			adminUsers.GET("/summary", adminUserController.GetSummary)
+			adminUsers.GET("", adminUserController.GetUsers)
+			adminUsers.GET("/:id", adminUserController.GetUser)
+			adminUsers.PUT("/:id/status", adminUserController.UpdateUserStatus)
+			adminUsers.POST("/:id/reset-password", adminUserController.ResetPassword)
 
 			// 瑶光星（Alkaid）对话相关路由
 			alkaidController := alkaidControllers.NewAlkaidController()
@@ -283,10 +293,10 @@ func main() {
 			paymentController := paymentControllers.NewPaymentController()
 			auth.POST("/payment/orders", paymentController.CreateOrder)                   // 创建订单
 			auth.GET("/payment/orders", paymentController.ListUserOrders)                 // 获取当前用户订单列表
-			auth.GET("/payment/orders/:orderId/status", paymentController.GetOrderStatus)  // 查询订单状态
-			auth.GET("/payment/orders/:orderId/detail", paymentController.GetOrderDetail)  // 订单详情（含继续支付链接）
-			auth.POST("/payment/orders/:orderId/cancel", paymentController.CancelOrder)    // 取消订单
-			auth.DELETE("/payment/orders/:orderId", paymentController.DeleteOrder)       // 删除订单
+			auth.GET("/payment/orders/:orderId/status", paymentController.GetOrderStatus) // 查询订单状态
+			auth.GET("/payment/orders/:orderId/detail", paymentController.GetOrderDetail) // 订单详情（含继续支付链接）
+			auth.POST("/payment/orders/:orderId/cancel", paymentController.CancelOrder)   // 取消订单
+			auth.DELETE("/payment/orders/:orderId", paymentController.DeleteOrder)        // 删除订单
 			auth.POST("/payment/orders/:orderId/mock-pay", paymentController.MockPay)     // 模拟支付（仅开发用）
 
 			// 站内通知 REST

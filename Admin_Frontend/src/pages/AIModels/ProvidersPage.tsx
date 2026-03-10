@@ -3,18 +3,14 @@ import { Card, Col, Empty, Row, Skeleton, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import ProviderIcon from '@/components/Icons/ProviderIcon';
 import { getAIProviders } from '@/api/aiModels';
+import { useI18n } from '@/i18n';
 import type { AIProviderSummary } from '@/types/aiModels';
 import styles from './AIModels.module.scss';
 
 const { Paragraph, Title } = Typography;
 
-const statusLabelMap = {
-  healthy: '健康',
-  degraded: '波动',
-  disabled: '停用',
-} as const;
-
 export default function ProvidersPage() {
+  const { t } = useI18n();
   const [providers, setProviders] = useState<AIProviderSummary[] | null>(null);
 
   useEffect(() => {
@@ -26,19 +22,23 @@ export default function ProvidersPage() {
   }
 
   if (providers.length === 0) {
-    return <Empty description="暂无服务商" className={styles.emptyBlock} />;
+    return <Empty description={t('aiProviders.providersEmpty')} className={styles.emptyBlock} />;
   }
+
+  const statusLabelMap = {
+    healthy: t('aiProviders.statusHealthy'),
+    degraded: t('aiProviders.statusDegraded'),
+    disabled: t('aiProviders.statusDisabled'),
+  } as const;
 
   return (
     <div className={styles.page}>
       <div className={styles.sectionHeader}>
         <div>
           <Title level={3} className={styles.sectionTitle}>
-            服务商
+            {t('aiProviders.providersTitle')}
           </Title>
-          <Paragraph className={styles.muted}>
-            服务商页面只展示接入层信息，模型、计费和能力继续在下游资源中细分管理。
-          </Paragraph>
+          <Paragraph className={styles.muted}>{t('aiProviders.providersDescription')}</Paragraph>
         </div>
       </div>
 
@@ -69,7 +69,10 @@ export default function ProvidersPage() {
                 </div>
                 <div className={styles.resourceFooter}>
                   <span className={styles.muted}>
-                    {provider.active_models_count}/{provider.models_count} 个模型已启用
+                    {t('aiProviders.activeModels', {
+                      active: provider.active_models_count,
+                      total: provider.models_count,
+                    })}
                   </span>
                   <Tag>{provider.default_currency}</Tag>
                 </div>

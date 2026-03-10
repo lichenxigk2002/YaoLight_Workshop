@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Empty, Tabs } from 'antd';
+import { App, Button, Card, Empty, Popconfirm, Space, Tabs } from 'antd';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
-import { getAIModel } from '@/api/aiModels';
-import { PROVIDER_LABELS } from '@/types/aiModels';
+import { deleteAIModel, getAIModel } from '@/api/aiModels';
+import { useI18n } from '@/i18n';
 import type { AIAdminModel } from '@/types/aiModels';
+import { getAIModelStatusLabel, getAIProviderLabel } from './i18n';
 import styles from './AIModels.module.scss';
 
 export interface ModelDetailOutletContext {
@@ -23,21 +24,14 @@ function getActiveModelTab(pathname: string, id: string) {
   return `/ai-models/models/${id}`;
 }
 
-function getStatusTag(status: string) {
-  if (status === 'active') {
-    return '启用';
-  }
-  if (status === 'testing') {
-    return '测试中';
-  }
-  return status;
-}
-
 export default function ModelDetailLayout() {
+  const { message } = App.useApp();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   const [model, setModel] = useState<AIAdminModel | null | undefined>(undefined);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -67,25 +61,52 @@ export default function ModelDetailLayout() {
   }
 
   if (!model) {
-    return <Empty description="模型不存在" className={styles.emptyBlock} />;
+    return <Empty description={t('aiModels.detailNotFound')} className={styles.emptyBlock} />;
   }
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true);
+      await deleteAIModel(model.id);
+      message.success(t('aiModels.deleteSuccess'));
+      navigate('/ai-models/models');
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : t('aiModels.deleteFailed'));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="模型详情"
+        eyebrow={t('aiModels.detailEyebrow')}
         title={model.display_name}
-        description={model.description || '该模型暂未填写说明。'}
+        description={model.description || t('aiModels.detailNoDescription')}
         tags={[
-          PROVIDER_LABELS[model.provider] ?? model.provider,
+          getAIProviderLabel(model.provider, t),
           model.model_name,
-          getStatusTag(model.status),
-          model.is_active ? '已启用' : '已停用',
+          getAIModelStatusLabel(model.status, t),
+          model.is_active ? t('aiModels.modelEnabled.active') : t('aiModels.modelEnabled.inactive'),
         ]}
         action={
-          <Button onClick={() => navigate(`/ai-models/usage?modelId=${model.id}`)}>
-            查看使用统计
-          </Button>
+          <Space>
+            <Button onClick={() => navigate(`/ai-models/usage?modelId=${model.id}`)}>
+              {t('aiModels.detailActionUsage')}
+            </Button>
+            <Popconfirm
+              title={t('aiModels.deleteConfirmTitle')}
+              description={t('aiModels.deleteConfirmDescription')}
+              okText={t('aiModels.actionDelete')}
+              cancelText={t('aiModels.actionCancel')}
+              okButtonProps={{ danger: true, loading: deleting }}
+              onConfirm={() => void handleDelete()}
+            >
+              <Button danger loading={deleting}>
+                {t('aiModels.actionDelete')}
+              </Button>
+            </Popconfirm>
+          </Space>
         }
       />
 
@@ -94,9 +115,9 @@ export default function ModelDetailLayout() {
           activeKey={getActiveModelTab(location.pathname, model.id)}
           onChange={(key) => navigate(key)}
           items={[
-            { key: `/ai-models/models/${model.id}`, label: '基本信息' },
-            { key: `/ai-models/models/${model.id}/capability`, label: '能力配置' },
-            { key: `/ai-models/models/${model.id}/pricing`, label: '计费规则' },
+            { key: `/ai-models/models/${model.id}`, label: t('aiModels.tabOverview') },
+            { key: `/ai-models/models/${model.id}/capability`, label: t('aiModels.tabCapability') },
+            { key: `/ai-models/models/${model.id}/pricing`, label: t('aiModels.tabPricing') },
           ]}
         />
       </Card>

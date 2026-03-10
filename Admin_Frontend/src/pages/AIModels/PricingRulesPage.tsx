@@ -3,14 +3,16 @@ import { Button, Card, Table, Tag, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import ProviderIcon from '@/components/Icons/ProviderIcon';
 import { getAIPricingRules, getAIModels } from '@/api/aiModels';
-import { PRICING_TYPE_LABELS, PROVIDER_LABELS } from '@/types/aiModels';
+import { useI18n } from '@/i18n';
 import type { AIAdminModel, AIModelPricingRule } from '@/types/aiModels';
+import { getAIProviderLabel, getAIPricingTypeLabel } from './i18n';
 import styles from './AIModels.module.scss';
 
 const { Paragraph, Title } = Typography;
 
 export default function PricingRulesPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [rules, setRules] = useState<AIModelPricingRule[]>([]);
   const [models, setModels] = useState<AIAdminModel[]>([]);
 
@@ -25,11 +27,9 @@ export default function PricingRulesPage() {
     <div className={styles.page}>
       <div>
         <Title level={3} className={styles.sectionTitle}>
-          计费规则
+          {t('aiModels.rulesTitle')}
         </Title>
-        <Paragraph className={styles.muted}>
-          这里展示规则资源本身，方便做版本管理、历史回溯和全局搜索，不与模型基础信息混在一起。
-        </Paragraph>
+        <Paragraph className={styles.muted}>{t('aiModels.rulesDescription')}</Paragraph>
       </div>
 
       <Card bordered={false} className={styles.card}>
@@ -38,52 +38,54 @@ export default function PricingRulesPage() {
           dataSource={rules}
           columns={[
             {
-              title: '服务商',
+              title: t('aiModels.rulesColumnProvider'),
               dataIndex: 'provider',
               render: (provider: string) => (
                 <div className={styles.providerCell}>
                   <ProviderIcon provider={provider} size={18} />
                   <div className={styles.providerCellText}>
-                    <div>{PROVIDER_LABELS[provider] ?? provider}</div>
+                    <div>{getAIProviderLabel(provider, t)}</div>
                     <div className={styles.providerKey}>{provider}</div>
                   </div>
                 </div>
               ),
             },
-            { title: '模型名', dataIndex: 'model_name' },
+            { title: t('aiModels.rulesColumnModelName'), dataIndex: 'model_name' },
             {
-              title: '类型',
+              title: t('aiModels.rulesColumnType'),
               dataIndex: 'pricing_type',
-              render: (type: AIModelPricingRule['pricing_type']) => PRICING_TYPE_LABELS[type],
+              render: (type: AIModelPricingRule['pricing_type']) => getAIPricingTypeLabel(type, t),
             },
             {
-              title: '版本',
+              title: t('aiModels.rulesColumnVersion'),
               dataIndex: 'version',
               render: (version: number) => `v${version}`,
             },
-            { title: '币种', dataIndex: 'currency' },
+            { title: t('aiModels.rulesColumnCurrency'), dataIndex: 'currency' },
             {
-              title: '状态',
+              title: t('aiModels.rulesColumnStatus'),
               dataIndex: 'is_active',
               render: (isActive: boolean) => (
-                <Tag color={isActive ? 'green' : 'default'}>{isActive ? '生效中' : '历史版本'}</Tag>
+                <Tag color={isActive ? 'green' : 'default'}>
+                  {isActive ? t('aiModels.rulesStatusActive') : t('aiModels.rulesStatusHistory')}
+                </Tag>
               ),
             },
-            { title: '生效时间', dataIndex: 'effective_at' },
+            { title: t('aiModels.rulesColumnEffectiveAt'), dataIndex: 'effective_at' },
             {
-              title: '操作',
+              title: t('aiModels.rulesColumnActions'),
               key: 'actions',
-              render: (_, rule) => {
+              render: (_: unknown, rule: AIModelPricingRule) => {
                 const model = models.find(
                   (item) => item.provider === rule.provider && item.model_name === rule.model_name,
                 );
 
                 return model ? (
                   <Button type="link" onClick={() => navigate(`/ai-models/models/${model.id}/pricing`)}>
-                    前往模型规则页
+                    {t('aiModels.rulesGoModelPricing')}
                   </Button>
                 ) : (
-                  '-'
+                  t('common.none')
                 );
               },
             },

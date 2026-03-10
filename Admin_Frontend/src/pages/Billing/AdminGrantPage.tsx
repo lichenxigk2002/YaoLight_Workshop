@@ -2,10 +2,12 @@ import { Card } from 'antd';
 import { useState } from 'react';
 import AdminGrantForm from '@/features/billing/components/AdminGrantForm';
 import { grantQuota } from '@/features/billing/api/quota';
+import { useI18n } from '@/i18n';
 import type { GrantQuotaPayload } from '@/features/billing/types';
 import styles from './Billing.module.scss';
 
 export default function AdminGrantPage() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(payload: GrantQuotaPayload) {
@@ -19,9 +21,9 @@ export default function AdminGrantPage() {
 
   return (
     <div className={styles.page}>
-      <Card className={styles.card} title="管理员赠送配额">
+      <Card className={styles.card} title={t('billing.adminGrantTitle')}>
         <p className={styles.muted} style={{ marginBottom: 16 }}>
-          运营/活动赠送等场景。提交后将记入配额流水，来源类型为「管理员赠送」。
+          {t('billing.adminGrantDescription')}
         </p>
         <AdminGrantForm onSubmit={handleSubmit} loading={loading} />
       </Card>

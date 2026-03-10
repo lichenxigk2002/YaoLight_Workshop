@@ -1,4 +1,5 @@
 import { Button, Form, Input, InputNumber, message } from 'antd';
+import { useI18n } from '@/i18n';
 import type { GrantQuotaPayload } from '../types';
 
 interface AdminGrantFormProps {
@@ -7,55 +8,51 @@ interface AdminGrantFormProps {
 }
 
 export default function AdminGrantForm({ onSubmit, loading }: AdminGrantFormProps) {
+  const { t } = useI18n();
   const [form] = Form.useForm<GrantQuotaPayload>();
 
   async function handleFinish(values: GrantQuotaPayload) {
     try {
       await onSubmit(values);
-      message.success('赠送配额已提交，流水已记录');
+      message.success(t('billing.formGrantSuccess'));
       form.resetFields();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : '提交失败');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : t('billing.formSubmitFailed'));
     }
   }
 
   return (
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={handleFinish}
-      initialValues={{ quota_delta: 1000 }}
-    >
+    <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ quota_delta: 1000 }}>
       <Form.Item
         name="user_id"
-        label="用户 ID"
-        rules={[{ required: true, message: '请输入用户 ID' }]}
+        label={t('billing.formUserIdLabel')}
+        rules={[{ required: true, message: t('billing.formUserIdRequired') }]}
       >
-        <Input placeholder="例如：user-001" />
+        <Input placeholder={t('billing.formUserIdPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="quota_delta"
-        label="赠送配额数量"
-        rules={[{ required: true, message: '请输入赠送数量' }, { type: 'number', min: 1, message: '至少为 1' }]}
+        label={t('billing.formQuotaDeltaLabelGrant')}
+        rules={[
+          { required: true, message: t('billing.formQuotaDeltaRequiredGrant') },
+          { type: 'number', min: 1, message: t('billing.formQuotaDeltaMin') },
+        ]}
       >
-        <InputNumber min={1} style={{ width: '100%' }} placeholder="正整数" />
+        <InputNumber min={1} style={{ width: '100%' }} placeholder={t('billing.formQuotaDeltaPlaceholder')} />
       </Form.Item>
-      <Form.Item
-        name="campaign_id"
-        label="活动/活动 ID（选填）"
-      >
-        <Input placeholder="例如：campaign-spring-2025" />
+      <Form.Item name="campaign_id" label={t('billing.formCampaignIdLabel')}>
+        <Input placeholder={t('billing.formCampaignIdPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="remark"
-        label="赠送原因/备注"
-        rules={[{ required: true, message: '请填写原因（将记入流水）' }]}
+        label={t('billing.formRemarkLabel')}
+        rules={[{ required: true, message: t('billing.formRemarkRequired') }]}
       >
-        <Input.TextArea rows={3} placeholder="例如：春季活动赠送、投诉补偿" />
+        <Input.TextArea rows={3} placeholder={t('billing.formRemarkPlaceholder')} />
       </Form.Item>
       <Form.Item>
         <Button type="primary" htmlType="submit" loading={loading}>
-          提交赠送
+          {t('billing.formSubmitGrant')}
         </Button>
       </Form.Item>
     </Form>

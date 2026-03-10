@@ -4,19 +4,25 @@ import { GiftOutlined, ReconciliationOutlined, UnorderedListOutlined, WalletOutl
 import { Link } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
 import { getQuotaSummary } from '@/features/billing/api/quota';
+import { useI18n } from '@/i18n';
 import styles from './Billing.module.scss';
 
 const { Paragraph, Title } = Typography;
 
 export default function OverviewPage() {
+  const { t } = useI18n();
   const [summary, setSummary] = useState<{ recovery: number; gift: number; total: number; users: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+
     getQuotaSummary()
       .then((data) => {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
+
         setSummary({
           recovery: data.recovery_count,
           gift: data.gift_count,
@@ -25,8 +31,11 @@ export default function OverviewPage() {
         });
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       });
+
     return () => {
       cancelled = true;
     };
@@ -35,10 +44,10 @@ export default function OverviewPage() {
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="概览"
-        title="计费运营入口"
-        description="从运营视角管理邀请、订单、流水与配额；补救配额与管理员赠送均会写入流水。"
-        tags={['补救配额', '管理员赠送', '配额流水']}
+        eyebrow={t('billing.overviewEyebrow')}
+        title={t('billing.overviewTitle')}
+        description={t('billing.overviewDescription')}
+        tags={[t('billing.overviewTagRecovery'), t('billing.overviewTagGrant'), t('billing.overviewTagLedger')]}
       />
 
       <Row gutter={[16, 16]}>
@@ -48,15 +57,13 @@ export default function OverviewPage() {
               <div className={styles.resourceMeta}>
                 <div>
                   <Title level={4}>
-                    <ReconciliationOutlined /> 补救配额
+                    <ReconciliationOutlined /> {t('billing.cardRecoveryTitle')}
                   </Title>
-                  <Paragraph className={styles.muted}>
-                    支付失败等场景下补发用户配额，需填写订单 ID 与原因，记入流水（来源：支付失败补发）。
-                  </Paragraph>
+                  <Paragraph className={styles.muted}>{t('billing.cardRecoveryDescription')}</Paragraph>
                 </div>
               </div>
               <div className={styles.resourceFooter}>
-                <span className={styles.muted}>进入补救表单</span>
+                <span className={styles.muted}>{t('billing.cardRecoveryAction')}</span>
               </div>
             </Card>
           </Link>
@@ -67,15 +74,13 @@ export default function OverviewPage() {
               <div className={styles.resourceMeta}>
                 <div>
                   <Title level={4}>
-                    <GiftOutlined /> 管理员赠送
+                    <GiftOutlined /> {t('billing.cardGrantTitle')}
                   </Title>
-                  <Paragraph className={styles.muted}>
-                    运营/活动赠送配额，填写用户与备注，记入流水（来源：管理员赠送）。
-                  </Paragraph>
+                  <Paragraph className={styles.muted}>{t('billing.cardGrantDescription')}</Paragraph>
                 </div>
               </div>
               <div className={styles.resourceFooter}>
-                <span className={styles.muted}>进入赠送表单</span>
+                <span className={styles.muted}>{t('billing.cardGrantAction')}</span>
               </div>
             </Card>
           </Link>
@@ -86,13 +91,13 @@ export default function OverviewPage() {
               <div className={styles.resourceMeta}>
                 <div>
                   <Title level={4}>
-                    <UnorderedListOutlined /> 配额流水
+                    <UnorderedListOutlined /> {t('billing.cardLedgerTitle')}
                   </Title>
-                  <Paragraph className={styles.muted}>查看所有配额变动记录。</Paragraph>
+                  <Paragraph className={styles.muted}>{t('billing.cardLedgerDescription')}</Paragraph>
                 </div>
               </div>
               <div className={styles.resourceFooter}>
-                <span className={styles.muted}>查看流水列表</span>
+                <span className={styles.muted}>{t('billing.cardLedgerAction')}</span>
               </div>
             </Card>
           </Link>
@@ -103,35 +108,35 @@ export default function OverviewPage() {
               <div className={styles.resourceMeta}>
                 <div>
                   <Title level={4}>
-                    <WalletOutlined /> 订单与 Token
+                    <WalletOutlined /> {t('billing.cardOrdersTitle')}
                   </Title>
-                  <Paragraph className={styles.muted}>查看全站订单列表与 Token 流水。</Paragraph>
+                  <Paragraph className={styles.muted}>{t('billing.cardOrdersDescription')}</Paragraph>
                 </div>
               </div>
               <div className={styles.resourceFooter}>
-                <span className={styles.muted}>进入订单与 Token 视图</span>
+                <span className={styles.muted}>{t('billing.cardOrdersAction')}</span>
               </div>
             </Card>
           </Link>
         </Col>
       </Row>
 
-      <Card bordered={false} className={styles.card} title="快捷统计">
+      <Card bordered={false} className={styles.card} title={t('billing.quickStatsTitle')}>
         {loading && !summary ? (
           <Skeleton active paragraph={false} />
         ) : (
           <Row gutter={24}>
             <Col span={6}>
-              <Statistic title="补救笔数" value={summary?.recovery ?? 0} />
+              <Statistic title={t('billing.metricRecovery')} value={summary?.recovery ?? 0} />
             </Col>
             <Col span={6}>
-              <Statistic title="赠送笔数" value={summary?.gift ?? 0} />
+              <Statistic title={t('billing.metricGrant')} value={summary?.gift ?? 0} />
             </Col>
             <Col span={6}>
-              <Statistic title="流水条数" value={summary?.total ?? 0} />
+              <Statistic title={t('billing.metricLedger')} value={summary?.total ?? 0} />
             </Col>
             <Col span={6}>
-              <Statistic title="涉及用户" value={summary?.users ?? 0} />
+              <Statistic title={t('billing.metricUsers')} value={summary?.users ?? 0} />
             </Col>
           </Row>
         )}

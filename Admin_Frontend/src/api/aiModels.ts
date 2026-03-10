@@ -1,5 +1,6 @@
 import axios, { type AxiosResponse } from 'axios';
 import http from '@/api/http';
+import { formatDateTime as formatLocalizedDateTime } from '@/i18n/runtime';
 import type {
   AIAdminModel,
   AIModelCapabilityConfig,
@@ -75,6 +76,7 @@ interface BackendAdminModel {
   description?: string | null;
   status: 'active' | 'disabled' | 'testing';
   is_active: boolean;
+  sort_order: number;
   capability?: BackendCapabilityConfig | null;
   current_pricing?: BackendPricingRule | null;
   usage_summary: BackendUsageSummary;
@@ -179,6 +181,7 @@ function mapModel(model: BackendAdminModel): AIAdminModel {
     display_name: model.display_name,
     status: model.status,
     is_active: model.is_active,
+    sort_order: model.sort_order ?? 0,
     description: trimText(model.description),
     capability: mapCapability(model.capability),
     current_pricing: model.current_pricing ? mapPricingRule(model.current_pricing) : null,
@@ -237,20 +240,7 @@ function mapUsage(record: BackendUsageRecord): AIUsageRecord {
 }
 
 function formatDateTime(value: string): string {
-  if (!value) {
-    return value;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatLocalizedDateTime(value, undefined, value);
 }
 
 function formatDateInput(value: string): string {
@@ -396,6 +386,10 @@ export async function createAIModel(input: CreateAIModelInput): Promise<AIAdminM
     }),
   );
   return mapModel(payload);
+}
+
+export async function deleteAIModel(id: string): Promise<void> {
+  await unwrap(http.delete<ApiEnvelope<{ id: number }>>(`/admin/ai-models/models/${id}`));
 }
 
 export async function getAIModelCapability(id: string): Promise<AIModelCapabilityConfig | null> {

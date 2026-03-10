@@ -1,20 +1,29 @@
 import { Card, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useState } from 'react';
-import type { AdminOrder } from '@/features/billing/types';
 import { getAdminOrders } from '@/features/billing/api/quota';
+import { useI18n } from '@/i18n';
+import { formatDateTime } from '@/i18n/runtime';
+import type { AdminOrder } from '@/features/billing/types';
 import styles from './Billing.module.scss';
 
-function formatTime(value?: string | null) {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleString('zh-CN');
-  } catch {
-    return value;
+function getOrderStatusMeta(status: string, t: (key: string) => string) {
+  switch (status) {
+    case 'paid':
+      return { color: 'green', label: t('billing.ordersStatusPaid') };
+    case 'pending':
+      return { color: 'blue', label: t('billing.ordersStatusPending') };
+    case 'failed':
+      return { color: 'red', label: t('billing.ordersStatusFailed') };
+    case 'cancelled':
+      return { color: 'default', label: t('billing.ordersStatusCancelled') };
+    default:
+      return { color: 'default', label: status };
   }
 }
 
 export default function OrdersPage() {
+  const { locale, t } = useI18n();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [ordersPage, setOrdersPage] = useState(1);
@@ -24,75 +33,94 @@ export default function OrdersPage() {
   useEffect(() => {
     let cancelled = false;
     setOrdersLoading(true);
+
     getAdminOrders({ page: ordersPage, page_size: ordersPageSize })
       .then((res) => {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
+
         setOrders(res.list);
         setOrdersTotal(res.total);
       })
       .finally(() => {
-        if (!cancelled) setOrdersLoading(false);
+        if (!cancelled) {
+          setOrdersLoading(false);
+        }
       });
+
     return () => {
       cancelled = true;
     };
   }, [ordersPage, ordersPageSize]);
 
-  const orderColumns: ColumnsType<AdminOrder> = [
-    { title: '订单号', dataIndex: 'order_id', key: 'order_id', width: 180 },
+  const columns: ColumnsType<AdminOrder> = [
+    { title: t('billing.ordersColumnOrderId'), dataIndex: 'order_id', key: 'order_id', width: 180 },
     {
-      title: '用户',
+      title: t('billing.ordersColumnUser'),
       key: 'user',
       width: 220,
-      render: (_: unknown, r) => (
+      render: (_: unknown, record) => (
         <div>
-          <div>{r.user_username ?? '-'}</div>
+          <div>{record.user_username ?? t('common.none')}</div>
           <div style={{ fontSize: 12, color: '#999' }}>
-            ID: {r.user_id} {r.user_no ? `· NO.${r.user_no}` : ''}
+            ID: {record.user_id} {record.user_no ? `· NO.${record.user_no}` : ''}
           </div>
         </div>
       ),
     },
-    { title: '套餐', dataIndex: 'package_name', key: 'package_name', ellipsis: true },
+    { title: t('billing.ordersColumnPackage'), dataIndex: 'package_name', key: 'package_name', ellipsis: true },
     {
-      title: '金额 (CNY)',
+      title: t('billing.ordersColumnAmount'),
       dataIndex: 'amount',
       key: 'amount',
       width: 120,
-      render: (v: number) => v.toFixed(2),
+      render: (value: number) => value.toFixed(2),
     },
-    { title: '星尘', dataIndex: 'stardust', key: 'stardust', width: 100 },
+    { title: t('billing.ordersColumnStardust'), dataIndex: 'stardust', key: 'stardust', width: 100 },
     {
-      title: '状态',
+      title: t('billing.ordersColumnStatus'),
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (v: string) => {
-        const color = v === 'paid' ? 'green' : v === 'failed' ? 'red' : v === 'cancelled' ? 'default' : 'blue';
-        return <span style={{ color }}>{v}</span>;
+      render: (value: string) => {
+        const meta = getOrderStatusMeta(value, t);
+        return <span style={{ color: meta.color === 'default' ? undefined : meta.color }}>{meta.label}</span>;
       },
     },
-    { title: '创建时间', dataIndex: 'created_at', key: 'created_at', width: 160, render: formatTime },
-    { title: '支付时间', dataIndex: 'paid_at', key: 'paid_at', width: 160, render: formatTime },
+    {
+      title: t('billing.ordersColumnCreatedAt'),
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (value?: string | null) => formatDateTime(value, locale, t('common.none')),
+    },
+    {
+      title: t('billing.ordersColumnPaidAt'),
+      dataIndex: 'paid_at',
+      key: 'paid_at',
+      width: 180,
+      render: (value?: string | null) => formatDateTime(value, locale, t('common.none')),
+    },
   ];
 
   return (
     <div className={styles.page}>
-      <Card className={styles.card}>
+      <Card className={styles.card} title={t('billing.ordersTitle')}>
         <Table<AdminOrder>
           rowKey="id"
           loading={ordersLoading}
           dataSource={orders}
-          columns={orderColumns}
+          columns={columns}
           pagination={{
             current: ordersPage,
             pageSize: ordersPageSize,
             total: ordersTotal,
             showSizeChanger: true,
-            showTotal: (t) => `共 ${t} 条`,
-            onChange: (p, ps) => {
-              setOrdersPage(p);
-              setOrdersPageSize(ps || 20);
+            showTotal: (total) => t('billing.paginationTotal', { total }),
+            onChange: (page, pageSize) => {
+              setOrdersPage(page);
+              setOrdersPageSize(pageSize || 20);
             },
           }}
         />
@@ -100,4 +128,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-

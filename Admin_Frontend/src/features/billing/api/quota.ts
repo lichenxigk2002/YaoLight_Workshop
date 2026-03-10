@@ -1,4 +1,5 @@
 import http from '@/api/http';
+import { translateCurrent } from '@/i18n/runtime';
 import type {
   GrantQuotaPayload,
   AdminOrder,
@@ -35,59 +36,69 @@ function toLedgerEntry(raw: Record<string, unknown>): QuotaLedgerEntry {
 }
 
 export async function recoverQuota(payload: RecoverQuotaPayload): Promise<QuotaLedgerEntry> {
-  const { data } = await http.post<ApiEnvelope<Record<string, unknown>>>(
-    '/admin/billing/quotas/recover',
-    {
-      order_id: payload.order_id,
-      user_id: payload.user_id,
-      quota_delta: payload.quota_delta,
-      reason: payload.reason,
-    },
-  );
+  const { data } = await http.post<ApiEnvelope<Record<string, unknown>>>('/admin/billing/quotas/recover', {
+    order_id: payload.order_id,
+    user_id: payload.user_id,
+    quota_delta: payload.quota_delta,
+    reason: payload.reason,
+  });
+
   if (data.code !== 200 || !data.data) {
-    throw new Error(data.message || '补救配额失败');
+    throw new Error(data.message || translateCurrent('billing.errorRecoverFailed'));
   }
+
   return toLedgerEntry(data.data);
 }
 
 export async function grantQuota(payload: GrantQuotaPayload): Promise<QuotaLedgerEntry> {
-  const { data } = await http.post<ApiEnvelope<Record<string, unknown>>>(
-    '/admin/billing/quotas/grant',
-    {
-      user_id: payload.user_id,
-      quota_delta: payload.quota_delta,
-      remark: payload.remark,
-      campaign_id: payload.campaign_id ?? '',
-    },
-  );
+  const { data } = await http.post<ApiEnvelope<Record<string, unknown>>>('/admin/billing/quotas/grant', {
+    user_id: payload.user_id,
+    quota_delta: payload.quota_delta,
+    remark: payload.remark,
+    campaign_id: payload.campaign_id ?? '',
+  });
+
   if (data.code !== 200 || !data.data) {
-    throw new Error(data.message || '赠送配额失败');
+    throw new Error(data.message || translateCurrent('billing.errorGrantFailed'));
   }
+
   return toLedgerEntry(data.data);
 }
 
 export async function getQuotaLedger(params: QuotaLedgerParams): Promise<QuotaLedgerPage> {
-  const { data } = await http.get<ApiEnvelope<{ list: Record<string, unknown>[]; total: number; page: number; page_size: number }>>(
-    '/admin/billing/quotas/ledger',
-    { params: { page: params.page, page_size: params.page_size, user_id: params.user_id, source_type: params.source_type, start_date: params.start_date, end_date: params.end_date } },
-  );
+  const { data } = await http.get<
+    ApiEnvelope<{ list: Record<string, unknown>[]; total: number; page: number; page_size: number }>
+  >('/admin/billing/quotas/ledger', {
+    params: {
+      page: params.page,
+      page_size: params.page_size,
+      user_id: params.user_id,
+      source_type: params.source_type,
+      start_date: params.start_date,
+      end_date: params.end_date,
+    },
+  });
+
   if (data.code !== 200 || !data.data) {
-    throw new Error(data.message || '获取流水失败');
+    throw new Error(data.message || translateCurrent('billing.errorLedgerFailed'));
   }
-  const d = data.data;
+
+  const payload = data.data;
   return {
-    list: (d.list ?? []).map(toLedgerEntry),
-    total: d.total ?? 0,
-    page: d.page ?? 1,
-    page_size: d.page_size ?? 10,
+    list: (payload.list ?? []).map(toLedgerEntry),
+    total: payload.total ?? 0,
+    page: payload.page ?? 1,
+    page_size: payload.page_size ?? 10,
   };
 }
 
 export async function getQuotaSummary(): Promise<QuotaSummary> {
   const { data } = await http.get<ApiEnvelope<QuotaSummary>>('/admin/billing/quotas/summary');
+
   if (data.code !== 200 || !data.data) {
-    throw new Error(data.message || '获取配额统计失败');
+    throw new Error(data.message || translateCurrent('billing.errorSummaryFailed'));
   }
+
   return data.data;
 }
 
@@ -102,18 +113,27 @@ export async function getAdminOrders(params: AdminOrderQuery): Promise<PagedResp
   const { data } = await http.get<ApiEnvelope<PagedResponse<AdminOrder>>>('/admin/billing/orders', {
     params,
   });
+
   if (data.code !== 200 || !data.data) {
-    throw new Error(data.message || '获取订单失败');
+    throw new Error(data.message || translateCurrent('billing.errorOrdersFailed'));
   }
+
   return data.data;
 }
 
-export async function getAdminTokenTransactions(params: AdminTokenTxQuery): Promise<PagedResponse<AdminTokenTransaction>> {
-  const { data } = await http.get<ApiEnvelope<PagedResponse<AdminTokenTransaction>>>('/admin/billing/token-transactions', {
-    params,
-  });
+export async function getAdminTokenTransactions(
+  params: AdminTokenTxQuery,
+): Promise<PagedResponse<AdminTokenTransaction>> {
+  const { data } = await http.get<ApiEnvelope<PagedResponse<AdminTokenTransaction>>>(
+    '/admin/billing/token-transactions',
+    {
+      params,
+    },
+  );
+
   if (data.code !== 200 || !data.data) {
-    throw new Error(data.message || '获取 Token 流水失败');
+    throw new Error(data.message || translateCurrent('billing.errorTokenFailed'));
   }
+
   return data.data;
 }
