@@ -1,22 +1,34 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
-import { ConfigProvider, App as AntdApp } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
+import { App as AntdApp, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
+import 'dayjs/locale/en';
 import 'dayjs/locale/zh-cn';
 import App from './App';
+import { I18nProvider, useI18n } from './i18n';
 import { adminAntdTheme } from './theme/antdTheme';
 import './styles/global.scss';
 
-dayjs.locale('zh-cn');
+function AdminRoot() {
+  const { antdLocale, dayjsLocale } = useI18n();
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <ConfigProvider locale={zhCN} theme={adminAntdTheme}>
+  useEffect(() => {
+    dayjs.locale(dayjsLocale);
+  }, [dayjsLocale]);
+
+  return (
+    <ConfigProvider locale={antdLocale} theme={adminAntdTheme}>
       <AntdApp>
         <App />
       </AntdApp>
     </ConfigProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <I18nProvider>
+      <AdminRoot />
+    </I18nProvider>
   </React.StrictMode>,
 );
-

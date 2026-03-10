@@ -1,4 +1,5 @@
 import { Button, Form, Input, InputNumber, message } from 'antd';
+import { useI18n } from '@/i18n';
 import type { RecoverQuotaPayload } from '../types';
 
 interface QuotaRecoveryFormProps {
@@ -7,56 +8,55 @@ interface QuotaRecoveryFormProps {
 }
 
 export default function QuotaRecoveryForm({ onSubmit, loading }: QuotaRecoveryFormProps) {
+  const { t } = useI18n();
   const [form] = Form.useForm<RecoverQuotaPayload>();
 
   async function handleFinish(values: RecoverQuotaPayload) {
     try {
       await onSubmit(values);
-      message.success('补救配额已提交，流水已记录');
+      message.success(t('billing.formRecoverySuccess'));
       form.resetFields();
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : '提交失败');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : t('billing.formSubmitFailed'));
     }
   }
 
   return (
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={handleFinish}
-      initialValues={{ quota_delta: 1000 }}
-    >
+    <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ quota_delta: 1000 }}>
       <Form.Item
         name="order_id"
-        label="订单 ID"
-        rules={[{ required: true, message: '请输入订单 ID（用于幂等与审计）' }]}
+        label={t('billing.formOrderIdLabel')}
+        rules={[{ required: true, message: t('billing.formOrderIdRequired') }]}
       >
-        <Input placeholder="例如：order-pay-fail-001" />
+        <Input placeholder={t('billing.formOrderIdPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="user_id"
-        label="用户 ID"
-        rules={[{ required: true, message: '请输入用户 ID' }]}
+        label={t('billing.formUserIdLabel')}
+        rules={[{ required: true, message: t('billing.formUserIdRequired') }]}
       >
-        <Input placeholder="例如：user-001" />
+        <Input placeholder={t('billing.formUserIdPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="quota_delta"
-        label="补发配额数量"
-        rules={[{ required: true, message: '请输入补发数量' }, { type: 'number', min: 1, message: '至少为 1' }]}
+        label={t('billing.formQuotaDeltaLabelRecovery')}
+        rules={[
+          { required: true, message: t('billing.formQuotaDeltaRequiredRecovery') },
+          { type: 'number', min: 1, message: t('billing.formQuotaDeltaMin') },
+        ]}
       >
-        <InputNumber min={1} style={{ width: '100%' }} placeholder="正整数" />
+        <InputNumber min={1} style={{ width: '100%' }} placeholder={t('billing.formQuotaDeltaPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="reason"
-        label="补救原因"
-        rules={[{ required: true, message: '请填写原因（将记入流水）' }]}
+        label={t('billing.formReasonLabel')}
+        rules={[{ required: true, message: t('billing.formReasonRequired') }]}
       >
-        <Input.TextArea rows={3} placeholder="例如：支付回调超时，用户已扣款，补发配额" />
+        <Input.TextArea rows={3} placeholder={t('billing.formReasonPlaceholder')} />
       </Form.Item>
       <Form.Item>
         <Button type="primary" htmlType="submit" loading={loading}>
-          提交补救
+          {t('billing.formSubmitRecovery')}
         </Button>
       </Form.Item>
     </Form>

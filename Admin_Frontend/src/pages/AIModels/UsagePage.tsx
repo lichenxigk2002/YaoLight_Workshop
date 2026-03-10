@@ -3,21 +3,23 @@ import { Card, Select, Statistic, Table, Typography } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import ProviderIcon from '@/components/Icons/ProviderIcon';
 import { getAIModels, getAIUsage } from '@/api/aiModels';
-import { PROVIDER_LABELS } from '@/types/aiModels';
+import { useI18n } from '@/i18n';
 import type { AIAdminModel, AIUsageRecord } from '@/types/aiModels';
+import { getAIProviderLabel } from './i18n';
 import styles from './AIModels.module.scss';
 
 const { Paragraph, Title } = Typography;
 
-function formatNullableMetric(value?: number | null, suffix = '') {
+function formatNullableMetric(value?: number | null, suffix = '', fallback = '--') {
   if (value == null) {
-    return '--';
+    return fallback;
   }
   return `${value}${suffix}`;
 }
 
 export default function UsagePage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useI18n();
   const [models, setModels] = useState<AIAdminModel[]>([]);
   const [usage, setUsage] = useState<AIUsageRecord[]>([]);
   const modelId = searchParams.get('modelId') ?? undefined;
@@ -38,17 +40,15 @@ export default function UsagePage() {
       <div className={styles.toolbar}>
         <div>
           <Title level={3} className={styles.sectionTitle}>
-            使用统计
+            {t('aiModels.usageTitle')}
           </Title>
-          <Paragraph className={styles.muted}>
-            统计页作为独立资源保留全局视角，同时支持通过 `modelId` 过滤到某个模型上下文。
-          </Paragraph>
+          <Paragraph className={styles.muted}>{t('aiModels.usageDescription')}</Paragraph>
         </div>
         <div className={styles.filterBar}>
           <Select
             allowClear
             value={modelId}
-            placeholder="按模型筛选"
+            placeholder={t('aiModels.usageFilterPlaceholder')}
             style={{ minWidth: 240 }}
             options={models.map((item) => ({ label: item.display_name, value: item.id }))}
             onChange={(value) => {
@@ -64,16 +64,16 @@ export default function UsagePage() {
 
       <div className={styles.metrics}>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="请求量" value={totalRequests} />
+          <Statistic title={t('aiModels.usageMetricRequests')} value={totalRequests} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="总 Tokens" value={totalTokens} />
+          <Statistic title={t('aiModels.usageMetricTotalTokens')} value={totalTokens} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="总成本" prefix="$" value={totalCost} precision={2} />
+          <Statistic title={t('aiModels.usageMetricTotalCost')} prefix="$" value={totalCost} precision={2} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="统计窗口" value={usage[0]?.window_label ?? '累计'} />
+          <Statistic title={t('aiModels.usageMetricWindow')} value={usage[0]?.window_label ?? t('aiModels.usageWindowTotal')} />
         </Card>
       </div>
 
@@ -83,37 +83,37 @@ export default function UsagePage() {
           dataSource={usage}
           columns={[
             {
-              title: '服务商',
+              title: t('aiModels.usageColumnProvider'),
               dataIndex: 'provider',
               render: (provider: string) => (
                 <div className={styles.providerCell}>
                   <ProviderIcon provider={provider} size={18} />
                   <div className={styles.providerCellText}>
-                    <div>{PROVIDER_LABELS[provider] ?? provider}</div>
+                    <div>{getAIProviderLabel(provider, t)}</div>
                     <div className={styles.providerKey}>{provider}</div>
                   </div>
                 </div>
               ),
             },
-            { title: '模型', dataIndex: 'model_name' },
-            { title: '请求量', dataIndex: 'requests' },
-            { title: '输入 Tokens', dataIndex: 'input_tokens' },
-            { title: '输出 Tokens', dataIndex: 'output_tokens' },
-            { title: '总 Tokens', dataIndex: 'total_tokens' },
+            { title: t('aiModels.usageColumnModel'), dataIndex: 'model_name' },
+            { title: t('aiModels.usageColumnRequests'), dataIndex: 'requests' },
+            { title: t('aiModels.usageColumnInputTokens'), dataIndex: 'input_tokens' },
+            { title: t('aiModels.usageColumnOutputTokens'), dataIndex: 'output_tokens' },
+            { title: t('aiModels.usageColumnTotalTokens'), dataIndex: 'total_tokens' },
             {
-              title: '总成本',
+              title: t('aiModels.usageColumnCost'),
               dataIndex: 'total_cost',
               render: (value: number) => `$${value.toFixed(2)}`,
             },
             {
-              title: '成功率',
+              title: t('aiModels.usageColumnSuccessRate'),
               dataIndex: 'success_rate',
-              render: (value?: number | null) => formatNullableMetric(value, '%'),
+              render: (value?: number | null) => formatNullableMetric(value, '%', t('common.none')),
             },
             {
-              title: '平均延迟',
+              title: t('aiModels.usageColumnLatency'),
               dataIndex: 'avg_latency_ms',
-              render: (value?: number | null) => formatNullableMetric(value, ' ms'),
+              render: (value?: number | null) => formatNullableMetric(value, ' ms', t('common.none')),
             },
           ]}
         />

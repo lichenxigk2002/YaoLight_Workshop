@@ -1,25 +1,13 @@
 import { Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { useI18n } from '@/i18n';
+import { formatDateTime } from '@/i18n/runtime';
 import type { QuotaLedgerEntry, QuotaLedgerSourceType } from '../types';
-
-const sourceTypeLabels: Record<QuotaLedgerSourceType, string> = {
-  payment_recovery: '支付失败补发',
-  admin_gift: '管理员赠送',
-};
 
 const sourceTypeColors: Record<QuotaLedgerSourceType, string> = {
   payment_recovery: 'orange',
   admin_gift: 'green',
 };
-
-function formatTime(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString('zh-CN');
-  } catch {
-    return iso;
-  }
-}
 
 interface LedgerTableProps {
   dataSource: QuotaLedgerEntry[];
@@ -33,63 +21,71 @@ interface LedgerTableProps {
 }
 
 export default function LedgerTable({ dataSource, loading, pagination }: LedgerTableProps) {
+  const { locale, t } = useI18n();
+
+  const sourceTypeLabels: Record<QuotaLedgerSourceType, string> = {
+    payment_recovery: t('billing.ledgerSourcePaymentRecovery'),
+    admin_gift: t('billing.ledgerSourceAdminGift'),
+  };
+
   const columns: ColumnsType<QuotaLedgerEntry> = [
     {
-      title: '时间',
+      title: t('billing.ledgerColumnTime'),
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 170,
-      render: (v: string) => formatTime(v),
+      width: 180,
+      render: (value: string) => formatDateTime(value, locale, t('common.none')),
     },
     {
-      title: '用户',
+      title: t('billing.ledgerColumnUser'),
       key: 'user',
-      render: (_: unknown, r: QuotaLedgerEntry) => (
+      render: (_: unknown, record) => (
         <span>
-          {r.user_display || r.user_id}
-          <span style={{ color: '#999', marginLeft: 6 }}>{r.user_id}</span>
+          {record.user_display || record.user_id}
+          <span style={{ color: '#999', marginLeft: 6 }}>{record.user_id}</span>
         </span>
       ),
     },
     {
-      title: '变动',
+      title: t('billing.ledgerColumnDelta'),
       dataIndex: 'delta',
       key: 'delta',
       width: 100,
-      render: (v: number) => <span style={{ color: v > 0 ? '#52c41a' : undefined }}>+{v}</span>,
-    },
-    {
-      title: '变动后余额',
-      dataIndex: 'balance_after',
-      key: 'balance_after',
-      width: 110,
-    },
-    {
-      title: '来源',
-      dataIndex: 'source_type',
-      key: 'source_type',
-      width: 130,
-      render: (v: QuotaLedgerSourceType) => (
-        <Tag color={sourceTypeColors[v]}>{sourceTypeLabels[v]}</Tag>
+      render: (value: number) => (
+        <span style={{ color: value > 0 ? '#52c41a' : undefined }}>{value > 0 ? `+${value}` : value}</span>
       ),
     },
     {
-      title: '来源 ID',
+      title: t('billing.ledgerColumnBalanceAfter'),
+      dataIndex: 'balance_after',
+      key: 'balance_after',
+      width: 120,
+    },
+    {
+      title: t('billing.ledgerColumnSource'),
+      dataIndex: 'source_type',
+      key: 'source_type',
+      width: 140,
+      render: (value: QuotaLedgerSourceType) => <Tag color={sourceTypeColors[value]}>{sourceTypeLabels[value]}</Tag>,
+    },
+    {
+      title: t('billing.ledgerColumnSourceId'),
       dataIndex: 'source_id',
       key: 'source_id',
       ellipsis: true,
-      render: (v: string) => v || '—',
+      render: (value: string) => value || t('common.none'),
     },
     {
-      title: '操作人',
+      title: t('billing.ledgerColumnOperator'),
       key: 'operator',
-      render: (_: unknown, r: QuotaLedgerEntry) => r.operator_display || r.operator_id,
+      render: (_: unknown, record) => record.operator_display || record.operator_id || t('common.none'),
     },
     {
-      title: '备注',
+      title: t('billing.ledgerColumnRemark'),
       dataIndex: 'remark',
       key: 'remark',
       ellipsis: true,
+      render: (value: string) => value || t('common.none'),
     },
   ];
 
@@ -106,7 +102,7 @@ export default function LedgerTable({ dataSource, loading, pagination }: LedgerT
               pageSize: pagination.pageSize,
               total: pagination.total,
               showSizeChanger: true,
-              showTotal: (t) => `共 ${t} 条`,
+              showTotal: (total) => t('billing.paginationTotal', { total }),
               onChange: pagination.onChange,
             }
           : false

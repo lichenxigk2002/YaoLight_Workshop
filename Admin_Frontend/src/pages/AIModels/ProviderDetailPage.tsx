@@ -1,23 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Descriptions, Empty, Table, Tag, Typography } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import ProviderIcon from '@/components/Icons/ProviderIcon';
 import PageHero from '@/components/PageHero';
 import { getAIProvider } from '@/api/aiModels';
+import { useI18n } from '@/i18n';
 import type { AIProviderDetail } from '@/types/aiModels';
 import styles from './AIModels.module.scss';
 
 const { Paragraph } = Typography;
 
-const providerStatusLabels = {
-  healthy: '健康',
-  degraded: '波动',
-  disabled: '停用',
-} as const;
+function getModelStatusLabel(status: string, t: (key: string) => string) {
+  switch (status) {
+    case 'active':
+      return t('aiProviders.modelStatusActive');
+    case 'testing':
+      return t('aiProviders.modelStatusTesting');
+    case 'disabled':
+      return t('aiProviders.modelStatusDisabled');
+    default:
+      return status;
+  }
+}
 
 export default function ProviderDetailPage() {
   const { provider } = useParams();
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [detail, setDetail] = useState<AIProviderDetail | null | undefined>(undefined);
 
   useEffect(() => {
@@ -29,18 +38,27 @@ export default function ProviderDetailPage() {
     void getAIProvider(provider).then(setDetail);
   }, [provider]);
 
+  const providerStatusLabels = useMemo(
+    () => ({
+      healthy: t('aiProviders.statusHealthy'),
+      degraded: t('aiProviders.statusDegraded'),
+      disabled: t('aiProviders.statusDisabled'),
+    }),
+    [t],
+  );
+
   if (detail === undefined) {
     return <Card loading bordered={false} className={styles.card} />;
   }
 
   if (!detail) {
-    return <Empty description="服务商不存在" className={styles.emptyBlock} />;
+    return <Empty description={t('aiProviders.detailNotFound')} className={styles.emptyBlock} />;
   }
 
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="服务商详情"
+        eyebrow={t('aiProviders.detailEyebrow')}
         title={(
           <div className={styles.providerHeading}>
             <ProviderIcon provider={detail.key} size={28} />
@@ -48,27 +66,31 @@ export default function ProviderDetailPage() {
           </div>
         )}
         description={detail.description}
-        tags={[providerStatusLabels[detail.status], `${detail.models_count} 个模型`, detail.default_currency]}
-        action={<Button onClick={() => navigate('/ai-models/providers')}>返回列表</Button>}
+        tags={[
+          providerStatusLabels[detail.status],
+          t('aiProviders.detailTagModelCount', { count: detail.models_count }),
+          detail.default_currency,
+        ]}
+        action={<Button onClick={() => navigate('/ai-models/providers')}>{t('aiProviders.detailBack')}</Button>}
       />
 
       <div className={styles.grid}>
         <div className={styles.span5}>
-          <Card bordered={false} className={styles.card} title="服务商信息">
+          <Card bordered={false} className={styles.card} title={t('aiProviders.detailInfoTitle')}>
             <Descriptions column={1} size="small">
-              <Descriptions.Item label="标识">{detail.key}</Descriptions.Item>
-              <Descriptions.Item label="状态">
+              <Descriptions.Item label={t('aiProviders.fieldKey')}>{detail.key}</Descriptions.Item>
+              <Descriptions.Item label={t('aiProviders.fieldStatus')}>
                 <Tag
                   color={detail.status === 'healthy' ? 'green' : detail.status === 'degraded' ? 'orange' : 'default'}
                 >
                   {providerStatusLabels[detail.status]}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="默认币种">{detail.default_currency}</Descriptions.Item>
-              <Descriptions.Item label="启用模型">
+              <Descriptions.Item label={t('aiProviders.fieldCurrency')}>{detail.default_currency}</Descriptions.Item>
+              <Descriptions.Item label={t('aiProviders.fieldActiveModels')}>
                 {detail.active_models_count}/{detail.models_count}
               </Descriptions.Item>
-              <Descriptions.Item label="能力标签">
+              <Descriptions.Item label={t('aiProviders.fieldCapabilities')}>
                 {detail.capabilities.map((capability) => (
                   <Tag key={capability}>{capability}</Tag>
                 ))}
@@ -78,32 +100,30 @@ export default function ProviderDetailPage() {
         </div>
 
         <div className={styles.span7}>
-          <Card bordered={false} className={styles.card} title="挂载模型">
-            <Paragraph className={styles.muted}>
-              这里展示当前服务商下的模型资源。能力和计费继续在模型详情页中维护。
-            </Paragraph>
+          <Card bordered={false} className={styles.card} title={t('aiProviders.detailModelsTitle')}>
+            <Paragraph className={styles.muted}>{t('aiProviders.detailModelsDescription')}</Paragraph>
             <Table
               rowKey="id"
               pagination={false}
               dataSource={detail.models}
               columns={[
-                { title: '显示名', dataIndex: 'display_name' },
-                { title: '模型名', dataIndex: 'model_name' },
+                { title: t('aiProviders.tableDisplayName'), dataIndex: 'display_name' },
+                { title: t('aiProviders.tableModelName'), dataIndex: 'model_name' },
                 {
-                  title: '状态',
+                  title: t('aiProviders.tableStatus'),
                   dataIndex: 'status',
                   render: (status: string) => (
                     <Tag color={status === 'active' ? 'green' : status === 'testing' ? 'blue' : 'default'}>
-                      {status === 'active' ? '启用' : status === 'testing' ? '测试中' : status}
+                      {getModelStatusLabel(status, t)}
                     </Tag>
                   ),
                 },
                 {
-                  title: '操作',
+                  title: t('aiProviders.tableActions'),
                   key: 'actions',
-                  render: (_, record) => (
+                  render: (_: unknown, record: AIProviderDetail['models'][number]) => (
                     <Button type="link" onClick={() => navigate(`/ai-models/models/${record.id}`)}>
-                      查看详情
+                      {t('aiProviders.actionViewDetail')}
                     </Button>
                   ),
                 },

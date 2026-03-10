@@ -376,6 +376,31 @@ func (s *AdminAIService) UpdateModel(id uint, req *UpdateManagedAIModelRequest) 
 	return s.GetModel(id)
 }
 
+func (s *AdminAIService) DeleteModel(id uint) error {
+	model, err := s.managedModelRepo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrManagedModelNotFound
+		}
+		return err
+	}
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("managed_model_id = ?", model.ID).Delete(&aiModels.ModelPricingRule{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("provider = ? AND model_name = ?", model.Provider, model.ModelName).
+			Delete(&aiModels.ModelPricingConfig{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("provider = ? AND model_name = ?", model.Provider, model.ModelName).
+			Delete(&aiModels.ModelCapabilityConfig{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&aiModels.ManagedAIModel{}, model.ID).Error
+	})
+}
+
 func (s *AdminAIService) GetModelCapability(id uint) (*aiModels.ModelCapabilityConfig, error) {
 	model, err := s.managedModelRepo.FindByID(id)
 	if err != nil {

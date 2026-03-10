@@ -28,7 +28,7 @@ export async function adminLogin(values: LoginFormValues): Promise<AdminSession>
   const payload = response.data.data;
 
   if (payload.user.role !== 'admin') {
-    throw new Error('当前账号不是管理员，不能进入后台');
+    throw new Error('ADMIN_ONLY');
   }
 
   return {

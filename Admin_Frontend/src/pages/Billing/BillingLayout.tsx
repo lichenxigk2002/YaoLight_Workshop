@@ -1,15 +1,25 @@
 import { Outlet } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
+import { useI18n } from '@/i18n';
 import styles from './Billing.module.scss';
 
 export default function BillingLayout() {
+  const { t } = useI18n();
+
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="计费运营"
-        title="邀请与计费运营"
-        description="统一查看邀请增长、订单状态、Token 流水和用户配额；支持补救配额与管理员赠送，均记入流水。"
-        tags={['邀请数据', '订单', 'Token 流水', '配额调整', '补救配额', '管理员赠送']}
+        eyebrow={t('billing.layoutEyebrow')}
+        title={t('billing.layoutTitle')}
+        description={t('billing.layoutDescription')}
+        tags={[
+          t('billing.layoutTagInvite'),
+          t('billing.layoutTagOrders'),
+          t('billing.layoutTagTokenLedger'),
+          t('billing.layoutTagQuotaAdjust'),
+          t('billing.layoutTagQuotaRecovery'),
+          t('billing.layoutTagAdminGrant'),
+        ]}
       />
       <Outlet />
     </div>

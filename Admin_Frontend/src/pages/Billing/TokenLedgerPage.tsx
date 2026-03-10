@@ -1,20 +1,18 @@
 import { Card, Table, Tabs } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useState } from 'react';
-import type { AdminTokenTransaction } from '@/features/billing/types';
 import { getAdminTokenTransactions } from '@/features/billing/api/quota';
+import { useI18n } from '@/i18n';
+import { formatDateTime } from '@/i18n/runtime';
+import type { AdminTokenTransaction } from '@/features/billing/types';
 import styles from './Billing.module.scss';
 
-function formatTime(value?: string | null) {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleString('zh-CN');
-  } catch {
-    return value;
-  }
+function formatSignedNumber(value: number) {
+  return value >= 0 ? `+${value}` : String(value);
 }
 
 export default function TokenLedgerPage() {
+  const { locale, t } = useI18n();
   const [txs, setTxs] = useState<AdminTokenTransaction[]>([]);
   const [txTotal, setTxTotal] = useState(0);
   const [txPage, setTxPage] = useState(1);
@@ -25,92 +23,129 @@ export default function TokenLedgerPage() {
   useEffect(() => {
     let cancelled = false;
     setTxLoading(true);
+
     getAdminTokenTransactions({ page: txPage, page_size: txPageSize, scope: txScope })
       .then((res) => {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
+
         setTxs(res.list);
         setTxTotal(res.total);
       })
       .finally(() => {
-        if (!cancelled) setTxLoading(false);
+        if (!cancelled) {
+          setTxLoading(false);
+        }
       });
+
     return () => {
       cancelled = true;
     };
   }, [txPage, txPageSize, txScope]);
 
   const txUsageColumns: ColumnsType<AdminTokenTransaction> = [
-    { title: '时间', dataIndex: 'created_at', key: 'created_at', width: 170, render: formatTime },
     {
-      title: '用户',
+      title: t('billing.tokenColumnTime'),
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (value?: string | null) => formatDateTime(value, locale, t('common.none')),
+    },
+    {
+      title: t('billing.tokenColumnUser'),
       key: 'user',
       width: 220,
-      render: (_: unknown, r) => (
+      render: (_: unknown, record) => (
         <div>
-          <div>{r.user_username ?? '-'}</div>
+          <div>{record.user_username ?? t('common.none')}</div>
           <div style={{ fontSize: 12, color: '#999' }}>
-            ID: {r.user_id} {r.user_no ? `· NO.${r.user_no}` : ''}
+            ID: {record.user_id} {record.user_no ? `· NO.${record.user_no}` : ''}
           </div>
         </div>
       ),
     },
     {
-      title: '金额',
+      title: t('billing.tokenColumnAmount'),
       dataIndex: 'amount',
       key: 'amount',
       width: 90,
-      render: (v: number) => (v >= 0 ? `+${v}` : v),
+      render: (value: number) => formatSignedNumber(value),
     },
-    { title: '类型', dataIndex: 'type', key: 'type', width: 110 },
-    { title: 'Provider', dataIndex: 'provider', key: 'provider', width: 100 },
-    { title: '模型', dataIndex: 'model_name', key: 'model_name', width: 160 },
-    { title: 'Token 数', dataIndex: 'total_tokens', key: 'total_tokens', width: 120 },
+    { title: t('billing.tokenColumnType'), dataIndex: 'type', key: 'type', width: 110 },
+    { title: t('billing.tokenColumnProvider'), dataIndex: 'provider', key: 'provider', width: 100 },
+    { title: t('billing.tokenColumnModel'), dataIndex: 'model_name', key: 'model_name', width: 160 },
+    { title: t('billing.tokenColumnTotalTokens'), dataIndex: 'total_tokens', key: 'total_tokens', width: 120 },
     {
-      title: '费用',
+      title: t('billing.tokenColumnCost'),
       dataIndex: 'cost',
       key: 'cost',
-      width: 110,
-      render: (v: number, r) => `${v.toFixed(4)} ${r.currency}`,
+      width: 120,
+      render: (value: number, record) => `${value.toFixed(4)} ${record.currency}`,
     },
-    { title: '描述', dataIndex: 'description', key: 'description', ellipsis: true },
+    { title: t('billing.tokenColumnDescription'), dataIndex: 'description', key: 'description', ellipsis: true },
   ];
 
   const txBalanceColumns: ColumnsType<AdminTokenTransaction> = [
-    { title: '时间', dataIndex: 'created_at', key: 'created_at', width: 170, render: formatTime },
     {
-      title: '用户',
+      title: t('billing.tokenColumnTime'),
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (value?: string | null) => formatDateTime(value, locale, t('common.none')),
+    },
+    {
+      title: t('billing.tokenColumnUser'),
       key: 'user',
       width: 220,
-      render: (_: unknown, r) => (
+      render: (_: unknown, record) => (
         <div>
-          <div>{r.user_username ?? '-'}</div>
+          <div>{record.user_username ?? t('common.none')}</div>
           <div style={{ fontSize: 12, color: '#999' }}>
-            ID: {r.user_id} {r.user_no ? `· NO.${r.user_no}` : ''}
+            ID: {record.user_id} {record.user_no ? `· NO.${record.user_no}` : ''}
           </div>
         </div>
       ),
     },
     {
-      title: '星尘变动',
+      title: t('billing.tokenColumnBalanceAmount'),
       dataIndex: 'amount',
       key: 'amount',
       width: 110,
-      render: (v: number) => (v >= 0 ? `+${v}` : v),
+      render: (value: number) => formatSignedNumber(value),
     },
     {
-      title: 'Token 数',
+      title: t('billing.tokenColumnTotalTokens'),
       dataIndex: 'total_tokens',
       key: 'total_tokens',
       width: 120,
     },
-    { title: '类型', dataIndex: 'type', key: 'type', width: 120 },
-    { title: '关联 ID', dataIndex: 'related_id', key: 'related_id', width: 160, ellipsis: true },
-    { title: '描述', dataIndex: 'description', key: 'description', ellipsis: true },
+    { title: t('billing.tokenColumnType'), dataIndex: 'type', key: 'type', width: 120 },
+    {
+      title: t('billing.tokenColumnRelatedId'),
+      dataIndex: 'related_id',
+      key: 'related_id',
+      width: 160,
+      ellipsis: true,
+    },
+    { title: t('billing.tokenColumnDescription'), dataIndex: 'description', key: 'description', ellipsis: true },
   ];
+
+  const pagination = {
+    current: txPage,
+    pageSize: txPageSize,
+    total: txTotal,
+    showSizeChanger: true,
+    showTotal: (total: number) => t('billing.paginationTotal', { total }),
+    onChange: (page: number, pageSize?: number) => {
+      setTxPage(page);
+      setTxPageSize(pageSize || 20);
+    },
+  };
 
   return (
     <div className={styles.page}>
-      <Card className={styles.card}>
+      <Card className={styles.card} title={t('billing.tokenTitle')}>
         <Tabs
           activeKey={txScope}
           onChange={(key) => {
@@ -120,47 +155,27 @@ export default function TokenLedgerPage() {
           items={[
             {
               key: 'usage',
-              label: '模型消耗',
+              label: t('billing.tokenScopeUsage'),
               children: (
                 <Table<AdminTokenTransaction>
                   rowKey="id"
                   loading={txLoading}
                   dataSource={txs}
                   columns={txUsageColumns}
-                  pagination={{
-                    current: txPage,
-                    pageSize: txPageSize,
-                    total: txTotal,
-                    showSizeChanger: true,
-                    showTotal: (t) => `共 ${t} 条`,
-                    onChange: (p, ps) => {
-                      setTxPage(p);
-                      setTxPageSize(ps || 20);
-                    },
-                  }}
+                  pagination={pagination}
                 />
               ),
             },
             {
               key: 'balance',
-              label: '充值与赠送',
+              label: t('billing.tokenScopeBalance'),
               children: (
                 <Table<AdminTokenTransaction>
                   rowKey="id"
                   loading={txLoading}
                   dataSource={txs}
                   columns={txBalanceColumns}
-                  pagination={{
-                    current: txPage,
-                    pageSize: txPageSize,
-                    total: txTotal,
-                    showSizeChanger: true,
-                    showTotal: (t) => `共 ${t} 条`,
-                    onChange: (p, ps) => {
-                      setTxPage(p);
-                      setTxPageSize(ps || 20);
-                    },
-                  }}
+                  pagination={pagination}
                 />
               ),
             },
@@ -170,4 +185,3 @@ export default function TokenLedgerPage() {
     </div>
   );
 }
-

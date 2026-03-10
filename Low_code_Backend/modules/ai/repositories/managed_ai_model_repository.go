@@ -12,6 +12,7 @@ type ManagedAIModelRepository interface {
 	FindByProviderAndModel(provider, modelName string) (*aiModels.ManagedAIModel, error)
 	Create(model *aiModels.ManagedAIModel) error
 	Update(model *aiModels.ManagedAIModel) error
+	Delete(id uint) error
 	CreateOrUpdate(model *aiModels.ManagedAIModel) error
 }
 
@@ -61,6 +62,10 @@ func (r *managedAIModelRepository) Create(model *aiModels.ManagedAIModel) error 
 
 func (r *managedAIModelRepository) Update(model *aiModels.ManagedAIModel) error {
 	return r.db.Save(model).Error
+}
+
+func (r *managedAIModelRepository) Delete(id uint) error {
+	return r.db.Delete(&aiModels.ManagedAIModel{}, id).Error
 }
 
 func (r *managedAIModelRepository) CreateOrUpdate(model *aiModels.ManagedAIModel) error {

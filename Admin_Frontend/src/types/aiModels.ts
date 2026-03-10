@@ -106,6 +106,7 @@ export interface AIAdminModel {
   display_name: string;
   status: ModelStatus;
   is_active: boolean;
+  sort_order: number;
   description: string;
   capability: AIModelCapabilityConfig;
   current_pricing?: AIModelPricingRule | null;
@@ -147,34 +148,3 @@ export interface CreateAIModelInput {
   is_active: boolean;
   description?: string;
 }
-
-export const PRICING_TYPE_OPTIONS: Array<{ label: string; value: PricingType }> = [
-  { label: '统一单价', value: 'unified' },
-  { label: '输入输出分离', value: 'separate' },
-  { label: '多类型计费', value: 'multi_type' },
-  { label: '分段计费', value: 'segmented' },
-  { label: '按图片计费', value: 'per_image' },
-];
-
-export const PRICING_TYPE_LABELS: Record<PricingType, string> = {
-  unified: '统一单价',
-  separate: '输入输出分离',
-  multi_type: '多类型计费',
-  segmented: '分段计费',
-  per_image: '按图片计费',
-};
-
-export const PROVIDER_LABELS: Record<string, string> = {
-  gpt: 'OpenAI / GPT',
-  openai: 'OpenAI',
-  claude: 'Claude',
-  deepseek: 'DeepSeek',
-  qwen: '通义千问',
-  zhipuai: '智谱 AI',
-  doubao: '豆包',
-  spark: '讯飞星火',
-  hunyuan: '腾讯混元',
-  gemini: 'Gemini',
-  grok: 'Grok',
-  moonshot: 'Moonshot',
-};

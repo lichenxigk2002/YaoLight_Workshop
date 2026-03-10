@@ -14,8 +14,9 @@ import {
 } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { buildDefaultPricingData } from '@/api/aiModels';
-import { PRICING_TYPE_OPTIONS } from '@/types/aiModels';
+import { useI18n } from '@/i18n';
 import type { AIModelPricingRule, PricingData, PricingType } from '@/types/aiModels';
+import { getAIPricingTypeOptions } from '../i18n';
 import styles from '../AIModels.module.scss';
 
 const { Paragraph, Title } = Typography;
@@ -84,6 +85,7 @@ function buildFormValues(rule: AIModelPricingRule): PricingRuleFormValues {
 
 export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRuleEditorProps) {
   const { message } = App.useApp();
+  const { t } = useI18n();
   const [form] = Form.useForm<PricingRuleFormValues>();
   const pricingType = Form.useWatch('pricing_type', form) ?? initialRule.pricing_type;
   const watchedValues = Form.useWatch([], form);
@@ -110,7 +112,8 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
       is_active: values.is_active,
       pricing_data: normalizePricingData(values.pricing_type, values.pricing_data),
     });
-    message.success('计费规则已保存。');
+
+    message.success(t('aiModels.editorSuccess'));
   };
 
   return (
@@ -120,40 +123,40 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="规则编辑器"
-          description="先选择计费类型，再填写对应规则体，避免把所有计费字段一次性平铺出来。"
+          message={t('aiModels.editorAlertTitle')}
+          description={t('aiModels.editorAlertDescription')}
         />
 
         <Form form={form} layout="vertical" onFinish={handleFinish} onValuesChange={handleValuesChange}>
           <div className={styles.formGrid}>
-            <Form.Item label="计费类型" name="pricing_type" rules={[{ required: true }]}>
-              <Select options={PRICING_TYPE_OPTIONS} />
+            <Form.Item label={t('aiModels.editorTypeLabel')} name="pricing_type" rules={[{ required: true }]}>
+              <Select options={getAIPricingTypeOptions(t)} />
             </Form.Item>
-            <Form.Item label="币种" name="currency" rules={[{ required: true }]}>
+            <Form.Item label={t('aiModels.editorCurrencyLabel')} name="currency" rules={[{ required: true }]}>
               <Select options={[{ label: 'USD', value: 'USD' }, { label: 'CNY', value: 'CNY' }]} />
             </Form.Item>
-            <Form.Item label="版本" name="version" rules={[{ required: true }]}>
+            <Form.Item label={t('aiModels.editorVersionLabel')} name="version" rules={[{ required: true }]}>
               <InputNumber min={1} style={{ width: '100%' }} />
             </Form.Item>
-            <Form.Item label="生效时间" name="effective_at" rules={[{ required: true }]}>
-              <Input placeholder="YYYY-MM-DD" />
+            <Form.Item label={t('aiModels.editorEffectiveAtLabel')} name="effective_at" rules={[{ required: true }]}>
+              <Input placeholder={t('aiModels.editorDatePlaceholder')} />
             </Form.Item>
-            <Form.Item label="失效时间" name="expired_at">
-              <Input placeholder="可选，YYYY-MM-DD" />
+            <Form.Item label={t('aiModels.editorExpiredAtLabel')} name="expired_at">
+              <Input placeholder={t('aiModels.editorExpiredPlaceholder')} />
             </Form.Item>
-            <Form.Item label="启用状态" name="is_active" valuePropName="checked">
-              <Switch checkedChildren="生效" unCheckedChildren="停用" />
+            <Form.Item label={t('aiModels.editorEnabledLabel')} name="is_active" valuePropName="checked">
+              <Switch checkedChildren={t('aiModels.editorSwitchActive')} unCheckedChildren={t('aiModels.editorSwitchInactive')} />
             </Form.Item>
           </div>
 
-          <Form.Item label="规则说明" name="description">
-            <Input.TextArea rows={3} placeholder="描述本次规则版本适用的计费语义。" />
+          <Form.Item label={t('aiModels.editorDescriptionLabel')} name="description">
+            <Input.TextArea rows={3} placeholder={t('aiModels.editorDescriptionPlaceholder')} />
           </Form.Item>
 
           {pricingType === 'unified' ? (
-            <Card size="small" title="统一单价规则">
+            <Card size="small" title={t('aiModels.editorSectionUnified')}>
               <Form.Item
-                label="每百万 Token 单价"
+                label={t('aiModels.editorUnifiedPrice')}
                 name={['pricing_data', 'price_per_million_tokens']}
                 rules={[{ required: true }]}
               >
@@ -163,17 +166,17 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
           ) : null}
 
           {pricingType === 'separate' ? (
-            <Card size="small" title="输入输出分离规则">
+            <Card size="small" title={t('aiModels.editorSectionSeparate')}>
               <div className={styles.formGrid}>
                 <Form.Item
-                  label="输入单价"
+                  label={t('aiModels.editorInputPrice')}
                   name={['pricing_data', 'input_price_per_million']}
                   rules={[{ required: true }]}
                 >
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
                 <Form.Item
-                  label="输出单价"
+                  label={t('aiModels.editorOutputPrice')}
                   name={['pricing_data', 'output_price_per_million']}
                   rules={[{ required: true }]}
                 >
@@ -184,33 +187,33 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
           ) : null}
 
           {pricingType === 'multi_type' ? (
-            <Card size="small" title="多类型计费规则">
+            <Card size="small" title={t('aiModels.editorSectionMultiType')}>
               <div className={styles.formGrid}>
                 <Form.Item
-                  label="输入单价"
+                  label={t('aiModels.editorInputPrice')}
                   name={['pricing_data', 'input_price_per_million']}
                   rules={[{ required: true }]}
                 >
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
                 <Form.Item
-                  label="输出单价"
+                  label={t('aiModels.editorOutputPrice')}
                   name={['pricing_data', 'output_price_per_million']}
                   rules={[{ required: true }]}
                 >
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item label="音频单价" name={['pricing_data', 'audio_price_per_million']}>
+                <Form.Item label={t('aiModels.editorAudioPrice')} name={['pricing_data', 'audio_price_per_million']}>
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item label="缓存读取单价" name={['pricing_data', 'cache_read_price_per_million']}>
+                <Form.Item label={t('aiModels.editorCacheReadPrice')} name={['pricing_data', 'cache_read_price_per_million']}>
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item label="缓存写入单价" name={['pricing_data', 'cache_write_price_per_million']}>
+                <Form.Item label={t('aiModels.editorCacheWritePrice')} name={['pricing_data', 'cache_write_price_per_million']}>
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
                 <Form.Item
-                  label="音频缓存读取单价"
+                  label={t('aiModels.editorAudioCacheReadPrice')}
                   name={['pricing_data', 'audio_cache_read_price_per_million']}
                 >
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
@@ -220,10 +223,8 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
           ) : null}
 
           {pricingType === 'segmented' ? (
-            <Card size="small" title="分段计费规则">
-              <Paragraph className={styles.muted}>
-                使用分段数组定义不同上下文区间的计费方式。
-              </Paragraph>
+            <Card size="small" title={t('aiModels.editorSectionSegmented')}>
+              <Paragraph className={styles.muted}>{t('aiModels.editorSegmentedDescription')}</Paragraph>
               <Form.List name={['pricing_data', 'segments']}>
                 {(fields, { add, remove }) => (
                   <Space direction="vertical" style={{ width: '100%' }} size={12}>
@@ -231,7 +232,7 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
                       <Card
                         key={field.key}
                         size="small"
-                        title={`分段 ${index + 1}`}
+                        title={t('aiModels.editorSegmentTitle', { index: index + 1 })}
                         extra={
                           fields.length > 1 ? (
                             <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
@@ -240,29 +241,29 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
                       >
                         <div className={styles.formGrid}>
                           <Form.Item
-                            label="上下文阈值"
+                            label={t('aiModels.editorContextLimit')}
                             name={[field.name, 'context_length_limit']}
-                            tooltip="留空表示无上限"
+                            tooltip={t('aiModels.editorContextLimitTooltip')}
                           >
                             <InputNumber min={0} style={{ width: '100%' }} />
                           </Form.Item>
                           <div />
                           <Form.Item
-                            label="输入单价"
+                            label={t('aiModels.editorInputPrice')}
                             name={[field.name, 'input_price_per_million']}
                             rules={[{ required: true }]}
                           >
                             <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                           </Form.Item>
                           <Form.Item
-                            label="输出单价"
+                            label={t('aiModels.editorOutputPrice')}
                             name={[field.name, 'output_price_per_million']}
                             rules={[{ required: true }]}
                           >
                             <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                           </Form.Item>
                           <Form.Item
-                            label="缓存读取单价"
+                            label={t('aiModels.editorCacheReadPrice')}
                             name={[field.name, 'cache_read_price_per_million']}
                           >
                             <InputNumber min={0} precision={4} style={{ width: '100%' }} />
@@ -271,7 +272,7 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
                       </Card>
                     ))}
                     <Button icon={<PlusOutlined />} onClick={() => add({ context_length_limit: null })}>
-                      新增分段
+                      {t('aiModels.editorAddSegment')}
                     </Button>
                   </Space>
                 )}
@@ -280,15 +281,15 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
           ) : null}
 
           {pricingType === 'per_image' ? (
-            <Card size="small" title="按图片计费规则">
+            <Card size="small" title={t('aiModels.editorSectionPerImage')}>
               <div className={styles.formGrid}>
-                <Form.Item label="文生图单价" name={['pricing_data', 'text_to_image_price']}>
+                <Form.Item label={t('aiModels.editorTextToImagePrice')} name={['pricing_data', 'text_to_image_price']}>
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item label="图生图单价" name={['pricing_data', 'image_to_image_price']}>
+                <Form.Item label={t('aiModels.editorImageToImagePrice')} name={['pricing_data', 'image_to_image_price']}>
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
-                <Form.Item label="每张图片单价" name={['pricing_data', 'price_per_image']}>
+                <Form.Item label={t('aiModels.editorPricePerImage')} name={['pricing_data', 'price_per_image']}>
                   <InputNumber min={0} precision={4} style={{ width: '100%' }} />
                 </Form.Item>
               </div>
@@ -296,16 +297,14 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
           ) : null}
 
           <Button htmlType="submit" type="primary" style={{ marginTop: 16 }}>
-            保存计费规则
+            {t('aiModels.editorSubmit')}
           </Button>
         </Form>
       </Card>
 
       <Card bordered={false} className={styles.card}>
-        <Title level={5}>`pricing_data` 预览</Title>
-        <Paragraph className={styles.muted}>
-          当前表单会被收敛成 `pricing_type + pricing_data` 结构，便于后端做版本化和类型扩展。
-        </Paragraph>
+        <Title level={5}>{t('aiModels.editorPreviewTitle')}</Title>
+        <Paragraph className={styles.muted}>{t('aiModels.editorPreviewDescription')}</Paragraph>
         <pre className={styles.jsonPreview}>
           {JSON.stringify(
             {
