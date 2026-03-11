@@ -15,6 +15,8 @@ import (
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
 	artifactControllers "yaolight-workshop/backend/modules/artifact/controllers"
+	billingControllers "yaolight-workshop/backend/modules/billing/controllers"
+	crawlerControllers "yaolight-workshop/backend/modules/crawler/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	notificationModule "yaolight-workshop/backend/modules/notification"
 	notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
@@ -64,13 +66,20 @@ func main() {
 	r := gin.Default()
 
 	// 配置 CORS（允许跨域请求：本地开发 + 生产环境 FRONTEND_URL）
-	allowOrigins := []string{"http://localhost:3000", "http://127.0.0.1:3000"}
+	allowOrigins := []string{
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+		"http://localhost:3200",
+		"http://127.0.0.1:3200",
+		"http://localhost:5173",
+		"http://127.0.0.1:5173",
+	}
 	if config.FrontendURL != "" {
 		allowOrigins = append(allowOrigins, config.FrontendURL)
 	}
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     allowOrigins,
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cache-Control"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
 		AllowCredentials: true,
@@ -122,6 +131,8 @@ func main() {
 		api.POST("/auth/send-register-code", authController.SendRegisterCode)
 		api.POST("/auth/email-login", authController.EmailLogin)
 		api.POST("/auth/email-register", authController.EmailRegister)
+		api.POST("/auth/send-forgot-password-code", authController.SendForgotPasswordCode)
+		api.POST("/auth/reset-password", authController.ResetPasswordByEmail)
 		// OAuth 登录（Google / GitHub）
 		api.GET("/auth/google", oauthController.GoogleRedirect)
 		api.GET("/auth/google/callback", oauthController.GoogleCallback)
@@ -138,8 +149,10 @@ func main() {
 		notificationHubInstance := notificationHub.NewHub()
 		notificationRepo := notificationRepos.NewNotificationRepository(database.DB)
 		notificationService := notificationServices.NewNotificationService(notificationRepo, notificationHubInstance)
+		adminNotificationService := notificationServices.NewAdminNotificationService(database.DB, notificationRepo, notificationService)
 		notificationModule.SetDefaultService(notificationService)
 		notificationController := notificationControllers.NewNotificationController(notificationService, notificationHubInstance)
+		adminNotificationController := notificationControllers.NewAdminNotificationController(adminNotificationService)
 		api.GET("/ws/notifications", notificationController.HandleWebSocket)
 
 		// 需要认证的路由
@@ -149,6 +162,7 @@ func main() {
 			// 用户相关路由
 			auth.GET("/users/current", authController.GetCurrentUser)
 			auth.PUT("/users/username", authController.UpdateUsername)
+			auth.POST("/users/change-password", authController.ChangePassword)
 			auth.GET("/users/notification-preferences", authController.GetNotificationPreferences)
 			auth.PUT("/users/notification-preferences", authController.UpdateNotificationPreferences)
 			auth.GET("/users/token-transactions", authController.GetTokenTransactions)
@@ -163,6 +177,11 @@ func main() {
 			auth.GET("/users/oauth-bindings", authController.GetOAuthBindings)
 			auth.POST("/users/oauth-bindings/request", authController.RequestOAuthBind)
 			auth.DELETE("/users/oauth-bindings/:provider", authController.UnbindOAuth)
+			// 邀请好友
+			invitationController := authControllers.NewInvitationController()
+			auth.GET("/users/invite/link", invitationController.GetInviteLink)
+			auth.GET("/users/invite/stats", invitationController.GetInviteStats)
+			auth.GET("/users/invite/list", invitationController.GetInvitationList)
 			// 账号注销（确认 + 邮箱验证码）
 			auth.POST("/auth/send-deactivate-code", authController.SendDeactivateCode)
 			auth.POST("/auth/confirm-deactivate", authController.ConfirmDeactivate)
@@ -202,6 +221,22 @@ func main() {
 			auth.GET("/tasks/:id/node-executions", taskController.GetTaskNodeExecutions) // 获取任务的节点执行记录
 			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs)                      // 获取任务日志
 
+			adminTaskController := taskControllers.NewAdminTaskController()
+			adminTasks := auth.Group("/admin/tasks")
+			adminTasks.Use(middleware.AdminOnlyMiddleware())
+			adminTasks.GET("", adminTaskController.ListTasks)
+			adminTasks.GET("/summary", adminTaskController.GetSummary)
+			adminTasks.GET("/running", adminTaskController.ListRunningTasks)
+			adminTasks.GET("/failures", adminTaskController.ListFailureTasks)
+			adminTasks.GET("/failure-stats", adminTaskController.GetFailureStats)
+			adminTasks.POST("/:id/cancel", adminTaskController.CancelTask)
+			adminTasks.POST("/:id/retry", adminTaskController.RetryTask)
+			adminTasks.GET("/:id", adminTaskController.GetTaskDetail)
+			adminTasks.GET("/:id/artifacts", adminTaskController.ListTaskArtifacts)
+			adminTasks.GET("/:id/node-executions", adminTaskController.GetTaskNodeExecutions)
+			adminTasks.GET("/:id/logs", adminTaskController.GetTaskLogs)
+			adminTasks.GET("/artifacts/:artifactId/download", adminTaskController.DownloadArtifact)
+
 			// 导出制品（输出节点生成的文件/图表等）
 			artifactController := artifactControllers.NewArtifactController()
 			auth.GET("/tasks/:id/artifacts", artifactController.ListByTask)
@@ -218,6 +253,68 @@ func main() {
 			auth.POST("/ai/models", aiController.CreateModel)
 			auth.PUT("/ai/models/:id", aiController.UpdateModel)
 			auth.DELETE("/ai/models/:id", aiController.DeleteModel)
+			adminAIController := aiControllers.NewAdminAIController()
+			adminAI := auth.Group("/admin/ai-models")
+			adminAI.Use(middleware.AdminOnlyMiddleware())
+			adminAI.GET("", adminAIController.GetModels)
+			adminAI.GET("/providers", adminAIController.GetProviders)
+			adminAI.GET("/providers/:provider", adminAIController.GetProvider)
+			adminAI.GET("/models", adminAIController.GetModels)
+			adminAI.POST("/models", adminAIController.CreateModel)
+			adminAI.GET("/models/:id", adminAIController.GetModel)
+			adminAI.PUT("/models/:id", adminAIController.UpdateModel)
+			adminAI.DELETE("/models/:id", adminAIController.DeleteModel)
+			adminAI.GET("/models/:id/capability", adminAIController.GetModelCapability)
+			adminAI.PUT("/models/:id/capability", adminAIController.UpdateModelCapability)
+			adminAI.GET("/models/:id/pricing", adminAIController.GetModelPricing)
+			adminAI.PUT("/models/:id/pricing", adminAIController.UpdateModelPricing)
+			adminAI.GET("/pricing-rules", adminAIController.GetPricingRules)
+			adminAI.GET("/usage", adminAIController.GetUsage)
+
+			// 计费运营：补救配额、管理员赠送、配额流水、订单与 Token 流水
+			adminQuotaController := billingControllers.NewAdminQuotaController()
+			adminBillingController := billingControllers.NewAdminBillingController()
+			adminBilling := auth.Group("/admin/billing")
+			adminBilling.Use(middleware.AdminOnlyMiddleware())
+			adminBilling.POST("/quotas/recover", adminQuotaController.RecoverQuota)
+			adminBilling.POST("/quotas/grant", adminQuotaController.GrantQuota)
+			adminBilling.GET("/quotas/ledger", adminQuotaController.GetQuotaLedger)
+			adminBilling.GET("/quotas/summary", adminQuotaController.GetQuotaSummary)
+			adminBilling.GET("/orders", adminBillingController.ListOrders)
+			adminBilling.GET("/token-transactions", adminBillingController.ListTokenTransactions)
+
+			adminUserController := authControllers.NewAdminUserController()
+			adminUsers := auth.Group("/admin/users")
+			adminUsers.Use(middleware.AdminOnlyMiddleware())
+			adminUsers.GET("/summary", adminUserController.GetSummary)
+			adminUsers.GET("", adminUserController.GetUsers)
+			adminUsers.GET("/:id", adminUserController.GetUser)
+			adminUsers.PUT("/:id/status", adminUserController.UpdateUserStatus)
+			adminUsers.POST("/:id/reset-password", adminUserController.ResetPassword)
+
+			adminCrawlerRuleController := crawlerControllers.NewAdminCrawlerRuleController()
+			adminCrawlerRules := auth.Group("/admin/crawler-rules")
+			adminCrawlerRules.Use(middleware.AdminOnlyMiddleware())
+			adminCrawlerRules.GET("", adminCrawlerRuleController.ListRules)
+			adminCrawlerRules.GET("/:id", adminCrawlerRuleController.GetRule)
+			adminCrawlerRules.POST("", adminCrawlerRuleController.CreateRule)
+			adminCrawlerRules.PUT("/:id", adminCrawlerRuleController.UpdateRule)
+			adminCrawlerRules.DELETE("/:id", adminCrawlerRuleController.DeleteRule)
+			adminCrawlerRules.PATCH("/:id/status", adminCrawlerRuleController.SetRuleStatus)
+			adminCrawlerRules.POST("/test", adminCrawlerRuleController.TestRule)
+			adminCrawlerRules.GET("/:id/usages", adminCrawlerRuleController.GetRuleUsages)
+			adminCrawlerRules.POST("/:id/clone", adminCrawlerRuleController.CloneRule)
+			adminNotifications := auth.Group("/admin/notifications")
+			adminNotifications.Use(middleware.AdminOnlyMiddleware())
+			adminNotifications.GET("/summary", adminNotificationController.GetSummary)
+			adminNotifications.GET("", adminNotificationController.List)
+			adminNotifications.GET("/jobs", adminNotificationController.ListJobs)
+			adminNotifications.GET("/jobs/:id/deliveries", adminNotificationController.ListDeliveries)
+			adminNotifications.GET("/analytics", adminNotificationController.GetAnalytics)
+			adminNotifications.GET("/templates", adminNotificationController.ListTemplates)
+			adminNotifications.POST("/templates", adminNotificationController.CreateTemplate)
+			adminNotifications.PUT("/templates/:id", adminNotificationController.UpdateTemplate)
+			adminNotifications.POST("/send", adminNotificationController.Send)
 
 			// 瑶光星（Alkaid）对话相关路由
 			alkaidController := alkaidControllers.NewAlkaidController()
@@ -238,7 +335,11 @@ func main() {
 			// 支付相关路由（需要认证）
 			paymentController := paymentControllers.NewPaymentController()
 			auth.POST("/payment/orders", paymentController.CreateOrder)                   // 创建订单
+			auth.GET("/payment/orders", paymentController.ListUserOrders)                 // 获取当前用户订单列表
 			auth.GET("/payment/orders/:orderId/status", paymentController.GetOrderStatus) // 查询订单状态
+			auth.GET("/payment/orders/:orderId/detail", paymentController.GetOrderDetail) // 订单详情（含继续支付链接）
+			auth.POST("/payment/orders/:orderId/cancel", paymentController.CancelOrder)   // 取消订单
+			auth.DELETE("/payment/orders/:orderId", paymentController.DeleteOrder)        // 删除订单
 			auth.POST("/payment/orders/:orderId/mock-pay", paymentController.MockPay)     // 模拟支付（仅开发用）
 
 			// 站内通知 REST

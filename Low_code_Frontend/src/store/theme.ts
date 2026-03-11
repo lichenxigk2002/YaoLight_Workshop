@@ -3,6 +3,19 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type Theme = 'light' | 'dark';
 
+function getInitialTheme(): Theme {
+  if (typeof window === 'undefined') return 'light';
+  try {
+    const s = localStorage.getItem('theme-storage');
+    if (s) {
+      const j = JSON.parse(s);
+      const t = j?.state?.theme;
+      if (t === 'dark' || t === 'light') return t;
+    }
+  } catch {}
+  return 'light';
+}
+
 interface ThemeState {
   theme: Theme;
   toggleTheme: () => void;
@@ -12,7 +25,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      theme: 'light',
+      theme: getInitialTheme(),
       toggleTheme: () =>
         set((state) => {
           const newTheme = state.theme === 'light' ? 'dark' : 'light';

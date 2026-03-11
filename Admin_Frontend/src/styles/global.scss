@@ -1,0 +1,65 @@
+:root {
+  color-scheme: light;
+  --admin-bg: #f5f7fa;
+  --admin-panel: #ffffff;
+  --admin-panel-alt: #f7fbff;
+  --admin-ink: #1f2937;
+  --admin-ink-soft: #667085;
+  --admin-line: rgba(31, 41, 55, 0.1);
+  --admin-brand: #1677ff;
+  --admin-accent: #4096ff;
+  --admin-brand-soft: #edf5ff;
+  --admin-brand-soft-strong: #d9eaff;
+  --admin-brand-ink: #1d4f91;
+  --admin-shadow: 0 20px 40px rgba(22, 119, 255, 0.10);
+}
+
+:root[data-theme-mode='dark'] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "IBM Plex Sans", "Aptos", "Segoe UI", sans-serif;
+  color: var(--admin-ink);
+  background: var(--admin-bg);
+  transition: background 180ms ease, color 180ms ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.ant-app,
+.ant-layout {
+  min-height: 100vh;
+}
+
+.ant-card {
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel);
+}
+
+.ant-table-wrapper .ant-table {
+  border-radius: 16px;
+  overflow: hidden;
+}
+

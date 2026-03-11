@@ -1,0 +1,115 @@
+.page {
+  display: grid;
+  gap: 20px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  box-shadow: var(--admin-shadow);
+}
+
+.card :global(.ant-card-body) {
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.toolbarTitle {
+  margin-bottom: 4px !important;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--admin-ink-soft);
+}
+
+.filterBar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.detailTabs {
+  background: var(--admin-panel-alt);
+  border: 1px solid var(--admin-line);
+  border-radius: 18px;
+  padding: 10px 16px 0;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.statusTag {
+  min-width: 68px;
+  text-align: center;
+}
+
+.analysisGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.codePanels {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.35fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.codeSidebar {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.codeMain {
+  min-width: 0;
+}
+
+.stackActions {
+  gap: 2px !important;
+}
+
+.stackCollapsed {
+  color: var(--admin-ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1440px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .codePanels {
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.2fr);
+  }
+}
+
+@media (max-width: 980px) {
+  .analysisGrid,
+  .codePanels {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 780px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .detailTabs {
+    padding: 8px 12px 0;
+  }
+}

@@ -1,0 +1,20 @@
+.trigger {
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--admin-ink);
+  font-weight: 500;
+}
+
+.trigger:hover,
+.trigger:focus,
+.trigger:focus-visible,
+.trigger:active {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: var(--admin-ink) !important;
+}
+
+.chevron {
+  font-size: 10px;
+  color: var(--admin-ink-soft);
+}

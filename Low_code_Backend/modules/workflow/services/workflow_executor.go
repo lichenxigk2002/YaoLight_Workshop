@@ -12,7 +12,7 @@ import (
 	userRepos "yaolight-workshop/backend/modules/user/repositories"
 )
 
-// WorkflowExecutor 工作流执行器
+// WorkflowExecutor executes workflow nodes.
 type WorkflowExecutor struct {
 	crawlerService   *crawlerService.CrawlerService
 	datacleanService *datacleanService.DataCleanService
@@ -21,46 +21,47 @@ type WorkflowExecutor struct {
 	pricingService   *aiService.PricingService
 }
 
-// NodeConfig 节点配置
+// NodeConfig describes a workflow node.
 type NodeConfig struct {
 	ID     string                 `json:"id"`
 	Type   string                 `json:"type"`
 	Config map[string]interface{} `json:"config"`
 }
 
-// EdgeConfig 边配置
+// EdgeConfig describes an edge between two nodes.
 type EdgeConfig struct {
 	Source       string `json:"source"`
 	Target       string `json:"target"`
-	SourceHandle string `json:"sourceHandle,omitempty"` // 条件节点的输出端口：true 或 false
-	TargetHandle string `json:"targetHandle,omitempty"` // 合并节点的输入端口：input-0, input-1, input-2
+	SourceHandle string `json:"sourceHandle,omitempty"` // Condition branch handle, such as true or false.
+	TargetHandle string `json:"targetHandle,omitempty"` // Input slot handle, such as input-0 or input-1.
 }
 
-// ExecutionRequest 执行请求
+// ExecutionRequest is the workflow execution payload.
 type ExecutionRequest struct {
 	Nodes      []NodeConfig `json:"nodes"`
 	Edges      []EdgeConfig `json:"edges"`
-	UserID     uint         `json:"userID,omitempty"`     // 用户ID，用于验证模型归属
-	WorkflowID uint         `json:"workflowId,omitempty"` // 工作流ID，用于关联任务记录
+	UserID     uint         `json:"userID,omitempty"`     // User ID for permission-aware execution.
+	WorkflowID uint         `json:"workflowId,omitempty"` // Workflow ID for task association.
 }
 
-// NodeExecutionResult 节点执行结果
+// NodeExecutionResult is the result of one node execution.
 type NodeExecutionResult struct {
-	NodeID  string      `json:"node_id"`
-	Type    string      `json:"type"`
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data"`
-	Error   string      `json:"error,omitempty"`
+	NodeID     string      `json:"node_id"`
+	Type       string      `json:"type"`
+	Success    bool        `json:"success"`
+	Data       interface{} `json:"data"`
+	Error      string      `json:"error,omitempty"`
+	ErrorStack string      `json:"errorStack,omitempty"`
 }
 
-// ExecutionResult 执行结果
+// ExecutionResult is the final workflow execution result.
 type ExecutionResult struct {
 	Success bool                  `json:"success"`
 	Results []NodeExecutionResult `json:"results"`
 	Error   string                `json:"error,omitempty"`
 }
 
-// NewWorkflowExecutor 创建工作流执行器
+// NewWorkflowExecutor creates a workflow executor.
 func NewWorkflowExecutor() *WorkflowExecutor {
 	modelRepo := aiRepos.NewAIModelRepository(database.DB)
 	templateRepo := aiRepos.NewProviderTemplateRepository(database.DB)
@@ -76,13 +77,10 @@ func NewWorkflowExecutor() *WorkflowExecutor {
 	}
 }
 
-// Execute 执行工作流
+// Execute runs a workflow in non-stream mode.
 func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, error) {
-
 	results := make([]NodeExecutionResult, 0)
-	// 使用数据流管理器
 	dataFlow := NewDataFlow(req.Edges)
-	// 创建变量上下文
 	variableContext := NewVariableContext()
 	execMeta := ExecutionMeta{
 		UserID: req.UserID,
@@ -92,9 +90,7 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		execMeta.WorkflowID = &wid
 	}
 
-	// 找到起始节点（没有入边的节点）
 	startNodes := e.findStartNodes(req.Nodes, req.Edges)
-
 	if len(startNodes) == 0 {
 		return &ExecutionResult{
 			Success: false,
@@ -102,18 +98,91 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		}, fmt.Errorf("未找到起始节点")
 	}
 
-	// 按拓扑顺序执行节点
 	executed := make(map[string]bool)
-	// 存储条件节点的结果，用于判断边是否应该执行
+	nodeStatus := make(map[string]string)
 	conditionResults := make(map[string]bool)
-	queue := make([]string, 0)
+	queue := make([]string, 0, len(startNodes))
+	workflowFailed := false
 
-	// 将起始节点加入队列
+	findNodeConfig := func(nodeID string) *NodeConfig {
+		for i := range req.Nodes {
+			if req.Nodes[i].ID == nodeID {
+				return &req.Nodes[i]
+			}
+		}
+		return nil
+	}
+
+	evaluateNodeState := func(nodeID string) (string, string) {
+		hasIncoming := false
+		for _, edge := range req.Edges {
+			if edge.Target != nodeID {
+				continue
+			}
+			hasIncoming = true
+
+			if !isEdgeActive(edge, req.Nodes, req.Edges, conditionResults, executed) {
+				continue
+			}
+			if !executed[edge.Source] {
+				return "waiting", ""
+			}
+			if nodeStatus[edge.Source] != "completed" {
+				return "blocked", fmt.Sprintf("上游节点 %s 未成功执行", edge.Source)
+			}
+		}
+
+		if !hasIncoming {
+			return "ready", ""
+		}
+		return "ready", ""
+	}
+
+	var markNodeSkipped func(nodeID string, reason string)
+	var enqueueTarget func(nodeID string)
+
+	markNodeSkipped = func(nodeID string, reason string) {
+		if executed[nodeID] {
+			return
+		}
+		nodeConfig := findNodeConfig(nodeID)
+		if nodeConfig == nil {
+			return
+		}
+
+		results = append(results, NodeExecutionResult{
+			NodeID:  nodeID,
+			Type:    nodeConfig.Type,
+			Success: false,
+			Error:   reason,
+		})
+		executed[nodeID] = true
+		nodeStatus[nodeID] = "skipped"
+
+		for _, edge := range req.Edges {
+			if edge.Source == nodeID {
+				enqueueTarget(edge.Target)
+			}
+		}
+	}
+
+	enqueueTarget = func(nodeID string) {
+		if executed[nodeID] {
+			return
+		}
+		state, reason := evaluateNodeState(nodeID)
+		switch state {
+		case "ready":
+			queue = append(queue, nodeID)
+		case "blocked":
+			markNodeSkipped(nodeID, reason)
+		}
+	}
+
 	for _, node := range startNodes {
 		queue = append(queue, node.ID)
 	}
 
-	// 执行节点
 	for len(queue) > 0 {
 		nodeID := queue[0]
 		queue = queue[1:]
@@ -122,40 +191,36 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 			continue
 		}
 
-		// 找到节点配置
-		var nodeConfig *NodeConfig
-		for i := range req.Nodes {
-			if req.Nodes[i].ID == nodeID {
-				nodeConfig = &req.Nodes[i]
-				break
-			}
+		state, reason := evaluateNodeState(nodeID)
+		switch state {
+		case "waiting":
+			continue
+		case "blocked":
+			markNodeSkipped(nodeID, reason)
+			continue
 		}
 
+		nodeConfig := findNodeConfig(nodeID)
 		if nodeConfig == nil {
 			continue
 		}
 
-		// 设置节点类型到变量上下文
 		variableContext.SetNodeType(nodeID, nodeConfig.Type)
-
-		// 执行节点（传递userID用于AI节点验证）
-		result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
+		result := e.executeNodeSafely(*nodeConfig, dataFlow, variableContext, execMeta)
 		results = append(results, result)
 
-		// 保存节点输出数据到数据流和变量上下文
+		executed[nodeID] = true
 		if result.Success {
-			// 将结果数据转换为 NodeData 格式
 			nodeData := NewNodeData(result.Data)
 			dataFlow.SetNodeOutput(nodeID, nodeData)
-			// 同时保存到变量上下文
 			variableContext.SetNodeOutput(nodeID, nodeData)
+			nodeStatus[nodeID] = "completed"
+		} else {
+			nodeStatus[nodeID] = "failed"
+			workflowFailed = true
 		}
 
-		executed[nodeID] = true
-
-		// 如果是条件节点，需要根据条件结果选择正确的分支
 		if nodeConfig.Type == "condition" && result.Success {
-			// 获取条件判断结果
 			conditionResult := false
 			if resultData, ok := result.Data.(map[string]interface{}); ok {
 				if res, exists := resultData["result"]; exists {
@@ -164,122 +229,91 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 					}
 				}
 			}
-			// 保存条件节点的结果，供后续判断使用
 			conditionResults[nodeID] = conditionResult
 
-			// 只执行匹配条件结果的边
 			for _, edge := range req.Edges {
-				if edge.Source == nodeID && !executed[edge.Target] {
-					// 检查边的 sourceHandle 是否匹配条件结果
-					shouldExecute := false
-					if edge.SourceHandle == "true" && conditionResult {
-						shouldExecute = true
-					} else if edge.SourceHandle == "false" && !conditionResult {
-						shouldExecute = true
-					} else if edge.SourceHandle == "" {
-						// 兼容旧数据：如果没有 sourceHandle，默认执行所有边
-						shouldExecute = true
-					}
-
-					if shouldExecute {
-						// 检查该节点的所有入边是否都已执行
-						allInputsReady := true
-						for _, e := range req.Edges {
-							if e.Target == edge.Target && !executed[e.Source] {
-								allInputsReady = false
-								break
-							}
-						}
-						if allInputsReady {
-							queue = append(queue, edge.Target)
-						}
-					}
+				if edge.Source != nodeID || executed[edge.Target] {
+					continue
+				}
+				shouldExecute := false
+				if edge.SourceHandle == "true" && conditionResult {
+					shouldExecute = true
+				} else if edge.SourceHandle == "false" && !conditionResult {
+					shouldExecute = true
+				} else if edge.SourceHandle == "" {
+					shouldExecute = true
+				}
+				if shouldExecute {
+					enqueueTarget(edge.Target)
 				}
 			}
-		} else {
-			// 非条件节点，执行所有出边
-			for _, edge := range req.Edges {
-				if edge.Source == nodeID && !executed[edge.Target] {
-					// 检查该节点的所有入边是否都已执行
-					// 对于合并节点，需要特殊处理：只检查"应该执行"的边
-					allInputsReady := true
-					for _, e := range req.Edges {
-						if e.Target == edge.Target {
-							// 检查这个入边是否应该被执行
-							shouldWaitForThisEdge := true
+			continue
+		}
 
-							// 如果源节点没有执行，检查它是否来自条件节点的未执行分支
-							if !executed[e.Source] {
-								// 递归检查：如果源节点没有执行，检查它的上游边是否来自条件节点的未执行分支
-								shouldWaitForThisEdge = isEdgeFromConditionBranch(e, req.Nodes, req.Edges, conditionResults, executed)
-							}
-
-							// 如果这个边应该被执行，但源节点还没执行，则不能继续
-							if shouldWaitForThisEdge && !executed[e.Source] {
-								allInputsReady = false
-								break
-							}
-						}
-					}
-					if allInputsReady {
-						queue = append(queue, edge.Target)
-					}
-				}
+		for _, edge := range req.Edges {
+			if edge.Source == nodeID {
+				enqueueTarget(edge.Target)
 			}
 		}
 	}
 
-	// 检查是否有未执行的节点
-	allExecuted := true
+	changed := true
+	for changed {
+		changed = false
+		for _, node := range req.Nodes {
+			if executed[node.ID] {
+				continue
+			}
+			state, reason := evaluateNodeState(node.ID)
+			if state == "blocked" {
+				markNodeSkipped(node.ID, reason)
+				changed = true
+			}
+		}
+	}
+
 	for _, node := range req.Nodes {
 		if !executed[node.ID] {
-			allExecuted = false
+			markNodeSkipped(node.ID, "节点未满足执行条件，已跳过")
 		}
 	}
 
 	return &ExecutionResult{
-		Success: allExecuted,
+		Success: !workflowFailed,
 		Results: results,
 	}, nil
 }
 
-// isEdgeFromConditionBranch 检查边是否来自条件节点的未执行分支
-// 如果源节点没有执行，递归检查它的上游边是否来自条件节点的未执行分支
+// isEdgeFromConditionBranch is the legacy helper used by the old stream executor.
 func isEdgeFromConditionBranch(edge EdgeConfig, nodes []NodeConfig, edges []EdgeConfig, conditionResults map[string]bool, executed map[string]bool) bool {
-	// 如果源节点已执行，需要等待
 	if executed[edge.Source] {
 		return true
 	}
 
-	// 检查这个边是否直接来自条件节点
 	for _, sourceNode := range nodes {
 		if sourceNode.ID == edge.Source && sourceNode.Type == "condition" {
 			if conditionResult, exists := conditionResults[edge.Source]; exists {
-				// 条件节点已执行，检查边的sourceHandle是否匹配
 				if edge.SourceHandle == "true" && !conditionResult {
-					return false // 条件为false，但边是true分支，不等待
+					return false
 				} else if edge.SourceHandle == "false" && conditionResult {
-					return false // 条件为true，但边是false分支，不等待
+					return false
 				}
 			}
 		}
 	}
 
-	// 如果源节点没有执行，递归检查它的上游边
 	for _, upstreamEdge := range edges {
 		if upstreamEdge.Target == edge.Source {
-			// 递归检查上游边是否来自条件节点的未执行分支
 			if !isEdgeFromConditionBranch(upstreamEdge, nodes, edges, conditionResults, executed) {
-				return false // 上游边来自未执行的分支，不等待
+				return false
 			}
 		}
 	}
 
-	// 默认需要等待
 	return true
 }
 
-// findStartNodes 找到起始节点（没有入边的节点）
+// findStartNodes returns all nodes without incoming edges.
 func (e *WorkflowExecutor) findStartNodes(nodes []NodeConfig, edges []EdgeConfig) []NodeConfig {
 	hasIncoming := make(map[string]bool)
 	for _, edge := range edges {
@@ -296,7 +330,7 @@ func (e *WorkflowExecutor) findStartNodes(nodes []NodeConfig, edges []EdgeConfig
 	return startNodes
 }
 
-// executeNode 执行单个节点
+// executeNode dispatches to the concrete node executor.
 func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, meta ExecutionMeta) NodeExecutionResult {
 	switch node.Type {
 	case "start":
@@ -331,15 +365,11 @@ func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, vari
 	}
 }
 
-// executeCrawlerNode 已迁移到 crawler_node.go
-
-// executeDataCleanNode 已迁移到 dataclean_node.go
-
-// executeAINode 已迁移到 ai_node.go
-
-// executeConditionNode 已迁移到 condition_node.go
-
-// 以下函数已迁移到独立文件：
+// Node executors live in dedicated files:
+// - executeCrawlerNode -> crawler_node.go
+// - executeDataCleanNode -> dataclean_node.go
+// - executeAINode -> ai_node.go
+// - executeConditionNode -> condition_node.go
 // - executeStartNode -> start_node.go
 // - executeTransformNode -> transform_node.go
 // - executeLoopNode -> loop_node.go

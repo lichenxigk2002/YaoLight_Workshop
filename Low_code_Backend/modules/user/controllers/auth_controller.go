@@ -693,6 +693,63 @@ func (c *AuthController) SendVerificationCode(ctx *gin.Context) {
 	})
 }
 
+// SendForgotPasswordCode 发送忘记密码验证码（仅已注册邮箱）
+// @Summary 发送忘记密码验证码
+// @Description 向已注册邮箱发送验证码，用于重置密码
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body services.SendCodeRequest true "邮箱"
+// @Router /api/auth/send-forgot-password-code [post]
+func (c *AuthController) SendForgotPasswordCode(ctx *gin.Context) {
+	var req services.SendCodeRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	if err := c.authService.SendForgotPasswordCode(&req); err != nil {
+		msg := err.Error()
+		code := 400
+		if strings.Contains(msg, "太频繁") {
+			code = 429
+		}
+		ctx.JSON(http.StatusOK, gin.H{"code": code, "message": msg, "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码已发送，请查收邮件", "data": nil})
+}
+
+// ResetPasswordByEmail 通过邮箱验证码重置密码（忘记密码）
+// @Summary 重置密码
+// @Description 使用邮箱和验证码设置新密码
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body services.ResetPasswordByEmailRequest true "邮箱、验证码、新密码"
+// @Router /api/auth/reset-password [post]
+func (c *AuthController) ResetPasswordByEmail(ctx *gin.Context) {
+	var req services.ResetPasswordByEmailRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	if err := c.authService.ResetPasswordByEmail(&req); err != nil {
+		msg := err.Error()
+		code := 400
+		if err == services.ErrInvalidCode {
+			msg = "验证码错误或已过期"
+			code = 401
+		} else if err == services.ErrUserNotFound {
+			msg = "该邮箱未注册"
+		} else if err == services.ErrPasswordTooShort {
+			msg = "新密码至少 6 位"
+		}
+		ctx.JSON(http.StatusOK, gin.H{"code": code, "message": msg, "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "密码已重置，请使用新密码登录", "data": nil})
+}
+
 // EmailLogin 邮箱验证码登录
 // @Summary 邮箱验证码登录
 // @Description 使用邮箱和验证码登录
@@ -880,6 +937,45 @@ func (c *AuthController) UpdateUsername(ctx *gin.Context) {
 		"message": "用户名修改成功",
 		"data":    nil,
 	})
+}
+
+// ChangePassword 修改密码或设置密码（邮箱注册未设置密码时仅需新密码）
+// @Summary 修改/设置密码
+// @Description 已设置过密码的用户需传旧密码；邮箱验证码注册未设置密码的用户仅传新密码即可
+// @Tags 用户
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body object true "oldPassword(可选), newPassword(必填)"
+// @Router /api/users/change-password [post]
+func (c *AuthController) ChangePassword(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	var req services.ChangePasswordRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	if err := c.authService.ChangePassword(userID.(uint), &req); err != nil {
+		if err == services.ErrUserNotFound {
+			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "用户不存在", "data": nil})
+			return
+		}
+		if err == services.ErrInvalidPassword {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "当前密码错误", "data": nil})
+			return
+		}
+		if err == services.ErrPasswordTooShort {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "新密码至少 6 位", "data": nil})
+			return
+		}
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "密码已更新", "data": nil})
 }
 
 // GetNotificationPreferences 获取通知偏好

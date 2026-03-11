@@ -13,6 +13,7 @@ type OrderRepository interface {
 	GetByOrderID(orderID string) (*paymentModels.Order, error)
 	GetByID(id uint) (*paymentModels.Order, error)
 	Update(order *paymentModels.Order) error
+	Delete(order *paymentModels.Order) error
 	GetByUserID(userID uint, limit, offset int) ([]paymentModels.Order, int64, error)
 }
 
@@ -56,6 +57,11 @@ func (r *orderRepository) GetByID(id uint) (*paymentModels.Order, error) {
 // Update 更新订单
 func (r *orderRepository) Update(order *paymentModels.Order) error {
 	return r.db.Save(order).Error
+}
+
+// Delete 删除订单（软删除）
+func (r *orderRepository) Delete(order *paymentModels.Order) error {
+	return r.db.Delete(order).Error
 }
 
 // GetByUserID 根据用户ID获取订单列表

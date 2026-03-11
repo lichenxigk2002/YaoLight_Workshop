@@ -69,6 +69,39 @@ type CreateOrderResponse struct {
 	QRCode  *string `json:"qrCode,omitempty"` // 扫码支付二维码
 }
 
+// UserOrderListItem 用户订单列表项
+type UserOrderListItem struct {
+	OrderID       string                      `json:"orderId"`
+	PackageName   string                      `json:"packageName"`
+	Amount        float64                     `json:"amount"`
+	Stardust      int64                       `json:"stardust"`
+	Status        paymentModels.OrderStatus   `json:"status"`
+	PaymentMethod paymentModels.PaymentMethod `json:"paymentMethod"`
+	PaidAt        *time.Time                  `json:"paidAt,omitempty"`
+	CreatedAt     time.Time                   `json:"createdAt"`
+}
+
+// UserOrderListResponse 用户订单列表响应
+type UserOrderListResponse struct {
+	List  []UserOrderListItem `json:"list"`
+	Total int64               `json:"total"`
+}
+
+// UserOrderDetail 用户订单详情（含支付链接，仅待支付时返回）
+type UserOrderDetail struct {
+	OrderID       string                      `json:"orderId"`
+	PackageName   string                      `json:"packageName"`
+	Amount        float64                     `json:"amount"`
+	Stardust      int64                       `json:"stardust"`
+	Status        paymentModels.OrderStatus   `json:"status"`
+	PaymentMethod paymentModels.PaymentMethod `json:"paymentMethod"`
+	PaidAt        *time.Time                  `json:"paidAt,omitempty"`
+	CreatedAt     time.Time                   `json:"createdAt"`
+	ExpiresAt     *time.Time                  `json:"expiresAt,omitempty"`
+	PayURL        string                      `json:"payUrl,omitempty"`  // 仅待支付时有值，用于继续支付
+	QRCode        string                      `json:"qrCode,omitempty"`  // 仅待支付且扫码支付时有值
+}
+
 // CreateOrder 创建支付订单
 func (s *PaymentService) CreateOrder(userID uint, req *CreateOrderRequest) (*CreateOrderResponse, error) {
 	// 1. 查找套餐
@@ -146,6 +179,100 @@ func (s *PaymentService) CreateOrder(userID uint, req *CreateOrderRequest) (*Cre
 	}
 
 	return response, nil
+}
+
+// ListUserOrders 获取指定用户的订单列表（带分页）
+func (s *PaymentService) ListUserOrders(userID uint, page, pageSize int) (*UserOrderListResponse, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+	offset := (page - 1) * pageSize
+
+	orders, total, err := s.orderRepo.GetByUserID(userID, pageSize, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]UserOrderListItem, 0, len(orders))
+	for _, o := range orders {
+		item := UserOrderListItem{
+			OrderID:       o.OrderID,
+			PackageName:   o.PackageName,
+			Amount:        o.Amount,
+			Stardust:      o.Stardust,
+			Status:        o.Status,
+			PaymentMethod: o.PaymentMethod,
+			PaidAt:        o.PaidAt,
+			CreatedAt:     o.CreatedAt,
+		}
+		list = append(list, item)
+	}
+
+	return &UserOrderListResponse{
+		List:  list,
+		Total: total,
+	}, nil
+}
+
+// GetOrderDetailForUser 获取当前用户的订单详情（含支付链接，仅本人且待支付时返回 payUrl/qrCode）
+func (s *PaymentService) GetOrderDetailForUser(orderID string, userID uint) (*UserOrderDetail, error) {
+	order, err := s.orderRepo.GetByOrderID(orderID)
+	if err != nil {
+		return nil, ErrOrderNotFound
+	}
+	if order.UserID != userID {
+		return nil, ErrOrderNotFound
+	}
+	detail := &UserOrderDetail{
+		OrderID:       order.OrderID,
+		PackageName:   order.PackageName,
+		Amount:        order.Amount,
+		Stardust:      order.Stardust,
+		Status:        order.Status,
+		PaymentMethod: order.PaymentMethod,
+		PaidAt:        order.PaidAt,
+		CreatedAt:     order.CreatedAt,
+		ExpiresAt:     order.ExpiresAt,
+	}
+	if order.Status == paymentModels.OrderStatusPending {
+		detail.PayURL = order.PayURL
+		detail.QRCode = order.QRCode
+	}
+	return detail, nil
+}
+
+// CancelOrder 取消订单（仅待支付可取消，置为已取消）
+func (s *PaymentService) CancelOrder(orderID string, userID uint) error {
+	order, err := s.orderRepo.GetByOrderID(orderID)
+	if err != nil {
+		return ErrOrderNotFound
+	}
+	if order.UserID != userID {
+		return ErrOrderNotFound
+	}
+	if order.Status != paymentModels.OrderStatusPending {
+		return errors.New("仅待支付订单可取消")
+	}
+	order.Status = paymentModels.OrderStatusCancelled
+	return s.orderRepo.Update(order)
+}
+
+// DeleteOrder 删除订单（软删除，仅待支付或已取消可删）
+func (s *PaymentService) DeleteOrder(orderID string, userID uint) error {
+	order, err := s.orderRepo.GetByOrderID(orderID)
+	if err != nil {
+		return ErrOrderNotFound
+	}
+	if order.UserID != userID {
+		return ErrOrderNotFound
+	}
+	if order.Status != paymentModels.OrderStatusPending && order.Status != paymentModels.OrderStatusCancelled {
+		return errors.New("仅待支付或已取消的订单可删除")
+	}
+	return s.orderRepo.Delete(order)
 }
 
 // generateAlipayPayment 生成支付宝支付链接
@@ -756,14 +883,15 @@ func (s *PaymentService) HandleAlipayNotify(params map[string]string) error {
 
 		// 创建充值流水记录
 		transaction := &userModels.TokenTransaction{
-			UserID:      order.UserID,
-			Amount:      int64(order.Stardust),
-			Type:        "recharge", // 交易类型：充值
-			RelatedID:   order.OrderID,
-			Description: fmt.Sprintf("购买套餐: %s", order.PackageName),
-			Cost:        order.Amount, // 实际支付金额
-			Currency:    "CNY",        // 货币单位
-			CreatedAt:   now,
+			UserID:       order.UserID,
+			Amount:       int64(order.Stardust),
+			Type:         "recharge", // 交易类型：充值
+			RelatedID:    order.OrderID,
+			Description:  fmt.Sprintf("购买套餐: %s", order.PackageName),
+			TotalTokens:  int(order.Stardust),
+			Cost:         order.Amount, // 实际支付金额
+			Currency:     "CNY",        // 货币单位
+			CreatedAt:    now,
 		}
 		if err := tx.Create(transaction).Error; err != nil {
 			return fmt.Errorf("创建交易流水失败: %w", err)

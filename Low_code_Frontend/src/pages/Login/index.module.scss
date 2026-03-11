@@ -457,6 +457,15 @@
   margin-right: 8px;
 }
 
+.forgotLink {
+  padding: 0;
+  color: #666;
+  font-size: 13px;
+  &:hover {
+    color: #000;
+  }
+}
+
 .submitButton {
   height: 52px;
   border-radius: 12px;
