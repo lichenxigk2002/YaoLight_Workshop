@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DownOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { DownOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, UserOutlined } from '@ant-design/icons';
 import { Avatar, Breadcrumb, Button, Dropdown, Layout, Menu } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -107,6 +107,7 @@ export default function AdminLayout() {
   const session = getAdminSession();
   const { t } = useI18n();
   const currentYear = new Date().getFullYear();
+  const [collapsed, setCollapsed] = useState(false);
   const activeChain = matchMenuChain(location.pathname) ?? [];
   const selectedKey = activeChain.at(-1)?.key ?? 'dashboard';
   const routeOpenKeys = activeChain.filter((item) => (item.children?.length ?? 0) > 0).map((item) => item.key);
@@ -120,10 +121,13 @@ export default function AdminLayout() {
 
   return (
     <Layout className={styles.shell}>
-      <Sider width={264} className={styles.sider}>
-        <div className={styles.brand} onClick={() => navigate('/')}>
+      <Sider width={264} collapsedWidth={88} collapsed={collapsed} trigger={null} className={styles.sider}>
+        <div
+          className={`${styles.brand} ${collapsed ? styles.brandCollapsed : ''}`}
+          onClick={() => navigate('/')}
+        >
           <div className={styles.brandMark}>YL</div>
-          <div>
+          <div className={styles.brandText}>
             <div className={styles.brandTitle}>{t('layout.brandTitle')}</div>
             <div className={styles.brandSub}>{t('layout.brandSubtitle')}</div>
           </div>
@@ -131,18 +135,28 @@ export default function AdminLayout() {
         <Menu
           mode="inline"
           theme="light"
+          inlineCollapsed={collapsed}
           selectedKeys={[selectedKey]}
-          openKeys={openKeys}
-          onOpenChange={(keys) => setOpenKeys(keys as string[])}
+          openKeys={collapsed ? undefined : openKeys}
+          onOpenChange={collapsed ? undefined : (keys) => setOpenKeys(keys as string[])}
           items={menuItems}
           className={styles.menu}
         />
       </Sider>
       <Layout className={styles.main}>
         <Header className={styles.header}>
-          <div className={styles.headerInfo}>
-            <div className={styles.headerTitle}>{t('layout.headerTitle')}</div>
-            <Breadcrumb className={styles.breadcrumb} items={breadcrumbItems} />
+          <div className={styles.headerLead}>
+            <Button
+              type="text"
+              className={styles.collapseButton}
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed((current) => !current)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            />
+            <div className={styles.headerInfo}>
+              <div className={styles.headerTitle}>{t('layout.headerTitle')}</div>
+              <Breadcrumb className={styles.breadcrumb} items={breadcrumbItems} />
+            </div>
           </div>
           <div className={styles.headerActions}>
             <div className={styles.headerTools}>

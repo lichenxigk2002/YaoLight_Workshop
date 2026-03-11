@@ -935,12 +935,7 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 			existingExecution.ExecutionTime = &execTimeInt
 			existingExecution.CompletedAt = &nodeCompletedTime
 
-			if !result.Success {
-				errorMsg := result.Error
-				existingExecution.ErrorMessage = &errorMsg
-			} else {
-				existingExecution.ErrorMessage = nil
-			}
+			applyExecutionFailure(existingExecution, status, result)
 
 			if err := nodeExecutionRepo.Update(existingExecution); err != nil {
 				log.Printf("更新节点执行记录失败: %v", err)
@@ -961,10 +956,7 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 				CreatedAt:     time.Now(),
 			}
 
-			if !result.Success {
-				errorMsg := result.Error
-				execution.ErrorMessage = &errorMsg
-			}
+			applyExecutionFailure(execution, status, result)
 
 			if err := nodeExecutionRepo.Create(execution); err != nil {
 				log.Printf("保存节点执行记录失败: %v", err)
@@ -1013,7 +1005,7 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 
 		// 执行节点
 		nodeStartTime := time.Now()
-		result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
+		result := e.executeNodeSafely(*nodeConfig, dataFlow, variableContext, execMeta)
 		executionTime := time.Since(nodeStartTime).Milliseconds()
 
 		// 保存节点执行记录
@@ -1366,6 +1358,7 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 
 				if streamError != nil {
 					result.Error = streamError.Error()
+					result.ErrorStack = currentErrorStack()
 				}
 
 				// 保存节点执行记录
@@ -1383,7 +1376,7 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 				log.Printf("[流式调试-后端] 节点 %s 使用非流式执行", nodeConfig.ID)
 				// 非流式AI节点，使用普通执行（包含计费逻辑）
 				nodeStartTime := time.Now()
-				result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
+				result := e.executeNodeSafely(*nodeConfig, dataFlow, variableContext, execMeta)
 				executionTime := time.Since(nodeStartTime).Milliseconds()
 
 				// 保存节点执行记录
@@ -1410,7 +1403,7 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 		} else {
 			// 普通节点或非流式AI节点，使用普通执行
 			nodeStartTime := time.Now()
-			result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
+			result := e.executeNodeSafely(*nodeConfig, dataFlow, variableContext, execMeta)
 			executionTime := time.Since(nodeStartTime).Milliseconds()
 
 			// 保存节点执行记录

@@ -46,6 +46,7 @@
   border: 1px solid var(--admin-line);
   border-radius: 18px;
   padding: 10px 16px 0;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
 }
 
 .statusTag {
@@ -74,6 +75,16 @@
 
 .codeMain {
   min-width: 0;
+}
+
+.stackActions {
+  gap: 2px !important;
+}
+
+.stackCollapsed {
+  color: var(--admin-ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 @media (max-width: 1440px) {
