@@ -45,6 +45,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 	taskRepo := taskRepos.NewTaskRepository(database.DB)
 	nodeExecutionRepo := taskRepos.NewTaskNodeExecutionRepository(database.DB)
+	logRepo := taskRepos.NewTaskLogRepository(database.DB)
 	startNodes := e.findStartNodes(req.Nodes, req.Edges)
 	startNodeIDs := make(map[string]struct{}, len(startNodes))
 	for _, node := range startNodes {
@@ -113,6 +114,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	queued := make(map[string]bool)
 	workflowFailed := false
 	workflowFailureMessage := ""
+	workflowFailureStack := ""
 	currentExecutingNodeID := ""
 
 	emitNodeResult := func(result NodeExecutionResult, status string) {
@@ -194,15 +196,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			existingExecution.ExecutionTime = &execTimeInt
 			existingExecution.CompletedAt = &nodeCompletedTime
 
-			if status == "completed" {
-				existingExecution.ErrorMessage = nil
-			} else {
-				errorMsg := result.Error
-				if errorMsg == "" && status == "skipped" {
-					errorMsg = "node skipped"
-				}
-				existingExecution.ErrorMessage = &errorMsg
-			}
+			applyExecutionFailure(existingExecution, status, result)
 
 			if err := nodeExecutionRepo.Update(existingExecution); err != nil {
 				log.Printf("update node execution failed: %v", err)
@@ -224,13 +218,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			CreatedAt:     time.Now(),
 		}
 
-		if status != "completed" {
-			errorMsg := result.Error
-			if errorMsg == "" && status == "skipped" {
-				errorMsg = "node skipped"
-			}
-			execution.ErrorMessage = &errorMsg
-		}
+		applyExecutionFailure(execution, status, result)
 
 		if err := nodeExecutionRepo.Create(execution); err != nil {
 			log.Printf("create node execution failed: %v", err)
@@ -249,6 +237,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			existingExecution.StartedAt = &now
 			existingExecution.CompletedAt = nil
 			existingExecution.ErrorMessage = nil
+			existingExecution.ErrorStack = nil
 			if err := nodeExecutionRepo.Update(existingExecution); err != nil {
 				log.Printf("update running node execution failed: %v", err)
 			}
@@ -346,7 +335,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		return context.Canceled
 	}
 
-	updateFailedTask := func(message string) {
+	updateFailedTask := func(message string, stack string) {
 		if task.ID == 0 {
 			return
 		}
@@ -359,18 +348,18 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		task.ActualDuration = &actualDuration
 		task.Result = collectTaskResultPayload(dataFlow, terminalNodes)
 		task.UpdatedAt = time.Now()
-		if message != "" {
-			task.ErrorMessage = &message
-		}
+		applyTaskFailure(task, message, stack)
 
 		if err := taskRepo.UpdateTask(task); err != nil {
 			log.Printf("update failed task failed: %v", err)
 		}
+
+		createTaskFailureLog(logRepo, task.ID, nil, "error", message, buildFailureMetadata("", "failed"), stack)
 	}
 
 	if len(startNodes) == 0 {
 		err := fmt.Errorf("workflow has no start node")
-		updateFailedTask(err.Error())
+		updateFailedTask(err.Error(), currentErrorStack())
 		return err
 	}
 
@@ -539,15 +528,16 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 				}
 				if streamError != nil {
 					result.Error = streamError.Error()
+					result.ErrorStack = currentErrorStack()
 				}
 			} else {
 				nodeStartTime := time.Now()
-				result = e.executeNode(nodeConfig, dataFlow, variableContext, execMeta)
+				result = e.executeNodeSafely(nodeConfig, dataFlow, variableContext, execMeta)
 				executionTime = time.Since(nodeStartTime).Milliseconds()
 			}
 		} else {
 			nodeStartTime := time.Now()
-			result = e.executeNode(nodeConfig, dataFlow, variableContext, execMeta)
+			result = e.executeNodeSafely(nodeConfig, dataFlow, variableContext, execMeta)
 			executionTime = time.Since(nodeStartTime).Milliseconds()
 		}
 
@@ -570,9 +560,14 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			nodeStatus[nodeID] = "failed"
 			saveNodeExecution(nodeID, nodeConfig.Type, result, executionTime, "")
 			emitNodeResult(result, "failed")
+			nodeIDCopy := nodeID
+			createTaskFailureLog(logRepo, task.ID, &nodeIDCopy, "error", result.Error, buildFailureMetadata(nodeConfig.Type, "failed"), result.ErrorStack)
 			workflowFailed = true
 			if workflowFailureMessage == "" {
 				workflowFailureMessage = result.Error
+			}
+			if workflowFailureStack == "" {
+				workflowFailureStack = result.ErrorStack
 			}
 		}
 
@@ -649,12 +644,11 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 
 		if workflowFailed {
 			task.Status = "failed"
-			if workflowFailureMessage != "" {
-				task.ErrorMessage = &workflowFailureMessage
-			}
+			applyTaskFailure(task, workflowFailureMessage, workflowFailureStack)
 		} else {
 			task.Status = "completed"
 			task.ErrorMessage = nil
+			task.ErrorStack = nil
 		}
 
 		if err := taskRepo.UpdateTask(task); err != nil {

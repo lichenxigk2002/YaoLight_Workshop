@@ -46,11 +46,12 @@ type ExecutionRequest struct {
 
 // NodeExecutionResult is the result of one node execution.
 type NodeExecutionResult struct {
-	NodeID  string      `json:"node_id"`
-	Type    string      `json:"type"`
-	Success bool        `json:"success"`
-	Data    interface{} `json:"data"`
-	Error   string      `json:"error,omitempty"`
+	NodeID     string      `json:"node_id"`
+	Type       string      `json:"type"`
+	Success    bool        `json:"success"`
+	Data       interface{} `json:"data"`
+	Error      string      `json:"error,omitempty"`
+	ErrorStack string      `json:"errorStack,omitempty"`
 }
 
 // ExecutionResult is the final workflow execution result.
@@ -205,7 +206,7 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 		}
 
 		variableContext.SetNodeType(nodeID, nodeConfig.Type)
-		result := e.executeNode(*nodeConfig, dataFlow, variableContext, execMeta)
+		result := e.executeNodeSafely(*nodeConfig, dataFlow, variableContext, execMeta)
 		results = append(results, result)
 
 		executed[nodeID] = true

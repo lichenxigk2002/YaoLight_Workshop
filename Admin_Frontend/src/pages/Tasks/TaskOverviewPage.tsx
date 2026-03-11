@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { App, Button, Card, Descriptions, Empty, Statistic, Table, Tag } from 'antd';
+import { App, Button, Card, Descriptions, Empty, Space, Statistic, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useOutletContext } from 'react-router-dom';
@@ -34,6 +34,7 @@ export default function TaskOverviewPage() {
   const [artifactPage, setArtifactPage] = useState(1);
   const [artifactPageSize, setArtifactPageSize] = useState(10);
   const [loadingArtifacts, setLoadingArtifacts] = useState(false);
+  const [errorStackExpanded, setErrorStackExpanded] = useState(false);
 
   useEffect(() => {
     setLoadingArtifacts(true);
@@ -116,9 +117,40 @@ export default function TaskOverviewPage() {
             <CodeViewer value={detail.task.inputData?.Data ?? detail.task.inputData ?? null} maxHeight={320} />
           </Card>
 
-          <Card bordered={false} className={styles.card} title="错误堆栈">
-            <CodeViewer value={detail.task.errorStack} language="text" maxHeight={280} />
-          </Card>
+          {detail.task.errorStack?.trim() ? (
+            <Card
+              bordered={false}
+              className={styles.card}
+              title="错误堆栈"
+              extra={
+                <Space size={4} className={styles.stackActions}>
+                  <Button
+                    size="small"
+                    type="text"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(detail.task.errorStack ?? '');
+                        message.success('错误堆栈已复制');
+                      } catch {
+                        message.error('复制失败');
+                      }
+                    }}
+                  >
+                    复制
+                  </Button>
+                  <Button size="small" type="text" onClick={() => setErrorStackExpanded((current) => !current)}>
+                    {errorStackExpanded ? '收起' : '展开'}
+                  </Button>
+                </Space>
+              }
+            >
+              {errorStackExpanded ? (
+                <CodeViewer value={detail.task.errorStack} language="text" maxHeight={280} />
+              ) : (
+                <div className={styles.stackCollapsed}>默认折叠，点击“展开”查看完整错误堆栈。</div>
+              )}
+            </Card>
+          ) : null}
         </div>
 
         <div className={styles.codeMain}>
