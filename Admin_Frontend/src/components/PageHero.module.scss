@@ -1,5 +1,5 @@
 .hero {
-  background: #faf5ff;
+  background: linear-gradient(180deg, var(--admin-panel) 0%, var(--admin-panel-alt) 100%);
   box-shadow: var(--admin-shadow);
 }
 
@@ -32,9 +32,9 @@
 .tag {
   border-radius: 999px;
   padding: 4px 10px;
-  background: #ede9fe;
-  border-color: rgba(139, 92, 246, 0.25);
-  color: #5b21b6;
+  background: var(--admin-brand-soft);
+  border-color: var(--admin-line);
+  color: var(--admin-brand-ink);
 }
 
 .action {

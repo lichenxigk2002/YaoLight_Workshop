@@ -4,6 +4,7 @@ import { Avatar, Breadcrumb, Button, Dropdown, Layout, Menu, Space } from 'antd'
 import type { ItemType } from 'antd/es/menu/interface';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import LocaleSwitch from '@/components/LocaleSwitch';
+import ThemeSwitch from '@/components/ThemeSwitch';
 import { adminMenuItems } from '@/constants/menu';
 import { useI18n } from '@/i18n';
 import type { AdminMenuItem } from '@/types/menu';
@@ -113,6 +114,7 @@ export default function AdminLayout() {
             <Breadcrumb items={buildBreadcrumb(location.pathname, t)} />
           </div>
           <Space size={12}>
+            <ThemeSwitch />
             <LocaleSwitch />
             <Dropdown
               menu={{

@@ -10,7 +10,9 @@ import {
   type ListAdminTaskFailuresParams,
   type ListAdminTasksParams,
 } from '@/api/tasks';
+import { useI18n } from '@/i18n';
 import type { AdminTaskListItem, AdminTaskListResponse } from '@/types/tasks';
+import { getTaskStatusMeta } from './taskStatus';
 import styles from './Tasks.module.scss';
 
 const { Paragraph, Text } = Typography;
@@ -29,27 +31,9 @@ function formatDateTime(value?: string | null) {
   return dayjs(value).format('YYYY-MM-DD HH:mm:ss');
 }
 
-function statusColor(status: string) {
-  switch (status) {
-    case 'completed':
-      return 'green';
-    case 'running':
-    case 'queued':
-    case 'pending':
-    case 'paused':
-      return 'blue';
-    case 'failed':
-    case 'timeout':
-      return 'red';
-    case 'cancelled':
-      return 'default';
-    default:
-      return 'default';
-  }
-}
-
 export default function TaskListCard({ title, description, mode = 'all' }: TaskListCardProps) {
   const { message } = App.useApp();
+  const { locale } = useI18n();
   const navigate = useNavigate();
   const [loadingList, setLoadingList] = useState(false);
   const [tasks, setTasks] = useState<AdminTaskListItem[]>([]);
@@ -154,11 +138,14 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
       title: '状态',
       dataIndex: 'status',
       width: 120,
-      render: (value: string) => (
-        <Tag color={statusColor(value)} className={styles.statusTag}>
-          {value}
-        </Tag>
-      ),
+      render: (value: string) => {
+        const meta = getTaskStatusMeta(value, locale);
+        return (
+          <Tag color={meta.color} className={styles.statusTag}>
+            {meta.label}
+          </Tag>
+        );
+      },
     },
     {
       title: '进度',
@@ -221,7 +208,7 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
             }}
             style={{ width: 140 }}
             options={['pending', 'queued', 'running', 'paused', 'completed', 'failed', 'cancelled', 'timeout'].map(
-              (value) => ({ value, label: value }),
+              (value) => ({ value, label: getTaskStatusMeta(value, locale).label }),
             )}
           />
         ) : null}

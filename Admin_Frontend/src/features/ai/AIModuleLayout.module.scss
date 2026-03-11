@@ -24,12 +24,12 @@
 
 .navLink:hover {
   color: var(--admin-brand);
-  background: rgba(15, 118, 110, 0.08);
+  background: var(--admin-brand-soft);
 }
 
 .navLinkActive {
   color: #fff;
-  background: linear-gradient(135deg, var(--admin-brand), #0b5a54);
+  background: linear-gradient(135deg, var(--admin-brand), var(--admin-accent));
 }
 
 .workspaceAlert {

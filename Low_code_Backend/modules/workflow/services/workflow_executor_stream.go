@@ -758,7 +758,7 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 }
 
 // ExecuteWorkflowStream 流式执行工作流（支持所有节点类型）
-func (e *WorkflowExecutor) ExecuteWorkflowStream(
+func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 	ctx context.Context,
 	req ExecutionRequest,
 	callback StreamCallback,
