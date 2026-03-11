@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Badge, Button, Dropdown, Empty, Spin, Tooltip } from 'antd';
+import { Badge, Button, Dropdown, Empty, Modal, Spin, Tooltip } from 'antd';
 import { MessageOutlined, SettingOutlined } from '@ant-design/icons';
 import { NotificationBellIcon, SweepIcon } from '@/components/Icons';
 import { useNavigate } from 'react-router-dom';
@@ -30,11 +30,24 @@ function formatDateShort(createdAt: string) {
 
 type TabFilter = 'all' | 'unread';
 
+function normalizeNotificationText(content?: string) {
+  if (!content) {
+    return '';
+  }
+  return content.replace(/\\n/g, '\n');
+}
+
+function isWorkflowCompletionNotification(notification: Notification) {
+  return notification.type === 'task_completed';
+}
+
 export default function NotificationBell() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [tab, setTab] = useState<TabFilter>('all');
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   useNotificationWS();
 
   const {
@@ -56,9 +69,19 @@ export default function NotificationBell() {
 
   const filteredList = tab === 'unread' ? list.filter((n) => !n.is_read) : list.slice(0, 10);
 
-  const handleCardClick = (n: Notification) => {
-    if (!n.is_read) markRead(n.id);
-    if (n.action_url) navigate(n.action_url);
+  const handleCardClick = async (n: Notification) => {
+    if (!n.is_read) {
+      await markRead(n.id);
+    }
+
+    if (isWorkflowCompletionNotification(n) && n.action_url?.startsWith('/projects/')) {
+      setDetailOpen(false);
+      navigate(n.action_url);
+      return;
+    }
+
+    setSelectedNotification(n);
+    setDetailOpen(true);
   };
 
   const dropdownContent = (
@@ -125,7 +148,7 @@ export default function NotificationBell() {
                 <span className={styles.notificationCardDate}>{formatDateShort(n.created_at)}</span>
               </div>
               {n.content && (
-                <div className={styles.notificationCardContent}>{n.content}</div>
+                <div className={styles.notificationCardContent}>{normalizeNotificationText(n.content)}</div>
               )}
               <Button
                 type="primary"
@@ -133,7 +156,7 @@ export default function NotificationBell() {
                 className={styles.notificationCardBtn}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleCardClick(n);
+                  void handleCardClick(n);
                 }}
               >
                 {t('layout.notificationView')}
@@ -148,21 +171,44 @@ export default function NotificationBell() {
   if (!isAuthenticated) return null;
 
   return (
-    <Dropdown
-      dropdownRender={() => dropdownContent}
-      trigger={['click']}
-      placement="bottomRight"
-    >
-      <Button
-        className={styles.headerIconBtn}
-        shape="circle"
-        size="middle"
-        icon={
-          <Badge count={unreadCount} size="small" offset={[-1, 1]}>
-            <NotificationBellIcon size={15} color="currentColor" className={styles.notificationBellIcon} />
-          </Badge>
+    <>
+      <Dropdown
+        dropdownRender={() => dropdownContent}
+        trigger={['click']}
+        placement="bottomRight"
+      >
+        <Button
+          className={styles.headerIconBtn}
+          shape="circle"
+          size="middle"
+          icon={
+            <Badge count={unreadCount} size="small" offset={[-1, 1]}>
+              <NotificationBellIcon size={15} color="currentColor" className={styles.notificationBellIcon} />
+            </Badge>
+          }
+        />
+      </Dropdown>
+
+      <Modal
+        open={detailOpen}
+        title={selectedNotification?.title || t('layout.notificationDetailTitle')}
+        onCancel={() => setDetailOpen(false)}
+        footer={
+          <Button onClick={() => setDetailOpen(false)}>
+            {t('common.cancel')}
+          </Button>
         }
-      />
-    </Dropdown>
+        width={560}
+        className={styles.notificationDetailModal}
+      >
+        <div className={styles.notificationDetailMeta}>
+          <span>{t('layout.notificationCreatedAt')}: {selectedNotification?.created_at ? new Date(selectedNotification.created_at).toLocaleString() : '-'}</span>
+          <span>{t('layout.notificationType')}: {selectedNotification?.type || '-'}</span>
+        </div>
+        <div className={styles.notificationDetailContent}>
+          {normalizeNotificationText(selectedNotification?.content) || t('layout.notificationEmpty')}
+        </div>
+      </Modal>
+    </>
   );
 }

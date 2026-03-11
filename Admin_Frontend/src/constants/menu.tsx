@@ -19,6 +19,7 @@ import {
   RadarChartOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
+  ScheduleOutlined,
   SettingOutlined,
   TeamOutlined,
   WarningOutlined,
@@ -96,7 +97,28 @@ export const adminMenuItems: AdminMenuItem[] = [
     label: 'menu.systemConfigs',
     icon: <SettingOutlined />,
   },
-  { key: 'notifications', path: '/notifications', label: 'menu.notifications', icon: <BellOutlined /> },
+  {
+    key: 'notifications',
+    label: 'menu.notifications',
+    icon: <BellOutlined />,
+    children: [
+      { key: 'notifications-send', path: '/notifications/send', label: 'menu.notificationsSend', icon: <BellOutlined /> },
+      { key: 'notifications-jobs', path: '/notifications/jobs', label: 'menu.notificationsJobs', icon: <ScheduleOutlined /> },
+      { key: 'notifications-log', path: '/notifications/log', label: 'menu.notificationsLog', icon: <AuditOutlined /> },
+      {
+        key: 'notifications-analytics',
+        path: '/notifications/analytics',
+        label: 'menu.notificationsAnalytics',
+        icon: <LineChartOutlined />,
+      },
+      {
+        key: 'notifications-templates',
+        path: '/notifications/templates',
+        label: 'menu.notificationsTemplates',
+        icon: <DeploymentUnitOutlined />,
+      },
+    ],
+  },
   {
     key: 'operation-logs',
     path: '/operation-logs',

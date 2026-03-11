@@ -145,7 +145,10 @@
     "notificationAll": "All",
     "notificationUnread": "Unread",
     "notificationView": "View",
-    "notificationSettings": "Notification settings"
+    "notificationSettings": "Notification settings",
+    "notificationDetailTitle": "Notification Detail",
+    "notificationCreatedAt": "Created At",
+    "notificationType": "Notification Type"
   },
   "help": {
     "title": "Help",

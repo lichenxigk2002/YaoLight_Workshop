@@ -149,8 +149,10 @@ func main() {
 		notificationHubInstance := notificationHub.NewHub()
 		notificationRepo := notificationRepos.NewNotificationRepository(database.DB)
 		notificationService := notificationServices.NewNotificationService(notificationRepo, notificationHubInstance)
+		adminNotificationService := notificationServices.NewAdminNotificationService(database.DB, notificationRepo, notificationService)
 		notificationModule.SetDefaultService(notificationService)
 		notificationController := notificationControllers.NewNotificationController(notificationService, notificationHubInstance)
+		adminNotificationController := notificationControllers.NewAdminNotificationController(adminNotificationService)
 		api.GET("/ws/notifications", notificationController.HandleWebSocket)
 
 		// 需要认证的路由
@@ -302,6 +304,17 @@ func main() {
 			adminCrawlerRules.POST("/test", adminCrawlerRuleController.TestRule)
 			adminCrawlerRules.GET("/:id/usages", adminCrawlerRuleController.GetRuleUsages)
 			adminCrawlerRules.POST("/:id/clone", adminCrawlerRuleController.CloneRule)
+			adminNotifications := auth.Group("/admin/notifications")
+			adminNotifications.Use(middleware.AdminOnlyMiddleware())
+			adminNotifications.GET("/summary", adminNotificationController.GetSummary)
+			adminNotifications.GET("", adminNotificationController.List)
+			adminNotifications.GET("/jobs", adminNotificationController.ListJobs)
+			adminNotifications.GET("/jobs/:id/deliveries", adminNotificationController.ListDeliveries)
+			adminNotifications.GET("/analytics", adminNotificationController.GetAnalytics)
+			adminNotifications.GET("/templates", adminNotificationController.ListTemplates)
+			adminNotifications.POST("/templates", adminNotificationController.CreateTemplate)
+			adminNotifications.PUT("/templates/:id", adminNotificationController.UpdateTemplate)
+			adminNotifications.POST("/send", adminNotificationController.Send)
 
 			// 瑶光星（Alkaid）对话相关路由
 			alkaidController := alkaidControllers.NewAlkaidController()
