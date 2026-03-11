@@ -230,13 +230,15 @@ export default function SendPanel({ onSent }: SendPanelProps) {
   const [recipientOptions, setRecipientOptions] = useState<AdminUserListItem[]>([]);
   const [templates, setTemplates] = useState<AdminNotificationTemplate[]>([]);
 
+  const safeTemplates = Array.isArray(templates) ? templates : [];
+  const safeRecipientOptions = Array.isArray(recipientOptions) ? recipientOptions : [];
   const selectedTemplate = useMemo(
-    () => templates.find((item) => item.id === templateId) ?? null,
-    [templateId, templates],
+    () => safeTemplates.find((item) => item.id === templateId) ?? null,
+    [templateId, safeTemplates],
   );
   const recipientMap = useMemo(
-    () => new Map(recipientOptions.map((user) => [user.id, user])),
-    [recipientOptions],
+    () => new Map(safeRecipientOptions.map((user) => [user.id, user])),
+    [safeRecipientOptions],
   );
   const notificationTypeOptions = useMemo(
     () => [
@@ -275,7 +277,7 @@ export default function SendPanel({ onSent }: SendPanelProps) {
         page_size: 20,
         keyword: keyword?.trim() || undefined,
       });
-      setRecipientOptions((current) => mergeUsers(current, data.list));
+      setRecipientOptions((current) => mergeUsers(Array.isArray(current) ? current : [], Array.isArray(data.list) ? data.list : []));
     } catch (error) {
       messageApi.error((error as Error).message);
     } finally {
@@ -291,7 +293,7 @@ export default function SendPanel({ onSent }: SendPanelProps) {
         page_size: 100,
         is_active: true,
       });
-      setTemplates(data.list);
+      setTemplates(Array.isArray(data.list) ? data.list : []);
     } catch (error) {
       messageApi.error((error as Error).message);
     } finally {
@@ -465,7 +467,7 @@ export default function SendPanel({ onSent }: SendPanelProps) {
               allowClear
               loading={templateLoading}
               placeholder={t('notifications.send.templatePlaceholder')}
-              options={templates.map((item) => ({ label: item.name, value: item.id }))}
+              options={safeTemplates.map((item) => ({ label: item.name, value: item.id }))}
             />
           </Form.Item>
 
@@ -495,7 +497,7 @@ export default function SendPanel({ onSent }: SendPanelProps) {
               onSearch={(keyword) => {
                 void loadRecipients(keyword);
               }}
-              options={recipientOptions.map((user) => ({
+              options={safeRecipientOptions.map((user) => ({
                 label: renderUserOption(user, t),
                 value: user.id,
               }))}

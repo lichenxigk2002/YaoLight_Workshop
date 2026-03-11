@@ -7,11 +7,26 @@ interface ApiEnvelope<T> {
   data: T;
 }
 
+interface ListPageLike<T> {
+  list?: T[] | null;
+}
+
 function unwrap<T>(payload: ApiEnvelope<T>, fallback: string): T {
   if (payload.code !== 200 || payload.data === undefined || payload.data === null) {
     throw new Error(payload.message || fallback);
   }
   return payload.data;
+}
+
+function ensureArray<T>(value?: T[] | null) {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeListPage<TItem, TPage extends ListPageLike<TItem>>(page: TPage): TPage & { list: TItem[] } {
+  return {
+    ...page,
+    list: ensureArray(page.list),
+  };
 }
 
 export interface AdminNotificationSummary {
@@ -213,12 +228,12 @@ export async function getAdminNotificationSummary(): Promise<AdminNotificationSu
 
 export async function getAdminNotifications(params: AdminNotificationListQuery): Promise<AdminNotificationListPage> {
   const { data } = await http.get<ApiEnvelope<AdminNotificationListPage>>('/admin/notifications', { params });
-  return unwrap(data, translateCurrent('notifications.errors.loadLog'));
+  return normalizeListPage(unwrap(data, translateCurrent('notifications.errors.loadLog')));
 }
 
 export async function getAdminNotificationJobs(params: AdminNotificationJobListQuery): Promise<AdminNotificationJobListPage> {
   const { data } = await http.get<ApiEnvelope<AdminNotificationJobListPage>>('/admin/notifications/jobs', { params });
-  return unwrap(data, translateCurrent('notifications.errors.loadJobs'));
+  return normalizeListPage(unwrap(data, translateCurrent('notifications.errors.loadJobs')));
 }
 
 export async function getAdminNotificationDeliveries(
@@ -229,7 +244,7 @@ export async function getAdminNotificationDeliveries(
     `/admin/notifications/jobs/${sendJobId}/deliveries`,
     { params },
   );
-  return unwrap(data, translateCurrent('notifications.errors.loadDeliveries'));
+  return normalizeListPage(unwrap(data, translateCurrent('notifications.errors.loadDeliveries')));
 }
 
 export async function getAdminNotificationTemplates(params: {
@@ -241,7 +256,7 @@ export async function getAdminNotificationTemplates(params: {
   const { data } = await http.get<ApiEnvelope<AdminNotificationTemplateListPage>>('/admin/notifications/templates', {
     params,
   });
-  return unwrap(data, translateCurrent('notifications.errors.loadTemplates'));
+  return normalizeListPage(unwrap(data, translateCurrent('notifications.errors.loadTemplates')));
 }
 
 export async function createAdminNotificationTemplate(
@@ -264,7 +279,13 @@ export async function updateAdminNotificationTemplate(
 
 export async function getAdminNotificationAnalytics(): Promise<AdminNotificationAnalytics> {
   const { data } = await http.get<ApiEnvelope<AdminNotificationAnalytics>>('/admin/notifications/analytics');
-  return unwrap(data, translateCurrent('notifications.errors.loadAnalytics'));
+  const result = unwrap(data, translateCurrent('notifications.errors.loadAnalytics'));
+  return {
+    ...result,
+    job_status_breakdown: ensureArray(result.job_status_breakdown),
+    template_performance: ensureArray(result.template_performance),
+    failure_reasons: ensureArray(result.failure_reasons),
+  };
 }
 
 export async function sendAdminNotification(payload: SendAdminNotificationPayload): Promise<SendAdminNotificationResult> {
