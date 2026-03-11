@@ -1,5 +1,5 @@
-import { BgColorsOutlined, BulbOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
-import { Button, Popover, Space, Tooltip } from 'antd';
+import { BgColorsOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
+import { Button, Popover, Tooltip } from 'antd';
 import { useI18n } from '@/i18n';
 import { useAdminTheme } from '@/theme';
 import type { AdminThemeMode, AdminThemePaletteId } from '@/theme/presets';
@@ -120,12 +120,7 @@ export default function ThemeSwitch() {
           aria-label={panelLabels[locale].title}
           className={styles.trigger}
           icon={mode === 'dark' ? <MoonOutlined /> : <BgColorsOutlined />}
-        >
-          <Space size={6} className={styles.triggerLabel}>
-            <BulbOutlined style={{ color: 'var(--admin-brand)' }} />
-            <span>{paletteLabels[locale][paletteId]}</span>
-          </Space>
-        </Button>
+        />
       </Tooltip>
     </Popover>
   );

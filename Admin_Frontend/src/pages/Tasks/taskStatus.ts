@@ -35,19 +35,19 @@ export function getTaskStatusMeta(status: string, locale: AdminLocale): TaskStat
 
   switch (status) {
     case 'completed':
-      return { color: 'success', label: labels.completed };
+      return { color: 'green', label: labels.completed };
     case 'running':
     case 'queued':
     case 'pending':
     case 'paused':
-      return { color: 'processing', label: labels[status] ?? status };
+      return { color: 'blue', label: labels[status] ?? status };
     case 'failed':
     case 'timeout':
-      return { color: 'error', label: labels[status] ?? status };
+      return { color: 'red', label: labels[status] ?? status };
     case 'cancelled':
       return { color: 'default', label: labels.cancelled };
     case 'skipped':
-      return { color: 'warning', label: labels.skipped };
+      return { color: 'orange', label: labels.skipped };
     default:
       return { color: 'default', label: status };
   }

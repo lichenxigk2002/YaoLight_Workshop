@@ -3,6 +3,7 @@ import { App, Button, Card, Input, Select, Space, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useOutletContext } from 'react-router-dom';
 import { getAdminTaskLogs } from '@/api/tasks';
+import CodeViewer from '@/components/CodeViewer';
 import type { AdminTaskLog } from '@/types/tasks';
 import type { TaskDetailOutletContext } from './TaskDetailLayout';
 import styles from './Tasks.module.scss';
@@ -21,15 +22,6 @@ function levelColor(level: AdminTaskLog['level']) {
       return 'magenta';
     default:
       return 'default';
-  }
-}
-
-function pretty(value: unknown) {
-  if (value === null || value === undefined) return '-';
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
   }
 }
 
@@ -98,7 +90,7 @@ export default function TaskLogsPage() {
               setPage(1);
               setNodeId(nodeIdInput.trim() || undefined);
             }}
-            style={{ width: 200 }}
+            style={{ width: 220 }}
           />
           <Button
             type="primary"
@@ -126,14 +118,15 @@ export default function TaskLogsPage() {
           loading={loading}
           dataSource={logs}
           columns={columns}
+          scroll={{ x: 860 }}
           expandable={{
             expandedRowRender: (record) => (
-              <div className={styles.page}>
+              <div className={styles.analysisGrid}>
                 <Card size="small" title="Metadata">
-                  <pre className={styles.jsonBlock}>{pretty(record.metadata?.Data ?? record.metadata ?? null)}</pre>
+                  <CodeViewer value={record.metadata?.Data ?? record.metadata ?? null} maxHeight={300} />
                 </Card>
                 <Card size="small" title="Stack Trace">
-                  <pre className={styles.jsonBlock}>{record.stackTrace || '-'}</pre>
+                  <CodeViewer value={record.stackTrace} language="text" maxHeight={300} />
                 </Card>
               </div>
             ),
