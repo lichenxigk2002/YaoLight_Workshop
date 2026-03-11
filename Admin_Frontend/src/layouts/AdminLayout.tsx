@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Breadcrumb, Button, Dropdown, Layout, Menu, Space } from 'antd';
+import { DownOutlined, LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Breadcrumb, Button, Dropdown, Layout, Menu } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import LocaleSwitch from '@/components/LocaleSwitch';
 import ThemeSwitch from '@/components/ThemeSwitch';
 import { adminMenuItems } from '@/constants/menu';
@@ -11,7 +11,7 @@ import type { AdminMenuItem } from '@/types/menu';
 import { clearAdminSession, getAdminSession } from '@/utils/storage';
 import styles from './AdminLayout.module.scss';
 
-const { Header, Sider, Content } = Layout;
+const { Header, Sider, Content, Footer } = Layout;
 const ADMIN_BASENAME = '/admin';
 
 function pathnameWithoutBasename(pathname: string) {
@@ -40,14 +40,43 @@ function matchMenuChain(pathname: string) {
     ?.chain;
 }
 
+function getMenuItemPath(item: AdminMenuItem) {
+  if (item.path) return item.path;
+  return item.children?.find((child) => child.path)?.path;
+}
+
 function buildBreadcrumb(pathname: string, t: (key: string) => string) {
-  const items = [{ title: t('layout.breadcrumbHome') }];
+  const relativePath = pathnameWithoutBasename(pathname);
+  const items = [
+    {
+      title:
+        relativePath === '/' ? (
+          <span className={styles.breadcrumbCurrent}>{t('layout.breadcrumbHome')}</span>
+        ) : (
+          <Link to="/" className={styles.breadcrumbLink}>
+            {t('layout.breadcrumbHome')}
+          </Link>
+        ),
+    },
+  ];
   const chain = matchMenuChain(pathname) ?? [];
 
-  for (const item of chain) {
-    if (item.key === 'dashboard') continue;
-    items.push({ title: t(item.label) });
-  }
+  chain.forEach((item, index) => {
+    if (item.key === 'dashboard') return;
+    const target = getMenuItemPath(item);
+    const isLast = index === chain.length - 1;
+
+    items.push({
+      title:
+        !isLast && target ? (
+          <Link to={target} className={styles.breadcrumbLink}>
+            {t(item.label)}
+          </Link>
+        ) : (
+          <span className={styles.breadcrumbCurrent}>{t(item.label)}</span>
+        ),
+    });
+  });
 
   return items;
 }
@@ -77,11 +106,13 @@ export default function AdminLayout() {
   const location = useLocation();
   const session = getAdminSession();
   const { t } = useI18n();
+  const currentYear = new Date().getFullYear();
   const activeChain = matchMenuChain(location.pathname) ?? [];
   const selectedKey = activeChain.at(-1)?.key ?? 'dashboard';
   const routeOpenKeys = activeChain.filter((item) => (item.children?.length ?? 0) > 0).map((item) => item.key);
   const [openKeys, setOpenKeys] = useState<string[]>(routeOpenKeys);
   const menuItems = useMemo(() => buildMenuItems(adminMenuItems, navigate, t), [navigate, t]);
+  const breadcrumbItems = useMemo(() => buildBreadcrumb(location.pathname, t), [location.pathname, t]);
 
   useEffect(() => {
     setOpenKeys((current) => Array.from(new Set([...current, ...routeOpenKeys])));
@@ -107,15 +138,17 @@ export default function AdminLayout() {
           className={styles.menu}
         />
       </Sider>
-      <Layout>
+      <Layout className={styles.main}>
         <Header className={styles.header}>
-          <div>
+          <div className={styles.headerInfo}>
             <div className={styles.headerTitle}>{t('layout.headerTitle')}</div>
-            <Breadcrumb items={buildBreadcrumb(location.pathname, t)} />
+            <Breadcrumb className={styles.breadcrumb} items={breadcrumbItems} />
           </div>
-          <Space size={12}>
-            <ThemeSwitch />
-            <LocaleSwitch />
+          <div className={styles.headerActions}>
+            <div className={styles.headerTools}>
+              <ThemeSwitch />
+              <LocaleSwitch />
+            </div>
             <Dropdown
               menu={{
                 items: [
@@ -133,15 +166,33 @@ export default function AdminLayout() {
               trigger={['click']}
             >
               <Button className={styles.userButton} type="text">
-                <Avatar size={34} icon={<UserOutlined />} />
+                <Avatar size={30} icon={<UserOutlined />} />
                 <span>{session?.user.username ?? t('layout.adminUser')}</span>
+                <DownOutlined className={styles.userChevron} />
               </Button>
             </Dropdown>
-          </Space>
+          </div>
         </Header>
         <Content className={styles.content}>
           <Outlet />
         </Content>
+        <Footer className={styles.footer}>
+          <div className={styles.footerMeta}>
+            <span>YaoLight Workshop Admin</span>
+            <span>{currentYear}</span>
+          </div>
+          <div className={styles.footerLinks}>
+            <Link to="/" className={styles.footerLink}>
+              {t('menu.dashboard')}
+            </Link>
+            <Link to="/notifications" className={styles.footerLink}>
+              {t('menu.notifications')}
+            </Link>
+            <Link to="/operation-logs" className={styles.footerLink}>
+              {t('menu.operationLogs')}
+            </Link>
+          </div>
+        </Footer>
       </Layout>
     </Layout>
   );

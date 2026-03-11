@@ -118,27 +118,33 @@
 }
 
 .trigger {
-  height: 38px;
-  padding-inline: 12px;
-  border-radius: 999px;
-  border: 1px solid var(--admin-line);
-  background: color-mix(in srgb, var(--admin-panel) 88%, transparent);
+  height: 40px;
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
   box-shadow: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.trigger :global(.ant-btn-icon) {
+  width: 18px;
+  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--admin-ink);
+  background: transparent;
 }
 
 .trigger:hover,
 .trigger:focus,
 .trigger:focus-visible,
 .trigger:active {
-  border-color: color-mix(in srgb, var(--admin-brand) 28%, var(--admin-line));
-  background: color-mix(in srgb, var(--admin-panel) 94%, transparent);
+  background: rgba(0, 0, 0, 0.04);
   box-shadow: none !important;
-}
-
-.triggerLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  color: var(--admin-ink);
 }
 
 @media (max-width: 640px) {

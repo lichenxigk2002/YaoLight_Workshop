@@ -1,21 +1,13 @@
 import { useEffect, useState } from 'react';
-import { App, Button, Card, Col, Descriptions, Empty, Row, Statistic, Table, Tag } from 'antd';
+import { App, Button, Card, Descriptions, Empty, Statistic, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useOutletContext } from 'react-router-dom';
 import { downloadAdminTaskArtifact, getAdminTaskArtifacts } from '@/api/tasks';
+import CodeViewer from '@/components/CodeViewer';
 import type { AdminTaskArtifact } from '@/types/tasks';
 import type { TaskDetailOutletContext } from './TaskDetailLayout';
 import styles from './Tasks.module.scss';
-
-function pretty(value: unknown) {
-  if (value === null || value === undefined) return '-';
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
 
 function formatDateTime(value?: string | null) {
   if (!value) return '-';
@@ -118,18 +110,23 @@ export default function TaskOverviewPage() {
         </Descriptions>
       </Card>
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
+      <div className={styles.codePanels}>
+        <div className={styles.codeSidebar}>
           <Card bordered={false} className={styles.card} title="输入数据">
-            <pre className={styles.jsonBlock}>{pretty(detail.task.inputData?.Data ?? detail.task.inputData ?? null)}</pre>
+            <CodeViewer value={detail.task.inputData?.Data ?? detail.task.inputData ?? null} maxHeight={320} />
           </Card>
-        </Col>
-        <Col xs={24} lg={12}>
+
+          <Card bordered={false} className={styles.card} title="错误堆栈">
+            <CodeViewer value={detail.task.errorStack} language="text" maxHeight={280} />
+          </Card>
+        </div>
+
+        <div className={styles.codeMain}>
           <Card bordered={false} className={styles.card} title="结果数据">
-            <pre className={styles.jsonBlock}>{pretty(detail.task.result?.Data ?? detail.task.result ?? null)}</pre>
+            <CodeViewer value={detail.task.result?.Data ?? detail.task.result ?? null} maxHeight={760} />
           </Card>
-        </Col>
-      </Row>
+        </div>
+      </div>
 
       <Card bordered={false} className={styles.card} title="任务制品">
         {artifactTotal === 0 && !loadingArtifacts ? (
@@ -140,6 +137,7 @@ export default function TaskOverviewPage() {
             loading={loadingArtifacts}
             dataSource={artifacts}
             columns={artifactColumns}
+            scroll={{ x: 860 }}
             pagination={{
               current: artifactPage,
               pageSize: artifactPageSize,
@@ -153,10 +151,6 @@ export default function TaskOverviewPage() {
             }}
           />
         )}
-      </Card>
-
-      <Card bordered={false} className={styles.card} title="错误堆栈">
-        <pre className={styles.jsonBlock}>{detail.task.errorStack || '-'}</pre>
       </Card>
     </div>
   );
