@@ -3,8 +3,10 @@ import { App, Card, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useOutletContext } from 'react-router-dom';
 import { getAdminTaskNodeExecutions } from '@/api/tasks';
+import { useI18n } from '@/i18n';
 import type { AdminTaskNodeExecution } from '@/types/tasks';
 import type { TaskDetailOutletContext } from './TaskDetailLayout';
+import { getTaskStatusMeta } from './taskStatus';
 import styles from './Tasks.module.scss';
 
 function pretty(value: unknown) {
@@ -18,6 +20,7 @@ function pretty(value: unknown) {
 
 export default function TaskNodesPage() {
   const { message } = App.useApp();
+  const { locale } = useI18n();
   const { detail } = useOutletContext<TaskDetailOutletContext>();
   const [executions, setExecutions] = useState<AdminTaskNodeExecution[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,7 +42,10 @@ export default function TaskNodesPage() {
       title: '状态',
       dataIndex: 'status',
       width: 120,
-      render: (value: string) => <Tag color={value === 'completed' ? 'green' : value === 'failed' ? 'red' : 'blue'}>{value}</Tag>,
+      render: (value: string) => {
+        const meta = getTaskStatusMeta(value, locale);
+        return <Tag color={meta.color}>{meta.label}</Tag>;
+      },
     },
     {
       title: '耗时',

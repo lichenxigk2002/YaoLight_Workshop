@@ -44,7 +44,7 @@ export default function ProviderIcon({ provider, size = 18, className, style }: 
   const providerLower = provider.toLowerCase();
 
   if (providerLower === 'qianwen' || providerLower === 'qwen') {
-    return <Qwen size={size} className={className} style={{ color: '#615CED', ...style }} />;
+    return <Qwen size={size} className={className} style={{ color: 'var(--admin-brand)', ...style }} />;
   }
 
   if (providerLower === 'gpt') {

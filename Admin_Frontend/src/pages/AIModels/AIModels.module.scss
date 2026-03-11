@@ -4,10 +4,10 @@
 }
 
 .domainNav {
-  border: 1px solid rgba(139, 92, 246, 0.18);
+  border: 1px solid var(--admin-line);
   border-radius: 20px;
   padding: 8px;
-  background: #faf5ff;
+  background: var(--admin-panel-alt);
   box-shadow: var(--admin-shadow);
 }
 
@@ -91,7 +91,7 @@
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 18px 28px rgba(139, 92, 246, 0.12);
+    box-shadow: var(--admin-shadow);
   }
 }
 
@@ -147,8 +147,8 @@
 }
 
 .detailTabs {
-  background: #faf5ff;
-  border: 1px solid rgba(139, 92, 246, 0.18);
+  background: var(--admin-panel-alt);
+  border: 1px solid var(--admin-line);
   border-radius: 18px;
   padding: 10px 16px 0;
 }
@@ -182,10 +182,10 @@
 }
 
 .historyItem {
-  border: 1px solid rgba(139, 92, 246, 0.18);
+  border: 1px solid var(--admin-line);
   border-radius: 14px;
   padding: 14px 16px;
-  background: #faf5ff;
+  background: var(--admin-panel-alt);
 }
 
 .emptyBlock {
