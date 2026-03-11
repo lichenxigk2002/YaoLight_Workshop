@@ -143,7 +143,10 @@
     "notificationAll": "全部",
     "notificationUnread": "未读",
     "notificationView": "查看",
-    "notificationSettings": "消息提示配置"
+    "notificationSettings": "消息提示配置",
+    "notificationDetailTitle": "通知详情",
+    "notificationCreatedAt": "创建时间",
+    "notificationType": "通知类型"
   },
   "help": {
     "title": "帮助文档",
