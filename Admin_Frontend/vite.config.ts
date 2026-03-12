@@ -38,7 +38,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      reactflow: fileURLToPath(new URL('../Low_code_Frontend/node_modules/reactflow', import.meta.url)),
     },
   },
   css: {

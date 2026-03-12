@@ -17,9 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "reactflow": ["../Low_code_Frontend/node_modules/reactflow"],
-      "reactflow/*": ["../Low_code_Frontend/node_modules/reactflow/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"],
