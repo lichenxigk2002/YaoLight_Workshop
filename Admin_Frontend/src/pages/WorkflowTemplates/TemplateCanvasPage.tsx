@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { App, Button, Card, Divider, Empty, Input, InputNumber, List, Popconfirm, Select, Space, Switch, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, BranchesOutlined, ClockCircleOutlined, DatabaseOutlined, DeploymentUnitOutlined, FileTextOutlined, FilterOutlined, PlayCircleOutlined, RobotOutlined, SaveOutlined, SendOutlined, SyncOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -121,7 +122,7 @@ export default function WorkflowTemplateCanvasPage() {
   const [dirty, setDirty] = useState(false);
   const [instance, setInstance] = useState<ReactFlowInstance | null>(null);
   const dragTypeRef = useRef<string | null>(null);
-  const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedId) || null, [nodes, selectedId]);
+  const selectedNode = useMemo(() => nodes.find((node: FlowNode) => node.id === selectedId) || null, [nodes, selectedId]);
   const statusOptions = useMemo(() => STATUS_OPTIONS.map((value) => ({ value, label: t(`workflowTemplates.status${value[0].toUpperCase()}${value.slice(1)}`) })), [t]);
 
   const hydrate = useCallback((nextDetail: WorkflowTemplateDetail, canvas: WorkflowTemplateCanvas) => {
@@ -176,13 +177,13 @@ export default function WorkflowTemplateCanvasPage() {
     const idNumber = nextIdOf(nodes);
     const meta = metaOf(type);
     const node: FlowNode = { id: `${type === 'comment' ? 'comment' : 'node'}-${idNumber}`, type, position: position || { x: 160 + Math.random() * 80, y: 160 + Math.random() * 80 }, data: type === 'comment' ? { type: 'comment', config: {}, text: '', color: '#fffacd' } : { label: t(meta.labelKey), type, config: defaults(type), connectionDirection: 'vertical' } };
-    setNodes((current) => [...current, node]);
+    setNodes((current: FlowNode[]) => [...current, node]);
     setSelectedId(node.id);
     setDirty(true);
   }, [nodes, setNodes, t]);
-  const updateSelected = (updater: (node: FlowNode) => FlowNode) => { if (!selectedId) return; setNodes((current) => current.map((node) => node.id === selectedId ? updater(node) : node)); setDirty(true); };
+  const updateSelected = (updater: (node: FlowNode) => FlowNode) => { if (!selectedId) return; setNodes((current: FlowNode[]) => current.map((node: FlowNode) => node.id === selectedId ? updater(node) : node)); setDirty(true); };
   const updateConfig = (key: string, value: unknown) => updateSelected((node) => ({ ...node, data: { ...node.data, config: { ...(node.data.config || {}), [key]: value } } }));
-  const removeSelected = () => { if (!selectedId) return; setNodes((current) => current.filter((node) => node.id !== selectedId)); setEdges((current) => current.filter((edge) => edge.source !== selectedId && edge.target !== selectedId)); setSelectedId(null); setDirty(true); };
+  const removeSelected = () => { if (!selectedId) return; setNodes((current: FlowNode[]) => current.filter((node: FlowNode) => node.id !== selectedId)); setEdges((current: FlowEdge[]) => current.filter((edge: FlowEdge) => edge.source !== selectedId && edge.target !== selectedId)); setSelectedId(null); setDirty(true); };
 
   const saveMeta = async () => {
     if (!draft) return;
@@ -268,17 +269,17 @@ export default function WorkflowTemplateCanvasPage() {
       </Space>
     </div>
     <div className={styles.metaStrip}>
-      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaName')}</Text><Input value={draft?.name || ''} onChange={(event) => setDraft((current) => current ? { ...current, name: event.target.value } : current)} /></div>
-      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaStatus')}</Text><Select value={draft?.status} options={statusOptions} onChange={(value: WorkflowTemplateStatus) => setDraft((current) => current ? { ...current, status: value } : current)} /></div>
-      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaCategory')}</Text><Input value={draft?.category || ''} onChange={(event) => setDraft((current) => current ? { ...current, category: event.target.value } : current)} /></div>
-      <div className={styles.metaSwitch}><Text type="secondary">{t('workflowTemplateCanvas.metaPublic')}</Text><Switch checked={draft?.is_public || false} onChange={(checked) => setDraft((current) => current ? { ...current, is_public: checked } : current)} /></div>
+      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaName')}</Text><Input value={draft?.name || ''} onChange={(event) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, name: event.target.value } : current)} /></div>
+      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaStatus')}</Text><Select value={draft?.status} options={statusOptions} onChange={(value: WorkflowTemplateStatus) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, status: value } : current)} /></div>
+      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaCategory')}</Text><Input value={draft?.category || ''} onChange={(event) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, category: event.target.value } : current)} /></div>
+      <div className={styles.metaSwitch}><Text type="secondary">{t('workflowTemplateCanvas.metaPublic')}</Text><Switch checked={draft?.is_public || false} onChange={(checked: boolean) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, is_public: checked } : current)} /></div>
     </div>
     <div className={styles.editorShell}>
       <Card title={t('workflowTemplateCanvas.panelNodeLibrary')} className={styles.palettePanel} loading={loading}>
         <div className={styles.paletteList}>{META.map((item) => <button key={item.type} type="button" className={styles.paletteItem} draggable onDragStart={() => { dragTypeRef.current = item.type; }} onClick={() => addNode(item.type)}><span className={styles.paletteIcon} style={{ color: item.color }}>{item.icon}</span><span className={styles.paletteCopy}><strong>{t(item.labelKey)}</strong><span>{t(item.descKey)}</span></span></button>)}</div>
       </Card>
       <div className={styles.canvasPanel} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!dragTypeRef.current || !instance) return; addNode(dragTypeRef.current, instance.screenToFlowPosition({ x: event.clientX, y: event.clientY })); dragTypeRef.current = null; }}>
-        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={(connection: Connection) => { const source = nodes.find((node) => node.id === connection.source); const target = nodes.find((node) => node.id === connection.target); if (isComment(source) || isComment(target)) { message.warning(t('workflowTemplateCanvas.commentConnectWarning')); return; } setEdges((current) => addEdge(connection, current)); setDirty(true); }} onNodeClick={(_event, node) => setSelectedId(node.id)} onPaneClick={() => setSelectedId(null)} onInit={(reactFlow) => { setInstance(reactFlow); requestAnimationFrame(() => reactFlow.fitView({ padding: 0.18, duration: 0 })); }} fitView>
+        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={(connection: Connection) => { const source = nodes.find((node: FlowNode) => node.id === connection.source); const target = nodes.find((node: FlowNode) => node.id === connection.target); if (isComment(source) || isComment(target)) { message.warning(t('workflowTemplateCanvas.commentConnectWarning')); return; } setEdges((current: FlowEdge[]) => addEdge(connection, current)); setDirty(true); }} onNodeClick={(_event: ReactMouseEvent, node: FlowNode) => setSelectedId(node.id)} onPaneClick={() => setSelectedId(null)} onInit={(reactFlow: ReactFlowInstance) => { setInstance(reactFlow); requestAnimationFrame(() => reactFlow.fitView({ padding: 0.18, duration: 0 })); }} fitView>
           <Controls />
           <MiniMap className={styles.miniMap} />
           <Background variant={BackgroundVariant.Dots} gap={14} size={1} />
@@ -290,7 +291,7 @@ export default function WorkflowTemplateCanvasPage() {
         <div className={styles.summaryBlock}><div className={styles.summaryRow}><span>{t('workflowTemplateCanvas.summaryNodes')}</span><strong>{nodes.filter((node) => !isComment(node)).length}</strong></div><div className={styles.summaryRow}><span>{t('workflowTemplateCanvas.summaryEdges')}</span><strong>{edges.length}</strong></div><div className={styles.summaryRow}><span>{t('workflowTemplateCanvas.summaryUsage')}</span><strong>{detail?.usage_count || 0}</strong></div></div>
         <Divider />
         <Text strong>{t('workflowTemplateCanvas.canvasNodes')}</Text>
-        <List className={styles.nodeList} dataSource={nodes} locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('workflowTemplateCanvas.emptyNodes')} /> }} renderItem={(node) => <List.Item className={node.id === selectedId ? styles.nodeListItemActive : styles.nodeListItem} onClick={() => setSelectedId(node.id)}><div><div className={styles.nodeListTitle}>{node.data.label || t(metaOf(nodeTypeOf(node)).labelKey)}</div><div className={styles.nodeListMeta}>{t(metaOf(nodeTypeOf(node)).labelKey)}</div></div><Tag color={metaOf(nodeTypeOf(node)).color}>{nodeTypeOf(node)}</Tag></List.Item>} />
+        <List className={styles.nodeList} dataSource={nodes} locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('workflowTemplateCanvas.emptyNodes')} /> }} renderItem={(node: FlowNode) => <List.Item className={node.id === selectedId ? styles.nodeListItemActive : styles.nodeListItem} onClick={() => setSelectedId(node.id)}><div><div className={styles.nodeListTitle}>{node.data.label || t(metaOf(nodeTypeOf(node)).labelKey)}</div><div className={styles.nodeListMeta}>{t(metaOf(nodeTypeOf(node)).labelKey)}</div></div><Tag color={metaOf(nodeTypeOf(node)).color}>{nodeTypeOf(node)}</Tag></List.Item>} />
       </Card>
     </div>
   </div>;
