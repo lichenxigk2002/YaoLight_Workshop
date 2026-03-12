@@ -19,10 +19,10 @@ import (
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 	artifactModels "yaolight-workshop/backend/modules/artifact/models"
+	billingModels "yaolight-workshop/backend/modules/billing/models"
 	crawlerModels "yaolight-workshop/backend/modules/crawler/models"
 	fileModels "yaolight-workshop/backend/modules/file/models"
 	nodeModels "yaolight-workshop/backend/modules/node/models"
-	billingModels "yaolight-workshop/backend/modules/billing/models"
 	notificationModels "yaolight-workshop/backend/modules/notification/models"
 	paymentModels "yaolight-workshop/backend/modules/payment/models"
 	projectModels "yaolight-workshop/backend/modules/project/models"
@@ -67,6 +67,10 @@ func InitDatabase() error {
 
 	if err := AutoMigrate(); err != nil {
 		return fmt.Errorf("failed to auto migrate: %w", err)
+	}
+
+	if err := RunSQLMigrations(); err != nil {
+		return fmt.Errorf("failed to run sql migrations: %w", err)
 	}
 
 	EnsureAIModelsProviderConstraint()
@@ -272,6 +276,7 @@ func AutoMigrate() error {
 		&aiModels.ModelPricingRule{},
 		&projectModels.Project{},
 		&workflowModels.Workflow{},
+		&workflowModels.WorkflowTemplateConsent{},
 		&crawlerModels.CrawlerRule{},
 		&aiModels.AIModel{},
 		&taskModels.Task{},
@@ -279,6 +284,9 @@ func AutoMigrate() error {
 		&fileModels.File{},
 		&artifactModels.Artifact{},
 		&notificationModels.Notification{},
+		&notificationModels.NotificationTemplate{},
+		&notificationModels.NotificationSendJob{},
+		&notificationModels.NotificationDelivery{},
 		&systemModels.OperationLog{},
 		&workflowModels.WorkflowNode{},
 		&workflowModels.WorkflowVersion{},

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { App, Button, Card, Form, Input, Select, Space, Switch, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import PageHero from '@/components/PageHero';
 import { createAIModel, getAIProviders } from '@/api/aiModels';
 import { useI18n } from '@/i18n';
@@ -20,9 +21,17 @@ export default function ModelCreatePage() {
   }, []);
 
   const handleFinish = async (values: CreateAIModelInput) => {
-    const created = await createAIModel(values);
-    message.success(t('aiModels.createSuccess'));
-    navigate(`/ai-models/models/${created.id}`, { state: { draftModel: created } });
+    try {
+      const created = await createAIModel(values);
+      message.success(t('aiModels.createSuccess'));
+      navigate(`/ai-models/models/${created.id}`, { state: { draftModel: created } });
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 409) {
+        message.error(t('aiModels.createDuplicateError'));
+      } else {
+        message.error(error instanceof Error ? error.message : t('aiModels.createFailed'));
+      }
+    }
   };
 
   return (

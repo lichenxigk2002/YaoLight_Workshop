@@ -31,6 +31,25 @@ services:
       timeout: 3s
       retries: 5
 
+  migrate:
+    image: ghcr.io/${GITHUB_OWNER}/yaolight-backend:${IMAGE_TAG:-latest}
+    command: ["migrate"]
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-workflow_db}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      SERVER_MODE: ${SERVER_MODE:-release}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      UPLOAD_PATH: /app/uploads
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
   backend:
     image: ghcr.io/${GITHUB_OWNER}/yaolight-backend:${IMAGE_TAG:-latest}
     environment:
@@ -104,6 +123,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   frontend:
     image: ghcr.io/${GITHUB_OWNER}/yaolight-frontend:${IMAGE_TAG:-latest}

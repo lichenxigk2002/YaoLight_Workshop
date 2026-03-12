@@ -3,9 +3,8 @@
   gap: 20px;
 }
 
-.panel,
-.metricCard {
-  box-shadow: var(--admin-shadow);
+.page :global(.ant-card) {
+  box-shadow: none;
 }
 
 .filters {

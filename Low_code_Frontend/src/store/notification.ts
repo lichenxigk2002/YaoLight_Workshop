@@ -13,6 +13,7 @@ interface NotificationState {
   fetchList: (page?: number, pageSize?: number) => Promise<void>;
   fetchUnreadCount: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
+  respondConsent: (id: number, action: 'agree' | 'reject') => Promise<Notification>;
   markAllRead: () => Promise<void>;
 }
 
@@ -61,6 +62,22 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     } catch {
       // ignore
     }
+  },
+
+  respondConsent: async (id, action) => {
+    const current = get().list.find((item) => item.id === id);
+    const data = await notificationApi.respondConsent(id, action);
+    const updated = data.notification;
+
+    set((state) => ({
+      list: state.list.map((item) => (item.id === id ? updated : item)),
+      unreadCount:
+        current && !current.is_read && updated.is_read
+          ? Math.max(0, state.unreadCount - 1)
+          : state.unreadCount,
+    }));
+
+    return updated;
   },
 
   markAllRead: async () => {

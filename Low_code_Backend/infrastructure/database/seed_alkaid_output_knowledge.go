@@ -11,8 +11,8 @@ import (
 
 // SeedAlkaidOutputNodeKnowledge 将“输出节点新导出能力/Artifacts/导出API/图表与Mermaid结构”写入瑶光星知识库
 // 说明：
-// - 项目当前主要依赖 GORM AutoMigrate；migrations/*.sql 多为参考文件，不会在启动时自动执行
-// - 为了确保启动后瑶光星能检索到“新增能力”，这里用 seed 的方式做幂等写入
+// - SQL migrations 会先于 seed 执行；这里仍保留幂等 seed，用来持续维护输出节点相关知识的最新内容
+// - 这样即便历史库里已有旧版知识，启动后也能自动修正为当前版本
 func SeedAlkaidOutputNodeKnowledge() error {
 	if DB == nil {
 		return fmt.Errorf("database not initialized")

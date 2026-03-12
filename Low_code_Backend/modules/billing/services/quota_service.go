@@ -4,18 +4,25 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+
 	billingModels "yaolight-workshop/backend/modules/billing/models"
 	"yaolight-workshop/backend/modules/billing/repositories"
+	"yaolight-workshop/backend/modules/notification"
 	userModels "yaolight-workshop/backend/modules/user/models"
 )
 
-// QuotaService 配额服务：补救、赠送、流水
+const (
+	quotaRecoveryNotificationType  = "quota_recovery"
+	quotaAdminGiftNotificationType = "admin_gift"
+	quotaTransactionsActionURL     = "/settings/token-transactions"
+)
+
+// QuotaService handles admin quota recovery, grants, and ledger queries.
 type QuotaService struct {
-	db       *gorm.DB
+	db         *gorm.DB
 	ledgerRepo *repositories.QuotaLedgerRepository
 }
 
-// NewQuotaService 创建服务
 func NewQuotaService(db *gorm.DB) *QuotaService {
 	return &QuotaService{
 		db:         db,
@@ -23,15 +30,13 @@ func NewQuotaService(db *gorm.DB) *QuotaService {
 	}
 }
 
-// RecoverQuotaRequest 补救配额请求（支付失败补发）
 type RecoverQuotaRequest struct {
 	OrderID    string `json:"order_id" binding:"required"`
-	UserID     uint   `json:"user_id" binding:"required"` // 前端可能传字符串，需在 controller 转 uint
+	UserID     uint   `json:"user_id" binding:"required"`
 	QuotaDelta int64  `json:"quota_delta" binding:"required,min=1"`
 	Reason     string `json:"reason" binding:"required"`
 }
 
-// GrantQuotaRequest 管理员赠送请求
 type GrantQuotaRequest struct {
 	UserID     uint   `json:"user_id" binding:"required"`
 	QuotaDelta int64  `json:"quota_delta" binding:"required,min=1"`
@@ -39,25 +44,28 @@ type GrantQuotaRequest struct {
 	CampaignID string `json:"campaign_id"`
 }
 
-// RecoverQuota 支付失败补发：增加用户余额并写流水（source_type=payment_recovery）
+// RecoverQuota increases balance, writes admin ledger, and syncs user transaction history.
 func (s *QuotaService) RecoverQuota(req *RecoverQuotaRequest, operatorID uint) (*billingModels.QuotaLedger, error) {
 	var user userModels.User
 	if err := s.db.Where("id = ?", req.UserID).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("用户不存在: %d", req.UserID)
+			return nil, fmt.Errorf("user not found: %d", req.UserID)
 		}
 		return nil, err
 	}
 
-	var newBalance int64
-	var entry *billingModels.QuotaLedger
+	var (
+		newBalance int64
+		entry      *billingModels.QuotaLedger
+	)
+
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		// 增加余额
 		newBalance = user.TokenBalance + req.QuotaDelta
 		if err := tx.Model(&userModels.User{}).Where("id = ?", req.UserID).
 			Update("token_balance", newBalance).Error; err != nil {
 			return err
 		}
+
 		entry = &billingModels.QuotaLedger{
 			UserID:       req.UserID,
 			Delta:        req.QuotaDelta,
@@ -67,32 +75,55 @@ func (s *QuotaService) RecoverQuota(req *RecoverQuotaRequest, operatorID uint) (
 			OperatorID:   operatorID,
 			Remark:       req.Reason,
 		}
-		return tx.Create(entry).Error
+		if err := tx.Create(entry).Error; err != nil {
+			return err
+		}
+
+		return tx.Create(buildQuotaTokenTransaction(
+			req.UserID,
+			req.QuotaDelta,
+			billingModels.QuotaLedgerSourcePaymentRecovery,
+			resolveQuotaTransactionRelatedID(req.OrderID, entry.ID),
+			fmt.Sprintf("支付失败补发配额（订单 %s）", req.OrderID),
+		)).Error
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	notification.Notify(
+		req.UserID,
+		quotaRecoveryNotificationType,
+		"补发配额已到账",
+		fmt.Sprintf("已为你补发 %d 星尘。订单：%s。原因：%s。", req.QuotaDelta, req.OrderID, req.Reason),
+		quotaTransactionsActionURL,
+	)
+
 	return entry, nil
 }
 
-// GrantQuota 管理员赠送：增加用户余额并写流水（source_type=admin_gift）
+// GrantQuota increases balance, writes admin ledger, and syncs user transaction history.
 func (s *QuotaService) GrantQuota(req *GrantQuotaRequest, operatorID uint) (*billingModels.QuotaLedger, error) {
 	var user userModels.User
 	if err := s.db.Where("id = ?", req.UserID).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("用户不存在: %d", req.UserID)
+			return nil, fmt.Errorf("user not found: %d", req.UserID)
 		}
 		return nil, err
 	}
 
-	var newBalance int64
-	var entry *billingModels.QuotaLedger
+	var (
+		newBalance int64
+		entry      *billingModels.QuotaLedger
+	)
+
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		newBalance = user.TokenBalance + req.QuotaDelta
 		if err := tx.Model(&userModels.User{}).Where("id = ?", req.UserID).
 			Update("token_balance", newBalance).Error; err != nil {
 			return err
 		}
+
 		entry = &billingModels.QuotaLedger{
 			UserID:       req.UserID,
 			Delta:        req.QuotaDelta,
@@ -102,23 +133,40 @@ func (s *QuotaService) GrantQuota(req *GrantQuotaRequest, operatorID uint) (*bil
 			OperatorID:   operatorID,
 			Remark:       req.Remark,
 		}
-		return tx.Create(entry).Error
+		if err := tx.Create(entry).Error; err != nil {
+			return err
+		}
+
+		return tx.Create(buildQuotaTokenTransaction(
+			req.UserID,
+			req.QuotaDelta,
+			billingModels.QuotaLedgerSourceAdminGift,
+			resolveQuotaTransactionRelatedID(req.CampaignID, entry.ID),
+			buildAdminGiftDescription(req.QuotaDelta, req.CampaignID, req.Remark),
+		)).Error
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	notification.Notify(
+		req.UserID,
+		quotaAdminGiftNotificationType,
+		"管理员赠送配额已到账",
+		buildAdminGiftNotificationContent(req.QuotaDelta, req.CampaignID, req.Remark),
+		quotaTransactionsActionURL,
+	)
+
 	return entry, nil
 }
 
-// QuotaSummary 配额流水统计汇总
 type QuotaSummary struct {
-	RecoveryCount int64 `json:"recovery_count"` // 补救笔数（payment_recovery）
-	GiftCount     int64 `json:"gift_count"`     // 赠送笔数（admin_gift）
-	TotalCount    int64 `json:"total_count"`    // 流水总条数
-	UserCount     int64 `json:"user_count"`     // 涉及的去重用户数
+	RecoveryCount int64 `json:"recovery_count"`
+	GiftCount     int64 `json:"gift_count"`
+	TotalCount    int64 `json:"total_count"`
+	UserCount     int64 `json:"user_count"`
 }
 
-// GetSummary 统计补救/赠送笔数、流水总数与涉及用户数
 func (s *QuotaService) GetSummary() (*QuotaSummary, error) {
 	var result QuotaSummary
 
@@ -147,7 +195,6 @@ func (s *QuotaService) GetSummary() (*QuotaSummary, error) {
 	return &result, nil
 }
 
-// ListLedgerParams 流水列表参数
 type ListLedgerParams struct {
 	Page       int
 	PageSize   int
@@ -157,7 +204,6 @@ type ListLedgerParams struct {
 	EndDate    string
 }
 
-// ListLedger 分页查询流水
 func (s *QuotaService) ListLedger(p ListLedgerParams) ([]billingModels.QuotaLedger, int64, error) {
 	return s.ledgerRepo.List(repositories.ListParams{
 		Page:       p.Page,
@@ -167,4 +213,38 @@ func (s *QuotaService) ListLedger(p ListLedgerParams) ([]billingModels.QuotaLedg
 		StartDate:  p.StartDate,
 		EndDate:    p.EndDate,
 	})
+}
+
+func buildQuotaTokenTransaction(userID uint, amount int64, typ, relatedID, description string) *userModels.TokenTransaction {
+	return &userModels.TokenTransaction{
+		UserID:      userID,
+		Amount:      amount,
+		Type:        typ,
+		RelatedID:   relatedID,
+		Description: description,
+		TotalTokens: int(amount),
+		Cost:        0,
+		Currency:    "CNY",
+	}
+}
+
+func resolveQuotaTransactionRelatedID(sourceID string, ledgerID uint) string {
+	if sourceID != "" {
+		return sourceID
+	}
+	return fmt.Sprintf("quota_ledger_%d", ledgerID)
+}
+
+func buildAdminGiftDescription(amount int64, campaignID, remark string) string {
+	if campaignID != "" {
+		return fmt.Sprintf("管理员赠送配额 %d（活动 %s）- %s", amount, campaignID, remark)
+	}
+	return fmt.Sprintf("管理员赠送配额 %d - %s", amount, remark)
+}
+
+func buildAdminGiftNotificationContent(amount int64, campaignID, remark string) string {
+	if campaignID != "" {
+		return fmt.Sprintf("管理员已为你赠送 %d 星尘。活动：%s。备注：%s。", amount, campaignID, remark)
+	}
+	return fmt.Sprintf("管理员已为你赠送 %d 星尘。备注：%s。", amount, remark)
 }

@@ -12,8 +12,8 @@ import styles from './AIModels.module.scss';
 const { Paragraph, Title } = Typography;
 
 const statusColorMap = {
-  healthy: '#8b5cf6',
-  degraded: '#60a5fa',
+  healthy: 'var(--admin-brand)',
+  degraded: 'var(--admin-accent)',
   disabled: '#9ca3af',
 } as const;
 

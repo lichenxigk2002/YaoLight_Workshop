@@ -1,49 +1,57 @@
-import type { ThemeConfig } from 'antd';
+import { theme, type ThemeConfig } from 'antd';
+import type { AdminThemeResolvedPreset, AdminThemeMode } from './presets';
 
-export const adminAntdTheme: ThemeConfig = {
-  token: {
-    colorPrimary: '#8b5cf6',
-    colorInfo: '#60a5fa',
-    colorSuccess: '#15803d',
-    colorWarning: '#b45309',
-    colorError: '#b91c1c',
-    borderRadius: 14,
-    fontFamily: '"IBM Plex Sans", "Aptos", "Segoe UI", sans-serif',
-    colorBgLayout: '#f5f3ff',
-    colorBgContainer: '#fafaff',
-    colorText: '#1f2937',
-    colorTextSecondary: '#5b6472',
-    boxShadowSecondary: '0 20px 40px rgba(139, 92, 246, 0.08)',
-  },
-  components: {
-    Layout: {
-      headerBg: '#faf5ff',
-      siderBg: '#e9d5ff',
-      bodyBg: '#f5f3ff',
-      triggerBg: '#e9d5ff',
-      triggerColor: '#6b21a8',
+export function createAdminAntdTheme(preset: AdminThemeResolvedPreset, mode: AdminThemeMode): ThemeConfig {
+  return {
+    algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
+    token: {
+      colorPrimary: preset.brand,
+      colorInfo: preset.accent,
+      colorSuccess: preset.success,
+      colorWarning: preset.warning,
+      colorError: preset.error,
+      borderRadius: 14,
+      fontFamily: '"IBM Plex Sans", "Aptos", "Segoe UI", sans-serif',
+      colorBgLayout: preset.bg,
+      colorBgContainer: preset.panel,
+      colorText: preset.ink,
+      colorTextSecondary: preset.inkSoft,
+      colorBorder: preset.line,
+      colorBorderSecondary: preset.line,
+      boxShadowSecondary: preset.shadow,
     },
-    Menu: {
-      itemBg: '#e9d5ff',
-      subMenuItemBg: '#e9d5ff',
-      itemSelectedBg: '#ddd6fe',
-      itemHoverBg: '#ede9fe',
-      itemColor: '#5b21b6',
-      itemSelectedColor: '#4c1d95',
+    components: {
+      Layout: {
+        headerBg: preset.headerBg,
+        siderBg: preset.siderBg,
+        bodyBg: preset.bg,
+        triggerBg: preset.siderBg,
+        triggerColor: preset.brand,
+      },
+      Menu: {
+        itemBg: preset.siderBg,
+        subMenuItemBg: preset.siderBg,
+        itemSelectedBg: preset.menuSelectedBg,
+        itemHoverBg: preset.menuHoverBg,
+        itemColor: preset.menuColor,
+        itemSelectedColor: preset.brand,
+      },
+      Card: {
+        borderRadiusLG: 20,
+      },
+      Table: {
+        headerBg: preset.tableHeaderBg,
+        rowHoverBg: preset.tableRowHoverBg,
+      },
+      Tabs: {
+        itemSelectedColor: preset.brand,
+        itemHoverColor: preset.accent,
+        itemActiveColor: preset.brand,
+        inkBarColor: preset.brand,
+      },
+      Segmented: {
+        itemSelectedBg: preset.segmentedSelectedBg,
+      },
     },
-    Card: {
-      borderRadiusLG: 20,
-    },
-    Table: {
-      headerBg: '#f5f3ff',
-      rowHoverBg: '#faf5ff',
-    },
-    Tabs: {
-      itemSelectedColor: '#5b21b6',
-      itemHoverColor: '#7c3aed',
-      itemActiveColor: '#5b21b6',
-      inkBarColor: '#8b5cf6',
-    },
-  },
-};
-
+  };
+}

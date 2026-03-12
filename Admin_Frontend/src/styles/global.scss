@@ -1,13 +1,21 @@
 :root {
   color-scheme: light;
-  --admin-bg: #f5f3ff;
-  --admin-panel: #fafaff;
+  --admin-bg: #f5f7fa;
+  --admin-panel: #ffffff;
+  --admin-panel-alt: #f7fbff;
   --admin-ink: #1f2937;
-  --admin-ink-soft: #5b6472;
+  --admin-ink-soft: #667085;
   --admin-line: rgba(31, 41, 55, 0.1);
-  --admin-brand: #8b5cf6;
-  --admin-accent: #60a5fa;
-  --admin-shadow: 0 20px 40px rgba(139, 92, 246, 0.08);
+  --admin-brand: #1677ff;
+  --admin-accent: #4096ff;
+  --admin-brand-soft: #edf5ff;
+  --admin-brand-soft-strong: #d9eaff;
+  --admin-brand-ink: #1d4f91;
+  --admin-shadow: 0 20px 40px rgba(22, 119, 255, 0.10);
+}
+
+:root[data-theme-mode='dark'] {
+  color-scheme: dark;
 }
 
 * {
@@ -25,6 +33,7 @@ body {
   font-family: "IBM Plex Sans", "Aptos", "Segoe UI", sans-serif;
   color: var(--admin-ink);
   background: var(--admin-bg);
+  transition: background 180ms ease, color 180ms ease;
 }
 
 a {
@@ -46,6 +55,7 @@ select {
 
 .ant-card {
   border: 1px solid var(--admin-line);
+  background: var(--admin-panel);
 }
 
 .ant-table-wrapper .ant-table {

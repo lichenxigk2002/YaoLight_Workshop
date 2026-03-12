@@ -1,0 +1,27 @@
+.viewer {
+  max-width: 100%;
+  max-height: var(--code-max-height, 560px);
+  overflow: auto;
+  border: 1px solid var(--admin-line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #ffffff;
+}
+
+.viewer[data-mode='dark'] {
+  background: #0f172a;
+  border-color: color-mix(in srgb, var(--admin-line) 88%, transparent);
+}
+
+.viewer :global(pre),
+.viewer :global(code) {
+  background: transparent !important;
+}
+
+.viewer :global(.linenumber) {
+  user-select: none;
+}
+
+.empty {
+  color: var(--admin-ink-soft);
+}

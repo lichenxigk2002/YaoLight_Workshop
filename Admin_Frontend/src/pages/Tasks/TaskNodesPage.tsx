@@ -3,21 +3,16 @@ import { App, Card, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useOutletContext } from 'react-router-dom';
 import { getAdminTaskNodeExecutions } from '@/api/tasks';
+import CodeViewer from '@/components/CodeViewer';
+import { useI18n } from '@/i18n';
 import type { AdminTaskNodeExecution } from '@/types/tasks';
 import type { TaskDetailOutletContext } from './TaskDetailLayout';
+import { getTaskStatusMeta } from './taskStatus';
 import styles from './Tasks.module.scss';
-
-function pretty(value: unknown) {
-  if (value === null || value === undefined) return '-';
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
 
 export default function TaskNodesPage() {
   const { message } = App.useApp();
+  const { locale } = useI18n();
   const { detail } = useOutletContext<TaskDetailOutletContext>();
   const [executions, setExecutions] = useState<AdminTaskNodeExecution[]>([]);
   const [loading, setLoading] = useState(false);
@@ -39,7 +34,10 @@ export default function TaskNodesPage() {
       title: '状态',
       dataIndex: 'status',
       width: 120,
-      render: (value: string) => <Tag color={value === 'completed' ? 'green' : value === 'failed' ? 'red' : 'blue'}>{value}</Tag>,
+      render: (value: string) => {
+        const meta = getTaskStatusMeta(value, locale);
+        return <Tag color={meta.color}>{meta.label}</Tag>;
+      },
     },
     {
       title: '耗时',
@@ -65,14 +63,15 @@ export default function TaskNodesPage() {
           loading={loading}
           dataSource={executions}
           columns={columns}
+          scroll={{ x: 980 }}
           expandable={{
             expandedRowRender: (record) => (
-              <div className={styles.page}>
+              <div className={styles.analysisGrid}>
                 <Card size="small" title="输入数据">
-                  <pre className={styles.jsonBlock}>{pretty(record.inputData?.Data ?? record.inputData ?? null)}</pre>
+                  <CodeViewer value={record.inputData?.Data ?? record.inputData ?? null} maxHeight={320} />
                 </Card>
                 <Card size="small" title="输出数据">
-                  <pre className={styles.jsonBlock}>{pretty(record.outputData?.Data ?? record.outputData ?? null)}</pre>
+                  <CodeViewer value={record.outputData?.Data ?? record.outputData ?? null} maxHeight={320} />
                 </Card>
               </div>
             ),
