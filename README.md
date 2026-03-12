@@ -153,7 +153,7 @@
 
 ```bash
 git clone <repository-url>
-cd "Graduation project"
+cd YaoLight_Workshop
 ```
 
 #### 2. 安装依赖
@@ -266,7 +266,7 @@ npm run dev
 ## 📁 项目结构
 
 ```
-Graduation project/
+YaoLight_Workshop/
 ├── Low_code_Backend/              # 后端服务
 │   ├── cmd/
 │   │   └── server/                # 服务入口
