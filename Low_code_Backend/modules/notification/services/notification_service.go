@@ -3,6 +3,8 @@ package services
 import (
 	"time"
 
+	"gorm.io/gorm"
+
 	"yaolight-workshop/backend/infrastructure/shared"
 	"yaolight-workshop/backend/modules/notification/hub"
 	"yaolight-workshop/backend/modules/notification/models"
@@ -13,10 +15,11 @@ import (
 type NotificationService struct {
 	repo repositories.NotificationRepository
 	h    *hub.Hub
+	db   *gorm.DB
 }
 
-func NewNotificationService(repo repositories.NotificationRepository, h *hub.Hub) *NotificationService {
-	return &NotificationService{repo: repo, h: h}
+func NewNotificationService(repo repositories.NotificationRepository, h *hub.Hub, db *gorm.DB) *NotificationService {
+	return &NotificationService{repo: repo, h: h, db: db}
 }
 
 type CreateAndNotifyInput struct {
@@ -49,11 +52,19 @@ func (s *NotificationService) CreateAndNotify(in CreateAndNotifyInput) (*models.
 		return nil, err
 	}
 
-	s.h.SendToUser(in.UserID, map[string]interface{}{
-		"event": "notification",
-		"data":  n,
-	})
+	s.PushNotification(n)
 	return n, nil
+}
+
+func (s *NotificationService) PushNotification(notification *models.Notification) {
+	if s == nil || s.h == nil || notification == nil {
+		return
+	}
+
+	s.h.SendToUser(notification.UserID, map[string]interface{}{
+		"event": "notification",
+		"data":  notification,
+	})
 }
 
 func (s *NotificationService) List(userID uint, page, pageSize int) ([]models.Notification, int64, error) {

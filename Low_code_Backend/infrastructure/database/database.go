@@ -276,6 +276,7 @@ func AutoMigrate() error {
 		&aiModels.ModelPricingRule{},
 		&projectModels.Project{},
 		&workflowModels.Workflow{},
+		&workflowModels.WorkflowTemplateConsent{},
 		&crawlerModels.CrawlerRule{},
 		&aiModels.AIModel{},
 		&taskModels.Task{},

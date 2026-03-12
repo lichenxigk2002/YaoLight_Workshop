@@ -1,20 +1,48 @@
 .shell {
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
 }
 
 .main {
   min-width: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .sider {
-  position: sticky;
-  top: 0;
   height: 100vh;
+  flex-shrink: 0;
   border-right: 1px solid var(--admin-line);
   transition: all 180ms ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  :global(.ant-layout-sider-children) {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+  }
+}
+
+.siderMenuWrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .brand {
+  flex-shrink: 0;
   display: flex;
   gap: 14px;
   align-items: center;
@@ -67,6 +95,7 @@
 }
 
 .header {
+  flex-shrink: 0;
   position: sticky;
   top: 0;
   z-index: 60;
@@ -201,9 +230,17 @@
 .content {
   padding: 24px;
   flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .footer {
+  flex-shrink: 0;
   padding: 12px 24px 18px;
   border-top: 1px solid color-mix(in srgb, var(--admin-line) 78%, transparent);
   background: transparent;

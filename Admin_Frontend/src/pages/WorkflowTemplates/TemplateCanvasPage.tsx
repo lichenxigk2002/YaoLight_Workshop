@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { App, Button, Card, Divider, Empty, Input, InputNumber, List, Popconfirm, Select, Space, Switch, Tag, Typography } from 'antd';
+import { App, Button, Card, Divider, Empty, Input, InputNumber, List, Popconfirm, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import { ArrowLeftOutlined, BranchesOutlined, ClockCircleOutlined, DatabaseOutlined, DeploymentUnitOutlined, FileTextOutlined, FilterOutlined, PlayCircleOutlined, RobotOutlined, SaveOutlined, SendOutlined, SyncOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ReactFlow, { addEdge, Background, BackgroundVariant, Connection, Controls, Edge, Handle, MiniMap, Node, NodeProps, NodeTypes, Position, ReactFlowInstance, useEdgesState, useNodesState } from 'reactflow';
@@ -84,6 +84,88 @@ function toPayload(nodes: FlowNode[], edges: FlowEdge[]): WorkflowTemplateCanvas
   };
 }
 
+function toDetailPayload(detail: WorkflowTemplateDetail, status: WorkflowTemplateStatus = detail.status): WorkflowTemplatePayload {
+  return {
+    source_workflow_id: detail.source_workflow_id || undefined,
+    name: detail.name,
+    description: detail.description || undefined,
+    category: detail.category || undefined,
+    tags: detail.tags,
+    status,
+    is_public: detail.is_public,
+  };
+}
+
+function hasMetaChanges(detail: WorkflowTemplateDetail | null, draft: WorkflowTemplatePayload | null) {
+  if (!detail || !draft) {
+    return false;
+  }
+
+  return JSON.stringify(draft) !== JSON.stringify(toDetailPayload(detail));
+}
+
+function getPublishActionMeta(
+  detail: Pick<WorkflowTemplateDetail, 'status' | 'source_workflow_id' | 'consent_status'>,
+  locale: string,
+) {
+  const isEnglish = locale === 'en-US';
+
+  if (detail.status === 'published') {
+    return {
+      disabled: true,
+      label: isEnglish ? 'Published' : '已发布',
+      title: isEnglish ? 'This template is already published.' : '该模板已发布。',
+      description: isEnglish ? 'No additional publish action is needed.' : '当前不需要重复发布。',
+    };
+  }
+
+  if (detail.source_workflow_id) {
+    if (detail.consent_status === 'pending') {
+      return {
+        disabled: true,
+        label: isEnglish ? 'Waiting for author' : '等待作者确认',
+        title: isEnglish ? 'The consent request is still pending.' : '作者确认仍在等待中。',
+        description: isEnglish
+          ? 'Publish will stay blocked until the source author responds.'
+          : '在源作者响应之前，模板不会发布。',
+      };
+    }
+
+    if (detail.consent_status === 'agreed') {
+      return {
+        disabled: false,
+        label: isEnglish ? 'Publish template' : '发布模板',
+        title: isEnglish ? 'Publish this template now?' : '确认立即发布该模板？',
+        description: isEnglish
+          ? 'The source author has agreed. This action will publish the template.'
+          : '源作者已同意，此操作会直接发布模板。',
+      };
+    }
+
+    return {
+      disabled: false,
+      label: detail.consent_status === 'rejected'
+        ? (isEnglish ? 'Request again' : '重新发起确认')
+        : (isEnglish ? 'Request consent' : '发起作者确认'),
+      title: detail.consent_status === 'rejected'
+        ? (isEnglish ? 'Send another consent request to the source author?' : '确认重新向源作者发起确认？')
+        : (isEnglish ? 'Send a consent request to the source author?' : '确认向源作者发起确认？'),
+      description: isEnglish
+        ? 'The template will remain unpublished until the source author agrees.'
+        : '模板会保持未发布状态，直到源作者同意。',
+    };
+  }
+
+  return {
+    disabled: false,
+    label: isEnglish ? 'Publish template' : '发布模板',
+    title: isEnglish ? 'Publish this template now?' : '确认立即发布该模板？',
+    description: isEnglish
+      ? 'The template will become visible to the template library after publishing.'
+      : '发布后模板才会进入模板库可见范围。',
+  };
+}
+
 function CanvasNode({ data, selected, type }: NodeProps<FlowNode['data']>) {
   const { t } = useI18n();
   const kind = type || data.type;
@@ -96,7 +178,13 @@ function CanvasNode({ data, selected, type }: NodeProps<FlowNode['data']>) {
     <Card className={styles.flowNodeCard} size="small" style={{ borderColor: meta.color, boxShadow: selected ? `0 0 0 3px ${meta.color}22` : undefined }}>
       <div className={styles.flowNodeHeader}><span style={{ color: meta.color }}>{meta.icon}</span><Tag color={meta.color}>{t(meta.labelKey)}</Tag></div>
       <div className={styles.flowNodeLabel}>{data.label || t(meta.labelKey)}</div>
-      <div className={styles.flowNodeDesc}>{summaryOf({ id: '', type: kind, data, position: { x: 0, y: 0 } }, t)}</div>
+      {kind === 'ai' ? (
+        <Tooltip title={String((data.config?.prompt as string) || t('workflowTemplateCanvas.summaryPresetPrompt'))} placement="top" overlayStyle={{ maxWidth: 360 }}>
+          <div className={`${styles.flowNodeDesc} ${styles.flowNodeDescAi}`}>{String((data.config?.prompt as string) || t('workflowTemplateCanvas.summaryPresetPrompt'))}</div>
+        </Tooltip>
+      ) : (
+        <div className={styles.flowNodeDesc}>{summaryOf({ id: '', type: kind, data, position: { x: 0, y: 0 } }, t)}</div>
+      )}
     </Card>
     {meta.showOutput !== false && (meta.outputCount === 2 ? <>{renderHandle('output', 'true', direction === 'vertical' ? { left: '32%', background: '#52c41a' } : { top: '32%', background: '#52c41a' })}{renderHandle('output', 'false', direction === 'vertical' ? { left: '68%', background: '#f5222d' } : { top: '68%', background: '#f5222d' })}</> : renderHandle('output', 'output'))}
   </div>;
@@ -117,6 +205,7 @@ export default function WorkflowTemplateCanvasPage() {
   const [loading, setLoading] = useState(true);
   const [savingMeta, setSavingMeta] = useState(false);
   const [savingCanvas, setSavingCanvas] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -124,6 +213,8 @@ export default function WorkflowTemplateCanvasPage() {
   const dragTypeRef = useRef<string | null>(null);
   const selectedNode = useMemo(() => nodes.find((node: FlowNode) => node.id === selectedId) || null, [nodes, selectedId]);
   const statusOptions = useMemo(() => STATUS_OPTIONS.map((value) => ({ value, label: t(`workflowTemplates.status${value[0].toUpperCase()}${value.slice(1)}`) })), [t]);
+  const metaDirty = useMemo(() => hasMetaChanges(detail, draft), [detail, draft]);
+  const publishMeta = useMemo(() => (detail ? getPublishActionMeta(detail, locale) : null), [detail, locale]);
 
   const hydrate = useCallback((nextDetail: WorkflowTemplateDetail, canvas: WorkflowTemplateCanvas) => {
     const graph = fromPayload(canvas, t);
@@ -220,6 +311,39 @@ export default function WorkflowTemplateCanvasPage() {
       message.error((error as Error).message);
     } finally { setSyncing(false); }
   };
+  const publishTemplate = async () => {
+    if (!detail) {
+      return;
+    }
+
+    setPublishing(true);
+    try {
+      const updated = await updateWorkflowTemplate(templateId, toDetailPayload(detail, 'published'));
+      setDetail(updated);
+      setDraft({
+        source_workflow_id: updated.source_workflow_id || undefined,
+        name: updated.name,
+        description: updated.description || undefined,
+        category: updated.category || undefined,
+        tags: updated.tags,
+        status: updated.status,
+        is_public: updated.is_public,
+      });
+      if (updated.status === 'published') {
+        message.success(locale === 'en-US' ? 'Template published.' : '模板已发布。');
+      } else if (updated.consent_status === 'pending') {
+        message.info(
+          locale === 'en-US'
+            ? 'Consent request sent to the source author. The template stays unpublished until approval.'
+            : '已向源作者发起确认，模板会保持未发布状态，直到对方同意。',
+        );
+      }
+    } catch (error) {
+      message.error((error as Error).message);
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const renderInspector = () => {
     if (!selectedNode) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('workflowTemplateCanvas.emptyInspector')} />;
@@ -251,7 +375,23 @@ export default function WorkflowTemplateCanvasPage() {
         <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/workflow-templates')}>{t('workflowTemplateCanvas.actionBack')}</Button>
         <div>
           <Title level={3} className={styles.headerTitle}>{detail?.name || t('workflowTemplateCanvas.titleFallback', { id: templateId })}</Title>
-          <Paragraph className={styles.headerMeta}><Link to="/workflow-templates">{t('workflowTemplateCanvas.breadcrumbList')}</Link><span>/</span><span>{t('workflowTemplateCanvas.breadcrumbCanvas')}</span>{dirty ? <Tag color="orange">{t('workflowTemplateCanvas.unsaved')}</Tag> : null}</Paragraph>
+          <Paragraph className={styles.headerMeta}>
+            <Link to="/workflow-templates">{t('workflowTemplateCanvas.breadcrumbList')}</Link>
+            <span>/</span>
+            <span>{t('workflowTemplateCanvas.breadcrumbCanvas')}</span>
+            {dirty || metaDirty ? <Tag color="orange">{t('workflowTemplateCanvas.unsaved')}</Tag> : null}
+            {detail ? <Tag color={detail.consent_status === 'agreed' ? 'green' : detail.consent_status === 'pending' ? 'gold' : detail.consent_status === 'rejected' ? 'red' : 'default'}>
+              {detail.consent_status === 'agreed'
+                ? (locale === 'en-US' ? 'Author agreed' : '作者已同意')
+                : detail.consent_status === 'pending'
+                  ? (locale === 'en-US' ? 'Waiting for author' : '等待作者确认')
+                  : detail.consent_status === 'rejected'
+                    ? (locale === 'en-US' ? 'Author rejected' : '作者已拒绝')
+                    : detail.source_workflow_id
+                      ? (locale === 'en-US' ? 'Not requested' : '尚未发起确认')
+                      : (locale === 'en-US' ? 'No consent needed' : '无需确认')}
+            </Tag> : null}
+          </Paragraph>
         </div>
       </div>
       <Space>
@@ -266,11 +406,29 @@ export default function WorkflowTemplateCanvasPage() {
         ) : null}
         <Button icon={<SaveOutlined />} loading={savingMeta} onClick={() => void saveMeta()}>{t('workflowTemplateCanvas.actionSaveInfo')}</Button>
         <Button type="primary" icon={<SaveOutlined />} loading={savingCanvas} onClick={() => void saveCanvas()}>{t('workflowTemplateCanvas.actionSaveCanvas')}</Button>
+        {detail && publishMeta ? (
+          <Popconfirm
+            title={publishMeta.title}
+            description={
+              dirty || metaDirty
+                ? (locale === 'en-US'
+                    ? 'Save the current information and canvas changes before requesting publish.'
+                    : '请先保存当前信息和编排修改，再执行发起确认或发布。')
+                : publishMeta.description
+            }
+            onConfirm={() => void publishTemplate()}
+            disabled={dirty || metaDirty || publishMeta.disabled}
+          >
+            <Button loading={publishing} disabled={dirty || metaDirty || publishMeta.disabled}>
+              {publishMeta.label}
+            </Button>
+          </Popconfirm>
+        ) : null}
       </Space>
     </div>
     <div className={styles.metaStrip}>
       <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaName')}</Text><Input value={draft?.name || ''} onChange={(event) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, name: event.target.value } : current)} /></div>
-      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaStatus')}</Text><Select value={draft?.status} options={statusOptions} onChange={(value: WorkflowTemplateStatus) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, status: value } : current)} /></div>
+      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaStatus')}</Text><Select value={draft?.status} options={statusOptions.filter((item) => item.value !== 'published' || draft?.status === 'published').map((item) => ({ ...item, disabled: item.value === 'published' }))} onChange={(value: WorkflowTemplateStatus) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, status: value } : current)} /></div>
       <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaCategory')}</Text><Input value={draft?.category || ''} onChange={(event) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, category: event.target.value } : current)} /></div>
       <div className={styles.metaSwitch}><Text type="secondary">{t('workflowTemplateCanvas.metaPublic')}</Text><Switch checked={draft?.is_public || false} onChange={(checked: boolean) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, is_public: checked } : current)} /></div>
     </div>

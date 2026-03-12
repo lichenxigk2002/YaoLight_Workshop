@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   Descriptions,
+  Dropdown,
   Drawer,
   Form,
   Input,
@@ -20,8 +21,9 @@ import {
   Typography,
   Empty,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { EyeOutlined } from '@ant-design/icons';
+import { EyeOutlined, MoreOutlined } from '@ant-design/icons';
 import ReactFlow, { Background, BackgroundVariant, Edge, MiniMap, Node } from 'reactflow';
 import 'reactflow/dist/style.css';
 import PageHero from '@/components/PageHero';
@@ -172,9 +174,116 @@ function getStatusOptions(t: (key: string, params?: Record<string, string | numb
   ];
 }
 
+function getConsentMeta(value: string, locale: string) {
+  switch (value) {
+    case 'agreed':
+      return { color: 'green', label: locale === 'en-US' ? 'Author agreed' : '作者已同意' };
+    case 'pending':
+      return { color: 'gold', label: locale === 'en-US' ? 'Waiting' : '待确认' };
+    case 'rejected':
+      return { color: 'red', label: locale === 'en-US' ? 'Rejected' : '已拒绝' };
+    case 'not_requested':
+      return { color: 'default', label: locale === 'en-US' ? 'Not requested' : '未发起' };
+    default:
+      return { color: 'default', label: locale === 'en-US' ? 'Not needed' : '无需确认' };
+  }
+}
+
+function buildListItemPayload(record: WorkflowTemplateListItem, status: WorkflowTemplateStatus): WorkflowTemplatePayload {
+  return {
+    source_workflow_id: record.source_workflow_id || undefined,
+    name: record.name,
+    description: record.description || undefined,
+    category: record.category || undefined,
+    tags: record.tags,
+    status,
+    is_public: record.is_public,
+  };
+}
+
+function getPublishActionMeta(
+  record: Pick<WorkflowTemplateListItem, 'status' | 'source_workflow_id' | 'consent_status'>,
+  locale: string,
+) {
+  const isEnglish = locale === 'en-US';
+
+  if (record.status === 'published') {
+    return {
+      disabled: true,
+      label: isEnglish ? 'Published' : '已发布',
+      title: isEnglish ? 'This template is already published.' : '该模板已发布。',
+      description: isEnglish ? 'No additional publish action is needed.' : '当前不需要重复发布。',
+    };
+  }
+
+  if (record.source_workflow_id) {
+    if (record.consent_status === 'pending') {
+      return {
+        disabled: true,
+        label: isEnglish ? 'Waiting' : '等待作者确认',
+        title: isEnglish ? 'The consent request is still pending.' : '作者确认仍在等待中。',
+        description: isEnglish
+          ? 'Publish stays blocked until the source author responds.'
+          : '在源作者响应之前，模板不会发布。',
+      };
+    }
+
+    if (record.consent_status === 'agreed') {
+      return {
+        disabled: false,
+        label: isEnglish ? 'Publish' : '发布模板',
+        title: isEnglish ? 'Publish this template now?' : '确认立即发布该模板？',
+        description: isEnglish
+          ? 'The source author has agreed. This action will publish the template.'
+          : '源作者已同意，此操作会直接发布模板。',
+      };
+    }
+
+    return {
+      disabled: false,
+      label: record.consent_status === 'rejected'
+        ? (isEnglish ? 'Request again' : '重新发起确认')
+        : (isEnglish ? 'Request consent' : '发起作者确认'),
+      title: record.consent_status === 'rejected'
+        ? (isEnglish ? 'Send another consent request to the source author?' : '确认重新向源作者发起确认？')
+        : (isEnglish ? 'Send a consent request to the source author?' : '确认向源作者发起确认？'),
+      description: isEnglish
+        ? 'The template will remain unpublished until the source author agrees.'
+        : '模板会保持未发布状态，直到源作者同意。',
+    };
+  }
+
+  return {
+    disabled: false,
+    label: isEnglish ? 'Publish' : '发布模板',
+    title: isEnglish ? 'Publish this template now?' : '确认立即发布该模板？',
+    description: isEnglish
+      ? 'The template will become visible to the template library after publishing.'
+      : '发布后模板才会进入模板库可见范围。',
+  };
+}
+
+function showPublishConsentFeedback(
+  detail: WorkflowTemplateDetail,
+  requestedStatus: WorkflowTemplateStatus,
+  locale: string,
+  message: ReturnType<typeof App.useApp>['message'],
+) {
+  if (requestedStatus !== 'published' || detail.status === 'published') {
+    return;
+  }
+  if (detail.consent_status === 'pending') {
+    message.info(
+      locale === 'en-US'
+        ? 'Consent request sent. The template stays unpublished until approval.'
+        : '已向源作者发起确认，模板会保持未发布状态，直到对方同意。',
+    );
+  }
+}
+
 export default function WorkflowTemplatesPage() {
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { locale, t } = useI18n();
   const [form] = Form.useForm<TemplateFormValues>();
 
@@ -196,6 +305,7 @@ export default function WorkflowTemplatesPage() {
   const [detail, setDetail] = useState<WorkflowTemplateDetail | null>(null);
   const [saving, setSaving] = useState(false);
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  const [publishingId, setPublishingId] = useState<number | null>(null);
   const [sourceOptions, setSourceOptions] = useState<WorkflowTemplateSourceWorkflowItem[]>([]);
   const [sourceSearching, setSourceSearching] = useState(false);
   const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
@@ -206,10 +316,16 @@ export default function WorkflowTemplatesPage() {
   const isEditing = editingId !== null;
   const statusOptions = useMemo(() => getStatusOptions(t), [t]);
   const selectedSourceWorkflowId = Form.useWatch('source_workflow_id', form);
+  const selectedStatus = Form.useWatch('status', form);
+  const watchedFormValues = Form.useWatch([], form);
   const sourcePreviewGraph = useMemo(
     () => (sourcePreviewCanvas ? toPreviewGraph(sourcePreviewCanvas, t) : { nodes: [] as PreviewNode[], edges: [] as PreviewEdge[] }),
     [sourcePreviewCanvas, t],
   );
+  const drawerHasUnsavedChanges = detail
+    ? JSON.stringify(toPayload({ ...toFormValues(detail), ...(watchedFormValues || {}) })) !==
+      JSON.stringify(buildListItemPayload(detail, detail.status))
+    : false;
 
   const getStatusMeta = (value: WorkflowTemplateStatus) =>
     statusOptions.find((item) => item.value === value) ?? statusOptions[0];
@@ -343,9 +459,11 @@ export default function WorkflowTemplatesPage() {
         const updated = await updateWorkflowTemplate(editingId, payload);
         setDetail(updated);
         message.success(t('workflowTemplates.updateSuccess'));
+        showPublishConsentFeedback(updated, payload.status, locale, message);
       } else {
         const created = await createWorkflowTemplate(payload);
         message.success(t('workflowTemplates.createSuccess'));
+        showPublishConsentFeedback(created, payload.status, locale, message);
         closeDrawer();
         setPage(1);
         await reloadAll(1);
@@ -389,6 +507,27 @@ export default function WorkflowTemplatesPage() {
       message.error((error as Error).message);
     } finally {
       setSyncingId(null);
+    }
+  }
+
+  async function handlePublish(record: WorkflowTemplateListItem) {
+    setPublishingId(record.id);
+    try {
+      const updated = await updateWorkflowTemplate(record.id, buildListItemPayload(record, 'published'));
+      if (editingId === record.id) {
+        setDetail(updated);
+        form.setFieldsValue(toFormValues(updated));
+      }
+      if (updated.status === 'published') {
+        message.success(locale === 'en-US' ? 'Template published.' : '模板已发布。');
+      } else {
+        showPublishConsentFeedback(updated, 'published', locale, message);
+      }
+      await reloadAll(page);
+    } catch (error) {
+      message.error((error as Error).message);
+    } finally {
+      setPublishingId(null);
     }
   }
 
@@ -452,7 +591,7 @@ export default function WorkflowTemplatesPage() {
     {
       title: t('workflowTemplates.tableSourceWorkflow'),
       key: 'source',
-      width: 220,
+      width: 260,
       render: (_value, record) =>
         record.source_workflow_id ? (
           <div className={styles.sourceMeta}>
@@ -470,6 +609,15 @@ export default function WorkflowTemplatesPage() {
         ) : (
           <Text type="secondary">{t('workflowTemplates.unbound')}</Text>
         ),
+    },
+    {
+      title: locale === 'en-US' ? 'Consent' : '作者确认',
+      key: 'consent',
+      width: 120,
+      render: (_value, record) => {
+        const consentMeta = getConsentMeta(record.consent_status, locale);
+        return <Tag color={consentMeta.color}>{consentMeta.label}</Tag>;
+      },
     },
     {
       title: t('workflowTemplates.tableStructure'),
@@ -502,40 +650,70 @@ export default function WorkflowTemplatesPage() {
     {
       title: t('workflowTemplates.tableActions'),
       key: 'actions',
-      width: 220,
-      render: (_value, record) => (
-        <Space wrap>
-          <Button type="link" onClick={() => navigate(`/workflow-templates/${record.id}/canvas`)}>
-            {t('workflowTemplates.actionCanvas')}
-          </Button>
-          <Button type="link" onClick={() => void openEditDrawer(record)}>
-            {t('workflowTemplates.actionEdit')}
-          </Button>
-          <Popconfirm
-            title={locale === 'en-US' ? 'Sync from the source workflow?' : '确认从源工作流同步吗？'}
-            description={locale === 'en-US' ? 'This will overwrite the current template nodes, edges, and comment cards.' : '这会覆盖当前模板的节点、连线和注释卡。'}
-            onConfirm={() => void handleSync(record)}
-            disabled={!record.source_workflow_id}
-          >
-            <Button
-              type="link"
-              loading={syncingId === record.id}
-              disabled={!record.source_workflow_id}
+      width: 260,
+      render: (_value, record) => {
+        const publishMeta = getPublishActionMeta(record, locale);
+        const moreItems: MenuProps['items'] = [
+          { key: 'edit', label: t('workflowTemplates.actionEdit') },
+          { key: 'sync', label: t('workflowTemplates.actionSync'), disabled: !record.source_workflow_id },
+          { key: 'delete', label: <Text type="danger">{t('workflowTemplates.actionDelete')}</Text> },
+        ];
+
+        return (
+          <Space size="small" wrap>
+            <Button type="link" onClick={() => navigate(`/workflow-templates/${record.id}/canvas`)}>
+              {t('workflowTemplates.actionCanvas')}
+            </Button>
+            <Popconfirm
+              title={publishMeta.title}
+              description={publishMeta.description}
+              onConfirm={() => void handlePublish(record)}
+              disabled={publishMeta.disabled}
             >
-              {t('workflowTemplates.actionSync')}
-            </Button>
-          </Popconfirm>
-          <Popconfirm
-            title={t('workflowTemplates.deleteTitle')}
-            description={t('workflowTemplates.deleteDescription')}
-            onConfirm={() => void handleDelete(record)}
-          >
-            <Button type="link" danger>
-              {t('workflowTemplates.actionDelete')}
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
+              <Button type="link" loading={publishingId === record.id} disabled={publishMeta.disabled}>
+                {publishMeta.label}
+              </Button>
+            </Popconfirm>
+            <Dropdown
+              trigger={['click']}
+              menu={{
+                items: moreItems,
+                onClick: ({ key }) => {
+                  if (key === 'edit') {
+                    void openEditDrawer(record);
+                    return;
+                  }
+                  if (key === 'sync') {
+                    modal.confirm({
+                      title: locale === 'en-US' ? 'Sync from the source workflow?' : '确认从源工作流同步吗？',
+                      content:
+                        locale === 'en-US'
+                          ? 'This will overwrite the current template nodes, edges, and comment cards.'
+                          : '这会覆盖当前模板的节点、连线和注释卡。',
+                      onOk: async () => {
+                        await handleSync(record);
+                      },
+                    });
+                    return;
+                  }
+                  if (key === 'delete') {
+                    modal.confirm({
+                      title: t('workflowTemplates.deleteTitle'),
+                      content: t('workflowTemplates.deleteDescription'),
+                      okButtonProps: { danger: true },
+                      onOk: async () => {
+                        await handleDelete(record);
+                      },
+                    });
+                  }
+                },
+              }}
+            >
+              <Button type="text" icon={<MoreOutlined />} />
+            </Dropdown>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -692,6 +870,7 @@ export default function WorkflowTemplatesPage() {
             : t('workflowTemplates.drawerCreateTitle')
         }
         width={960}
+        rootClassName={styles.templateDrawer}
         open={drawerOpen}
         onClose={closeDrawer}
         extra={
@@ -717,6 +896,7 @@ export default function WorkflowTemplatesPage() {
                     usage_count: detail.usage_count,
                     execution_count: detail.execution_count,
                     last_executed_at: detail.last_executed_at,
+                    consent_status: detail.consent_status,
                     created_at: detail.created_at,
                     updated_at: detail.updated_at,
                   })
@@ -724,6 +904,48 @@ export default function WorkflowTemplatesPage() {
               >
                 <Button loading={syncingId === detail.id}>
                   {t('workflowTemplates.drawerSyncFromSource')}
+                </Button>
+              </Popconfirm>
+            ) : null}
+            {isEditing && detail ? (
+              <Popconfirm
+                title={getPublishActionMeta(detail, locale).title}
+                description={
+                  drawerHasUnsavedChanges
+                    ? (locale === 'en-US'
+                        ? 'Save the current form changes before requesting publish.'
+                        : '请先保存当前表单修改，再执行发起确认或发布。')
+                    : getPublishActionMeta(detail, locale).description
+                }
+                onConfirm={() =>
+                  void handlePublish({
+                    id: detail.id,
+                    name: detail.name,
+                    description: detail.description,
+                    status: detail.status,
+                    category: detail.category,
+                    tags: detail.tags,
+                    is_public: detail.is_public,
+                    source_workflow_id: detail.source_workflow_id,
+                    source_workflow_name: detail.source_workflow_name,
+                    source_username: detail.source_username,
+                    node_count: detail.node_count,
+                    comment_card_count: detail.comment_card_count,
+                    usage_count: detail.usage_count,
+                    execution_count: detail.execution_count,
+                    last_executed_at: detail.last_executed_at,
+                    consent_status: detail.consent_status,
+                    created_at: detail.created_at,
+                    updated_at: detail.updated_at,
+                  })
+                }
+                disabled={drawerHasUnsavedChanges || getPublishActionMeta(detail, locale).disabled}
+              >
+                <Button
+                  loading={publishingId === detail.id}
+                  disabled={drawerHasUnsavedChanges || getPublishActionMeta(detail, locale).disabled}
+                >
+                  {getPublishActionMeta(detail, locale).label}
                 </Button>
               </Popconfirm>
             ) : null}
@@ -826,7 +1048,15 @@ export default function WorkflowTemplatesPage() {
                 label={t('workflowTemplates.formStatus')}
                 rules={[{ required: true, message: t('workflowTemplates.formStatusRequired') }]}
               >
-                <Select options={statusOptions.map((item) => ({ value: item.value, label: item.label }))} />
+                <Select
+                  options={statusOptions
+                    .filter((item) => item.value !== 'published' || selectedStatus === 'published')
+                    .map((item) => ({
+                      value: item.value,
+                      label: item.label,
+                      disabled: item.value === 'published',
+                    }))}
+                />
               </Form.Item>
 
               <Form.Item name="is_public" label={t('workflowTemplates.formVisibility')} valuePropName="checked">
@@ -888,6 +1118,11 @@ export default function WorkflowTemplatesPage() {
                 </Descriptions.Item>
                 <Descriptions.Item label={t('workflowTemplates.detailUpdatedAt')}>
                   {formatDateTime(detail.updated_at, locale, t('common.none'))}
+                </Descriptions.Item>
+                <Descriptions.Item label={locale === 'en-US' ? 'Consent' : '作者确认'}>
+                  <Tag color={getConsentMeta(detail.consent_status, locale).color}>
+                    {getConsentMeta(detail.consent_status, locale).label}
+                  </Tag>
                 </Descriptions.Item>
               </Descriptions>
 

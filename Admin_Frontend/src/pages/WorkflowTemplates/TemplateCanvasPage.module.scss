@@ -11,9 +11,10 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--admin-line);
   border-radius: 20px;
-  background: #fff;
+  background: var(--admin-panel);
+  box-shadow: none;
 }
 
 .headerLead {
@@ -31,7 +32,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  color: rgba(15, 23, 42, 0.62);
+  color: var(--admin-ink-soft);
 }
 
 .metaStrip {
@@ -78,18 +79,18 @@
   gap: 12px;
   align-items: center;
   padding: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--admin-line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--admin-panel);
   cursor: grab;
   text-align: left;
   transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .paletteItem:hover {
-  border-color: rgba(9, 88, 217, 0.35);
+  border-color: color-mix(in srgb, var(--admin-brand) 35%, var(--admin-line));
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px -20px rgba(15, 23, 42, 0.45);
+  box-shadow: none;
 }
 
 .paletteIcon {
@@ -103,14 +104,14 @@
 
 .paletteCopy span {
   font-size: 12px;
-  color: rgba(15, 23, 42, 0.62);
+  color: var(--admin-ink-soft);
 }
 
 .canvasPanel {
   overflow: hidden;
   min-height: 0;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid var(--admin-line);
+  background: linear-gradient(180deg, var(--admin-panel) 0%, var(--admin-panel-alt) 100%);
 }
 
 .canvasPanel :global(.react-flow) {
@@ -135,8 +136,8 @@
 }
 
 .miniMap {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  background: color-mix(in srgb, var(--admin-panel) 92%, transparent) !important;
+  border: 1px solid var(--admin-line) !important;
 }
 
 .flowNode {
@@ -150,9 +151,9 @@
 
 .flowNodeCard {
   width: 220px;
-  border: 1px solid rgba(15, 23, 42, 0.16);
+  border: 1px solid color-mix(in srgb, var(--admin-line) 100%, transparent);
   border-radius: 16px !important;
-  background: #fff !important;
+  background: var(--admin-panel) !important;
 }
 
 .flowNodeHeader {
@@ -164,15 +165,24 @@
 
 .flowNodeLabel {
   font-weight: 700;
-  color: #0f172a;
+  color: var(--admin-ink);
   margin-bottom: 6px;
 }
 
 .flowNodeDesc {
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(15, 23, 42, 0.62);
+  color: var(--admin-ink-soft);
   word-break: break-word;
+}
+
+/* AI 节点提示词：仅占节点内固定高度，超出部分省略，悬浮看全文 */
+.flowNodeDescAi {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .commentNode {
@@ -181,7 +191,7 @@
   padding: 14px;
   border: 2px solid transparent;
   border-radius: 16px;
-  box-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.4);
+  box-shadow: none;
 }
 
 .commentNodeSelected {
@@ -196,13 +206,13 @@
 .handle {
   width: 12px !important;
   height: 12px !important;
-  border: 2px solid #fff !important;
-  background: #1677ff !important;
+  border: 2px solid var(--admin-panel) !important;
+  background: var(--admin-brand) !important;
 }
 
 .inspectorHint {
   margin-bottom: 0 !important;
-  color: rgba(15, 23, 42, 0.62);
+  color: var(--admin-ink-soft);
 }
 
 .colorRow {
@@ -220,7 +230,7 @@
 }
 
 .colorChipActive {
-  border-color: #0f172a;
+  border-color: var(--admin-ink);
 }
 
 .summaryBlock {
@@ -247,17 +257,17 @@
 
 .nodeListItem:hover,
 .nodeListItemActive {
-  background: rgba(9, 88, 217, 0.06);
+  background: color-mix(in srgb, var(--admin-brand) 10%, transparent);
 }
 
 .nodeListTitle {
   font-weight: 600;
-  color: #0f172a;
+  color: var(--admin-ink);
 }
 
 .nodeListMeta {
   font-size: 12px;
-  color: rgba(15, 23, 42, 0.62);
+  color: var(--admin-ink-soft);
 }
 
 @media (max-width: 1400px) {
