@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Select, Table, Tooltip } from 'antd';
-import { useTranslation } from 'react-i18next';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { userApi } from '@/api/user';
-import { TokenTransaction } from '@/types/user';
 import { ProviderIcon } from '@/components/Icons';
+import { TokenTransaction } from '@/types/user';
 
 interface TransactionListProps {
   filterStartDate?: string;
@@ -25,41 +25,39 @@ export default function TransactionList({
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-
   const [providerOptions, setProviderOptions] = useState<{ provider: string; models: string[] }[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string | undefined>();
   const [selectedModel, setSelectedModel] = useState<string | undefined>();
 
-  // 计算当前可选的 models
   const availableModels = useMemo(() => {
     if (!selectedProvider) {
-      // 如果没选 Provider，显示所有 Model（去重）
       const all = new Set<string>();
-      providerOptions.forEach(p => p.models.forEach(m => all.add(m)));
+      providerOptions.forEach((item) => item.models.forEach((model) => all.add(model)));
       return Array.from(all);
     }
-    const found = providerOptions.find(p => p.provider === selectedProvider);
+
+    const found = providerOptions.find((item) => item.provider === selectedProvider);
     return found ? found.models : [];
-  }, [selectedProvider, providerOptions]);
+  }, [providerOptions, selectedProvider]);
 
   useEffect(() => {
-    fetchOptions();
+    void fetchOptions();
   }, []);
 
-  const fetchOptions = async () => {
+  useEffect(() => {
+    void fetchTransactions();
+  }, [filterEndDate, filterStartDate, page, pageSize, selectedModel, selectedProvider]);
+
+  async function fetchOptions() {
     try {
       const res = await userApi.getTransactionOptions();
       setProviderOptions(res.items || []);
     } catch (error) {
       console.error(error);
     }
-  };
+  }
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [filterStartDate, filterEndDate, page, pageSize, selectedProvider, selectedModel]);
-
-  const fetchTransactions = async () => {
+  async function fetchTransactions() {
     try {
       setLoading(true);
       const res = await userApi.getTokenTransactions({
@@ -77,33 +75,32 @@ export default function TransactionList({
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleProviderChange = (val?: string) => {
-    setSelectedProvider(val);
-    setSelectedModel(undefined); // 切换 Provider 时重置 Model
-  };
+  function handleProviderChange(value?: string) {
+    setSelectedProvider(value);
+    setSelectedModel(undefined);
+  }
 
-  const handleModelChange = (val?: string) => {
-    setSelectedModel(val);
-    // 如果选了 Model，且当前没选 Provider，或者选的 Model 不在当前 Provider 里（虽然过滤了应该不会），
-    // 可以尝试自动反推 Provider。但因为不同 Provider 可能有同名 Model（较少见），
-    // 且这里我们允许“只选 Model”，所以不强制反填 Provider。
-    // 如果用户希望“只看 gpt-4”，那就不管它是 azure 还是 openai 的。
-    // 如果需要严格联动，可以反向查找。
-    if (val && !selectedProvider) {
-       const possibleProviders = providerOptions.filter(p => p.models.includes(val));
-       if (possibleProviders.length === 1) {
-         setSelectedProvider(possibleProviders[0].provider);
-       }
+  function handleModelChange(value?: string) {
+    setSelectedModel(value);
+
+    if (value && !selectedProvider) {
+      const possibleProviders = providerOptions.filter((item) => item.models.includes(value));
+      if (possibleProviders.length === 1) {
+        setSelectedProvider(possibleProviders[0].provider);
+      }
     }
-  };
+  }
 
-  const formatDateRangeLabel = (start?: string, end?: string) => {
-    if (!start && !end) return '-';
-    const fmt = (v?: string) => (v ? v.slice(0, 10) : '-');
+  function formatDateRangeLabel(start?: string, end?: string) {
+    if (!start && !end) {
+      return '-';
+    }
+
+    const fmt = (raw?: string) => (raw ? raw.slice(0, 10) : '-');
     return `${fmt(start)} ~ ${fmt(end)}`;
-  };
+  }
 
   const columns = useMemo(
     () => [
@@ -113,20 +110,20 @@ export default function TransactionList({
         key: 'created_at',
         width: 180,
         render: (value: string) => {
-          const d = value ? new Date(value) : null;
-          return d && !Number.isNaN(d.getTime()) ? d.toLocaleString() : '-';
+          const date = value ? new Date(value) : null;
+          return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : '-';
         },
       },
       {
         title: t('settings.model'),
         key: 'model',
-        render: (_: any, record: TokenTransaction) => {
+        render: (_: unknown, record: TokenTransaction) => {
           const provider = record.provider || '';
           const model = record.model_name || '';
-          // 仅显示图标 + 模型名称
+
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-              {provider && <ProviderIcon provider={provider} size={20} />}
+              {provider ? <ProviderIcon provider={provider} size={20} /> : null}
               <span>{model || '-'}</span>
             </div>
           );
@@ -143,12 +140,13 @@ export default function TransactionList({
         ),
         key: 'tokens',
         width: 150,
-        render: (_: any, record: TokenTransaction) => {
+        render: (_: unknown, record: TokenTransaction) => {
           const input = record.prompt_tokens || 0;
           const output = record.completion_tokens || 0;
-          const total = record.total_tokens || 0;
+          const totalTokens = record.total_tokens || 0;
+
           return (
-            <Tooltip title={`${t('settings.totalTokens')}: ${total}`}>
+            <Tooltip title={`${t('settings.totalTokens')}: ${totalTokens}`}>
               <span style={{ whiteSpace: 'nowrap' }}>
                 {input} / {output}
               </span>
@@ -159,21 +157,22 @@ export default function TransactionList({
       {
         title: t('settings.description'),
         key: 'description',
-        width: 200, // 给描述列一个最小宽度
-        render: (_: any, record: TokenTransaction) => {
-          // 如果 description 为空，但有 provider，或者 type 为 chat，则显示默认名称
-          const desc = record.description;
-          let displayText = desc;
+        width: 200,
+        render: (_: unknown, record: TokenTransaction) => {
+          let displayText = record.description;
+
           if (!displayText) {
             if (record.type === 'chat' || (record.provider && !record.model_name)) {
-               displayText = 'YaoLight AI Assistant'; 
+              displayText = 'YaoLight AI Assistant';
             } else {
-               displayText = record.type || '-';
+              displayText = record.type || '-';
             }
           }
 
-          // 提取括号内容
-          const match = displayText.match(/^(.*?)\s*（(.*?)）$/) || displayText.match(/^(.*?)\s*\((.*?)\)$/);
+          const match =
+            displayText.match(/^(.*?)\s*（(.*?)）$/) ||
+            displayText.match(/^(.*?)\s*\((.*?)\)$/);
+
           if (match) {
             const mainText = match[1];
             const tooltipText = match[2];
@@ -191,20 +190,25 @@ export default function TransactionList({
         },
       },
       {
-        title: t('settings.stardustChange'), // 修改标题为"星尘变动"
+        title: t('settings.stardustChange'),
         dataIndex: 'amount',
         key: 'amount',
         width: 120,
-        render: (value: number, record: TokenTransaction) => {
-          const isIncome = record.type === 'recharge' || record.type === 'bonus';
+        render: (value: number) => {
+          const isIncome = typeof value === 'number' && value > 0;
+          const isExpense = typeof value === 'number' && value < 0;
           const absValue = typeof value === 'number' ? Math.abs(value) : 0;
+
           return (
-            <span style={{ 
-              whiteSpace: 'nowrap',
-              color: isIncome ? '#52c41a' : '#ff4d4f', // 收入显示绿色，支出显示红色
-              fontWeight: 'bold'
-            }}>
-              {isIncome ? '+' : '-'}{absValue.toLocaleString()}
+            <span
+              style={{
+                whiteSpace: 'nowrap',
+                color: isIncome ? '#52c41a' : isExpense ? '#ff4d4f' : '#999',
+                fontWeight: 'bold',
+              }}
+            >
+              {isIncome ? '+' : isExpense ? '-' : ''}
+              {absValue.toLocaleString()}
             </span>
           );
         },
@@ -213,10 +217,13 @@ export default function TransactionList({
         title: t('settings.amount'),
         key: 'cost',
         width: 160,
-        render: (_: any, record: TokenTransaction) => {
+        render: (_: unknown, record: TokenTransaction) => {
           const cost = typeof record.cost === 'number' ? record.cost : 0;
           const currency = record.currency || 'USD';
-          if (!cost) return <span>-</span>;
+          if (!cost) {
+            return <span>-</span>;
+          }
+
           return (
             <span style={{ whiteSpace: 'nowrap' }}>
               {cost.toFixed(6)} {currency}
@@ -225,12 +232,11 @@ export default function TransactionList({
         },
       },
     ],
-    [t]
+    [t],
   );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
         <Select
           placeholder={t('settings.filterByProvider')}
@@ -256,21 +262,21 @@ export default function TransactionList({
           value={selectedModel}
           onChange={handleModelChange}
         >
-          {availableModels.map((m) => (
-            <Select.Option key={m} value={m}>
-              {m}
+          {availableModels.map((model) => (
+            <Select.Option key={model} value={model}>
+              {model}
             </Select.Option>
           ))}
         </Select>
 
-        {(filterStartDate || filterEndDate) && (
+        {filterStartDate || filterEndDate ? (
           <div style={{ color: '#888', fontSize: '14px' }}>
             {t('settings.transactions')}：{formatDateRangeLabel(filterStartDate, filterEndDate)}
             <Button type="link" size="small" onClick={onClearDateFilter}>
               {t('settings.clearDateFilter')}
             </Button>
           </div>
-        )}
+        ) : null}
       </div>
 
       <Table
