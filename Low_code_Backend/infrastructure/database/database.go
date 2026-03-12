@@ -69,6 +69,10 @@ func InitDatabase() error {
 		return fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
+	if err := RunSQLMigrations(); err != nil {
+		return fmt.Errorf("failed to run sql migrations: %w", err)
+	}
+
 	EnsureAIModelsProviderConstraint()
 	EnsureUsersOAuthColumns()
 	EnsureUsersUserNo()
@@ -272,6 +276,7 @@ func AutoMigrate() error {
 		&aiModels.ModelPricingRule{},
 		&projectModels.Project{},
 		&workflowModels.Workflow{},
+		&workflowModels.WorkflowTemplateConsent{},
 		&crawlerModels.CrawlerRule{},
 		&aiModels.AIModel{},
 		&taskModels.Task{},

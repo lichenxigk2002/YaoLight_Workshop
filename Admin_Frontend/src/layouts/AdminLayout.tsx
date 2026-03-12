@@ -132,16 +132,18 @@ export default function AdminLayout() {
             <div className={styles.brandSub}>{t('layout.brandSubtitle')}</div>
           </div>
         </div>
-        <Menu
-          mode="inline"
-          theme="light"
-          inlineCollapsed={collapsed}
-          selectedKeys={[selectedKey]}
-          openKeys={collapsed ? undefined : openKeys}
-          onOpenChange={collapsed ? undefined : (keys) => setOpenKeys(keys as string[])}
-          items={menuItems}
-          className={styles.menu}
-        />
+        <div className={styles.siderMenuWrap}>
+          <Menu
+            mode="inline"
+            theme="light"
+            inlineCollapsed={collapsed}
+            selectedKeys={[selectedKey]}
+            openKeys={collapsed ? undefined : openKeys}
+            onOpenChange={collapsed ? undefined : (keys) => setOpenKeys(keys as string[])}
+            items={menuItems}
+            className={styles.menu}
+          />
+        </div>
       </Sider>
       <Layout className={styles.main}>
         <Header className={styles.header}>

@@ -1,8 +1,30 @@
 .popover {
+  background: transparent;
+  box-shadow: none !important;
+  filter: none;
+
+  :global(.ant-popover-content) {
+    background: transparent;
+    box-shadow: none;
+    filter: none;
+  }
+
+  :global(.ant-popover-container) {
+    padding: 0;
+    background: transparent;
+    box-shadow: none !important;
+    filter: none;
+  }
+
   :global(.ant-popover-inner) {
     padding: 0;
     background: transparent;
     box-shadow: none;
+  }
+
+  :global(.ant-popover-inner-content) {
+    padding: 0;
+    background: transparent;
   }
 
   :global(.ant-popover-arrow) {

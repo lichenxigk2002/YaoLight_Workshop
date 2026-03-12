@@ -1,6 +1,7 @@
 import http from '@/http';
 import type {
   Notification,
+  NotificationConsentResult,
   NotificationListResponse,
   NotificationUnreadCountResponse,
 } from '@/types/notification';
@@ -16,6 +17,9 @@ export const notificationApi = {
 
   markRead: (id: number) =>
     http.put<void>(`${BASE}/${id}/read`),
+
+  respondConsent: (id: number, action: 'agree' | 'reject') =>
+    http.post<NotificationConsentResult>(`${BASE}/${id}/consent`, { action }),
 
   markAllRead: () =>
     http.put<void>(`${BASE}/read-all`),

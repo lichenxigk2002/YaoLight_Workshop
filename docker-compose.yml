@@ -27,6 +27,27 @@ services:
       timeout: 3s
       retries: 5
 
+  migrate:
+    build:
+      context: ./Low_code_Backend
+      dockerfile: Dockerfile
+    command: ["migrate"]
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-workflow_db}
+      DB_SSLMODE: disable
+      SERVER_MODE: release
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      UPLOAD_PATH: /app/uploads
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
   backend:
     build:
       context: ./Low_code_Backend
@@ -53,6 +74,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   frontend:
     build:
