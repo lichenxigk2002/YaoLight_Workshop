@@ -2,14 +2,18 @@
 
 ## 当前迁移方式
 
-本项目使用 **GORM AutoMigrate** 自动迁移，启动时会自动根据模型定义创建/更新表结构。
+本项目使用两段式迁移：
+
+1. **GORM AutoMigrate**：自动创建/补齐模型表结构
+2. **versioned SQL migrations**：执行 `migrations/*.sql` 并记录到 `schema_migrations`
 
 ### 工作原理
 
-1. **启动时自动执行**：在 `database.InitDatabase()` 中调用 `AutoMigrate()`
+1. **启动时自动执行**：在 `database.InitDatabase()` 中先调用 `AutoMigrate()`，再执行 SQL migrations
 2. **自动创建表**：如果表不存在，会自动创建
 3. **自动更新字段**：如果模型有新增字段，会自动添加（不会删除字段）
 4. **自动创建索引**：根据模型标签自动创建索引
+5. **版本记录**：每个 `.sql` 文件会按版本号顺序执行，并写入 `schema_migrations`
 
 ### 迁移的表
 
@@ -53,7 +57,8 @@ go run cmd/server/main.go
 ```
 ✅ Database connected successfully
 🔄 Starting database migration...
-✅ Database migration completed successfully
+✅ Applied SQL migration 006_insert_alkaid_knowledge.sql
+✅ Database migration completed
 ```
 
 ### 注意事项
@@ -62,14 +67,24 @@ go run cmd/server/main.go
 2. **后续启动**：只会添加新字段，不会删除字段
 3. **生产环境**：建议使用专门的迁移工具（如 golang-migrate）进行更精确的控制
 
-## SQL 迁移文件（参考）
+## SQL 迁移文件
 
-如果需要手动执行 SQL，可以参考以下 SQL 文件（仅作为参考，实际使用 AutoMigrate）：
+SQL migration 会自动执行；只有在需要人工排障时，才建议手动执行这些文件：
 
-- `001_create_users.sql` - 创建用户表
-- `002_create_projects.sql` - 创建项目表
-- `003_create_workflows.sql` - 创建工作流表
-- ... 等等
+- `001_initial_schema.sql` - 初始表结构补充
+- `002_add_workflow_comment_cards.sql` - 工作流注释卡片
+- `003_add_zhipuai_provider.sql` - AI provider 约束补充
+- `...`
+
+## schema_migrations
+
+系统会创建 `schema_migrations` 表记录：
+- `version`
+- `name`
+- `checksum`
+- `executed_at`
+
+如果同版本 migration 文件内容被修改，启动时会直接报错，防止历史迁移被静默篡改。
 
 ## 默认数据
 
