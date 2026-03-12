@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+﻿import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import ReactFlow, {
   Node,
@@ -15,7 +15,7 @@ import ReactFlow, {
   ReactFlowInstance,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Button, Space, Dropdown, App } from 'antd';
+import { Button, Space, Dropdown, App, Modal, Input, List, Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {
   SaveOutlined,
@@ -24,6 +24,7 @@ import {
   UnorderedListOutlined,
   CheckCircleOutlined,
   DownloadOutlined,
+  DeploymentUnitOutlined,
   UploadOutlined,
   HistoryOutlined,
   DoubleRightOutlined,
@@ -41,7 +42,7 @@ import { useThemeStore } from '@/store/theme';
 import { isCommentNode } from '@/utils/nodeUtils';
 import { exportWorkflow, importWorkflow } from '@/utils/workflowImportExport';
 import { AlkaidAssistant } from '@/components/Alkaid';
-import { transformNodesFromLoadFormat, transformEdgesFromLoadFormat } from '@/utils/workflowTransformers';
+import { transformNodesFromLoadFormat, transformEdgesFromLoadFormat, transformCommentCardsFromLoadFormat } from '@/utils/workflowTransformers';
 import { 
   applyPatchForPreview, 
   getFinalGraphFromPreview, 
@@ -49,15 +50,16 @@ import {
   PatchPreviewResult 
 } from '@/utils/alkaid/patch';
 import { PatchItem } from '@/components/Alkaid/types/progress';
-import { Checkbox } from 'antd';
+import { workflowApi } from '@/api/workflow';
+import type { WorkflowTemplateLibraryItem } from '@/types/workflow';
 
-// 导入自定义Hooks
+// 瀵煎叆鑷畾涔塇ooks
 import { useWorkflowNodes } from './hooks/useWorkflowNodes';
 import { useWorkflowSave } from './hooks/useWorkflowSave';
 import { useWorkflowExecute } from './hooks/useWorkflowExecute';
 import { useWorkflowContextMenu } from './hooks/useWorkflowContextMenu';
 
-// 导入各个节点组件
+// 瀵煎叆鍚勪釜鑺傜偣缁勪欢
 import StartNode from './nodes/StartNode/StartNode';
 import CrawlerNode from './nodes/CrawlerNode/CrawlerNode';
 import DataCleanNode from './nodes/DataCleanNode/DataCleanNode';
@@ -71,7 +73,7 @@ import OutputNode from './nodes/OutputNode/OutputNode';
 import EndNode from './nodes/EndNode/EndNode';
 import CommentCard from './nodes/CommentCard/CommentCard';
 
-// 定义节点类型映射
+// 瀹氫箟鑺傜偣绫诲瀷鏄犲皠
 const nodeTypes: NodeTypes = {
   start: StartNode,
   crawler: CrawlerNode,
@@ -87,7 +89,7 @@ const nodeTypes: NodeTypes = {
   comment: CommentCard,
 };
 
-// 初始节点和边
+// 鍒濆鑺傜偣鍜岃竟
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
@@ -103,20 +105,25 @@ const WorkflowEditor: React.FC = () => {
   const [resultPanelVisible, setResultPanelVisible] = useState(false);
   const [executionResult, setExecutionResult] = useState<any>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [, setNodeRenderKey] = useState(0); // 用于强制重新渲染节点
+  const [, setNodeRenderKey] = useState(0); // 鐢ㄤ簬寮哄埗閲嶆柊娓叉煋鑺傜偣
   const hasInitialized = useRef(false);
   const [autoTestNodeId, setAutoTestNodeId] = useState<string | null>(null);
   const [nodeListVisible, setNodeListVisible] = useState(false);
-  const shouldFitViewAfterLoad = useRef(false); // 用于标记是否需要在加载后自动居中
+  const shouldFitViewAfterLoad = useRef(false); // 鐢ㄤ簬鏍囪鏄惁闇€瑕佸湪鍔犺浇鍚庤嚜鍔ㄥ眳涓?
 
-  // 任务历史记录相关状态
+  // 浠诲姟鍘嗗彶璁板綍鐩稿叧鐘舵€?
   const [historyVisible, setHistoryVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskExecutions, setTaskExecutions] = useState<TaskNodeExecution[]>([]);
 
-  // 按钮组展开/收起状态
+  // 鎸夐挳缁勫睍寮€/鏀惰捣鐘舵€?
   const [buttonsExpanded, setButtonsExpanded] = useState(true);
+  const [templateModalVisible, setTemplateModalVisible] = useState(false);
+  const [templateKeyword, setTemplateKeyword] = useState('');
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateImportingId, setTemplateImportingId] = useState<number | null>(null);
+  const [templateItems, setTemplateItems] = useState<WorkflowTemplateLibraryItem[]>([]);
 
   const [workflowPreviewMode, setWorkflowPreviewMode] = useState<'none' | 'workflow'>('none');
   const originalWorkflowRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
@@ -134,7 +141,7 @@ const WorkflowEditor: React.FC = () => {
     return { x: 0, y: 0, zoom };
   }, []);
 
-  // 获取节点标签（用于工具函数）
+  // 鑾峰彇鑺傜偣鏍囩锛堢敤浜庡伐鍏峰嚱鏁帮級
   const getNodeLabel = useCallback(
     (type: string): string => {
       return t(`node.shortLabels.${type}`, type);
@@ -142,7 +149,7 @@ const WorkflowEditor: React.FC = () => {
     [t]
   );
 
-  // 使用节点管理Hook
+  // 浣跨敤鑺傜偣绠＄悊Hook
   const {
     addNode,
     addCommentCard,
@@ -153,7 +160,7 @@ const WorkflowEditor: React.FC = () => {
     updateNodeIdCounter,
   } = useWorkflowNodes(nodes, setNodes, getNodeLabel);
 
-  // 使用保存/加载Hook
+  // 浣跨敤淇濆瓨/鍔犺浇Hook
   const { lastSaveTime, loadWorkflowNodes, handleSave, saveWorkflowInternal } = useWorkflowSave(
     workflowId,
     nodes,
@@ -164,7 +171,7 @@ const WorkflowEditor: React.FC = () => {
     updateNodeIdCounter
   );
 
-  // 包装 setConfigPanelVisible，在打开配置面板时关闭历史记录面板
+  // 鍖呰 setConfigPanelVisible锛屽湪鎵撳紑閰嶇疆闈㈡澘鏃跺叧闂巻鍙茶褰曢潰鏉?
   const handleSetConfigPanelVisible = useCallback((visible: boolean) => {
     setConfigPanelVisible(visible);
     if (visible) {
@@ -172,7 +179,7 @@ const WorkflowEditor: React.FC = () => {
     }
   }, []);
 
-  // 包装 setResultPanelVisible，在打开结果面板时关闭历史记录面板
+  // 鍖呰 setResultPanelVisible锛屽湪鎵撳紑缁撴灉闈㈡澘鏃跺叧闂巻鍙茶褰曢潰鏉?
   const handleSetResultPanelVisible = useCallback((visible: boolean) => {
     setResultPanelVisible(visible);
     if (visible) {
@@ -180,7 +187,7 @@ const WorkflowEditor: React.FC = () => {
     }
   }, []);
 
-  // 使用执行Hook
+  // 浣跨敤鎵цHook
   const { handleRun: originalHandleRun, handleCancel, isExecuting } = useWorkflowExecute(
     nodes,
     edges,
@@ -192,7 +199,7 @@ const WorkflowEditor: React.FC = () => {
     workflowId
   );
 
-  // 包装 handleRun，在执行时关闭历史记录面板
+  // 鍖呰 handleRun锛屽湪鎵ц鏃跺叧闂巻鍙茶褰曢潰鏉?
   const handleRun = useCallback(() => {
     setHistoryVisible(false);
     originalHandleRun();
@@ -208,7 +215,7 @@ const WorkflowEditor: React.FC = () => {
       updateNodeIdCounter(newNodes);
       setWorkflowPreviewMode('workflow');
       message.success(
-        t('workflowEditor.alkaid.previewWorkflowBanner', '已载入瑶光星生成的新工作流，请确认是否覆盖并保存')
+        t('workflowEditor.alkaid.previewWorkflowBanner')
       );
     },
     [nodes, edges, setNodes, setEdges, updateNodeIdCounter, message, t]
@@ -289,12 +296,12 @@ const WorkflowEditor: React.FC = () => {
         originalWorkflowForPatchRef.current = { nodes, edges };
     }
 
-    const extendedPatches: PatchItemExt[] = rawPatches.map((p, index) => ({
+    const extendedPatches = rawPatches.map((p, index) => ({
       ...p,
       id: `patch-${index}-${Date.now()}`,
       selected: true,
       targetType: p.op === 'set_edges' ? 'graph' : (p.node ? 'node' : (p.nodeId ? 'node' : 'graph')),
-    }));
+    })) as PatchItemExt[];
 
     setPatchList(extendedPatches);
     setPatchPreviewMode('previewing');
@@ -346,7 +353,7 @@ const WorkflowEditor: React.FC = () => {
       }
   }, [patchList, getNodeLabel, saveWorkflowInternal, setNodes, setEdges, updateNodeIdCounter]);
 
-  // 使用右键菜单Hook
+  // 浣跨敤鍙抽敭鑿滃崟Hook
   const {
     contextMenu,
     contextMenuRef,
@@ -368,7 +375,7 @@ const WorkflowEditor: React.FC = () => {
     setAutoTestNodeId
   );
 
-  // 连接节点
+  // 杩炴帴鑺傜偣
   const onConnect = useCallback(
     (params: Connection) => {
       const sourceNode = nodes.find((n) => n.id === params.source);
@@ -379,17 +386,17 @@ const WorkflowEditor: React.FC = () => {
         return;
       }
 
-      // 注释卡片不能连接
+      // 娉ㄩ噴鍗＄墖涓嶈兘杩炴帴
       if (isCommentNode(sourceNode) || isCommentNode(targetNode)) {
         message.warning(t('commentCard.cannotConnect'));
         return;
       }
 
-      // 获取节点类型
+      // 鑾峰彇鑺傜偣绫诲瀷
       const sourceType = sourceNode.type || sourceNode.data.type;
       const targetType = targetNode.type || targetNode.data.type;
 
-      // 验证格式兼容性
+      // 楠岃瘉鏍煎紡鍏煎鎬?
       const validation = validateNodeConnection(sourceType, targetType, t);
 
       if (!validation.compatible) {
@@ -397,17 +404,17 @@ const WorkflowEditor: React.FC = () => {
         return;
       }
 
-      // 格式兼容，允许连接
+      // 鏍煎紡鍏煎锛屽厑璁歌繛鎺?
       setEdges((eds) => addEdge(params, eds));
       message.success(t('node.messages.nodeConnected'));
     },
     [setEdges, nodes, t]
   );
 
-  // 节点点击事件
+  // 鑺傜偣鐐瑰嚮浜嬩欢
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
-      // 注释卡片不打开配置面板
+      // 娉ㄩ噴鍗＄墖涓嶆墦寮€閰嶇疆闈㈡澘
       if (isCommentNode(node)) {
         setSelectedNode(node);
         setConfigPanelVisible(false);
@@ -424,11 +431,11 @@ const WorkflowEditor: React.FC = () => {
     [setContextMenu]
   );
 
-  // 删除节点（包含边清理和选中状态处理）
+  // 鍒犻櫎鑺傜偣锛堝寘鍚竟娓呯悊鍜岄€変腑鐘舵€佸鐞嗭級
   const deleteNode = useCallback(
     (nodeId: string) => {
       deleteNodeFromHook(nodeId);
-      // 同时删除相关的边
+      // 鍚屾椂鍒犻櫎鐩稿叧鐨勮竟
       setEdges((eds) =>
         eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId)
       );
@@ -441,11 +448,11 @@ const WorkflowEditor: React.FC = () => {
     [deleteNodeFromHook, setEdges, selectedNode, setContextMenu]
   );
 
-  // 删除节点（ReactFlow的onNodesDelete）
+  // 鍒犻櫎鑺傜偣锛圧eactFlow鐨刼nNodesDelete锛?
   const onNodesDelete = useCallback(
     (deleted: Node[]) => {
       if (deleted.length > 0) {
-        // 同时删除相关的边
+        // 鍚屾椂鍒犻櫎鐩稿叧鐨勮竟
         setEdges((eds) =>
           eds.filter(
             (edge) =>
@@ -458,17 +465,17 @@ const WorkflowEditor: React.FC = () => {
     [setEdges, t]
   );
 
-  // 删除连线（ReactFlow的onEdgesDelete）
+  // 鍒犻櫎杩炵嚎锛圧eactFlow鐨刼nEdgesDelete锛?
   const onEdgesDelete = useCallback(
     (deleted: Edge[]) => {
       if (deleted.length > 0) {
-        message.success(t('node.messages.edgesDeleted', { count: deleted.length }) || `已删除 ${deleted.length} 条连线`);
+        message.success(t('node.messages.edgesDeleted', { count: deleted.length }));
       }
     },
     [t]
   );
 
-  // 保存节点配置
+  // 淇濆瓨鑺傜偣閰嶇疆
   const handleNodeConfigSave = useCallback(
     (nodeId: string, data: any) => {
       const oldNode = nodes.find((n) => n.id === nodeId);
@@ -483,7 +490,7 @@ const WorkflowEditor: React.FC = () => {
         config: data.config,
       });
 
-      // 同步更新 selectedNode，确保配置面板显示最新的节点数据
+      // 鍚屾鏇存柊 selectedNode锛岀‘淇濋厤缃潰鏉挎樉绀烘渶鏂扮殑鑺傜偣鏁版嵁
       if (selectedNode?.id === nodeId) {
         setSelectedNode((prev) => {
           if (!prev || prev.id !== nodeId) return prev;
@@ -499,7 +506,7 @@ const WorkflowEditor: React.FC = () => {
         });
       }
 
-      // 如果连接方向改变了，强制重新渲染所有节点和边
+      // 濡傛灉杩炴帴鏂瑰悜鏀瑰彉浜嗭紝寮哄埗閲嶆柊娓叉煋鎵€鏈夎妭鐐瑰拰杈?
       if (hasDirectionChange) {
         setNodeRenderKey((prev) => prev + 1);
         setTimeout(() => {
@@ -515,12 +522,12 @@ const WorkflowEditor: React.FC = () => {
         }, 100);
       }
 
-      // 保存后不关闭配置面板，保持打开状态
+      // 淇濆瓨鍚庝笉鍏抽棴閰嶇疆闈㈡澘锛屼繚鎸佹墦寮€鐘舵€?
     },
     [nodes, updateNodeConfig, setEdges, selectedNode]
   );
 
-  // 导出工作流
+  // 瀵煎嚭宸ヤ綔娴?
   const handleExportWorkflow = useCallback(() => {
     if (nodes.length === 0 && edges.length === 0) {
       message.warning(t('workflowEditor.emptyWorkflowWarning'));
@@ -534,7 +541,7 @@ const WorkflowEditor: React.FC = () => {
     }
   }, [nodes, edges, t]);
 
-  // 获取当前工作流（用于 AI 上下文）
+  // 鑾峰彇褰撳墠宸ヤ綔娴侊紙鐢ㄤ簬 AI 涓婁笅鏂囷級
   const getCurrentWorkflow = useCallback(async () => {
     return {
       nodes: nodes,
@@ -542,14 +549,14 @@ const WorkflowEditor: React.FC = () => {
     };
   }, [nodes, edges]);
 
-  // 导入工作流
+  // 瀵煎叆宸ヤ綔娴?
   const handleImportWorkflow = useCallback(() => {
     if (nodes.length > 0 || edges.length > 0) {
       message.warning(t('workflowEditor.clearBeforeImport'));
       return;
     }
 
-    // 创建隐藏的文件输入元素
+    // 鍒涘缓闅愯棌鐨勬枃浠惰緭鍏ュ厓绱?
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
@@ -566,7 +573,7 @@ const WorkflowEditor: React.FC = () => {
         updateNodeIdCounter(importedNodes);
         message.success(t('workflowEditor.importSuccess'));
 
-        // 自动适配视图
+        // 鑷姩閫傞厤瑙嗗浘
         setTimeout(() => {
           if (reactFlowInstance) {
             reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
@@ -575,7 +582,7 @@ const WorkflowEditor: React.FC = () => {
       } catch (error: any) {
         message.error(t('workflowEditor.importFailed') + ': ' + (error.message || t('workflowEditor.unknownError')));
       } finally {
-        // 清理
+        // 娓呯悊
         document.body.removeChild(input);
       }
     };
@@ -584,15 +591,81 @@ const WorkflowEditor: React.FC = () => {
     input.click();
   }, [nodes, edges, setNodes, setEdges, updateNodeIdCounter, reactFlowInstance, getNodeLabel, t, message]);
 
-  // 加载工作流节点和边
+  // 鍔犺浇宸ヤ綔娴佽妭鐐瑰拰杈?
+  const loadTemplateLibrary = useCallback(async (keyword: string = '') => {
+    try {
+      setTemplateLoading(true);
+      const response = await workflowApi.listPublishedTemplates({
+        page: 1,
+        pageSize: 20,
+        keyword: keyword.trim() || undefined,
+      });
+      setTemplateItems(response?.list || []);
+    } catch (error: any) {
+      message.error(error.message || t('workflowEditor.templateLoadFailed'));
+    } finally {
+      setTemplateLoading(false);
+    }
+  }, [message, t]);
+
+  const applyTemplateImport = useCallback(async (templateId: number) => {
+    try {
+      setTemplateImportingId(templateId);
+      const response = await workflowApi.getPublishedTemplateNodes(templateId);
+      const importedNodes: Node[] = [];
+      if (response.nodes?.length) {
+        importedNodes.push(...transformNodesFromLoadFormat(response.nodes, getNodeLabel));
+      }
+      if (response.commentCards?.length) {
+        importedNodes.push(
+          ...transformCommentCardsFromLoadFormat(
+            response.commentCards.map((card) => ({ ...card, type: 'comment' }))
+          )
+        );
+      }
+      const importedEdges = transformEdgesFromLoadFormat(response.edges || []);
+      setNodes(importedNodes);
+      setEdges(importedEdges);
+      updateNodeIdCounter(importedNodes);
+      setTemplateModalVisible(false);
+      message.success(t('workflowEditor.templateImported'));
+      setTimeout(() => {
+        reactFlowInstance?.fitView({ padding: 0.2, duration: 400 });
+      }, 100);
+    } catch (error: any) {
+      message.error(error.message || t('workflowEditor.templateImportFailed'));
+    } finally {
+      setTemplateImportingId(null);
+    }
+  }, [getNodeLabel, message, reactFlowInstance, setEdges, setNodes, t, updateNodeIdCounter]);
+
+  const handleOpenTemplateModal = useCallback(() => {
+    setTemplateModalVisible(true);
+    if (templateItems.length === 0) {
+      void loadTemplateLibrary();
+    }
+  }, [loadTemplateLibrary, templateItems.length]);
+
+  const handleImportTemplate = useCallback((templateId: number) => {
+    if (nodes.length > 0 || edges.length > 0) {
+      Modal.confirm({
+        title: t('workflowEditor.replaceCanvasTitle'),
+        content: t('workflowEditor.replaceCanvasContent'),
+        onOk: () => applyTemplateImport(templateId),
+      });
+      return;
+    }
+    void applyTemplateImport(templateId);
+  }, [applyTemplateImport, edges.length, nodes.length, t]);
+
   useEffect(() => {
     if (workflowId) {
-      shouldFitViewAfterLoad.current = true; // 标记需要自动居中
+      shouldFitViewAfterLoad.current = true; // 鏍囪闇€瑕佽嚜鍔ㄥ眳涓?
       loadWorkflowNodes();
     }
   }, [workflowId, loadWorkflowNodes]);
 
-  // 节点加载完成后自动居中显示
+  // 鑺傜偣鍔犺浇瀹屾垚鍚庤嚜鍔ㄥ眳涓樉绀?
   useEffect(() => {
     if (
       nodes.length > 0 &&
@@ -600,16 +673,16 @@ const WorkflowEditor: React.FC = () => {
       hasInitialized.current &&
       shouldFitViewAfterLoad.current
     ) {
-      // 延迟执行以确保节点已经渲染
+      // 寤惰繜鎵ц浠ョ‘淇濊妭鐐瑰凡缁忔覆鏌?
       const timer = setTimeout(() => {
         reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
-        shouldFitViewAfterLoad.current = false; // 重置标记，避免重复触发
+        shouldFitViewAfterLoad.current = false; // 閲嶇疆鏍囪锛岄伩鍏嶉噸澶嶈Е鍙?
       }, 100);
       return () => clearTimeout(timer);
     }
   }, [nodes, reactFlowInstance]);
 
-  // 键盘快捷键：Delete键删除选中节点
+  // 閿洏蹇嵎閿細Delete閿垹闄ら€変腑鑺傜偣
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (configPanelVisible) {
@@ -693,15 +766,15 @@ const WorkflowEditor: React.FC = () => {
               <span>
                 {t(
                   'workflowEditor.alkaid.previewWorkflowBannerDetail',
-                  '当前正在预览瑶光星生成的新工作流，确认后将覆盖并保存当前画布'
+                  '褰撳墠姝ｅ湪棰勮鐟跺厜鏄熺敓鎴愮殑鏂板伐浣滄祦锛岀‘璁ゅ悗灏嗚鐩栧苟淇濆瓨褰撳墠鐢诲竷'
                 )}
               </span>
               <Space size="small">
                 <Button size="small" type="primary" onClick={handleConfirmWorkflowPreview}>
-                  {t('workflowEditor.alkaid.previewConfirm', '确认覆盖并保存')}
+                  {t('workflowEditor.alkaid.previewConfirm')}
                 </Button>
                 <Button size="small" onClick={handleCancelWorkflowPreview}>
-                  {t('workflowEditor.alkaid.previewCancel', '取消预览')}
+                  {t('workflowEditor.alkaid.previewCancel')}
                 </Button>
               </Space>
             </div>
@@ -710,18 +783,18 @@ const WorkflowEditor: React.FC = () => {
           {patchPreviewMode === 'previewing' && (
             <div className={styles.previewBanner} style={{ backgroundColor: '#fffbe6', borderBottom: '1px solid #ffe58f' }}>
               <Space>
-                <span>正在预览补丁修改效果（绿色=新增，红色=删除，橙色=修改）</span>
+                <span>{t('workflowEditor.alkaid.patchPreviewBanner')}</span>
                 <Button size="small" type="primary" onClick={handleConfirmPatchPreview}>
-                  确认应用全部
+                  {t('workflowEditor.alkaid.patchPreviewApplyAll')}
                 </Button>
                 <Button size="small" onClick={handleCancelPatchPreview}>
-                  取消预览
+                  {t('workflowEditor.alkaid.patchPreviewCancel')}
                 </Button>
               </Space>
             </div>
           )}
 
-          {/* 保存状态显示 */}
+          {/* 淇濆瓨鐘舵€佹樉绀?*/}
           {lastSaveTime && (
             <div className={styles.saveStatus}>
               <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '14px' }} />
@@ -740,7 +813,7 @@ const WorkflowEditor: React.FC = () => {
             </div>
           )}
 
-          {/* 瑶光星助手 */}
+          {/* 鐟跺厜鏄熷姪鎵?*/}
           <AlkaidAssistant
             workflowId={workflowId}
             hasExistingNodes={nodes.length > 0 || edges.length > 0}
@@ -749,27 +822,27 @@ const WorkflowEditor: React.FC = () => {
             onPatchGenerated={handlePatchGenerated}
             onWorkflowGenerated={async (workflowData) => {
               try {
-                // 转换节点数据
+                // 杞崲鑺傜偣鏁版嵁
                 const importedNodes = transformNodesFromLoadFormat(workflowData.nodes, getNodeLabel);
-                // 转换边数据
+                // 杞崲杈规暟鎹?
                 const importedEdges = transformEdgesFromLoadFormat(workflowData.edges);
 
                 enterWorkflowPreview(importedNodes, importedEdges);
 
-                // 自动适配视图
+                // 鑷姩閫傞厤瑙嗗浘
                 setTimeout(() => {
                   if (reactFlowInstance) {
                     reactFlowInstance.fitView({ padding: 0.2, duration: 400 });
                   }
                 }, 100);
               } catch (error: any) {
-                message.error(t('alkaid.importFailed') || '导入失败: ' + (error.message || '未知错误'));
+                message.error(t('alkaid.importFailed') || '瀵煎叆澶辫触: ' + (error.message || '鏈煡閿欒'));
                 console.error('Import workflow error:', error);
               }
             }}
           />
 
-          {/* 悬浮操作按钮 */}
+          {/* 鎮诞鎿嶄綔鎸夐挳 */}
           <div className={`${styles.actionButtons} ${buttonsExpanded ? styles.expanded : styles.collapsed}`}>
             <Space size="small" key={buttonsExpanded ? 'expanded' : 'collapsed'}>
               {buttonsExpanded ? (
@@ -831,6 +904,14 @@ const WorkflowEditor: React.FC = () => {
                   <Button
                     size="small"
                     shape="round"
+                    icon={<DeploymentUnitOutlined />}
+                    onClick={handleOpenTemplateModal}
+                  >
+                    {t('workflowEditor.importTemplate')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
                     icon={<UploadOutlined />}
                     onClick={handleImportWorkflow}
                   >
@@ -841,7 +922,7 @@ const WorkflowEditor: React.FC = () => {
                     shape="circle"
                     icon={<DoubleLeftOutlined />}
                     onClick={() => setButtonsExpanded(false)}
-                    title="收起"
+                    title={t('workflowEditor.collapse')}
                   />
                 </>
               ) : (
@@ -860,7 +941,7 @@ const WorkflowEditor: React.FC = () => {
                     shape="circle"
                     icon={<DoubleRightOutlined />}
                     onClick={() => setButtonsExpanded(true)}
-                    title="展开"
+                    title={t('workflowEditor.expand')}
                   />
                 </>
               )}
@@ -899,7 +980,7 @@ const WorkflowEditor: React.FC = () => {
                   setSelectedTask(task);
                   setTaskExecutions(executions);
                   setDetailVisible(true);
-                  // 保持历史记录面板打开，不关闭
+                  // 淇濇寔鍘嗗彶璁板綍闈㈡澘鎵撳紑锛屼笉鍏抽棴
                 }}
               />
             ) : resultPanelVisible ? (
@@ -935,7 +1016,54 @@ const WorkflowEditor: React.FC = () => {
         </div>
       </div>
 
-      {/* 右键菜单 */}
+      {/* 鍙抽敭鑿滃崟 */}
+      <Modal
+        title={t('workflowEditor.importTemplate')}
+        open={templateModalVisible}
+        onCancel={() => setTemplateModalVisible(false)}
+        footer={null}
+        width={720}
+      >
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space.Compact style={{ width: '100%' }}>
+            <Input
+              value={templateKeyword}
+              placeholder={t('workflowEditor.searchTemplate')}
+              onChange={(event) => setTemplateKeyword(event.target.value)}
+              onPressEnter={() => void loadTemplateLibrary(templateKeyword)}
+            />
+            <Button onClick={() => void loadTemplateLibrary(templateKeyword)}>
+              {t('common.search', 'Search')}
+            </Button>
+          </Space.Compact>
+          <List
+            loading={templateLoading}
+            dataSource={templateItems}
+            locale={{ emptyText: t('workflowEditor.noTemplateFound') }}
+            renderItem={(item) => (
+              <List.Item
+                actions={[
+                  <Button
+                    key="import"
+                    type="link"
+                    loading={templateImportingId === item.id}
+                    onClick={() => handleImportTemplate(item.id)}
+                  >
+                    {t('workflowEditor.import')}
+                  </Button>,
+                ]}
+              >
+                <List.Item.Meta title={item.name} description={item.description || item.category || '-'} />
+                <Space size={8} wrap>
+                  <Tag>{t('workflowEditor.templateNodeCount', { count: item.nodeCount })}</Tag>
+                  <Tag>{t('workflowEditor.templateUsageCount', { count: item.usageCount })}</Tag>
+                </Space>
+              </List.Item>
+            )}
+          />
+        </Space>
+      </Modal>
+
       {contextMenu && (
         <div
           ref={contextMenuRef}
@@ -958,7 +1086,7 @@ const WorkflowEditor: React.FC = () => {
         </div>
       )}
 
-      {/* 点击其他地方关闭右键菜单 */}
+      {/* 鐐瑰嚮鍏朵粬鍦版柟鍏抽棴鍙抽敭鑿滃崟 */}
       {contextMenu && (
         <div
           className={styles.contextMenuOverlay}
@@ -970,14 +1098,14 @@ const WorkflowEditor: React.FC = () => {
         />
       )}
 
-      {/* 任务执行详情弹窗 */}
+      {/* 浠诲姟鎵ц璇︽儏寮圭獥 */}
       <TaskExecutionDetailModal
         visible={detailVisible}
         onClose={() => {
           setDetailVisible(false);
           setSelectedTask(null);
           setTaskExecutions([]);
-          // 保持历史记录面板打开状态，不关闭
+          // 淇濇寔鍘嗗彶璁板綍闈㈡澘鎵撳紑鐘舵€侊紝涓嶅叧闂?
         }}
         task={selectedTask}
         executions={taskExecutions}
@@ -987,3 +1115,5 @@ const WorkflowEditor: React.FC = () => {
 };
 
 export default WorkflowEditor;
+
+

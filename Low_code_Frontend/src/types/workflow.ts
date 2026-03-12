@@ -84,3 +84,51 @@ export interface UpdateWorkflowRequest {
   edges?: WorkflowEdge[];
 }
 
+export interface WorkflowTemplateLibraryItem {
+  id: number;
+  name: string;
+  description?: string;
+  category?: string;
+  tags: string[];
+  nodeCount: number;
+  usageCount: number;
+  updatedAt: string;
+}
+
+export interface WorkflowCanvasNodeData {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data?: {
+    label?: string;
+    type?: string;
+    config?: Record<string, any>;
+    connectionDirection?: string;
+    text?: string;
+    color?: string;
+  };
+}
+
+export interface WorkflowCanvasEdgeData {
+  id?: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+}
+
+export interface WorkflowCanvasCommentCardData {
+  id: string;
+  position: { x: number; y: number };
+  data?: {
+    text?: string;
+    color?: string;
+  };
+}
+
+export interface WorkflowCanvasData {
+  nodes?: WorkflowCanvasNodeData[];
+  edges?: WorkflowCanvasEdgeData[];
+  commentCards?: WorkflowCanvasCommentCardData[];
+}
+

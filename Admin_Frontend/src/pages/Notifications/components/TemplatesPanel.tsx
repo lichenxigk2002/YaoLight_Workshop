@@ -1,5 +1,5 @@
-import { CloseOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Select, Space, Switch, Table, Tag, message } from 'antd';
+import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Drawer, Form, Input, Select, Space, Switch, Table, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useEffect, useRef, useState } from 'react';
@@ -275,21 +275,20 @@ export default function TemplatesPanel({ refreshToken = 0, onChanged }: Template
         </Button>
       </div>
 
-      {editorOpen ? (
-        <section className={styles.templateEditorPanel}>
-          <div className={styles.templateEditorHeader}>
+      <Drawer
+        title={editingTemplate ? t('notifications.templates.editModalTitle') : t('notifications.templates.createModalTitle')}
+        placement="right"
+        width={920}
+        open={editorOpen}
+        onClose={closeEditorPanel}
+        destroyOnClose
+      >
+        <Form<TemplateFormValues> layout="vertical" form={form} onFinish={(values) => void handleSave(values)}>
+          <section className={styles.templateEditorPanel}>
             <div className={styles.templateEditorHeading}>
-              <div className={styles.templateEditorTitle}>
-                {editingTemplate ? t('notifications.templates.editModalTitle') : t('notifications.templates.createModalTitle')}
-              </div>
               <div className={styles.templateEditorSubtitle}>{t('notifications.templates.panelHint')}</div>
             </div>
-            <Button icon={<CloseOutlined />} onClick={closeEditorPanel}>
-              {t('notifications.templates.cancelEdit')}
-            </Button>
-          </div>
 
-          <Form<TemplateFormValues> layout="vertical" form={form} onFinish={(values) => void handleSave(values)}>
             <div className={styles.templateBuilder}>
               <div className={styles.templateBuilderTitle}>{t('notifications.templates.variableBuilderTitle')}</div>
               <div className={styles.templateBuilderDesc}>{t('notifications.templates.variableBuilderDesc')}</div>
@@ -384,9 +383,9 @@ export default function TemplatesPanel({ refreshToken = 0, onChanged }: Template
                 </Button>
               </div>
             </div>
-          </Form>
-        </section>
-      ) : null}
+          </section>
+        </Form>
+      </Drawer>
 
       <Table<AdminNotificationTemplate>
         rowKey="id"

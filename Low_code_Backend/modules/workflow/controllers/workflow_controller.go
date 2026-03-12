@@ -69,8 +69,9 @@ func containsHelper(s, substr string) bool {
 
 // WorkflowController 工作流控制器
 type WorkflowController struct {
-	workflowService *workflowService.WorkflowService
-	executor        *workflowService.WorkflowExecutor
+	workflowService        *workflowService.WorkflowService
+	templateLibraryService *workflowService.WorkflowTemplateLibraryService
+	executor               *workflowService.WorkflowExecutor
 }
 
 // NewWorkflowController 创建工作流控制器
@@ -79,8 +80,9 @@ func NewWorkflowController() *WorkflowController {
 	workflowNodeRepo := workflowRepos.NewWorkflowNodeRepository(database.DB)
 	commentCardRepo := workflowRepos.NewWorkflowCommentCardRepository(database.DB)
 	return &WorkflowController{
-		workflowService: workflowService.NewWorkflowService(workflowRepo, workflowNodeRepo, commentCardRepo),
-		executor:        workflowService.NewWorkflowExecutor(),
+		workflowService:        workflowService.NewWorkflowService(workflowRepo, workflowNodeRepo, commentCardRepo),
+		templateLibraryService: workflowService.NewWorkflowTemplateLibraryService(database.DB),
+		executor:               workflowService.NewWorkflowExecutor(),
 	}
 }
 
@@ -501,6 +503,90 @@ func (c *WorkflowController) GetWorkflowList(ctx *gin.Context) {
 // @Failure 401 {object} map[string]interface{} "未授权"
 // @Failure 404 {object} map[string]interface{} "工作流不存在"
 // @Router /api/workflows/{id} [get]
+func (c *WorkflowController) ListPublishedTemplates(ctx *gin.Context) {
+	page := 1
+	pageSize := 12
+	if pageStr := ctx.Query("page"); pageStr != "" {
+		if parsed, err := strconv.Atoi(pageStr); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	if pageSizeStr := ctx.Query("pageSize"); pageSizeStr != "" {
+		if parsed, err := strconv.Atoi(pageSizeStr); err == nil && parsed > 0 {
+			pageSize = parsed
+		}
+	}
+
+	items, total, err := c.templateLibraryService.ListPublishedTemplates(workflowService.WorkflowTemplateLibraryQuery{
+		Keyword:  ctx.Query("keyword"),
+		Page:     page,
+		PageSize: pageSize,
+	})
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "failed to load workflow templates: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "ok",
+		"data": gin.H{
+			"list":     items,
+			"total":    total,
+			"page":     page,
+			"pageSize": pageSize,
+		},
+	})
+}
+
+func (c *WorkflowController) GetPublishedTemplateNodes(ctx *gin.Context) {
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "invalid workflow template id",
+			"data":    nil,
+		})
+		return
+	}
+
+	canvas, err := c.templateLibraryService.GetPublishedTemplateNodes(uint(id))
+	if err != nil {
+		switch err {
+		case workflowService.ErrWorkflowTemplateNotFound:
+			ctx.JSON(http.StatusNotFound, gin.H{
+				"code":    404,
+				"message": err.Error(),
+				"data":    nil,
+			})
+		case workflowService.ErrWorkflowTemplateNotPublic:
+			ctx.JSON(http.StatusForbidden, gin.H{
+				"code":    403,
+				"message": err.Error(),
+				"data":    nil,
+			})
+		default:
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"code":    500,
+				"message": "failed to load workflow template: " + err.Error(),
+				"data":    nil,
+			})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "ok",
+		"data":    canvas,
+	})
+}
+
 func (c *WorkflowController) GetWorkflowByID(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
