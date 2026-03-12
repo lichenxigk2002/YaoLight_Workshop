@@ -28,6 +28,10 @@ type NotificationController struct {
 	h       *hub.Hub
 }
 
+type notificationConsentActionPayload struct {
+	Action string `json:"action"`
+}
+
 // NewNotificationController 创建通知控制器
 func NewNotificationController(service *services.NotificationService, h *hub.Hub) *NotificationController {
 	return &NotificationController{service: service, h: h}
@@ -77,6 +81,44 @@ func (c *NotificationController) MarkRead(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": nil})
+}
+
+func (c *NotificationController) RespondConsent(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 id", "data": nil})
+		return
+	}
+
+	var payload notificationConsentActionPayload
+	if err := ctx.ShouldBindJSON(&payload); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request payload", "data": nil})
+		return
+	}
+
+	result, err := c.service.RespondWorkflowTemplateConsent(uint(id), userID.(uint), payload.Action)
+	if err != nil {
+		switch err {
+		case services.ErrNotificationNotFound:
+			ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error(), "data": nil})
+		case services.ErrNotificationConsentActionInvalid,
+			services.ErrNotificationConsentUnsupported,
+			services.ErrNotificationConsentNotFound,
+			services.ErrNotificationConsentAlreadyHandled:
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		default:
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": result})
 }
 
 // MarkAllRead 全部标为已读

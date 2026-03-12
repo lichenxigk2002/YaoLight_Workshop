@@ -10,7 +10,7 @@
 }
 
 .panel {
-  box-shadow: var(--admin-shadow);
+  box-shadow: none;
 }
 
 .checklist {
@@ -425,6 +425,7 @@
   min-width: 68px;
   height: 26px;
   padding: 0 10px;
+  border: 1px solid transparent;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
@@ -433,28 +434,33 @@
 }
 
 .softStatusTagSuccess {
-  color: #389e0d;
-  background: #f6ffed;
+  color: color-mix(in srgb, #22c55e 76%, var(--admin-ink) 24%);
+  background: color-mix(in srgb, #22c55e 14%, var(--admin-panel) 86%);
+  border-color: color-mix(in srgb, #22c55e 24%, var(--admin-line));
 }
 
 .softStatusTagWarning {
-  color: #d48806;
-  background: #fffbe6;
+  color: color-mix(in srgb, #f59e0b 78%, var(--admin-ink) 22%);
+  background: color-mix(in srgb, #f59e0b 14%, var(--admin-panel) 86%);
+  border-color: color-mix(in srgb, #f59e0b 24%, var(--admin-line));
 }
 
 .softStatusTagError {
-  color: #cf1322;
-  background: #fff1f0;
+  color: color-mix(in srgb, #ef4444 78%, var(--admin-ink) 22%);
+  background: color-mix(in srgb, #ef4444 14%, var(--admin-panel) 86%);
+  border-color: color-mix(in srgb, #ef4444 24%, var(--admin-line));
 }
 
 .softStatusTagNeutral {
-  color: #667085;
-  background: #f2f4f7;
+  color: var(--admin-ink-soft);
+  background: color-mix(in srgb, var(--admin-ink-soft) 10%, var(--admin-panel) 90%);
+  border-color: color-mix(in srgb, var(--admin-ink-soft) 18%, var(--admin-line));
 }
 
 .softStatusTagInfo {
-  color: #175cd3;
-  background: #eff4ff;
+  color: color-mix(in srgb, var(--admin-brand) 76%, var(--admin-ink) 24%);
+  background: color-mix(in srgb, var(--admin-brand) 14%, var(--admin-panel) 86%);
+  border-color: color-mix(in srgb, var(--admin-brand) 24%, var(--admin-line));
 }
 
 .userCell {

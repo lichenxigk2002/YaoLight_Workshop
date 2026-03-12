@@ -25,6 +25,7 @@ export interface WorkflowTemplateListItem {
   usage_count: number;
   execution_count: number;
   last_executed_at?: string | null;
+  consent_status: string;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +54,7 @@ export interface WorkflowTemplateDetail {
   execution_count: number;
   last_executed_at?: string | null;
   node_type_stats: WorkflowTemplateNodeTypeStat[];
+  consent_status: string;
   created_at: string;
   updated_at: string;
 }

@@ -148,7 +148,7 @@ func main() {
 		// 站内通知 WebSocket（通过 query token 鉴权，不加 JWT 中间件）
 		notificationHubInstance := notificationHub.NewHub()
 		notificationRepo := notificationRepos.NewNotificationRepository(database.DB)
-		notificationService := notificationServices.NewNotificationService(notificationRepo, notificationHubInstance)
+		notificationService := notificationServices.NewNotificationService(notificationRepo, notificationHubInstance, database.DB)
 		adminNotificationService := notificationServices.NewAdminNotificationService(database.DB, notificationRepo, notificationService)
 		notificationModule.SetDefaultService(notificationService)
 		notificationController := notificationControllers.NewNotificationController(notificationService, notificationHubInstance)
@@ -372,6 +372,7 @@ func main() {
 			// 站内通知 REST
 			auth.GET("/notifications", notificationController.List)
 			auth.GET("/notifications/unread-count", notificationController.UnreadCount)
+			auth.POST("/notifications/:id/consent", notificationController.RespondConsent)
 			auth.PUT("/notifications/:id/read", notificationController.MarkRead)
 			auth.PUT("/notifications/read-all", notificationController.MarkAllRead)
 		}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Badge, Button, Dropdown, Empty, Modal, Spin, Tooltip } from 'antd';
+import { App, Badge, Button, Dropdown, Empty, Modal, Spin, Tooltip } from 'antd';
 import { MessageOutlined, SettingOutlined } from '@ant-design/icons';
 import { NotificationBellIcon, SweepIcon } from '@/components/Icons';
 import { useNavigate } from 'react-router-dom';
@@ -41,13 +41,31 @@ function isWorkflowCompletionNotification(notification: Notification) {
   return notification.type === 'task_completed';
 }
 
+function isTemplateConsentNotification(notification?: Notification | null) {
+  return notification?.type === 'workflow_template_consent_request';
+}
+
+function getConsentStatus(notification?: Notification | null) {
+  if (!notification?.metadata || typeof notification.metadata !== 'object') {
+    return undefined;
+  }
+  const status = notification.metadata.consent_status;
+  return typeof status === 'string' ? status : undefined;
+}
+
+function canRespondToConsent(notification?: Notification | null) {
+  return isTemplateConsentNotification(notification) && getConsentStatus(notification) === 'pending';
+}
+
 export default function NotificationBell() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [tab, setTab] = useState<TabFilter>('all');
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [consentSubmittingId, setConsentSubmittingId] = useState<number | null>(null);
   useNotificationWS();
 
   const {
@@ -57,8 +75,10 @@ export default function NotificationBell() {
     fetchList,
     fetchUnreadCount,
     markRead,
+    respondConsent,
     markAllRead,
   } = useNotificationStore();
+  const isEnglish = i18n.language.startsWith('en');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -82,6 +102,27 @@ export default function NotificationBell() {
 
     setSelectedNotification(n);
     setDetailOpen(true);
+  };
+
+  const handleConsentAction = async (notification: Notification, action: 'agree' | 'reject') => {
+    setConsentSubmittingId(notification.id);
+    try {
+      const updated = await respondConsent(notification.id, action);
+      setSelectedNotification((current) => (current?.id === updated.id ? updated : current));
+      message.success(
+        action === 'agree'
+          ? isEnglish
+            ? 'Consent recorded.'
+            : '已同意该模板发布请求'
+          : isEnglish
+            ? 'Rejection recorded.'
+            : '已拒绝该模板发布请求',
+      );
+    } catch {
+      // handled by the shared HTTP client
+    } finally {
+      setConsentSubmittingId(null);
+    }
   };
 
   const dropdownContent = (
@@ -150,17 +191,45 @@ export default function NotificationBell() {
               {n.content && (
                 <div className={styles.notificationCardContent}>{normalizeNotificationText(n.content)}</div>
               )}
-              <Button
-                type="primary"
-                size="small"
-                className={styles.notificationCardBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleCardClick(n);
-                }}
-              >
-                {t('layout.notificationView')}
-              </Button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {canRespondToConsent(n) ? (
+                  <>
+                    <Button
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleConsentAction(n, 'reject');
+                      }}
+                      loading={consentSubmittingId === n.id}
+                    >
+                      {isEnglish ? 'Reject' : '拒绝'}
+                    </Button>
+                    <Button
+                      type="primary"
+                      size="small"
+                      className={styles.notificationCardBtn}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleConsentAction(n, 'agree');
+                      }}
+                      loading={consentSubmittingId === n.id}
+                    >
+                      {isEnglish ? 'Agree' : '同意'}
+                    </Button>
+                  </>
+                ) : null}
+                <Button
+                  type={canRespondToConsent(n) ? 'default' : 'primary'}
+                  size="small"
+                  className={styles.notificationCardBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleCardClick(n);
+                  }}
+                >
+                  {t('layout.notificationView')}
+                </Button>
+              </div>
             </div>
           ))
         )}
@@ -194,9 +263,38 @@ export default function NotificationBell() {
         title={selectedNotification?.title || t('layout.notificationDetailTitle')}
         onCancel={() => setDetailOpen(false)}
         footer={
-          <Button onClick={() => setDetailOpen(false)}>
-            {t('common.cancel')}
-          </Button>
+          canRespondToConsent(selectedNotification) ? (
+            <>
+              <Button
+                onClick={() => {
+                  if (selectedNotification) {
+                    void handleConsentAction(selectedNotification, 'reject');
+                  }
+                }}
+                loading={consentSubmittingId === selectedNotification?.id}
+              >
+                {isEnglish ? 'Reject' : '拒绝'}
+              </Button>
+              <Button
+                type="primary"
+                onClick={() => {
+                  if (selectedNotification) {
+                    void handleConsentAction(selectedNotification, 'agree');
+                  }
+                }}
+                loading={consentSubmittingId === selectedNotification?.id}
+              >
+                {isEnglish ? 'Agree' : '同意'}
+              </Button>
+              <Button onClick={() => setDetailOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => setDetailOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+          )
         }
         width={560}
         className={styles.notificationDetailModal}
@@ -205,6 +303,26 @@ export default function NotificationBell() {
           <span>{t('layout.notificationCreatedAt')}: {selectedNotification?.created_at ? new Date(selectedNotification.created_at).toLocaleString() : '-'}</span>
           <span>{t('layout.notificationType')}: {selectedNotification?.type || '-'}</span>
         </div>
+        {isTemplateConsentNotification(selectedNotification) ? (
+          <div className={styles.notificationDetailMeta}>
+            <span>
+              {isEnglish ? 'Consent status' : '确认状态'}:{' '}
+              {getConsentStatus(selectedNotification) === 'pending'
+                ? isEnglish
+                  ? 'Pending'
+                  : '待处理'
+                : getConsentStatus(selectedNotification) === 'agreed'
+                  ? isEnglish
+                    ? 'Agreed'
+                    : '已同意'
+                  : getConsentStatus(selectedNotification) === 'rejected'
+                    ? isEnglish
+                      ? 'Rejected'
+                      : '已拒绝'
+                    : '-'}
+            </span>
+          </div>
+        ) : null}
         <div className={styles.notificationDetailContent}>
           {normalizeNotificationText(selectedNotification?.content) || t('layout.notificationEmpty')}
         </div>

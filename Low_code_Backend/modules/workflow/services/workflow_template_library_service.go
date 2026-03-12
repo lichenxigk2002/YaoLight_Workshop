@@ -55,7 +55,7 @@ func (s *WorkflowTemplateLibraryService) ListPublishedTemplates(query WorkflowTe
 	}
 
 	base := s.db.Table("workflows").
-		Where("workflows.is_template = ? AND workflows.status = ? AND workflows.is_public = ?", true, "published", true)
+		Where("workflows.is_template = ? AND workflows.status = ? AND workflows.is_public = ? AND workflows.deleted_at IS NULL", true, "published", true)
 
 	keyword := strings.TrimSpace(query.Keyword)
 	if keyword != "" {
@@ -77,8 +77,14 @@ func (s *WorkflowTemplateLibraryService) ListPublishedTemplates(query WorkflowTe
 		UsageCount int64 `json:"usage_count"`
 	}
 
-	nodeCountSubquery := s.db.Table("workflow_nodes").Select("workflow_id, COUNT(*) AS node_count").Group("workflow_id")
-	usageCountSubquery := s.db.Table("workflows").Select("template_id, COUNT(*) AS usage_count").Where("template_id IS NOT NULL").Group("template_id")
+	nodeCountSubquery := s.db.Table("workflow_nodes").
+		Select("workflow_id, COUNT(*) AS node_count").
+		Where("deleted_at IS NULL").
+		Group("workflow_id")
+	usageCountSubquery := s.db.Table("workflows").
+		Select("template_id, COUNT(*) AS usage_count").
+		Where("template_id IS NOT NULL AND deleted_at IS NULL").
+		Group("template_id")
 
 	var rows []row
 	if err := base.

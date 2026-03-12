@@ -13,6 +13,8 @@ export interface Notification {
   action_url?: string;
   related_resource_type?: string;
   related_resource_id?: number;
+  metadata?: Record<string, any> | null;
+  expires_at?: string | null;
   created_at: string;
 }
 
@@ -23,4 +25,9 @@ export interface NotificationListResponse {
 
 export interface NotificationUnreadCountResponse {
   count: number;
+}
+
+export interface NotificationConsentResult {
+  notification: Notification;
+  consent_status: string;
 }

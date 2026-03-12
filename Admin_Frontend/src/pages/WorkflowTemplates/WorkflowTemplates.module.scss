@@ -28,7 +28,7 @@
 
 .muted {
   margin-bottom: 0 !important;
-  color: rgba(15, 23, 42, 0.62);
+  color: var(--admin-ink-soft);
 }
 
 .filterBar {
@@ -55,7 +55,7 @@
 
 .drawerHint {
   margin-bottom: 0 !important;
-  color: rgba(15, 23, 42, 0.62);
+  color: var(--admin-ink-soft);
 }
 
 .formGrid {
@@ -75,23 +75,23 @@
 }
 
 .summaryCard {
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--admin-line);
   border-radius: 16px;
   padding: 14px 16px;
-  background: #fafcff;
+  background: var(--admin-panel-alt);
 }
 
 .summaryLabel {
   display: block;
   margin-bottom: 6px;
-  color: rgba(15, 23, 42, 0.56);
+  color: var(--admin-ink-soft);
   font-size: 12px;
 }
 
 .summaryValue {
   font-size: 22px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--admin-ink);
 }
 
 .nodeTypeList {
@@ -106,8 +106,25 @@
 }
 
 .sourceOptionMeta {
-  color: rgba(15, 23, 42, 0.56);
+  color: var(--admin-ink-soft);
   font-size: 12px;
+}
+
+.templateDrawer {
+  :global(.ant-drawer-content),
+  :global(.ant-drawer-header),
+  :global(.ant-drawer-body) {
+    background: var(--admin-panel);
+  }
+
+  :global(.ant-drawer-header) {
+    border-bottom-color: var(--admin-line);
+  }
+
+  :global(.ant-drawer-title),
+  :global(.ant-drawer-close) {
+    color: var(--admin-ink);
+  }
 }
 
 .sourcePickerRow {

@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"yaolight-workshop/backend/infrastructure/shared"
+	notificationModels "yaolight-workshop/backend/modules/notification/models"
 	workflowModels "yaolight-workshop/backend/modules/workflow/models"
 )
 
@@ -82,6 +83,7 @@ type AdminWorkflowTemplateListItem struct {
 	UsageCount         int64      `json:"usage_count"`
 	ExecutionCount     int        `json:"execution_count"`
 	LastExecutedAt     *time.Time `json:"last_executed_at"`
+	ConsentStatus      string     `json:"consent_status"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
@@ -122,6 +124,7 @@ type AdminWorkflowTemplateDetail struct {
 	ExecutionCount     int                                 `json:"execution_count"`
 	LastExecutedAt     *time.Time                          `json:"last_executed_at"`
 	NodeTypeStats      []AdminWorkflowTemplateNodeTypeStat `json:"node_type_stats"`
+	ConsentStatus      string                              `json:"consent_status"`
 	CreatedAt          time.Time                           `json:"created_at"`
 	UpdatedAt          time.Time                           `json:"updated_at"`
 }
@@ -163,8 +166,8 @@ func (s *AdminWorkflowTemplateService) ListTemplates(query AdminWorkflowTemplate
 	page, pageSize := normalizeAdminWorkflowTemplatePage(query.Page, query.PageSize, 20)
 
 	base := s.db.Table("workflows").
-		Where("workflows.is_template = ?", true).
-		Joins("LEFT JOIN workflows source_workflows ON source_workflows.id = workflows.parent_id").
+		Where("workflows.is_template = ? AND workflows.deleted_at IS NULL", true).
+		Joins("LEFT JOIN workflows source_workflows ON source_workflows.id = workflows.parent_id AND source_workflows.deleted_at IS NULL").
 		Joins("LEFT JOIN users source_users ON source_users.id = source_workflows.user_id")
 
 	keyword := strings.TrimSpace(query.Keyword)
@@ -199,9 +202,18 @@ func (s *AdminWorkflowTemplateService) ListTemplates(query AdminWorkflowTemplate
 		UsageCount         int64   `json:"usage_count"`
 	}
 
-	nodeCountSubquery := s.db.Table("workflow_nodes").Select("workflow_id, COUNT(*) AS node_count").Group("workflow_id")
-	commentCountSubquery := s.db.Table("workflow_comment_cards").Select("workflow_id, COUNT(*) AS comment_card_count").Group("workflow_id")
-	usageCountSubquery := s.db.Table("workflows").Select("template_id, COUNT(*) AS usage_count").Where("template_id IS NOT NULL").Group("template_id")
+	nodeCountSubquery := s.db.Table("workflow_nodes").
+		Select("workflow_id, COUNT(*) AS node_count").
+		Where("deleted_at IS NULL").
+		Group("workflow_id")
+	commentCountSubquery := s.db.Table("workflow_comment_cards").
+		Select("workflow_id, COUNT(*) AS comment_card_count").
+		Where("deleted_at IS NULL").
+		Group("workflow_id")
+	usageCountSubquery := s.db.Table("workflows").
+		Select("template_id, COUNT(*) AS usage_count").
+		Where("template_id IS NOT NULL AND deleted_at IS NULL").
+		Group("template_id")
 
 	var rows []row
 	err := base.
@@ -225,6 +237,17 @@ func (s *AdminWorkflowTemplateService) ListTemplates(query AdminWorkflowTemplate
 	}
 
 	items := make([]AdminWorkflowTemplateListItem, 0, len(rows))
+	templateSourcePairs := make(map[uint]uint)
+	for _, row := range rows {
+		if row.ParentID != nil {
+			templateSourcePairs[row.ID] = *row.ParentID
+		}
+	}
+	consentMap, err := s.loadConsentMapForPairs(s.db, templateSourcePairs)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	for _, row := range rows {
 		items = append(items, AdminWorkflowTemplateListItem{
 			ID:                 row.ID,
@@ -242,6 +265,7 @@ func (s *AdminWorkflowTemplateService) ListTemplates(query AdminWorkflowTemplate
 			UsageCount:         row.UsageCount,
 			ExecutionCount:     row.ExecutionCount,
 			LastExecutedAt:     row.LastExecutedAt,
+			ConsentStatus:      buildWorkflowTemplateConsentStatus(row.ParentID != nil, consentMap[row.ID]),
 			CreatedAt:          row.CreatedAt,
 			UpdatedAt:          row.UpdatedAt,
 		})
@@ -260,7 +284,7 @@ func (s *AdminWorkflowTemplateService) ListSourceWorkflows(query AdminWorkflowTe
 	}
 
 	base := s.db.Table("workflows").
-		Where("workflows.is_template = ?", false).
+		Where("workflows.is_template = ? AND workflows.deleted_at IS NULL", false).
 		Joins("INNER JOIN users ON users.id = workflows.user_id")
 
 	keyword := strings.TrimSpace(query.Keyword)
@@ -272,7 +296,10 @@ func (s *AdminWorkflowTemplateService) ListSourceWorkflows(query AdminWorkflowTe
 		)
 	}
 
-	nodeCountSubquery := s.db.Table("workflow_nodes").Select("workflow_id, COUNT(*) AS node_count").Group("workflow_id")
+	nodeCountSubquery := s.db.Table("workflow_nodes").
+		Select("workflow_id, COUNT(*) AS node_count").
+		Where("deleted_at IS NULL").
+		Group("workflow_id")
 
 	var rows []AdminWorkflowTemplateSourceWorkflowItem
 	if err := base.
@@ -345,6 +372,13 @@ func (s *AdminWorkflowTemplateService) GetTemplateDetail(id uint) (*AdminWorkflo
 	if err != nil {
 		return nil, err
 	}
+	var consent *workflowModels.WorkflowTemplateConsent
+	if workflow.ParentID != nil {
+		consent, err = s.findTemplateConsent(s.db, id, *workflow.ParentID)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return &AdminWorkflowTemplateDetail{
 		ID:                 workflow.ID,
@@ -365,6 +399,7 @@ func (s *AdminWorkflowTemplateService) GetTemplateDetail(id uint) (*AdminWorkflo
 		ExecutionCount:     workflow.ExecutionCount,
 		LastExecutedAt:     workflow.LastExecutedAt,
 		NodeTypeStats:      nodeTypeRows,
+		ConsentStatus:      buildWorkflowTemplateConsentStatus(workflow.ParentID != nil, consent),
 		CreatedAt:          workflow.CreatedAt,
 		UpdatedAt:          workflow.UpdatedAt,
 	}, nil
@@ -377,14 +412,21 @@ func (s *AdminWorkflowTemplateService) CreateTemplate(operatorID uint, payload A
 	}
 
 	var createdID uint
+	var pendingNotification *notificationModels.Notification
+	requestPublishConsent := normalized.Status == "published" && normalized.SourceWorkflowID != nil
 	err = s.db.Transaction(func(tx *gorm.DB) error {
+		initialStatus := normalized.Status
+		if requestPublishConsent {
+			initialStatus = "draft"
+		}
+
 		template := &workflowModels.Workflow{
 			UserID:         operatorID,
 			ProjectID:      nil,
 			Name:           normalized.Name,
 			Description:    cloneStringPointer(normalized.Description),
 			Version:        "1.0.0",
-			Status:         normalized.Status,
+			Status:         initialStatus,
 			Category:       cloneStringPointer(normalized.Category),
 			Tags:           normalizeTagsJSONB(normalized.Tags),
 			Config:         shared.JSONB{Data: map[string]interface{}{}},
@@ -399,6 +441,7 @@ func (s *AdminWorkflowTemplateService) CreateTemplate(operatorID uint, payload A
 			FailureCount:   0,
 		}
 
+		var sourceWorkflow *workflowModels.Workflow
 		if normalized.SourceWorkflowID != nil {
 			source, sourceNodeCount, err := s.loadSourceWorkflow(tx, *normalized.SourceWorkflowID)
 			if err != nil {
@@ -407,6 +450,7 @@ func (s *AdminWorkflowTemplateService) CreateTemplate(operatorID uint, payload A
 			if sourceNodeCount == 0 {
 				return ErrAdminWorkflowTemplateSourceEmpty
 			}
+			sourceWorkflow = source
 
 			template.Description = fallbackStringPointer(normalized.Description, source.Description)
 			template.Version = source.Version
@@ -425,12 +469,20 @@ func (s *AdminWorkflowTemplateService) CreateTemplate(operatorID uint, payload A
 				return err
 			}
 		}
+		if requestPublishConsent && sourceWorkflow != nil {
+			pendingNotification, err = s.createOrRefreshConsentRequest(tx, template, sourceWorkflow, nil)
+			if err != nil {
+				return err
+			}
+		}
 		createdID = template.ID
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	s.pushNotification(pendingNotification)
 
 	return s.GetTemplateDetail(createdID)
 }
@@ -452,6 +504,7 @@ func (s *AdminWorkflowTemplateService) UpdateTemplate(id uint, payload AdminWork
 		return nil, err
 	}
 
+	var pendingNotification *notificationModels.Notification
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		var workflow workflowModels.Workflow
 		if err := tx.Where("id = ? AND is_template = ?", id, true).First(&workflow).Error; err != nil {
@@ -465,14 +518,32 @@ func (s *AdminWorkflowTemplateService) UpdateTemplate(id uint, payload AdminWork
 		workflow.Description = normalized.Description
 		workflow.Category = normalized.Category
 		workflow.Tags = normalizeTagsJSONB(normalized.Tags)
-		workflow.Status = normalized.Status
 		workflow.IsPublic = normalized.IsPublic
+
+		previousStatus := workflow.Status
+		shouldAttemptPublish := normalized.Status == "published" && workflow.ParentID != nil && previousStatus != "published"
+		if shouldAttemptPublish {
+			source, _, err := s.loadSourceWorkflow(tx, *workflow.ParentID)
+			if err != nil {
+				return err
+			}
+
+			workflow.Status = previousStatus
+			pendingNotification, err = s.applyPublishConsent(tx, &workflow, source)
+			if err != nil {
+				return err
+			}
+		} else {
+			workflow.Status = normalized.Status
+		}
 
 		return tx.Save(&workflow).Error
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	s.pushNotification(pendingNotification)
 
 	return s.GetTemplateDetail(id)
 }
@@ -506,6 +577,7 @@ func (s *AdminWorkflowTemplateService) SyncTemplate(id uint, payload AdminWorkfl
 			return err
 		}
 
+		previousSourceID := template.ParentID
 		sourceID := template.ParentID
 		if payload.SourceWorkflowID != nil {
 			sourceID = payload.SourceWorkflowID
@@ -527,6 +599,15 @@ func (s *AdminWorkflowTemplateService) SyncTemplate(id uint, payload AdminWorkfl
 		template.Config = cloneJSONB(source.Config)
 		template.Variables = cloneJSONB(source.Variables)
 		template.Settings = cloneJSONB(source.Settings)
+		if template.Status == "published" && (previousSourceID == nil || *previousSourceID != *sourceID) {
+			consent, err := s.findTemplateConsent(tx, template.ID, *sourceID)
+			if err != nil {
+				return err
+			}
+			if consent == nil || consent.Status != workflowTemplateConsentStatusAgreed {
+				template.Status = "draft"
+			}
+		}
 		if err := tx.Save(&template).Error; err != nil {
 			return err
 		}
