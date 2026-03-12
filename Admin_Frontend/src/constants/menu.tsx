@@ -3,6 +3,7 @@ import {
   ApartmentOutlined,
   AuditOutlined,
   BellOutlined,
+  BookOutlined,
   BranchesOutlined,
   BuildOutlined,
   ClusterOutlined,
@@ -39,6 +40,7 @@ export const adminMenuItems: AdminMenuItem[] = [
     icon: <DeploymentUnitOutlined />,
   },
   { key: 'node-types', path: '/node-types', label: 'menu.nodeTypes', icon: <BranchesOutlined /> },
+  { key: 'knowledge-base', path: '/knowledge-base', label: '知识库', icon: <BookOutlined /> },
   {
     key: 'crawler-rules',
     path: '/crawler-rules',

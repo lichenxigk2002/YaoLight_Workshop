@@ -5,6 +5,7 @@ import billingRoutes from '@/pages/Billing/routes';
 import CrawlerRulesPage from '@/pages/CrawlerRules';
 import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
+import KnowledgeBasePage from '@/pages/KnowledgeBase';
 import NodeTypesPage from '@/pages/NodeTypes';
 import NotFoundPage from '@/pages/NotFound';
 import OperationLogsPage from '@/pages/OperationLogs';
@@ -35,6 +36,7 @@ const router = createBrowserRouter(
         { path: 'permissions', element: <PermissionsPage /> },
         { path: 'workflow-templates', element: <WorkflowTemplatesPage /> },
         { path: 'node-types', element: <NodeTypesPage /> },
+        { path: 'knowledge-base', element: <KnowledgeBasePage /> },
         { path: 'crawler-rules', element: <CrawlerRulesPage /> },
         aiAdminRoutes,
         tasksRoutes,

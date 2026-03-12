@@ -316,6 +316,18 @@ func main() {
 			adminNotifications.PUT("/templates/:id", adminNotificationController.UpdateTemplate)
 			adminNotifications.POST("/send", adminNotificationController.Send)
 
+			adminKnowledgeController := alkaidControllers.NewAdminKnowledgeController()
+			adminKnowledge := auth.Group("/admin/alkaid/knowledge")
+			adminKnowledge.Use(middleware.AdminOnlyMiddleware())
+			adminKnowledge.GET("/summary", adminKnowledgeController.GetSummary)
+			adminKnowledge.GET("", adminKnowledgeController.ListKnowledge)
+			adminKnowledge.POST("", adminKnowledgeController.CreateKnowledge)
+			adminKnowledge.POST("/search-test", adminKnowledgeController.SearchTest)
+			adminKnowledge.GET("/:id", adminKnowledgeController.GetKnowledge)
+			adminKnowledge.PUT("/:id", adminKnowledgeController.UpdateKnowledge)
+			adminKnowledge.DELETE("/:id", adminKnowledgeController.DeleteKnowledge)
+			adminKnowledge.PATCH("/:id/status", adminKnowledgeController.SetKnowledgeStatus)
+
 			// 瑶光星（Alkaid）对话相关路由
 			alkaidController := alkaidControllers.NewAlkaidController()
 			auth.GET("/alkaid/capabilities", alkaidController.GetCapabilities)
