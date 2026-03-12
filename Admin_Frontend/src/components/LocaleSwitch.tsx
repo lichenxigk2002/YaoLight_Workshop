@@ -9,6 +9,7 @@ export default function LocaleSwitch() {
   return (
     <Dropdown
       trigger={['click']}
+      overlayClassName={styles.dropdown}
       menu={{
         selectable: true,
         selectedKeys: [locale],

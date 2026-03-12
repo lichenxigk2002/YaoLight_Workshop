@@ -1,5 +1,6 @@
 import { Button, Form, Input, InputNumber, message } from 'antd';
 import { useI18n } from '@/i18n';
+import AdminUserSelect from '@/features/users/components/AdminUserSelect';
 import type { GrantQuotaPayload } from '../types';
 
 interface AdminGrantFormProps {
@@ -27,8 +28,9 @@ export default function AdminGrantForm({ onSubmit, loading }: AdminGrantFormProp
         name="user_id"
         label={t('billing.formUserIdLabel')}
         rules={[{ required: true, message: t('billing.formUserIdRequired') }]}
+        extra={t('billing.formUserIdHelp')}
       >
-        <Input placeholder={t('billing.formUserIdPlaceholder')} />
+        <AdminUserSelect placeholder={t('billing.formUserIdPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="quota_delta"
