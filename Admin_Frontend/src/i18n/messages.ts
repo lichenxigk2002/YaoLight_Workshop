@@ -594,6 +594,8 @@ export const messages = {
       createTagBaseInfo: '基础信息',
       createIntro: '这样拆分后，新建模型时不会被大量能力开关和计费字段淹没，也更方便后续做规则版本化。',
       createSuccess: '模型基础信息已创建，请继续配置能力和计费规则。',
+      createDuplicateError: '该服务商下已存在同名模型，请勿重复添加。',
+      createFailed: '创建模型失败，请稍后重试。',
       formProviderLabel: '服务商',
       formProviderRequired: '请选择服务商',
       formProviderPlaceholder: '请选择服务商',
@@ -1348,6 +1350,8 @@ export const messages = {
       createIntro:
         'This split keeps model creation focused and prevents capability switches and pricing fields from overwhelming the form. It also makes rule versioning easier later.',
       createSuccess: 'Base model info created. Continue with capability and pricing rules.',
+      createDuplicateError: 'A model with the same provider and name already exists. Please do not add duplicates.',
+      createFailed: 'Failed to create model. Please try again later.',
       formProviderLabel: 'Provider',
       formProviderRequired: 'Please select a provider',
       formProviderPlaceholder: 'Select a provider',
