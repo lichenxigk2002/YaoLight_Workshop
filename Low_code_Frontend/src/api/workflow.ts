@@ -7,7 +7,33 @@ import type {
   ExecuteWorkflowResponse,
   CreateWorkflowRequest,
   UpdateWorkflowRequest,
+  WorkflowTemplateLibraryItem,
+  WorkflowCanvasData,
 } from '@/types/workflow';
+
+interface WorkflowTemplateLibraryItemDTO {
+  id: number;
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  node_count?: number;
+  usage_count?: number;
+  updated_at?: string;
+}
+
+function mapWorkflowTemplateLibraryItem(item: WorkflowTemplateLibraryItemDTO): WorkflowTemplateLibraryItem {
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    category: item.category,
+    tags: item.tags || [],
+    nodeCount: item.node_count || 0,
+    usageCount: item.usage_count || 0,
+    updatedAt: item.updated_at || '',
+  };
+}
 
 /**
  * 工作流 API
@@ -19,6 +45,17 @@ export const workflowApi = {
    */
   getWorkflowList: (params?: PageRequest & { projectId?: number }) =>
     http.get<PageResponse<Workflow>>('/workflows', params),
+
+  listPublishedTemplates: async (params?: PageRequest & { keyword?: string }) => {
+    const response = await http.get<PageResponse<WorkflowTemplateLibraryItemDTO>>('/workflows/templates', params);
+    return {
+      ...response,
+      list: (response.list || []).map(mapWorkflowTemplateLibraryItem),
+    };
+  },
+
+  getPublishedTemplateNodes: (templateId: number) =>
+    http.get<WorkflowCanvasData>(`/workflows/templates/${templateId}/nodes`),
 
   /**
    * 获取工作流详情
