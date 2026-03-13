@@ -1,0 +1,369 @@
+.page {
+  display: grid;
+  gap: 20px;
+}
+
+.errorBanner {
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, #ef4444 18%, var(--admin-line));
+}
+
+.heroAction {
+  min-width: min(320px, 100%);
+  display: grid;
+  gap: 12px;
+}
+
+.heroActionCard {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--admin-panel) 0%, var(--admin-panel-alt) 100%);
+  border: 1px solid var(--admin-line);
+}
+
+.heroActionLabel {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-ink-soft);
+}
+
+.heroActionValue {
+  margin-top: 6px;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 800;
+  color: #102a56;
+}
+
+.heroActionMeta {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--admin-ink-soft);
+  font-size: 13px;
+}
+
+.refreshButton {
+  width: 100%;
+  height: 44px;
+  border-radius: 14px;
+  font-weight: 700;
+}
+
+.metricCard {
+  height: 100%;
+  border-radius: 18px;
+  box-shadow: none;
+
+  :global(.ant-card-body) {
+    padding: 20px;
+  }
+}
+
+.metricHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metricEyebrow {
+  font-size: 12px;
+  color: var(--admin-ink-soft);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.metricTitle {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--admin-ink);
+}
+
+.metricIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: #fff;
+}
+
+.metricValue {
+  margin-top: 14px;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 800;
+  color: #102a56;
+}
+
+.metricSuffix {
+  margin-top: 10px;
+  color: var(--admin-ink-soft);
+  font-size: 13px;
+}
+
+.metricProgress {
+  margin-top: 16px;
+}
+
+.metricFooter {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.trendPositive,
+.trendNeutral,
+.trendWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trendPositive {
+  color: #067647;
+  background: rgba(18, 183, 106, 0.14);
+}
+
+.trendNeutral {
+  color: #175cd3;
+  background: rgba(46, 144, 250, 0.14);
+}
+
+.trendWarning {
+  color: #b54708;
+  background: rgba(247, 144, 9, 0.16);
+}
+
+.metricHint {
+  color: var(--admin-ink-soft);
+  font-size: 12px;
+}
+
+.panelCard {
+  height: 100%;
+  border-radius: 20px;
+  box-shadow: none;
+
+  :global(.ant-card-body) {
+    padding: 20px;
+  }
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.panelTitle {
+  margin: 0 !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  font-weight: 800 !important;
+  color: #102a56 !important;
+}
+
+.panelDescription {
+  margin: 6px 0 0 !important;
+  color: var(--admin-ink-soft);
+  font-size: 13px;
+}
+
+.chart {
+  height: 320px;
+}
+
+.compactChart {
+  height: 288px;
+}
+
+.attentionList {
+  display: grid;
+  gap: 12px;
+}
+
+.attentionItem {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--admin-line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 251, 255, 0.95));
+}
+
+.attentionDanger {
+  border-color: color-mix(in srgb, #ef4444 20%, var(--admin-line));
+  background: linear-gradient(180deg, rgba(254, 243, 242, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.attentionWarning {
+  border-color: color-mix(in srgb, #f59e0b 22%, var(--admin-line));
+  background: linear-gradient(180deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.attentionSuccess {
+  border-color: color-mix(in srgb, #22c55e 20%, var(--admin-line));
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.96), rgba(255, 255, 255, 0.98));
+}
+
+.attentionTitleRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.attentionTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--admin-ink);
+}
+
+.attentionValue {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--admin-ink-soft);
+}
+
+.attentionDescription {
+  color: var(--admin-ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.attentionAction {
+  width: fit-content;
+  padding: 0;
+  font-weight: 700;
+}
+
+.emptyState {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  color: var(--admin-ink-soft);
+  text-align: center;
+  padding: 18px;
+}
+
+.statusTag {
+  border-radius: 999px;
+  font-weight: 700;
+  border: 0;
+}
+
+.statusSuccess {
+  color: #067647;
+  background: rgba(18, 183, 106, 0.12);
+}
+
+.statusError {
+  color: #b42318;
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.tableNote {
+  color: var(--admin-ink-soft);
+  font-size: 12px;
+}
+
+.quickLinks {
+  display: grid;
+  gap: 12px;
+}
+
+.quickLink {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--admin-line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 251, 255, 0.95));
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.quickLink:hover {
+  transform: translateY(-2px);
+  border-color: rgba(22, 119, 255, 0.2);
+}
+
+.quickLinkTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: #102a56;
+}
+
+.quickLinkDescription {
+  margin-top: 6px;
+  color: var(--admin-ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.quickLinkMeta {
+  margin-top: 10px;
+  color: var(--admin-brand);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.logTable {
+  :global(.ant-table-thead > tr > th) {
+    font-size: 12px;
+    color: var(--admin-ink-soft);
+    background: rgba(248, 250, 252, 0.92);
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    vertical-align: top;
+  }
+}
+
+@media (max-width: 1280px) {
+  .chart {
+    height: 300px;
+  }
+
+  .compactChart {
+    height: 272px;
+  }
+}
+
+@media (max-width: 860px) {
+  .heroAction {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .metricCard {
+    :global(.ant-card-body) {
+      padding: 18px;
+    }
+  }
+
+  .panelCard {
+    :global(.ant-card-body) {
+      padding: 18px;
+    }
+  }
+
+  .chart,
+  .compactChart {
+    height: 260px;
+  }
+}
