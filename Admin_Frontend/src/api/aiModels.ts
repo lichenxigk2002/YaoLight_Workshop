@@ -60,6 +60,12 @@ interface BackendUsageSummary {
   last_used_at?: string | null;
 }
 
+interface BackendProviderTemplateOption {
+  provider: string;
+  name: string;
+  description?: string | null;
+}
+
 interface BackendCapabilityConfig extends AIModelCapabilityConfig {
   id?: number;
   provider?: string;
@@ -316,9 +322,26 @@ export async function getAIModelsOverview(): Promise<AIModelsOverview> {
   };
 }
 
+export async function getAIOverviewModels(): Promise<AIAdminModel[]> {
+  const payload = await unwrap(
+    http.get<ApiEnvelope<ListPayload<BackendAdminModel>>>('/admin/ai-models'),
+  );
+  return payload.list.map(mapModel);
+}
+
 export async function getAIProviders(): Promise<AIProviderSummary[]> {
   const payload = await unwrap(http.get<ApiEnvelope<BackendProviderSummary[]>>('/admin/ai-models/providers'));
   return payload.map(mapProvider);
+}
+
+export async function getAIProviderOptions(): Promise<Array<{ key: string; name: string }>> {
+  const payload = await unwrap(
+    http.get<ApiEnvelope<BackendProviderTemplateOption[]>>('/ai/providers/templates'),
+  );
+  return payload.map((item) => ({
+    key: item.provider,
+    name: item.name,
+  }));
 }
 
 export async function getAIProvider(providerKey: string): Promise<AIProviderDetail | null> {

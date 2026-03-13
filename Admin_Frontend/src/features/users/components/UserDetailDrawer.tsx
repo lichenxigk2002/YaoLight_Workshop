@@ -15,6 +15,7 @@ interface UserDetailDrawerProps {
   onResetPassword: (user: AdminUserDetail) => void;
   onStatusChange: (userId: number, status: AdminUserStatus) => void;
   statusUpdating: boolean;
+  canEdit: boolean;
 }
 
 export default function UserDetailDrawer({
@@ -25,6 +26,7 @@ export default function UserDetailDrawer({
   onResetPassword,
   onStatusChange,
   statusUpdating,
+  canEdit,
 }: UserDetailDrawerProps) {
   const { t } = useI18n();
   const adminStatusLocked = user?.role === 'admin';
@@ -58,23 +60,23 @@ export default function UserDetailDrawer({
             </div>
             {user ? (
               <Space direction="vertical" size={8} style={{ alignItems: 'flex-end' }}>
-                <Button onClick={() => onResetPassword(user)}>{t('users.actionResetPassword')}</Button>
+                {canEdit ? <Button onClick={() => onResetPassword(user)}>{t('users.actionResetPassword')}</Button> : null}
                 <Space.Compact>
                   <Button
-                    disabled={statusUpdating || user.status === 'active' || adminStatusLocked}
+                    disabled={!canEdit || statusUpdating || user.status === 'active' || adminStatusLocked}
                     onClick={() => onStatusChange(user.id, 'active')}
                   >
                     {t('users.actionActivate')}
                   </Button>
                   <Button
-                    disabled={statusUpdating || user.status === 'inactive' || adminStatusLocked}
+                    disabled={!canEdit || statusUpdating || user.status === 'inactive' || adminStatusLocked}
                     onClick={() => onStatusChange(user.id, 'inactive')}
                   >
                     {t('users.actionInactivate')}
                   </Button>
                   <Button
                     danger
-                    disabled={statusUpdating || user.status === 'suspended' || adminStatusLocked}
+                    disabled={!canEdit || statusUpdating || user.status === 'suspended' || adminStatusLocked}
                     onClick={() => onStatusChange(user.id, 'suspended')}
                   >
                     {t('users.actionSuspend')}

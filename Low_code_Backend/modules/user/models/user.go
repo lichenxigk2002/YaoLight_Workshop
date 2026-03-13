@@ -27,6 +27,7 @@ type User struct {
 	OAuthProvider string         `gorm:"type:varchar(20);index" json:"-"`      // google, github
 	OAuthID       *string        `gorm:"type:varchar(100);index" json:"-"`
 	HasPassword   bool           `gorm:"-" json:"has_password"`                // 是否已设置密码（仅 API 返回，不存库）
+	Permissions   []string       `gorm:"-" json:"permissions,omitempty"`
 	Preferences   shared.JSONB   `gorm:"type:jsonb;default:'{}'" json:"preferences"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`

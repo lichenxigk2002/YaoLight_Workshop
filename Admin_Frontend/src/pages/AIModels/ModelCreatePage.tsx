@@ -3,21 +3,28 @@ import { App, Button, Card, Form, Input, Select, Space, Switch, Typography } fro
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageHero from '@/components/PageHero';
-import { createAIModel, getAIProviders } from '@/api/aiModels';
+import { createAIModel, getAIProviderOptions } from '@/api/aiModels';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
-import type { AIProviderSummary, CreateAIModelInput } from '@/types/aiModels';
+import type { CreateAIModelInput } from '@/types/aiModels';
 import styles from './AIModels.module.scss';
 
 const { Paragraph } = Typography;
+
+interface AIProviderOption {
+  key: string;
+  name: string;
+}
 
 export default function ModelCreatePage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const { t } = useI18n();
-  const [providers, setProviders] = useState<AIProviderSummary[]>([]);
+  const { canEdit } = useAdminPermission('ai_models.models');
+  const [providers, setProviders] = useState<AIProviderOption[]>([]);
 
   useEffect(() => {
-    void getAIProviders().then(setProviders);
+    void getAIProviderOptions().then(setProviders);
   }, []);
 
   const handleFinish = async (values: CreateAIModelInput) => {
@@ -45,7 +52,7 @@ export default function ModelCreatePage() {
 
       <Card bordered={false} className={styles.card}>
         <Paragraph className={styles.muted}>{t('aiModels.createIntro')}</Paragraph>
-        <Form<CreateAIModelInput> layout="vertical" onFinish={handleFinish} initialValues={{ is_active: true }}>
+        <Form<CreateAIModelInput> layout="vertical" onFinish={handleFinish} initialValues={{ is_active: true }} disabled={!canEdit}>
           <div className={styles.formGrid}>
             <Form.Item
               label={t('aiModels.formProviderLabel')}
@@ -81,7 +88,7 @@ export default function ModelCreatePage() {
           </Form.Item>
 
           <Space>
-            <Button htmlType="submit" type="primary">
+            <Button htmlType="submit" type="primary" disabled={!canEdit}>
               {t('aiModels.submitCreateContinue')}
             </Button>
             <Button onClick={() => navigate('/ai-models/models')}>{t('aiModels.actionCancel')}</Button>

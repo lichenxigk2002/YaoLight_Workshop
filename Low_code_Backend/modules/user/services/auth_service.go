@@ -25,6 +25,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/jwt"
 	"yaolight-workshop/backend/infrastructure/shared"
 	"yaolight-workshop/backend/infrastructure/storage"
+	rbacServices "yaolight-workshop/backend/modules/rbac/services"
 	userModels "yaolight-workshop/backend/modules/user/models"
 	"yaolight-workshop/backend/modules/user/repositories"
 )
@@ -48,6 +49,7 @@ type AuthService struct {
 	avatarHistoryRepo *repositories.AvatarHistoryRepository
 	emailService      *email.EmailService
 	verifyCache       cache.VerificationCacheInterface
+	rbacService       *rbacServices.RBACService
 }
 
 // NewAuthService 创建认证服务
@@ -60,6 +62,7 @@ func NewAuthService(userRepo repository.UserRepository, oauthBindingRepo *reposi
 		avatarHistoryRepo: avatarHistoryRepo,
 		emailService:      email.NewEmailService(),
 		verifyCache:       cache.GetVerificationCacheService(useRedis),
+		rbacService:       rbacServices.NewRBACService(database.DB),
 	}
 }
 
@@ -92,7 +95,7 @@ type SendCodeRequest struct {
 
 // ChangePasswordRequest 修改/设置密码请求（已设置密码时必填旧密码，邮箱注册未设置密码时仅填新密码）
 type ChangePasswordRequest struct {
-	OldPassword string `json:"oldPassword"` // 当前密码，已设置密码时必填
+	OldPassword string `json:"oldPassword"`                          // 当前密码，已设置密码时必填
 	NewPassword string `json:"newPassword" binding:"required,min=6"` // 新密码，至少 6 位
 }
 
@@ -125,7 +128,7 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 	}
 
 	// 使用 bcrypt 加密密码（前端传来的已经是 MD5，这里再用 bcrypt 加盐）
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := hashPasswordForStorage(req.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -159,14 +162,14 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 			return err
 		}
 		transaction := userModels.TokenTransaction{
-			UserID:           user.ID,
-			Amount:           registerBonusStardust,
-			Type:             "bonus",
-			RelatedID:        fmt.Sprintf("register_%d", user.ID),
-			Description:      "注册赠送200万星尘",
-			TotalTokens:      int(registerBonusStardust),
-			Cost:             0,
-			Currency:         "CNY",
+			UserID:      user.ID,
+			Amount:      registerBonusStardust,
+			Type:        "bonus",
+			RelatedID:   fmt.Sprintf("register_%d", user.ID),
+			Description: "注册赠送200万星尘",
+			TotalTokens: int(registerBonusStardust),
+			Cost:        0,
+			Currency:    "CNY",
 		}
 		if err := tx.Create(&transaction).Error; err != nil {
 			return err
@@ -187,7 +190,7 @@ func (s *AuthService) Register(req *RegisterRequest) (*userModels.User, error) {
 }
 
 // Login 用户登录
-func (s *AuthService) Login(req *LoginRequest) (*LoginResponse, error) {
+func (s *AuthService) Login(req *LoginRequest, loginIP string) (*LoginResponse, error) {
 	// 查找用户
 	user, err := s.userRepo.FindByUsername(req.Username)
 	if err != nil {
@@ -207,6 +210,9 @@ func (s *AuthService) Login(req *LoginRequest) (*LoginResponse, error) {
 	// 更新登录信息
 	now := time.Now()
 	user.LastLoginAt = &now
+	if trimmedIP := strings.TrimSpace(loginIP); trimmedIP != "" {
+		user.LastLoginIP = &trimmedIP
+	}
 	user.LoginCount++
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, err
@@ -222,24 +228,53 @@ func (s *AuthService) Login(req *LoginRequest) (*LoginResponse, error) {
 	user.Password = ""
 
 	// 转换为持久化实体返回（保持向后兼容）
+	out := toPersistenceModel(user)
+	s.attachPermissions(out)
 	return &LoginResponse{
 		Token: token,
-		User:  toPersistenceModel(user),
+		User:  out,
 	}, nil
 }
 
 func comparePassword(hashedPassword, input string) error {
+	normalizedInput := normalizePasswordDigest(input)
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(normalizedInput)); err == nil {
+		return nil
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(input)); err == nil {
 		return nil
 	}
 
-	sum := md5.Sum([]byte(input))
-	md5Input := fmt.Sprintf("%x", sum)
-	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(md5Input)); err == nil {
-		return nil
+	return ErrInvalidPassword
+}
+
+func hashPasswordForStorage(input string) ([]byte, error) {
+	return bcrypt.GenerateFromPassword([]byte(normalizePasswordDigest(input)), bcrypt.DefaultCost)
+}
+
+func normalizePasswordDigest(input string) string {
+	trimmed := strings.TrimSpace(input)
+	if isMD5Digest(trimmed) {
+		return strings.ToLower(trimmed)
 	}
 
-	return ErrInvalidPassword
+	sum := md5.Sum([]byte(input))
+	return fmt.Sprintf("%x", sum)
+}
+
+func isMD5Digest(value string) bool {
+	if len(value) != 32 {
+		return false
+	}
+
+	for _, ch := range value {
+		if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') && (ch < 'A' || ch > 'F') {
+			return false
+		}
+	}
+
+	return true
 }
 
 // GetUserByID 根据 ID 获取用户
@@ -255,6 +290,7 @@ func (s *AuthService) GetUserByID(userID uint) (*userModels.User, error) {
 
 	out := toPersistenceModel(user)
 	out.HasPassword = hasPassword
+	s.attachPermissions(out)
 	return out, nil
 }
 
@@ -277,7 +313,7 @@ func (s *AuthService) ChangePassword(userID uint, req *ChangePasswordRequest) er
 		}
 	}
 	// 新密码用 bcrypt 加密（与注册一致，支持明文或前端 MD5 后传入均可，这里按明文处理）
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	hashed, err := hashPasswordForStorage(req.NewPassword)
 	if err != nil {
 		return fmt.Errorf("加密密码失败: %w", err)
 	}
@@ -335,7 +371,7 @@ func (s *AuthService) ResetPasswordByEmail(req *ResetPasswordByEmailRequest) err
 		}
 		return err
 	}
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	hashed, err := hashPasswordForStorage(req.NewPassword)
 	if err != nil {
 		return fmt.Errorf("加密密码失败: %w", err)
 	}
@@ -428,7 +464,7 @@ func (s *AuthService) SendRegisterCode(req *SendCodeRequest) error {
 }
 
 // EmailLogin 邮箱验证码登录（如果邮箱未注册则自动注册）
-func (s *AuthService) EmailLogin(req *EmailLoginRequest) (*LoginResponse, error) {
+func (s *AuthService) EmailLogin(req *EmailLoginRequest, loginIP string) (*LoginResponse, error) {
 	// 验证验证码
 	isValid, err := s.verifyCache.Verify(req.Email, req.Code)
 	if err != nil {
@@ -470,14 +506,14 @@ func (s *AuthService) EmailLogin(req *EmailLoginRequest) (*LoginResponse, error)
 				return err
 			}
 			transaction := userModels.TokenTransaction{
-				UserID:           user.ID,
-				Amount:           registerBonusStardust,
-				Type:             "bonus",
-				RelatedID:        fmt.Sprintf("email_login_%d", user.ID),
-				Description:      "注册赠送200万星尘",
-				TotalTokens:      int(registerBonusStardust),
-				Cost:             0,
-				Currency:         "CNY",
+				UserID:      user.ID,
+				Amount:      registerBonusStardust,
+				Type:        "bonus",
+				RelatedID:   fmt.Sprintf("email_login_%d", user.ID),
+				Description: "注册赠送200万星尘",
+				TotalTokens: int(registerBonusStardust),
+				Cost:        0,
+				Currency:    "CNY",
 			}
 			if err := tx.Create(&transaction).Error; err != nil {
 				return err
@@ -508,6 +544,9 @@ func (s *AuthService) EmailLogin(req *EmailLoginRequest) (*LoginResponse, error)
 	// 更新登录信息
 	now := time.Now()
 	user.LastLoginAt = &now
+	if trimmedIP := strings.TrimSpace(loginIP); trimmedIP != "" {
+		user.LastLoginIP = &trimmedIP
+	}
 	user.LoginCount++
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, err
@@ -523,14 +562,16 @@ func (s *AuthService) EmailLogin(req *EmailLoginRequest) (*LoginResponse, error)
 	user.Password = ""
 
 	// 转换为持久化实体返回
+	out := toPersistenceModel(user)
+	s.attachPermissions(out)
 	return &LoginResponse{
 		Token: token,
-		User:  toPersistenceModel(user),
+		User:  out,
 	}, nil
 }
 
 // EmailRegister 邮箱验证码注册
-func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, error) {
+func (s *AuthService) EmailRegister(req *EmailLoginRequest, loginIP string) (*LoginResponse, error) {
 	// 验证验证码
 	isValid, err := s.verifyCache.Verify(req.Email, req.Code)
 	if err != nil {
@@ -578,14 +619,14 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 			return err
 		}
 		transaction := userModels.TokenTransaction{
-			UserID:           user.ID,
-			Amount:           registerBonusStardust,
-			Type:             "bonus",
-			RelatedID:        fmt.Sprintf("email_register_%d", user.ID),
-			Description:      "注册赠送200万星尘",
-			TotalTokens:      int(registerBonusStardust),
-			Cost:             0,
-			Currency:         "CNY",
+			UserID:      user.ID,
+			Amount:      registerBonusStardust,
+			Type:        "bonus",
+			RelatedID:   fmt.Sprintf("email_register_%d", user.ID),
+			Description: "注册赠送200万星尘",
+			TotalTokens: int(registerBonusStardust),
+			Cost:        0,
+			Currency:    "CNY",
 		}
 		if err := tx.Create(&transaction).Error; err != nil {
 			return err
@@ -607,6 +648,9 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 	// 更新登录信息
 	now := time.Now()
 	user.LastLoginAt = &now
+	if trimmedIP := strings.TrimSpace(loginIP); trimmedIP != "" {
+		user.LastLoginIP = &trimmedIP
+	}
 	user.LoginCount = 1
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, err
@@ -622,15 +666,17 @@ func (s *AuthService) EmailRegister(req *EmailLoginRequest) (*LoginResponse, err
 	user.Password = ""
 
 	// 转换为持久化实体返回
+	out := toPersistenceModel(user)
+	s.attachPermissions(out)
 	return &LoginResponse{
 		Token: token,
-		User:  toPersistenceModel(user),
+		User:  out,
 	}, nil
 }
 
 // OAuthLogin 第三方登录：按 provider+oauth_id 或 email 查找/创建用户，返回 JWT
 // inviteCode 可选，新用户注册时有效，邀请人将获得20万星尘奖励
-func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL string, inviteCode ...string) (*LoginResponse, error) {
+func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL, loginIP string, inviteCode ...string) (*LoginResponse, error) {
 	invCode := ""
 	if len(inviteCode) > 0 {
 		invCode = inviteCode[0]
@@ -731,14 +777,14 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 				}
 			}
 			transaction := userModels.TokenTransaction{
-				UserID:           user.ID,
-				Amount:           registerBonusStardust,
-				Type:             "bonus",
-				RelatedID:        fmt.Sprintf("oauth_%s_%d", provider, user.ID),
-				Description:      "OAuth 注册赠送200万星尘",
-				TotalTokens:      int(registerBonusStardust),
-				Cost:             0,
-				Currency:         "CNY",
+				UserID:      user.ID,
+				Amount:      registerBonusStardust,
+				Type:        "bonus",
+				RelatedID:   fmt.Sprintf("oauth_%s_%d", provider, user.ID),
+				Description: "OAuth 注册赠送200万星尘",
+				TotalTokens: int(registerBonusStardust),
+				Cost:        0,
+				Currency:    "CNY",
 			}
 			_ = database.DB.Create(&transaction).Error
 			if inviterID != 0 {
@@ -755,6 +801,9 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 
 	now := time.Now()
 	user.LastLoginAt = &now
+	if trimmedIP := strings.TrimSpace(loginIP); trimmedIP != "" {
+		user.LastLoginIP = &trimmedIP
+	}
 	user.LoginCount++
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, err
@@ -765,10 +814,26 @@ func (s *AuthService) OAuthLogin(provider, oauthID, email, name, avatarURL strin
 		return nil, err
 	}
 	user.Password = ""
+	out := toPersistenceModel(user)
+	s.attachPermissions(out)
 	return &LoginResponse{
 		Token: token,
-		User:  toPersistenceModel(user),
+		User:  out,
 	}, nil
+}
+
+func (s *AuthService) attachPermissions(user *userModels.User) {
+	if user == nil || user.Role != "admin" || s.rbacService == nil {
+		return
+	}
+
+	permissions, err := s.rbacService.GetUserPermissions(user.ID)
+	if err != nil {
+		log.Printf("load admin permissions failed: userID=%d err=%v", user.ID, err)
+		user.Permissions = []string{}
+		return
+	}
+	user.Permissions = permissions
 }
 
 // hasLocalAvatar 判断是否已是本地头像（非第三方外链）。

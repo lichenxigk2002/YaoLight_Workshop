@@ -1,5 +1,6 @@
 import http from '@/api/http';
 import { translateCurrent } from '@/i18n/runtime';
+import type { AdminUserListItem } from '@/features/users/types';
 
 interface ApiEnvelope<T> {
   code: number;
@@ -257,6 +258,27 @@ export async function getAdminNotificationTemplates(params: {
     params,
   });
   return normalizeListPage(unwrap(data, translateCurrent('notifications.errors.loadTemplates')));
+}
+
+export async function getAdminNotificationTemplateOptions(params: {
+  keyword?: string;
+  limit?: number;
+  is_active?: boolean;
+}): Promise<AdminNotificationTemplate[]> {
+  const { data } = await http.get<ApiEnvelope<AdminNotificationTemplate[]>>('/admin/notifications/templates/options', {
+    params,
+  });
+  return ensureArray(unwrap(data, translateCurrent('notifications.errors.loadTemplates')));
+}
+
+export async function getAdminNotificationRecipientOptions(params: {
+  keyword?: string;
+  limit?: number;
+}): Promise<AdminUserListItem[]> {
+  const { data } = await http.get<ApiEnvelope<AdminUserListItem[]>>('/admin/notifications/recipients/options', {
+    params,
+  });
+  return ensureArray(unwrap(data, translateCurrent('notifications.errors.loadTemplates')));
 }
 
 export async function createAdminNotificationTemplate(

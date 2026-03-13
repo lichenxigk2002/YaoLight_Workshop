@@ -6,5 +6,6 @@ export interface AdminMenuItem {
   label: string;
   icon?: ReactNode;
   aliases?: string[];
+  permissionKey?: string;
   children?: AdminMenuItem[];
 }

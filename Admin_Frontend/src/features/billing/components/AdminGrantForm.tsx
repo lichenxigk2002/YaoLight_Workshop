@@ -1,14 +1,15 @@
 import { Button, Form, Input, InputNumber, message } from 'antd';
 import { useI18n } from '@/i18n';
-import AdminUserSelect from '@/features/users/components/AdminUserSelect';
+import BillingUserSelect from './BillingUserSelect';
 import type { GrantQuotaPayload } from '../types';
 
 interface AdminGrantFormProps {
   onSubmit: (payload: GrantQuotaPayload) => Promise<void>;
   loading?: boolean;
+  disabled?: boolean;
 }
 
-export default function AdminGrantForm({ onSubmit, loading }: AdminGrantFormProps) {
+export default function AdminGrantForm({ onSubmit, loading, disabled }: AdminGrantFormProps) {
   const { t } = useI18n();
   const [form] = Form.useForm<GrantQuotaPayload>();
 
@@ -23,14 +24,14 @@ export default function AdminGrantForm({ onSubmit, loading }: AdminGrantFormProp
   }
 
   return (
-    <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ quota_delta: 1000 }}>
+    <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ quota_delta: 1000 }} disabled={disabled}>
       <Form.Item
         name="user_id"
         label={t('billing.formUserIdLabel')}
         rules={[{ required: true, message: t('billing.formUserIdRequired') }]}
         extra={t('billing.formUserIdHelp')}
       >
-        <AdminUserSelect placeholder={t('billing.formUserIdPlaceholder')} />
+        <BillingUserSelect placeholder={t('billing.formUserIdPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="quota_delta"
@@ -53,7 +54,7 @@ export default function AdminGrantForm({ onSubmit, loading }: AdminGrantFormProp
         <Input.TextArea rows={3} placeholder={t('billing.formRemarkPlaceholder')} />
       </Form.Item>
       <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading}>
+        <Button type="primary" htmlType="submit" loading={loading} disabled={disabled}>
           {t('billing.formSubmitGrant')}
         </Button>
       </Form.Item>
