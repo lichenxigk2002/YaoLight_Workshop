@@ -3,6 +3,7 @@ export interface AdminUser {
   username: string;
   role: 'admin';
   permissions: string[];
+  avatar_url?: string | null;
 }
 
 export interface AdminSession {

@@ -24,6 +24,7 @@ import { getAdminNotificationAnalytics } from '@/pages/Notifications/api';
 import type { AdminOperationLogListItem } from '@/types/operationLogs';
 import { canViewResource } from '@/utils/permissions';
 import { getAdminSession } from '@/utils/storage';
+import { useAdminTheme } from '@/theme';
 import styles from './index.module.scss';
 
 const { Paragraph, Text, Title } = Typography;
@@ -44,6 +45,7 @@ const jobLabel = (v: string) => ({ completed: '已完成', partial_failed: '部�
 
 export default function DashboardPage() {
   const { message } = App.useApp();
+  const { resolvedTheme } = useAdminTheme();
   const mountedRef = useRef(true);
   const permissions = getAdminSession()?.user.permissions ?? [];
   const access = useMemo(() => ({
@@ -142,23 +144,23 @@ export default function DashboardPage() {
     return {
       grid: { left: 18, right: 18, top: 20, bottom: 18, containLabel: true },
       tooltip: { trigger: 'axis', backgroundColor: 'rgba(15, 23, 42, 0.92)', borderWidth: 0, textStyle: { color: '#F8FAFC' } },
-      xAxis: { type: 'category', boundaryGap: false, axisTick: { show: false }, axisLabel: { color: '#667085' }, data: list.map((v) => dayjs(v.day).format('MM-DD')) },
-      yAxis: { type: 'value', minInterval: 1, axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.18)' } }, axisLabel: { color: '#98A2B3' } },
-      series: [{ type: 'line', smooth: true, symbolSize: 8, data: list.map((v) => v.count), lineStyle: { width: 3, color: '#1677ff' }, itemStyle: { color: '#fff', borderColor: '#1677ff', borderWidth: 3 }, areaStyle: { color: new graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(22, 119, 255, 0.32)' }, { offset: 1, color: 'rgba(22, 119, 255, 0.02)' }]) } }],
+      xAxis: { type: 'category', boundaryGap: false, axisTick: { show: false }, axisLabel: { color: resolvedTheme.inkSoft }, data: list.map((v) => dayjs(v.day).format('MM-DD')) },
+      yAxis: { type: 'value', minInterval: 1, axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: resolvedTheme.line } }, axisLabel: { color: resolvedTheme.inkSoft } },
+      series: [{ type: 'line', smooth: true, symbolSize: 8, data: list.map((v) => v.count), lineStyle: { width: 3, color: resolvedTheme.brand }, itemStyle: { color: resolvedTheme.panel, borderColor: resolvedTheme.brand, borderWidth: 3 }, areaStyle: { color: new graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(22, 119, 255, 0.32)' }, { offset: 1, color: 'rgba(22, 119, 255, 0.02)' }]) } }],
     };
-  }, [data.failureStats]);
+  }, [data.failureStats, resolvedTheme.brand, resolvedTheme.inkSoft, resolvedTheme.line, resolvedTheme.panel]);
 
   const notifyOption = useMemo<EChartsCoreOption>(() => {
     const list = data.notificationAnalytics?.job_status_breakdown ?? [];
     if (!list.length) return emptyOption('暂无通知统计');
     return {
       color: ['#12b76a', '#f79009', '#f04438', '#2e90fa'],
-      legend: { bottom: 0, icon: 'circle', textStyle: { color: '#667085' } },
+      legend: { bottom: 0, icon: 'circle', textStyle: { color: resolvedTheme.inkSoft } },
       tooltip: { trigger: 'item', backgroundColor: 'rgba(15, 23, 42, 0.92)', borderWidth: 0, textStyle: { color: '#F8FAFC' } },
-      series: [{ type: 'pie', radius: ['54%', '78%'], center: ['50%', '44%'], label: { show: false }, itemStyle: { borderColor: '#fff', borderWidth: 4 }, data: list.map((v) => ({ name: jobLabel(v.status), value: v.count })) }],
-      graphic: [{ type: 'text', left: 'center', top: '34%', style: { text: fmtNum(data.notificationAnalytics?.overview.total_jobs), fill: '#101828', fontSize: 28, fontWeight: 800 } }, { type: 'text', left: 'center', top: '47%', style: { text: '通知任务', fill: '#667085', fontSize: 13 } }],
+      series: [{ type: 'pie', radius: ['54%', '78%'], center: ['50%', '44%'], label: { show: false }, itemStyle: { borderColor: resolvedTheme.panel, borderWidth: 4 }, data: list.map((v) => ({ name: jobLabel(v.status), value: v.count })) }],
+      graphic: [{ type: 'text', left: 'center', top: '34%', style: { text: fmtNum(data.notificationAnalytics?.overview.total_jobs), fill: resolvedTheme.ink, fontSize: 28, fontWeight: 800 } }, { type: 'text', left: 'center', top: '47%', style: { text: '通知任务', fill: resolvedTheme.inkSoft, fontSize: 13 } }],
     };
-  }, [data.notificationAnalytics]);
+  }, [data.notificationAnalytics, resolvedTheme.ink, resolvedTheme.inkSoft, resolvedTheme.panel]);
 
   const templateOption = useMemo<EChartsCoreOption>(() => {
     const list = [...data.topTemplates].reverse();
@@ -166,11 +168,11 @@ export default function DashboardPage() {
     return {
       grid: { left: 12, right: 18, top: 10, bottom: 12, containLabel: true },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: 'rgba(15, 23, 42, 0.92)', borderWidth: 0, textStyle: { color: '#F8FAFC' } },
-      xAxis: { type: 'value', axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.16)' } }, axisLabel: { color: '#98A2B3' } },
-      yAxis: { type: 'category', axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#667085', width: 120, overflow: 'truncate' }, data: list.map((v) => v.name) },
-      series: [{ type: 'bar', data: list.map((v) => v.usage_count), barWidth: 14, itemStyle: { borderRadius: [0, 10, 10, 0], color: new graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: '#2e90fa' }, { offset: 1, color: '#7a5af8' }]) }, label: { show: true, position: 'right', color: '#344054', fontWeight: 700 } }],
+      xAxis: { type: 'value', axisLine: { show: false }, axisTick: { show: false }, splitLine: { lineStyle: { color: resolvedTheme.line } }, axisLabel: { color: resolvedTheme.inkSoft } },
+      yAxis: { type: 'category', axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: resolvedTheme.inkSoft, width: 120, overflow: 'truncate' }, data: list.map((v) => v.name) },
+      series: [{ type: 'bar', data: list.map((v) => v.usage_count), barWidth: 14, itemStyle: { borderRadius: [0, 10, 10, 0], color: new graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: resolvedTheme.brand }, { offset: 1, color: resolvedTheme.accent }]) }, label: { show: true, position: 'right', color: resolvedTheme.ink, fontWeight: 700 } }],
     };
-  }, [data.topTemplates]);
+  }, [data.topTemplates, resolvedTheme.accent, resolvedTheme.brand, resolvedTheme.ink, resolvedTheme.inkSoft, resolvedTheme.line]);
 
   const logColumns = useMemo<TableProps<AdminOperationLogListItem>['columns']>(() => [
     { title: '操作', dataIndex: 'action', key: 'action', width: 170, render: (value: string, r) => <div><div style={{ fontWeight: 700 }}>{value}</div><div className={styles.tableNote}>{r.resource_type}{r.resource_id ? ` #${r.resource_id}` : ''}</div></div> },

@@ -17,6 +17,7 @@ interface LoginUser {
   username: string;
   role: string;
   permissions?: string[];
+  avatar_url?: string | null;
 }
 
 interface LoginResponse {
@@ -29,6 +30,7 @@ interface CurrentUserResponse {
   username: string;
   role: string;
   permissions?: string[];
+  avatar_url?: string | null;
 }
 
 export async function adminLogin(values: LoginFormValues): Promise<AdminSession> {
@@ -46,6 +48,7 @@ export async function adminLogin(values: LoginFormValues): Promise<AdminSession>
       username: payload.user.username,
       role: 'admin',
       permissions: payload.user.permissions ?? [],
+      avatar_url: payload.user.avatar_url ?? null,
     },
   };
 }
@@ -63,5 +66,6 @@ export async function getCurrentAdminUser() {
     username: payload.username,
     role: 'admin' as const,
     permissions: payload.permissions ?? [],
+    avatar_url: payload.avatar_url ?? null,
   };
 }
