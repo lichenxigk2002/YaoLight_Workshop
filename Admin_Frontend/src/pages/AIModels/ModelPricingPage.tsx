@@ -36,7 +36,7 @@ function buildDraftRule(
 
 export default function ModelPricingPage() {
   const { t } = useI18n();
-  const { model } = useOutletContext<ModelDetailOutletContext>();
+  const { model, canEdit } = useOutletContext<ModelDetailOutletContext>();
   const [rules, setRules] = useState<AIModelPricingRule[]>([]);
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function ModelPricingPage() {
 
   return (
     <div className={styles.page}>
-      <PricingRuleEditor initialRule={currentRule} onSubmit={handleSave} />
+      <PricingRuleEditor initialRule={currentRule} onSubmit={handleSave} disabled={!canEdit} />
 
       <Card bordered={false} className={styles.card} title={t('aiModels.pricingHistoryTitle')}>
         {rules.length === 0 ? (

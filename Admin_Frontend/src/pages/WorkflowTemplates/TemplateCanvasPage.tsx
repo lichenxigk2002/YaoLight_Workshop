@@ -5,6 +5,7 @@ import { ArrowLeftOutlined, BranchesOutlined, ClockCircleOutlined, DatabaseOutli
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import ReactFlow, { addEdge, Background, BackgroundVariant, Connection, Controls, Edge, Handle, MiniMap, Node, NodeProps, NodeTypes, Position, ReactFlowInstance, useEdgesState, useNodesState } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
 import { getWorkflowTemplate, getWorkflowTemplateCanvas, saveWorkflowTemplateCanvas, syncWorkflowTemplate, updateWorkflowTemplate } from '@/api/workflowTemplates';
 import type { WorkflowTemplateCanvas, WorkflowTemplateDetail, WorkflowTemplatePayload, WorkflowTemplateStatus } from '@/types/workflowTemplates';
@@ -198,6 +199,8 @@ export default function WorkflowTemplateCanvasPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { locale, t } = useI18n();
+  const { canEdit: canEditTemplate } = useAdminPermission('workflow_templates');
+  const { canEdit: canEditCanvas } = useAdminPermission('workflow_templates.canvas');
   const [nodes, setNodes, baseOnNodesChange] = useNodesState<FlowNode['data']>([]);
   const [edges, setEdges, baseOnEdgesChange] = useEdgesState([]);
   const [detail, setDetail] = useState<WorkflowTemplateDetail | null>(null);
@@ -262,22 +265,47 @@ export default function WorkflowTemplateCanvasPage() {
   useEffect(() => { void loadPage(); }, [loadPage]);
   useEffect(() => { if (selectedId && !selectedNode) setSelectedId(null); }, [selectedId, selectedNode]);
 
-  const onNodesChange = useCallback((changes: Parameters<typeof baseOnNodesChange>[0]) => { setDirty(true); baseOnNodesChange(changes); }, [baseOnNodesChange]);
-  const onEdgesChange = useCallback((changes: Parameters<typeof baseOnEdgesChange>[0]) => { setDirty(true); baseOnEdgesChange(changes); }, [baseOnEdgesChange]);
+  const onNodesChange = useCallback((changes: Parameters<typeof baseOnNodesChange>[0]) => {
+    if (!canEditCanvas) {
+      return;
+    }
+    setDirty(true);
+    baseOnNodesChange(changes);
+  }, [baseOnNodesChange, canEditCanvas]);
+  const onEdgesChange = useCallback((changes: Parameters<typeof baseOnEdgesChange>[0]) => {
+    if (!canEditCanvas) {
+      return;
+    }
+    setDirty(true);
+    baseOnEdgesChange(changes);
+  }, [baseOnEdgesChange, canEditCanvas]);
   const addNode = useCallback((type: string, position?: { x: number; y: number }) => {
+    if (!canEditCanvas) {
+      return;
+    }
     const idNumber = nextIdOf(nodes);
     const meta = metaOf(type);
     const node: FlowNode = { id: `${type === 'comment' ? 'comment' : 'node'}-${idNumber}`, type, position: position || { x: 160 + Math.random() * 80, y: 160 + Math.random() * 80 }, data: type === 'comment' ? { type: 'comment', config: {}, text: '', color: '#fffacd' } : { label: t(meta.labelKey), type, config: defaults(type), connectionDirection: 'vertical' } };
     setNodes((current: FlowNode[]) => [...current, node]);
     setSelectedId(node.id);
     setDirty(true);
-  }, [nodes, setNodes, t]);
-  const updateSelected = (updater: (node: FlowNode) => FlowNode) => { if (!selectedId) return; setNodes((current: FlowNode[]) => current.map((node: FlowNode) => node.id === selectedId ? updater(node) : node)); setDirty(true); };
+  }, [canEditCanvas, nodes, setNodes, t]);
+  const updateSelected = (updater: (node: FlowNode) => FlowNode) => {
+    if (!canEditCanvas || !selectedId) return;
+    setNodes((current: FlowNode[]) => current.map((node: FlowNode) => node.id === selectedId ? updater(node) : node));
+    setDirty(true);
+  };
   const updateConfig = (key: string, value: unknown) => updateSelected((node) => ({ ...node, data: { ...node.data, config: { ...(node.data.config || {}), [key]: value } } }));
-  const removeSelected = () => { if (!selectedId) return; setNodes((current: FlowNode[]) => current.filter((node: FlowNode) => node.id !== selectedId)); setEdges((current: FlowEdge[]) => current.filter((edge: FlowEdge) => edge.source !== selectedId && edge.target !== selectedId)); setSelectedId(null); setDirty(true); };
+  const removeSelected = () => {
+    if (!canEditCanvas || !selectedId) return;
+    setNodes((current: FlowNode[]) => current.filter((node: FlowNode) => node.id !== selectedId));
+    setEdges((current: FlowEdge[]) => current.filter((edge: FlowEdge) => edge.source !== selectedId && edge.target !== selectedId));
+    setSelectedId(null);
+    setDirty(true);
+  };
 
   const saveMeta = async () => {
-    if (!draft) return;
+    if (!canEditTemplate || !draft) return;
     setSavingMeta(true);
     try {
       const updated = await persistMeta();
@@ -290,9 +318,12 @@ export default function WorkflowTemplateCanvasPage() {
     } finally { setSavingMeta(false); }
   };
   const saveCanvas = async () => {
+    if (!canEditCanvas) {
+      return;
+    }
     setSavingCanvas(true);
     try {
-      const updated = await persistMeta();
+      const updated = canEditTemplate ? await persistMeta() : detail;
       await saveWorkflowTemplateCanvas(templateId, toPayload(nodes, edges));
       setDetail(updated || await getWorkflowTemplate(templateId));
       setDirty(false);
@@ -302,6 +333,9 @@ export default function WorkflowTemplateCanvasPage() {
     } finally { setSavingCanvas(false); }
   };
   const syncSource = async () => {
+    if (!canEditCanvas) {
+      return;
+    }
     setSyncing(true);
     try {
       const fresh = await syncWorkflowTemplate(templateId);
@@ -312,7 +346,7 @@ export default function WorkflowTemplateCanvasPage() {
     } finally { setSyncing(false); }
   };
   const publishTemplate = async () => {
-    if (!detail) {
+    if (!canEditTemplate || !detail) {
       return;
     }
 
@@ -351,21 +385,21 @@ export default function WorkflowTemplateCanvasPage() {
     const config = selectedNode.data.config || {};
     if (isComment(selectedNode)) return <>
       <Text type="secondary">{t('workflowTemplateCanvas.commentTitle')}</Text>
-      <Input.TextArea rows={5} value={selectedNode.data.text || ''} placeholder={t('workflowTemplateCanvas.commentPlaceholder')} onChange={(event) => updateSelected((node) => ({ ...node, data: { ...node.data, text: event.target.value } }))} />
-      <div className={styles.colorRow}>{COMMENT_COLORS.map((color) => <button key={color} type="button" className={`${styles.colorChip} ${selectedNode.data.color === color ? styles.colorChipActive : ''}`} style={{ background: color }} onClick={() => updateSelected((node) => ({ ...node, data: { ...node.data, color } }))} />)}</div>
+      <Input.TextArea rows={5} value={selectedNode.data.text || ''} placeholder={t('workflowTemplateCanvas.commentPlaceholder')} onChange={(event) => updateSelected((node) => ({ ...node, data: { ...node.data, text: event.target.value } }))} disabled={!canEditCanvas} />
+      <div className={styles.colorRow}>{COMMENT_COLORS.map((color) => <button key={color} type="button" className={`${styles.colorChip} ${selectedNode.data.color === color ? styles.colorChipActive : ''}`} style={{ background: color }} onClick={() => updateSelected((node) => ({ ...node, data: { ...node.data, color } }))} disabled={!canEditCanvas} />)}</div>
     </>;
     return <>
       <Text type="secondary">{t('workflowTemplateCanvas.fieldNodeLabel')}</Text>
-      <Input value={selectedNode.data.label || ''} onChange={(event) => updateSelected((node) => ({ ...node, data: { ...node.data, label: event.target.value } }))} />
+      <Input value={selectedNode.data.label || ''} onChange={(event) => updateSelected((node) => ({ ...node, data: { ...node.data, label: event.target.value } }))} disabled={!canEditCanvas} />
       <Text type="secondary">{t('workflowTemplateCanvas.fieldDirection')}</Text>
-      <Select value={selectedNode.data.connectionDirection || 'vertical'} options={[{ value: 'vertical', label: t('workflowTemplateCanvas.directionVertical') }, { value: 'horizontal', label: t('workflowTemplateCanvas.directionHorizontal') }]} onChange={(value: Direction) => updateSelected((node) => ({ ...node, data: { ...node.data, connectionDirection: value } }))} />
-      {kind === 'crawler' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldUrl')}</Text><Input value={String(config.url || '')} onChange={(event) => updateConfig('url', event.target.value)} /><Text type="secondary">{t('workflowTemplateCanvas.fieldSelector')}</Text><Input value={String(config.selector || '')} onChange={(event) => updateConfig('selector', event.target.value)} /></> : null}
-      {kind === 'ai' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldPrompt')}</Text><Input.TextArea rows={6} value={String(config.prompt || '')} onChange={(event) => updateConfig('prompt', event.target.value)} /><Text type="secondary">{t('workflowTemplateCanvas.fieldProviderTag')}</Text><Input value={String(config.provider || 'default')} onChange={(event) => updateConfig('provider', event.target.value)} /></> : null}
-      {kind === 'condition' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldConditionField')}</Text><Input value={String(config.field || '')} onChange={(event) => updateConfig('field', event.target.value)} /><Text type="secondary">{t('workflowTemplateCanvas.fieldConditionOperator')}</Text><Select value={String(config.operator || '==')} options={['==', '!=', '>', '<', 'contains'].map((value) => ({ value, label: value }))} onChange={(value) => updateConfig('operator', value)} /><Text type="secondary">{t('workflowTemplateCanvas.fieldConditionValue')}</Text><Input value={String(config.value || '')} onChange={(event) => updateConfig('value', event.target.value)} /></> : null}
-      {kind === 'output' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldOutputFormat')}</Text><Select value={String(config.format || 'json')} options={['json', 'text', 'markdown'].map((value) => ({ value, label: value }))} onChange={(value) => updateConfig('format', value)} /><Text type="secondary">{t('workflowTemplateCanvas.fieldDestination')}</Text><Input value={String(config.destination || 'result')} onChange={(event) => updateConfig('destination', event.target.value)} /></> : null}
-      {kind === 'delay' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldDelaySeconds')}</Text><InputNumber min={0} value={Number(config.seconds || 1)} onChange={(value) => updateConfig('seconds', Number(value || 0))} style={{ width: '100%' }} /></> : null}
+      <Select value={selectedNode.data.connectionDirection || 'vertical'} options={[{ value: 'vertical', label: t('workflowTemplateCanvas.directionVertical') }, { value: 'horizontal', label: t('workflowTemplateCanvas.directionHorizontal') }]} onChange={(value: Direction) => updateSelected((node) => ({ ...node, data: { ...node.data, connectionDirection: value } }))} disabled={!canEditCanvas} />
+      {kind === 'crawler' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldUrl')}</Text><Input value={String(config.url || '')} onChange={(event) => updateConfig('url', event.target.value)} disabled={!canEditCanvas} /><Text type="secondary">{t('workflowTemplateCanvas.fieldSelector')}</Text><Input value={String(config.selector || '')} onChange={(event) => updateConfig('selector', event.target.value)} disabled={!canEditCanvas} /></> : null}
+      {kind === 'ai' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldPrompt')}</Text><Input.TextArea rows={6} value={String(config.prompt || '')} onChange={(event) => updateConfig('prompt', event.target.value)} disabled={!canEditCanvas} /><Text type="secondary">{t('workflowTemplateCanvas.fieldProviderTag')}</Text><Input value={String(config.provider || 'default')} onChange={(event) => updateConfig('provider', event.target.value)} disabled={!canEditCanvas} /></> : null}
+      {kind === 'condition' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldConditionField')}</Text><Input value={String(config.field || '')} onChange={(event) => updateConfig('field', event.target.value)} disabled={!canEditCanvas} /><Text type="secondary">{t('workflowTemplateCanvas.fieldConditionOperator')}</Text><Select value={String(config.operator || '==')} options={['==', '!=', '>', '<', 'contains'].map((value) => ({ value, label: value }))} onChange={(value) => updateConfig('operator', value)} disabled={!canEditCanvas} /><Text type="secondary">{t('workflowTemplateCanvas.fieldConditionValue')}</Text><Input value={String(config.value || '')} onChange={(event) => updateConfig('value', event.target.value)} disabled={!canEditCanvas} /></> : null}
+      {kind === 'output' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldOutputFormat')}</Text><Select value={String(config.format || 'json')} options={['json', 'text', 'markdown'].map((value) => ({ value, label: value }))} onChange={(value) => updateConfig('format', value)} disabled={!canEditCanvas} /><Text type="secondary">{t('workflowTemplateCanvas.fieldDestination')}</Text><Input value={String(config.destination || 'result')} onChange={(event) => updateConfig('destination', event.target.value)} disabled={!canEditCanvas} /></> : null}
+      {kind === 'delay' ? <><Text type="secondary">{t('workflowTemplateCanvas.fieldDelaySeconds')}</Text><InputNumber min={0} value={Number(config.seconds || 1)} onChange={(value) => updateConfig('seconds', Number(value || 0))} style={{ width: '100%' }} disabled={!canEditCanvas} /></> : null}
       {['start', 'dataclean', 'transform', 'loop', 'merge', 'end'].includes(kind) ? <Paragraph className={styles.inspectorHint}>{t('workflowTemplateCanvas.simplifiedHint')}</Paragraph> : null}
-      <Button danger onClick={removeSelected}>{t('workflowTemplateCanvas.actionDeleteNode')}</Button>
+      <Button danger onClick={removeSelected} disabled={!canEditCanvas}>{t('workflowTemplateCanvas.actionDeleteNode')}</Button>
     </>;
   };
 
@@ -401,12 +435,12 @@ export default function WorkflowTemplateCanvasPage() {
             description={locale === 'en-US' ? 'This will overwrite the current canvas nodes, edges, and comment cards.' : '这会覆盖当前编排里的节点、连线和注释卡。'}
             onConfirm={() => void syncSource()}
           >
-            <Button icon={<SyncOutlined />} loading={syncing}>{t('workflowTemplateCanvas.actionSyncSource')}</Button>
+            <Button icon={<SyncOutlined />} loading={syncing} disabled={!canEditCanvas}>{t('workflowTemplateCanvas.actionSyncSource')}</Button>
           </Popconfirm>
         ) : null}
-        <Button icon={<SaveOutlined />} loading={savingMeta} onClick={() => void saveMeta()}>{t('workflowTemplateCanvas.actionSaveInfo')}</Button>
-        <Button type="primary" icon={<SaveOutlined />} loading={savingCanvas} onClick={() => void saveCanvas()}>{t('workflowTemplateCanvas.actionSaveCanvas')}</Button>
-        {detail && publishMeta ? (
+        <Button icon={<SaveOutlined />} loading={savingMeta} onClick={() => void saveMeta()} disabled={!canEditTemplate}>{t('workflowTemplateCanvas.actionSaveInfo')}</Button>
+        <Button type="primary" icon={<SaveOutlined />} loading={savingCanvas} onClick={() => void saveCanvas()} disabled={!canEditCanvas}>{t('workflowTemplateCanvas.actionSaveCanvas')}</Button>
+        {detail && publishMeta && canEditTemplate ? (
           <Popconfirm
             title={publishMeta.title}
             description={
@@ -427,17 +461,17 @@ export default function WorkflowTemplateCanvasPage() {
       </Space>
     </div>
     <div className={styles.metaStrip}>
-      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaName')}</Text><Input value={draft?.name || ''} onChange={(event) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, name: event.target.value } : current)} /></div>
-      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaStatus')}</Text><Select value={draft?.status} options={statusOptions.filter((item) => item.value !== 'published' || draft?.status === 'published').map((item) => ({ ...item, disabled: item.value === 'published' }))} onChange={(value: WorkflowTemplateStatus) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, status: value } : current)} /></div>
-      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaCategory')}</Text><Input value={draft?.category || ''} onChange={(event) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, category: event.target.value } : current)} /></div>
-      <div className={styles.metaSwitch}><Text type="secondary">{t('workflowTemplateCanvas.metaPublic')}</Text><Switch checked={draft?.is_public || false} onChange={(checked: boolean) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, is_public: checked } : current)} /></div>
+      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaName')}</Text><Input value={draft?.name || ''} onChange={(event) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, name: event.target.value } : current)} disabled={!canEditTemplate} /></div>
+      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaStatus')}</Text><Select value={draft?.status} options={statusOptions.filter((item) => item.value !== 'published' || draft?.status === 'published').map((item) => ({ ...item, disabled: item.value === 'published' }))} onChange={(value: WorkflowTemplateStatus) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, status: value } : current)} disabled={!canEditTemplate} /></div>
+      <div className={styles.metaField}><Text type="secondary">{t('workflowTemplateCanvas.metaCategory')}</Text><Input value={draft?.category || ''} onChange={(event) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, category: event.target.value } : current)} disabled={!canEditTemplate} /></div>
+      <div className={styles.metaSwitch}><Text type="secondary">{t('workflowTemplateCanvas.metaPublic')}</Text><Switch checked={draft?.is_public || false} onChange={(checked: boolean) => setDraft((current: WorkflowTemplatePayload | null) => current ? { ...current, is_public: checked } : current)} disabled={!canEditTemplate} /></div>
     </div>
     <div className={styles.editorShell}>
       <Card title={t('workflowTemplateCanvas.panelNodeLibrary')} className={styles.palettePanel} loading={loading}>
-        <div className={styles.paletteList}>{META.map((item) => <button key={item.type} type="button" className={styles.paletteItem} draggable onDragStart={() => { dragTypeRef.current = item.type; }} onClick={() => addNode(item.type)}><span className={styles.paletteIcon} style={{ color: item.color }}>{item.icon}</span><span className={styles.paletteCopy}><strong>{t(item.labelKey)}</strong><span>{t(item.descKey)}</span></span></button>)}</div>
+        <div className={styles.paletteList}>{META.map((item) => <button key={item.type} type="button" className={styles.paletteItem} draggable={canEditCanvas} disabled={!canEditCanvas} onDragStart={() => { dragTypeRef.current = item.type; }} onClick={() => addNode(item.type)}><span className={styles.paletteIcon} style={{ color: item.color }}>{item.icon}</span><span className={styles.paletteCopy}><strong>{t(item.labelKey)}</strong><span>{t(item.descKey)}</span></span></button>)}</div>
       </Card>
-      <div className={styles.canvasPanel} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!dragTypeRef.current || !instance) return; addNode(dragTypeRef.current, instance.screenToFlowPosition({ x: event.clientX, y: event.clientY })); dragTypeRef.current = null; }}>
-        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={(connection: Connection) => { const source = nodes.find((node: FlowNode) => node.id === connection.source); const target = nodes.find((node: FlowNode) => node.id === connection.target); if (isComment(source) || isComment(target)) { message.warning(t('workflowTemplateCanvas.commentConnectWarning')); return; } setEdges((current: FlowEdge[]) => addEdge(connection, current)); setDirty(true); }} onNodeClick={(_event: ReactMouseEvent, node: FlowNode) => setSelectedId(node.id)} onPaneClick={() => setSelectedId(null)} onInit={(reactFlow: ReactFlowInstance) => { setInstance(reactFlow); requestAnimationFrame(() => reactFlow.fitView({ padding: 0.18, duration: 0 })); }} fitView>
+      <div className={styles.canvasPanel} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); if (!canEditCanvas || !dragTypeRef.current || !instance) return; addNode(dragTypeRef.current, instance.screenToFlowPosition({ x: event.clientX, y: event.clientY })); dragTypeRef.current = null; }}>
+        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={(connection: Connection) => { if (!canEditCanvas) return; const source = nodes.find((node: FlowNode) => node.id === connection.source); const target = nodes.find((node: FlowNode) => node.id === connection.target); if (isComment(source) || isComment(target)) { message.warning(t('workflowTemplateCanvas.commentConnectWarning')); return; } setEdges((current: FlowEdge[]) => addEdge(connection, current)); setDirty(true); }} onNodeClick={(_event: ReactMouseEvent, node: FlowNode) => setSelectedId(node.id)} onPaneClick={() => setSelectedId(null)} onInit={(reactFlow: ReactFlowInstance) => { setInstance(reactFlow); requestAnimationFrame(() => reactFlow.fitView({ padding: 0.18, duration: 0 })); }} nodesDraggable={canEditCanvas} nodesConnectable={canEditCanvas} elementsSelectable fitView>
           <Controls />
           <MiniMap className={styles.miniMap} />
           <Background variant={BackgroundVariant.Dots} gap={14} size={1} />

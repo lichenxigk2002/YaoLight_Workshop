@@ -23,6 +23,12 @@ export function setAdminSession(session: AdminSession) {
   localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
 }
 
+export function updateAdminSessionUser(user: AdminSession['user']) {
+  const session = getAdminSession();
+  if (!session) return;
+  setAdminSession({ ...session, user });
+}
+
 export function clearAdminSession() {
   localStorage.removeItem(ADMIN_SESSION_KEY);
 }

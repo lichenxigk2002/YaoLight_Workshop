@@ -33,6 +33,7 @@ const templateVariablePresets: TemplateVariablePreset[] = [
 interface TemplatesPanelProps {
   refreshToken?: number;
   onChanged?: () => void;
+  disabled?: boolean;
 }
 
 interface TemplateFormValues {
@@ -50,7 +51,7 @@ function formatDateTime(value: string) {
   return dayjs(value).format('YYYY-MM-DD HH:mm:ss');
 }
 
-export default function TemplatesPanel({ refreshToken = 0, onChanged }: TemplatesPanelProps) {
+export default function TemplatesPanel({ refreshToken = 0, onChanged, disabled = false }: TemplatesPanelProps) {
   const { t } = useI18n();
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm<TemplateFormValues>();
@@ -245,9 +246,11 @@ export default function TemplatesPanel({ refreshToken = 0, onChanged }: Template
       key: 'action',
       width: 120,
       render: (_, record) => (
-        <Button type="link" icon={<EditOutlined />} onClick={() => openEditPanel(record)}>
-          {t('notifications.templates.edit')}
-        </Button>
+        disabled ? null : (
+          <Button type="link" icon={<EditOutlined />} onClick={() => openEditPanel(record)}>
+            {t('notifications.templates.edit')}
+          </Button>
+        )
       ),
     },
   ];
@@ -270,9 +273,11 @@ export default function TemplatesPanel({ refreshToken = 0, onChanged }: Template
             onChange={(value) => setQuery((current) => ({ ...current, page: 1, activeFilter: value }))}
           />
         </Space>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreatePanel}>
-          {t('notifications.templates.newTemplate')}
-        </Button>
+        {disabled ? null : (
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreatePanel}>
+            {t('notifications.templates.newTemplate')}
+          </Button>
+        )}
       </div>
 
       <Drawer
@@ -283,7 +288,7 @@ export default function TemplatesPanel({ refreshToken = 0, onChanged }: Template
         onClose={closeEditorPanel}
         destroyOnClose
       >
-        <Form<TemplateFormValues> layout="vertical" form={form} onFinish={(values) => void handleSave(values)}>
+        <Form<TemplateFormValues> layout="vertical" form={form} onFinish={(values) => void handleSave(values)} disabled={disabled}>
           <section className={styles.templateEditorPanel}>
             <div className={styles.templateEditorHeading}>
               <div className={styles.templateEditorSubtitle}>{t('notifications.templates.panelHint')}</div>
@@ -298,6 +303,7 @@ export default function TemplatesPanel({ refreshToken = 0, onChanged }: Template
                     key={preset.key}
                     type="button"
                     className={styles.templateVariablePreset}
+                    disabled={disabled}
                     draggable
                     onClick={() => insertTemplateVariable(preset.key)}
                     onDragStart={(event) => {
@@ -378,7 +384,7 @@ export default function TemplatesPanel({ refreshToken = 0, onChanged }: Template
               </Form.Item>
               <div className={styles.templateEditorActions}>
                 <Button onClick={closeEditorPanel}>{t('notifications.templates.cancelEdit')}</Button>
-                <Button type="primary" loading={saving} onClick={() => form.submit()}>
+                <Button type="primary" loading={saving} onClick={() => form.submit()} disabled={disabled}>
                   {editingTemplate ? t('notifications.templates.saveEdit') : t('notifications.templates.saveCreate')}
                 </Button>
               </div>

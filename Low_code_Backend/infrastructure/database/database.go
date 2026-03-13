@@ -26,6 +26,8 @@ import (
 	notificationModels "yaolight-workshop/backend/modules/notification/models"
 	paymentModels "yaolight-workshop/backend/modules/payment/models"
 	projectModels "yaolight-workshop/backend/modules/project/models"
+	rbacModule "yaolight-workshop/backend/modules/rbac"
+	rbacModels "yaolight-workshop/backend/modules/rbac/models"
 	systemModels "yaolight-workshop/backend/modules/system/models"
 	taskModels "yaolight-workshop/backend/modules/task/models"
 	userModels "yaolight-workshop/backend/modules/user/models"
@@ -82,6 +84,7 @@ func InitDatabase() error {
 		fn   func() error
 	}{
 		{name: "bootstrap admin", fn: SeedBootstrapAdmin},
+		{name: "rbac", fn: func() error { return rbacModule.SeedRBAC(DB) }},
 		{name: "node types", fn: SeedNodeTypes},
 		{name: "alkaid specs", fn: SeedAlkaidSpecs},
 		{name: "alkaid output knowledge", fn: SeedAlkaidOutputNodeKnowledge},
@@ -259,6 +262,10 @@ func AutoMigrate() error {
 
 	return DB.AutoMigrate(
 		&billingModels.QuotaLedger{},
+		&rbacModels.Role{},
+		&rbacModels.Permission{},
+		&rbacModels.RolePermission{},
+		&rbacModels.UserRole{},
 		&userModels.User{},
 		&userModels.UserOAuthBinding{},
 		&userModels.UserAvatarHistory{},

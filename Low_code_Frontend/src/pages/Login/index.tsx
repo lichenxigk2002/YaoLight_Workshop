@@ -4,7 +4,6 @@ import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, ApiOutlined, G
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { userApi } from '@/api/user';
-import { md5Hash } from '@/utils/crypto';
 import { useTranslation } from 'react-i18next';
 import type { LoginRequest } from '@/types/user';
 import LoginWorkflowCanvas from '@/components/LoginWorkflowCanvas';
@@ -149,17 +148,16 @@ export default function Login() {
   const onLogin = async (values: LoginRequest) => {
     try {
       setLoading(true);
-      // MD5 加密密码
-      const encryptedPassword = md5Hash(values.password);
-
       const response = await userApi.login({
         username: values.username,
-        password: encryptedPassword,
+        password: values.password,
       });
 
-      // 保存 token 和用户信息
-      if (response && response.token && response.user) {
-        loginStore(response.token, response.user);
+      // 先保存 token，再拉取当前用户，和 OAuth 回调保持一致
+      if (response && response.token) {
+        setToken(response.token);
+        const currentUser = await userApi.getCurrentUser();
+        setUser(currentUser);
       } else {
         throw new Error('登录响应格式错误');
       }
@@ -177,15 +175,12 @@ export default function Login() {
   const onRegister = async (values: any) => {
     try {
       setLoading(true);
-      // MD5 加密密码
-      const encryptedPassword = md5Hash(values.password);
-
       // 移除 confirmPassword 字段
       const { confirmPassword, ...registerData } = values;
 
       await userApi.register({
         ...registerData,
-        password: encryptedPassword,
+        password: values.password,
         inviteCode: inviteCode || undefined,
       });
 
@@ -495,4 +490,3 @@ export default function Login() {
     </div>
   );
 }
-

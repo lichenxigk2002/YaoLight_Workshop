@@ -9,7 +9,7 @@ import KnowledgeBasePage from '@/pages/KnowledgeBase';
 import NodeTypesPage from '@/pages/NodeTypes';
 import NotFoundPage from '@/pages/NotFound';
 import OperationLogsPage from '@/pages/OperationLogs';
-import PermissionsPage from '@/pages/Permissions';
+import permissionsRoutes from '@/pages/Permissions/routes';
 import SystemConfigsPage from '@/pages/SystemConfigs';
 import UsersPage from '@/pages/Users';
 import aiAdminRoutes from '@/pages/AIModels/routes';
@@ -33,7 +33,7 @@ const router = createBrowserRouter(
       children: [
         { index: true, element: <DashboardPage /> },
         { path: 'users', element: <UsersPage /> },
-        { path: 'permissions', element: <PermissionsPage /> },
+        permissionsRoutes,
         workflowTemplateRoutes,
         { path: 'node-types', element: <NodeTypesPage /> },
         { path: 'knowledge-base', element: <KnowledgeBasePage /> },

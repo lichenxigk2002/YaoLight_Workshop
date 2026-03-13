@@ -18,6 +18,7 @@ import (
 	billingControllers "yaolight-workshop/backend/modules/billing/controllers"
 	crawlerControllers "yaolight-workshop/backend/modules/crawler/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
+	nodeControllers "yaolight-workshop/backend/modules/node/controllers"
 	notificationModule "yaolight-workshop/backend/modules/notification"
 	notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
 	notificationHub "yaolight-workshop/backend/modules/notification/hub"
@@ -25,6 +26,9 @@ import (
 	notificationServices "yaolight-workshop/backend/modules/notification/services"
 	paymentControllers "yaolight-workshop/backend/modules/payment/controllers"
 	projectControllers "yaolight-workshop/backend/modules/project/controllers"
+	rbacControllers "yaolight-workshop/backend/modules/rbac/controllers"
+	rbacMiddleware "yaolight-workshop/backend/modules/rbac/middleware"
+	systemControllers "yaolight-workshop/backend/modules/system/controllers"
 	taskControllers "yaolight-workshop/backend/modules/task/controllers"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
 	userRepositories "yaolight-workshop/backend/modules/user/repositories"
@@ -225,19 +229,19 @@ func main() {
 
 			adminTaskController := taskControllers.NewAdminTaskController()
 			adminTasks := auth.Group("/admin/tasks")
-			adminTasks.Use(middleware.AdminOnlyMiddleware())
-			adminTasks.GET("", adminTaskController.ListTasks)
-			adminTasks.GET("/summary", adminTaskController.GetSummary)
-			adminTasks.GET("/running", adminTaskController.ListRunningTasks)
-			adminTasks.GET("/failures", adminTaskController.ListFailureTasks)
-			adminTasks.GET("/failure-stats", adminTaskController.GetFailureStats)
-			adminTasks.POST("/:id/cancel", adminTaskController.CancelTask)
-			adminTasks.POST("/:id/retry", adminTaskController.RetryTask)
-			adminTasks.GET("/:id", adminTaskController.GetTaskDetail)
-			adminTasks.GET("/:id/artifacts", adminTaskController.ListTaskArtifacts)
-			adminTasks.GET("/:id/node-executions", adminTaskController.GetTaskNodeExecutions)
-			adminTasks.GET("/:id/logs", adminTaskController.GetTaskLogs)
-			adminTasks.GET("/artifacts/:artifactId/download", adminTaskController.DownloadArtifact)
+			adminTasks.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminTasks.GET("", rbacMiddleware.RequirePermission("tasks.overview:view"), adminTaskController.ListTasks)
+			adminTasks.GET("/summary", rbacMiddleware.RequirePermission("tasks.overview:view"), adminTaskController.GetSummary)
+			adminTasks.GET("/running", rbacMiddleware.RequirePermission("tasks.running:view"), adminTaskController.ListRunningTasks)
+			adminTasks.GET("/failures", rbacMiddleware.RequirePermission("tasks.failures:view"), adminTaskController.ListFailureTasks)
+			adminTasks.GET("/failure-stats", rbacMiddleware.RequirePermission("tasks.failures:view"), adminTaskController.GetFailureStats)
+			adminTasks.POST("/:id/cancel", rbacMiddleware.RequirePermission("tasks.detail:edit"), adminTaskController.CancelTask)
+			adminTasks.POST("/:id/retry", rbacMiddleware.RequirePermission("tasks.detail:edit"), adminTaskController.RetryTask)
+			adminTasks.GET("/:id", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskDetail)
+			adminTasks.GET("/:id/artifacts", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.ListTaskArtifacts)
+			adminTasks.GET("/:id/node-executions", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskNodeExecutions)
+			adminTasks.GET("/:id/logs", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskLogs)
+			adminTasks.GET("/artifacts/:artifactId/download", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.DownloadArtifact)
 
 			// 导出制品（输出节点生成的文件/图表等）
 			artifactController := artifactControllers.NewArtifactController()
@@ -257,91 +261,148 @@ func main() {
 			auth.DELETE("/ai/models/:id", aiController.DeleteModel)
 			adminAIController := aiControllers.NewAdminAIController()
 			adminAI := auth.Group("/admin/ai-models")
-			adminAI.Use(middleware.AdminOnlyMiddleware())
-			adminAI.GET("", adminAIController.GetModels)
-			adminAI.GET("/providers", adminAIController.GetProviders)
-			adminAI.GET("/providers/:provider", adminAIController.GetProvider)
-			adminAI.GET("/models", adminAIController.GetModels)
-			adminAI.POST("/models", adminAIController.CreateModel)
-			adminAI.GET("/models/:id", adminAIController.GetModel)
-			adminAI.PUT("/models/:id", adminAIController.UpdateModel)
-			adminAI.DELETE("/models/:id", adminAIController.DeleteModel)
-			adminAI.GET("/models/:id/capability", adminAIController.GetModelCapability)
-			adminAI.PUT("/models/:id/capability", adminAIController.UpdateModelCapability)
-			adminAI.GET("/models/:id/pricing", adminAIController.GetModelPricing)
-			adminAI.PUT("/models/:id/pricing", adminAIController.UpdateModelPricing)
-			adminAI.GET("/pricing-rules", adminAIController.GetPricingRules)
-			adminAI.GET("/usage", adminAIController.GetUsage)
+			adminAI.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminAI.GET("", rbacMiddleware.RequirePermission("ai_models.overview:view"), adminAIController.GetModels)
+			adminAI.GET("/providers", rbacMiddleware.RequirePermission("ai_models.providers:view"), adminAIController.GetProviders)
+			adminAI.GET("/providers/:provider", rbacMiddleware.RequirePermission("ai_models.providers:view"), adminAIController.GetProvider)
+			adminAI.GET("/models", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.GetModels)
+			adminAI.POST("/models", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.CreateModel)
+			adminAI.GET("/models/:id", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.GetModel)
+			adminAI.PUT("/models/:id", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.UpdateModel)
+			adminAI.DELETE("/models/:id", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.DeleteModel)
+			adminAI.GET("/models/:id/capability", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.GetModelCapability)
+			adminAI.PUT("/models/:id/capability", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.UpdateModelCapability)
+			adminAI.GET("/models/:id/pricing", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.GetModelPricing)
+			adminAI.PUT("/models/:id/pricing", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.UpdateModelPricing)
+			adminAI.GET("/pricing-rules", rbacMiddleware.RequirePermission("ai_models.pricing_rules:view"), adminAIController.GetPricingRules)
+			adminAI.GET("/usage", rbacMiddleware.RequirePermission("ai_models.usage:view"), adminAIController.GetUsage)
 
 			// 计费运营：补救配额、管理员赠送、配额流水、订单与 Token 流水
 			adminQuotaController := billingControllers.NewAdminQuotaController()
 			adminBillingController := billingControllers.NewAdminBillingController()
 			adminBilling := auth.Group("/admin/billing")
-			adminBilling.Use(middleware.AdminOnlyMiddleware())
-			adminBilling.POST("/quotas/recover", adminQuotaController.RecoverQuota)
-			adminBilling.POST("/quotas/grant", adminQuotaController.GrantQuota)
-			adminBilling.GET("/quotas/ledger", adminQuotaController.GetQuotaLedger)
-			adminBilling.GET("/quotas/summary", adminQuotaController.GetQuotaSummary)
-			adminBilling.GET("/orders", adminBillingController.ListOrders)
-			adminBilling.GET("/token-transactions", adminBillingController.ListTokenTransactions)
+			adminBilling.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminBilling.GET("/users/options", rbacMiddleware.RequireAnyPermission("billing.quota_recovery:edit", "billing.admin_grant:edit"), adminBillingController.ListUserOptions)
+			adminBilling.POST("/quotas/recover", rbacMiddleware.RequirePermission("billing.quota_recovery:edit"), adminQuotaController.RecoverQuota)
+			adminBilling.POST("/quotas/grant", rbacMiddleware.RequirePermission("billing.admin_grant:edit"), adminQuotaController.GrantQuota)
+			adminBilling.GET("/quotas/ledger", rbacMiddleware.RequirePermission("billing.ledger:view"), adminQuotaController.GetQuotaLedger)
+			adminBilling.GET("/quotas/summary", rbacMiddleware.RequirePermission("billing.overview:view"), adminQuotaController.GetQuotaSummary)
+			adminBilling.GET("/orders", rbacMiddleware.RequirePermission("billing.orders:view"), adminBillingController.ListOrders)
+			adminBilling.GET("/token-transactions", rbacMiddleware.RequirePermission("billing.token_ledger:view"), adminBillingController.ListTokenTransactions)
 
 			adminUserController := authControllers.NewAdminUserController()
 			adminUsers := auth.Group("/admin/users")
-			adminUsers.Use(middleware.AdminOnlyMiddleware())
-			adminUsers.GET("/summary", adminUserController.GetSummary)
-			adminUsers.GET("", adminUserController.GetUsers)
-			adminUsers.GET("/:id", adminUserController.GetUser)
-			adminUsers.PUT("/:id/status", adminUserController.UpdateUserStatus)
-			adminUsers.POST("/:id/reset-password", adminUserController.ResetPassword)
+			adminUsers.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminUsers.GET("/summary", rbacMiddleware.RequirePermission("users:view"), adminUserController.GetSummary)
+			adminUsers.GET("", rbacMiddleware.RequirePermission("users:view"), adminUserController.GetUsers)
+			adminUsers.GET("/:id", rbacMiddleware.RequirePermission("users:view"), adminUserController.GetUser)
+			adminUsers.PUT("/:id/status", rbacMiddleware.RequirePermission("users:edit"), adminUserController.UpdateUserStatus)
+			adminUsers.POST("/:id/reset-password", rbacMiddleware.RequirePermission("users:edit"), adminUserController.ResetPassword)
+
+			adminRBACController := rbacControllers.NewAdminRBACController()
+			adminRBAC := auth.Group("/admin/rbac")
+			adminRBAC.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminRBAC.GET("/permissions", rbacMiddleware.RequirePermission("permissions:view"), adminRBACController.ListPermissions)
+			adminRBAC.GET("/roles", rbacMiddleware.RequirePermission("permissions:view"), adminRBACController.ListRoles)
+			adminRBAC.POST("/roles", rbacMiddleware.RequirePermission("permissions:edit"), adminRBACController.CreateRole)
+			adminRBAC.PUT("/roles/:id", rbacMiddleware.RequirePermission("permissions:edit"), adminRBACController.UpdateRole)
+			adminRBAC.GET("/admins", rbacMiddleware.RequirePermission("permissions:view"), adminRBACController.ListAdmins)
+			adminRBAC.GET("/promotable-users", rbacMiddleware.RequirePermission("permissions:view"), adminRBACController.ListPromotableUsers)
+			adminRBAC.POST("/admins", rbacMiddleware.RequirePermission("permissions:edit"), adminRBACController.CreateAdmin)
+			adminRBAC.POST("/admins/promote", rbacMiddleware.RequirePermission("permissions:edit"), adminRBACController.PromoteAdmin)
+			adminRBAC.PUT("/admins/:id/roles", rbacMiddleware.RequirePermission("permissions:edit"), adminRBACController.UpdateAdminRoles)
+			adminRBAC.PUT("/admins/:id/status", rbacMiddleware.RequirePermission("permissions:edit"), adminRBACController.UpdateAdminStatus)
+			adminRBAC.POST("/admins/:id/reset-password", rbacMiddleware.RequirePermission("permissions:edit"), adminRBACController.ResetAdminPassword)
+			adminRBAC.POST("/admins/:id/demote", rbacMiddleware.RequirePermission("permissions:edit"), adminRBACController.DemoteAdmin)
 
 			adminCrawlerRuleController := crawlerControllers.NewAdminCrawlerRuleController()
 			adminCrawlerRules := auth.Group("/admin/crawler-rules")
-			adminCrawlerRules.Use(middleware.AdminOnlyMiddleware())
-			adminCrawlerRules.GET("", adminCrawlerRuleController.ListRules)
-			adminCrawlerRules.GET("/:id", adminCrawlerRuleController.GetRule)
-			adminCrawlerRules.POST("", adminCrawlerRuleController.CreateRule)
-			adminCrawlerRules.PUT("/:id", adminCrawlerRuleController.UpdateRule)
-			adminCrawlerRules.DELETE("/:id", adminCrawlerRuleController.DeleteRule)
-			adminCrawlerRules.PATCH("/:id/status", adminCrawlerRuleController.SetRuleStatus)
-			adminCrawlerRules.POST("/test", adminCrawlerRuleController.TestRule)
-			adminCrawlerRules.GET("/:id/usages", adminCrawlerRuleController.GetRuleUsages)
-			adminCrawlerRules.POST("/:id/clone", adminCrawlerRuleController.CloneRule)
+			adminCrawlerRules.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminCrawlerRules.GET("", rbacMiddleware.RequirePermission("crawler_rules:view"), adminCrawlerRuleController.ListRules)
+			adminCrawlerRules.GET("/:id", rbacMiddleware.RequirePermission("crawler_rules:view"), adminCrawlerRuleController.GetRule)
+			adminCrawlerRules.POST("", rbacMiddleware.RequirePermission("crawler_rules:edit"), adminCrawlerRuleController.CreateRule)
+			adminCrawlerRules.PUT("/:id", rbacMiddleware.RequirePermission("crawler_rules:edit"), adminCrawlerRuleController.UpdateRule)
+			adminCrawlerRules.DELETE("/:id", rbacMiddleware.RequirePermission("crawler_rules:edit"), adminCrawlerRuleController.DeleteRule)
+			adminCrawlerRules.PATCH("/:id/status", rbacMiddleware.RequirePermission("crawler_rules:edit"), adminCrawlerRuleController.SetRuleStatus)
+			adminCrawlerRules.POST("/test", rbacMiddleware.RequirePermission("crawler_rules:edit"), adminCrawlerRuleController.TestRule)
+			adminCrawlerRules.GET("/:id/usages", rbacMiddleware.RequirePermission("crawler_rules:view"), adminCrawlerRuleController.GetRuleUsages)
+			adminCrawlerRules.POST("/:id/clone", rbacMiddleware.RequirePermission("crawler_rules:edit"), adminCrawlerRuleController.CloneRule)
 			adminWorkflowTemplateController := workflowControllers.NewAdminWorkflowTemplateController()
 			adminWorkflowTemplates := auth.Group("/admin/workflow-templates")
-			adminWorkflowTemplates.Use(middleware.AdminOnlyMiddleware())
-			adminWorkflowTemplates.GET("/summary", adminWorkflowTemplateController.GetSummary)
-			adminWorkflowTemplates.GET("", adminWorkflowTemplateController.ListTemplates)
-			adminWorkflowTemplates.GET("/source-workflows", adminWorkflowTemplateController.ListSourceWorkflows)
-			adminWorkflowTemplates.GET("/:id/canvas", adminWorkflowTemplateController.GetCanvas)
-			adminWorkflowTemplates.PUT("/:id/canvas", adminWorkflowTemplateController.SaveCanvas)
-			adminWorkflowTemplates.GET("/:id", adminWorkflowTemplateController.GetTemplate)
-			adminWorkflowTemplates.POST("", adminWorkflowTemplateController.CreateTemplate)
-			adminWorkflowTemplates.PUT("/:id", adminWorkflowTemplateController.UpdateTemplate)
-			adminWorkflowTemplates.POST("/:id/sync", adminWorkflowTemplateController.SyncTemplate)
-			adminWorkflowTemplates.DELETE("/:id", adminWorkflowTemplateController.DeleteTemplate)
+			adminWorkflowTemplates.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminWorkflowTemplates.GET("/summary", rbacMiddleware.RequirePermission("workflow_templates:view"), adminWorkflowTemplateController.GetSummary)
+			adminWorkflowTemplates.GET("", rbacMiddleware.RequirePermission("workflow_templates:view"), adminWorkflowTemplateController.ListTemplates)
+			adminWorkflowTemplates.GET("/source-workflows", rbacMiddleware.RequirePermission("workflow_templates:view"), adminWorkflowTemplateController.ListSourceWorkflows)
+			adminWorkflowTemplates.GET("/:id/canvas", rbacMiddleware.RequirePermission("workflow_templates.canvas:view"), adminWorkflowTemplateController.GetCanvas)
+			adminWorkflowTemplates.PUT("/:id/canvas", rbacMiddleware.RequirePermission("workflow_templates.canvas:edit"), adminWorkflowTemplateController.SaveCanvas)
+			adminWorkflowTemplates.GET("/:id", rbacMiddleware.RequirePermission("workflow_templates:view"), adminWorkflowTemplateController.GetTemplate)
+			adminWorkflowTemplates.POST("", rbacMiddleware.RequirePermission("workflow_templates:edit"), adminWorkflowTemplateController.CreateTemplate)
+			adminWorkflowTemplates.PUT("/:id", rbacMiddleware.RequirePermission("workflow_templates:edit"), adminWorkflowTemplateController.UpdateTemplate)
+			adminWorkflowTemplates.POST("/:id/sync", rbacMiddleware.RequirePermission("workflow_templates.canvas:edit"), adminWorkflowTemplateController.SyncTemplate)
+			adminWorkflowTemplates.DELETE("/:id", rbacMiddleware.RequirePermission("workflow_templates:edit"), adminWorkflowTemplateController.DeleteTemplate)
+
+			adminNodeTypeController := nodeControllers.NewAdminNodeTypeController()
+			adminNodeTypes := auth.Group("/admin/node-types")
+			adminNodeTypes.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminNodeTypes.GET("/summary", rbacMiddleware.RequirePermission("node_types:view"), adminNodeTypeController.GetSummary)
+			adminNodeTypes.GET("", rbacMiddleware.RequirePermission("node_types:view"), adminNodeTypeController.ListNodeTypes)
+			adminNodeTypes.GET("/:id", rbacMiddleware.RequirePermission("node_types:view"), adminNodeTypeController.GetNodeType)
+			adminNodeTypes.POST("", rbacMiddleware.RequirePermission("node_types:edit"), adminNodeTypeController.CreateNodeType)
+			adminNodeTypes.PUT("/:id", rbacMiddleware.RequirePermission("node_types:edit"), adminNodeTypeController.UpdateNodeType)
+			adminNodeTypes.PATCH("/:id/status", rbacMiddleware.RequirePermission("node_types:edit"), adminNodeTypeController.SetNodeTypeStatus)
+			adminNodeTypes.DELETE("/:id", rbacMiddleware.RequirePermission("node_types:edit"), adminNodeTypeController.DeleteNodeType)
+
+			adminOperationLogController := systemControllers.NewAdminOperationLogController()
+			adminOperationLogs := auth.Group("/admin/operation-logs")
+			adminOperationLogs.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminOperationLogs.GET("", rbacMiddleware.RequirePermission("operation_logs:view"), adminOperationLogController.List)
+			adminOperationLogs.GET("/:id", rbacMiddleware.RequirePermission("operation_logs:view"), adminOperationLogController.GetByID)
+
 			adminNotifications := auth.Group("/admin/notifications")
-			adminNotifications.Use(middleware.AdminOnlyMiddleware())
-			adminNotifications.GET("/summary", adminNotificationController.GetSummary)
-			adminNotifications.GET("", adminNotificationController.List)
-			adminNotifications.GET("/jobs", adminNotificationController.ListJobs)
-			adminNotifications.GET("/jobs/:id/deliveries", adminNotificationController.ListDeliveries)
-			adminNotifications.GET("/analytics", adminNotificationController.GetAnalytics)
-			adminNotifications.GET("/templates", adminNotificationController.ListTemplates)
-			adminNotifications.POST("/templates", adminNotificationController.CreateTemplate)
-			adminNotifications.PUT("/templates/:id", adminNotificationController.UpdateTemplate)
-			adminNotifications.POST("/send", adminNotificationController.Send)
+			adminNotifications.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminNotifications.GET(
+				"/summary",
+				rbacMiddleware.RequireAnyPermission(
+					"notifications.send:view",
+					"notifications.jobs:view",
+					"notifications.log:view",
+					"notifications.analytics:view",
+					"notifications.templates:view",
+				),
+				adminNotificationController.GetSummary,
+			)
+			adminNotifications.GET("", rbacMiddleware.RequirePermission("notifications.log:view"), adminNotificationController.List)
+			adminNotifications.GET("/jobs", rbacMiddleware.RequirePermission("notifications.jobs:view"), adminNotificationController.ListJobs)
+			adminNotifications.GET("/jobs/:id/deliveries", rbacMiddleware.RequirePermission("notifications.jobs:view"), adminNotificationController.ListDeliveries)
+			adminNotifications.GET("/recipients/options", rbacMiddleware.RequireAnyPermission("notifications.send:view", "notifications.send:edit"), adminNotificationController.ListRecipientOptions)
+			adminNotifications.GET(
+				"/templates/options",
+				rbacMiddleware.RequireAnyPermission(
+					"notifications.send:view",
+					"notifications.send:edit",
+					"notifications.jobs:view",
+					"notifications.templates:view",
+					"notifications.templates:edit",
+				),
+				adminNotificationController.ListTemplateOptions,
+			)
+			adminNotifications.GET("/analytics", rbacMiddleware.RequirePermission("notifications.analytics:view"), adminNotificationController.GetAnalytics)
+			adminNotifications.GET("/templates", rbacMiddleware.RequirePermission("notifications.templates:view"), adminNotificationController.ListTemplates)
+			adminNotifications.POST("/templates", rbacMiddleware.RequirePermission("notifications.templates:edit"), adminNotificationController.CreateTemplate)
+			adminNotifications.PUT("/templates/:id", rbacMiddleware.RequirePermission("notifications.templates:edit"), adminNotificationController.UpdateTemplate)
+			adminNotifications.POST("/send", rbacMiddleware.RequirePermission("notifications.send:edit"), adminNotificationController.Send)
 
 			adminKnowledgeController := alkaidControllers.NewAdminKnowledgeController()
 			adminKnowledge := auth.Group("/admin/alkaid/knowledge")
-			adminKnowledge.Use(middleware.AdminOnlyMiddleware())
-			adminKnowledge.GET("/summary", adminKnowledgeController.GetSummary)
-			adminKnowledge.GET("", adminKnowledgeController.ListKnowledge)
-			adminKnowledge.POST("", adminKnowledgeController.CreateKnowledge)
-			adminKnowledge.POST("/search-test", adminKnowledgeController.SearchTest)
-			adminKnowledge.GET("/:id", adminKnowledgeController.GetKnowledge)
-			adminKnowledge.PUT("/:id", adminKnowledgeController.UpdateKnowledge)
-			adminKnowledge.DELETE("/:id", adminKnowledgeController.DeleteKnowledge)
-			adminKnowledge.PATCH("/:id/status", adminKnowledgeController.SetKnowledgeStatus)
+			adminKnowledge.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminKnowledge.GET("/summary", rbacMiddleware.RequirePermission("knowledge_base:view"), adminKnowledgeController.GetSummary)
+			adminKnowledge.GET("", rbacMiddleware.RequirePermission("knowledge_base:view"), adminKnowledgeController.ListKnowledge)
+			adminKnowledge.POST("", rbacMiddleware.RequirePermission("knowledge_base:edit"), adminKnowledgeController.CreateKnowledge)
+			adminKnowledge.POST("/search-test", rbacMiddleware.RequirePermission("knowledge_base:edit"), adminKnowledgeController.SearchTest)
+			adminKnowledge.GET("/:id", rbacMiddleware.RequirePermission("knowledge_base:view"), adminKnowledgeController.GetKnowledge)
+			adminKnowledge.PUT("/:id", rbacMiddleware.RequirePermission("knowledge_base:edit"), adminKnowledgeController.UpdateKnowledge)
+			adminKnowledge.DELETE("/:id", rbacMiddleware.RequirePermission("knowledge_base:edit"), adminKnowledgeController.DeleteKnowledge)
+			adminKnowledge.PATCH("/:id/status", rbacMiddleware.RequirePermission("knowledge_base:edit"), adminKnowledgeController.SetKnowledgeStatus)
 
 			// 瑶光星（Alkaid）对话相关路由
 			alkaidController := alkaidControllers.NewAlkaidController()

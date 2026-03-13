@@ -24,6 +24,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import PageHero from '@/components/PageHero';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import {
   cloneCrawlerRule,
   createCrawlerRule,
@@ -210,6 +211,7 @@ function formatSuccessRate(value?: number | null) {
 
 export default function CrawlerRulesPage() {
   const { message } = App.useApp();
+  const { canEdit } = useAdminPermission('crawler_rules');
   const [form] = Form.useForm<RuleFormValues>();
   const [testForm] = Form.useForm<TestFormValues>();
   const [rules, setRules] = useState<CrawlerRuleListItem[]>([]);
@@ -425,7 +427,7 @@ export default function CrawlerRulesPage() {
         return (
           <Space direction="vertical" size={4}>
             <Tag color={meta.color}>{meta.label}</Tag>
-            <Switch size="small" checked={record.is_active} onChange={(checked) => void handleToggleStatus(record, checked)} />
+            <Switch size="small" checked={record.is_active} disabled={!canEdit} onChange={(checked) => void handleToggleStatus(record, checked)} />
           </Space>
         );
       },
@@ -447,20 +449,22 @@ export default function CrawlerRulesPage() {
           <Button type="link" onClick={() => void openEditDrawer(record)}>
             编辑
           </Button>
-          <Button type="link" onClick={() => openTestModal(record)}>
+          <Button type="link" onClick={() => openTestModal(record)} disabled={!canEdit}>
             测试
           </Button>
           <Button type="link" onClick={() => void openUsagesDrawer(record)}>
             引用
           </Button>
-          <Button type="link" onClick={() => void handleCloneRule(record)}>
+          <Button type="link" onClick={() => void handleCloneRule(record)} disabled={!canEdit}>
             复制
           </Button>
-          <Popconfirm title="确认删除这个规则？" description="规则会被软删除，已引用工作流请同步检查。" onConfirm={() => void handleDeleteRule(record)}>
-            <Button type="link" danger>
-              删除
-            </Button>
-          </Popconfirm>
+          {canEdit ? (
+            <Popconfirm title="确认删除这个规则？" description="规则会被软删除，已引用工作流请同步检查。" onConfirm={() => void handleDeleteRule(record)}>
+              <Button type="link" danger>
+                删除
+              </Button>
+            </Popconfirm>
+          ) : null}
         </Space>
       ),
     },
@@ -476,9 +480,7 @@ export default function CrawlerRulesPage() {
         action={
           <Space>
             <Button onClick={() => void reloadRules(page)}>刷新</Button>
-            <Button type="primary" onClick={openCreateDrawer}>
-              新建规则
-            </Button>
+            {canEdit ? <Button type="primary" onClick={openCreateDrawer}>新建规则</Button> : null}
           </Space>
         }
       />
@@ -578,13 +580,11 @@ export default function CrawlerRulesPage() {
         extra={
           <Space>
             <Button onClick={() => setDrawerOpen(false)}>取消</Button>
-            <Button type="primary" loading={saving} onClick={() => void handleSaveRule()}>
-              保存
-            </Button>
+            {canEdit ? <Button type="primary" loading={saving} onClick={() => void handleSaveRule()}>保存</Button> : null}
           </Space>
         }
       >
-        <Form form={form} layout="vertical" initialValues={DEFAULT_RULE_FORM} className={styles.form}>
+        <Form form={form} layout="vertical" initialValues={DEFAULT_RULE_FORM} className={styles.form} disabled={!canEdit}>
           <Tabs
             items={[
               {

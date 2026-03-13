@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, Select, Statistic, Table, Typography } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import ProviderIcon from '@/components/Icons/ProviderIcon';
-import { getAIModels, getAIUsage } from '@/api/aiModels';
+import { getAIUsage } from '@/api/aiModels';
 import { useI18n } from '@/i18n';
-import type { AIAdminModel, AIUsageRecord } from '@/types/aiModels';
+import type { AIUsageRecord } from '@/types/aiModels';
 import { getAIProviderLabel } from './i18n';
 import styles from './AIModels.module.scss';
 
@@ -20,16 +20,24 @@ function formatNullableMetric(value?: number | null, suffix = '', fallback = '--
 export default function UsagePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useI18n();
-  const [models, setModels] = useState<AIAdminModel[]>([]);
   const [usage, setUsage] = useState<AIUsageRecord[]>([]);
   const modelId = searchParams.get('modelId') ?? undefined;
 
   useEffect(() => {
-    void Promise.all([getAIModels(), getAIUsage(modelId)]).then(([modelData, usageData]) => {
-      setModels(modelData);
-      setUsage(usageData);
-    });
+    void getAIUsage(modelId).then(setUsage);
   }, [modelId]);
+
+  const modelOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          usage
+            .filter((item) => item.model_id)
+            .map((item) => [item.model_id as string, { label: item.display_name, value: item.model_id as string }]),
+        ).values(),
+      ),
+    [usage],
+  );
 
   const totalCost = usage.reduce((sum, item) => sum + item.total_cost, 0);
   const totalRequests = usage.reduce((sum, item) => sum + item.requests, 0);
@@ -50,7 +58,7 @@ export default function UsagePage() {
             value={modelId}
             placeholder={t('aiModels.usageFilterPlaceholder')}
             style={{ minWidth: 240 }}
-            options={models.map((item) => ({ label: item.display_name, value: item.id }))}
+            options={modelOptions}
             onChange={(value) => {
               if (value) {
                 setSearchParams({ modelId: value });

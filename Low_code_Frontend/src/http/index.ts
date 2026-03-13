@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { message } from '@/utils/antdGlobal';
+import { useAuthStore } from '@/store/auth';
 import type { ApiResponse } from '@/types/api';
 import { StatusHandler } from './handlers';
 import { HttpError } from './core/error';
@@ -177,6 +178,11 @@ class HttpClient {
    * 获取 token
    */
   private getToken(): string | null {
+    const memoryToken = useAuthStore.getState().token;
+    if (memoryToken) {
+      return memoryToken;
+    }
+
     try {
       const authStorage = localStorage.getItem('auth-storage');
       if (authStorage) {
@@ -193,6 +199,7 @@ class HttpClient {
    * 清除 token
    */
   private clearToken(): void {
+    useAuthStore.getState().logout();
     localStorage.removeItem('auth-storage');
   }
 
