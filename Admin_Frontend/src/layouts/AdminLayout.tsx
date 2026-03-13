@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { DownOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, UserOutlined } from '@ant-design/icons';
+import { DownOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { Avatar, Breadcrumb, Button, Dropdown, Layout, Menu, Result, Spin } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ import styles from './AdminLayout.module.scss';
 
 const { Header, Sider, Content, Footer } = Layout;
 const ADMIN_BASENAME = '/admin';
+const BRAND_LOGO_SRC = `${import.meta.env.BASE_URL}YaoLight_White.png`;
 
 function pathnameWithoutBasename(pathname: string) {
   if (pathname === ADMIN_BASENAME) return '/';
@@ -124,6 +125,7 @@ export default function AdminLayout() {
   const currentResource = resolveResourceFromPath(pathnameWithoutBasename(location.pathname));
   const canAccessCurrentRoute = currentResource ? canViewResource(permissions, currentResource) : true;
   const hasAnyAccessibleRoute = Boolean(fallbackPath);
+  const avatarFallback = (sessionUser?.username ?? t('layout.adminUser')).slice(0, 1).toUpperCase();
 
   useEffect(() => {
     setOpenKeys((current) => Array.from(new Set([...current, ...routeOpenKeys])));
@@ -197,9 +199,14 @@ export default function AdminLayout() {
           className={`${styles.brand} ${collapsed ? styles.brandCollapsed : ''}`}
           onClick={() => navigate('/')}
         >
-          <div className={styles.brandMark}>YL</div>
+          <div className={styles.brandMark} aria-hidden="true">
+            <img src={BRAND_LOGO_SRC} alt="" className={styles.brandLogo} />
+          </div>
           <div className={styles.brandText}>
-            <div className={styles.brandTitle}>{t('layout.brandTitle')}</div>
+            <div className={styles.brandTitleRow}>
+              <div className={styles.brandTitle}>YaoLight</div>
+              <span className={styles.brandBadge}>Admin</span>
+            </div>
             <div className={styles.brandSub}>{t('layout.brandSubtitle')}</div>
           </div>
         </div>
@@ -253,7 +260,9 @@ export default function AdminLayout() {
               trigger={['click']}
             >
               <Button className={styles.userButton} type="text">
-                <Avatar size={30} icon={<UserOutlined />} />
+                <Avatar size={30} src={sessionUser?.avatar_url ?? undefined}>
+                  {avatarFallback}
+                </Avatar>
                 <span>{sessionUser?.username ?? t('layout.adminUser')}</span>
                 <DownOutlined className={styles.userChevron} />
               </Button>
