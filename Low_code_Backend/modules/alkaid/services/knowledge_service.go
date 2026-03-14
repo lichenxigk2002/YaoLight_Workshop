@@ -15,11 +15,13 @@ import (
 type KnowledgeService struct{}
 
 type KnowledgeSearchOptions struct {
-	Query    string
-	UserID   uint
-	Limit    int
-	Category string
-	Target   string
+	Query      string
+	UserID     uint
+	Limit      int
+	Category   string
+	Target     string
+	ProjectID  uint
+	WorkflowID uint
 }
 
 // GetAlkaidContext 获取瑶光星助手的全量上下文知识（系统级 + 用户个人 + 实战案例）
@@ -40,7 +42,12 @@ func (s *KnowledgeService) GetAlkaidContext(userID uint) (map[string]interface{}
 	}
 
 	// 3. 获取知识片段 (系统公共知识 + 该用户的个人知识)
-	if err := database.DB.Where("is_active = ? AND (user_id IS NULL OR user_id = ?)", true, userID).Find(&knowledges).Error; err != nil {
+	if err := applyKnowledgeScope(
+		database.DB.Model(&alkaidModels.AlkaidKnowledge{}),
+		userID,
+		0,
+		0,
+	).Find(&knowledges).Error; err != nil {
 		return nil, err
 	}
 
@@ -87,7 +94,9 @@ func (s *KnowledgeService) SearchKnowledgeScoped(opts KnowledgeSearchOptions) ([
 
 	var results []alkaidModels.AlkaidKnowledge
 	db := database.DB.Model(&alkaidModels.AlkaidKnowledge{}).
-		Where("is_active = ? AND (user_id IS NULL OR user_id = ?)", true, opts.UserID)
+		Scopes(func(tx *gorm.DB) *gorm.DB {
+			return applyKnowledgeScope(tx, opts.UserID, opts.ProjectID, opts.WorkflowID)
+		})
 
 	if category != "" {
 		db = db.Where("category = ?", category)
@@ -111,9 +120,13 @@ func (s *KnowledgeService) GetKnowledgeByTarget(target string, userID uint) ([]a
 }
 
 func (s *KnowledgeService) GetKnowledgeByTargetAndCategory(target string, category string, userID uint, limit int) ([]alkaidModels.AlkaidKnowledge, error) {
+	return s.GetKnowledgeByTargetAndCategoryScoped(target, category, userID, 0, 0, limit)
+}
+
+func (s *KnowledgeService) GetKnowledgeByTargetAndCategoryScoped(target string, category string, userID uint, projectID uint, workflowID uint, limit int) ([]alkaidModels.AlkaidKnowledge, error) {
 	var results []alkaidModels.AlkaidKnowledge
-	db := database.DB.Where("is_active = ? AND target = ? AND (user_id IS NULL OR user_id = ?)",
-		true, target, userID)
+	db := applyKnowledgeScope(database.DB.Model(&alkaidModels.AlkaidKnowledge{}), userID, projectID, workflowID).
+		Where("target = ?", target)
 	if strings.TrimSpace(category) != "" {
 		db = db.Where("category = ?", strings.TrimSpace(category))
 	}
@@ -128,9 +141,13 @@ func (s *KnowledgeService) GetKnowledgeByTargetAndCategory(target string, catego
 }
 
 func (s *KnowledgeService) GetKnowledgeByCategory(category string, userID uint, limit int) ([]alkaidModels.AlkaidKnowledge, error) {
+	return s.GetKnowledgeByCategoryScoped(category, userID, 0, 0, limit)
+}
+
+func (s *KnowledgeService) GetKnowledgeByCategoryScoped(category string, userID uint, projectID uint, workflowID uint, limit int) ([]alkaidModels.AlkaidKnowledge, error) {
 	var results []alkaidModels.AlkaidKnowledge
-	db := database.DB.Model(&alkaidModels.AlkaidKnowledge{}).
-		Where("is_active = ? AND category = ? AND (user_id IS NULL OR user_id = ?)", true, strings.TrimSpace(category), userID).
+	db := applyKnowledgeScope(database.DB.Model(&alkaidModels.AlkaidKnowledge{}), userID, projectID, workflowID).
+		Where("category = ?", strings.TrimSpace(category)).
 		Order("updated_at DESC")
 	if limit > 0 {
 		db = db.Limit(limit)
@@ -140,4 +157,28 @@ func (s *KnowledgeService) GetKnowledgeByCategory(category string, userID uint, 
 		return nil, err
 	}
 	return results, nil
+}
+
+func applyKnowledgeScope(db *gorm.DB, userID uint, projectID uint, workflowID uint) *gorm.DB {
+	base := db.Where("is_active = ?", true)
+	switch {
+	case workflowID > 0:
+		return base.Where(`
+			(user_id IS NULL AND project_id IS NULL AND workflow_id IS NULL)
+			OR (user_id = ? AND project_id IS NULL AND workflow_id IS NULL)
+			OR (user_id = ? AND project_id = ? AND workflow_id IS NULL)
+			OR (user_id = ? AND workflow_id = ?)
+		`, userID, userID, projectID, userID, workflowID)
+	case projectID > 0:
+		return base.Where(`
+			(user_id IS NULL AND project_id IS NULL AND workflow_id IS NULL)
+			OR (user_id = ? AND project_id IS NULL AND workflow_id IS NULL)
+			OR (user_id = ? AND project_id = ? AND workflow_id IS NULL)
+		`, userID, userID, projectID)
+	default:
+		return base.Where(`
+			(user_id IS NULL AND project_id IS NULL AND workflow_id IS NULL)
+			OR (user_id = ? AND project_id IS NULL AND workflow_id IS NULL)
+		`, userID)
+	}
 }

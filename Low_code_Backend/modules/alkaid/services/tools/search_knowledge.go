@@ -30,6 +30,8 @@ func (r *Registry) runSearchKnowledge(params map[string]interface{}, sessionID u
 	target := strings.TrimSpace(stringParam(params, "target"))
 	category := strings.TrimSpace(stringParam(params, "category"))
 	includeGeneralFallback := boolParam(params, "includeGeneralFallback", true)
+	projectID := uint(intParam(params, "projectId"))
+	workflowID := uint(intParam(params, "workflowId"))
 
 	retriever := alkaidServices.NewKnowledgeRetriever()
 	userID := uint(0)
@@ -45,6 +47,8 @@ func (r *Registry) runSearchKnowledge(params map[string]interface{}, sessionID u
 		Category:       category,
 		MaxResults:     maxResults,
 		IncludeGeneral: includeGeneralFallback,
+		ProjectID:      projectID,
+		WorkflowID:     workflowID,
 	}, userID)
 	if err != nil {
 		return nil, "", fmt.Errorf("知识检索失败: %w", err)
@@ -69,6 +73,8 @@ func (r *Registry) runSearchKnowledge(params map[string]interface{}, sessionID u
 		"query":                     query,
 		"target":                    target,
 		"category":                  category,
+		"projectId":                 projectID,
+		"workflowId":                workflowID,
 		"includeGeneralFallback":    includeGeneralFallback,
 		"resultCount":               len(knowledge),
 		"results":                   results,

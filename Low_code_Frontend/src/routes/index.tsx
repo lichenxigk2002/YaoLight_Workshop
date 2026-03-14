@@ -1,9 +1,7 @@
-import React from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import Login from '../pages/Login'
 import Dashboard from '../pages/Dashboard'
 import ProjectDetail from '../pages/ProjectDetail'
-import Profile from '../pages/Profile'
 import WorkflowEditor from '../components/WorkflowEditor'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
@@ -38,6 +36,16 @@ const router = createBrowserRouter([
   },
   {
     path: '/projects/:projectId/workflows',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <ProjectDetail />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/projects/:projectId/assets',
     element: (
       <ProtectedRoute>
         <Layout>
