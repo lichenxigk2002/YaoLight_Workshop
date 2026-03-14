@@ -66,73 +66,63 @@ func (p *chartSVGProvider) Export(input interface{}, _ map[string]interface{}) (
 		}
 	}
 
+	filesFromSVG := func(svg string, svgName string) ([]File, error) {
+		files := []File{{
+			Name:     svgName,
+			Kind:     "svg",
+			MimeType: "image/svg+xml",
+			Bytes:    []byte(svg),
+		}}
+		pngBuf, err := SVGToPNG(svg)
+		if err == nil && len(pngBuf) > 0 {
+			pngName := strings.TrimSuffix(svgName, ".svg") + ".png"
+			files = append(files, File{
+				Name:     pngName,
+				Kind:     "png",
+				MimeType: "image/png",
+				Bytes:    pngBuf,
+			})
+		}
+		return files, nil
+	}
+
 	switch typ {
 	case "scatter":
 		svg, err := renderScatterSVG(title, data)
 		if err != nil {
 			return nil, err
 		}
-		return []File{{
-			Name:     "chart_scatter.svg",
-			Kind:     "svg",
-			MimeType: "image/svg+xml",
-			Bytes:    []byte(svg),
-		}}, nil
+		return filesFromSVG(svg, "chart_scatter.svg")
 	case "pie":
 		svg, err := renderPieSVG(title, data)
 		if err != nil {
 			return nil, err
 		}
-		return []File{{
-			Name:     "chart_pie.svg",
-			Kind:     "svg",
-			MimeType: "image/svg+xml",
-			Bytes:    []byte(svg),
-		}}, nil
+		return filesFromSVG(svg, "chart_pie.svg")
 	case "line":
 		svg, err := renderLineSVG(title, data)
 		if err != nil {
 			return nil, err
 		}
-		return []File{{
-			Name:     "chart_line.svg",
-			Kind:     "svg",
-			MimeType: "image/svg+xml",
-			Bytes:    []byte(svg),
-		}}, nil
+		return filesFromSVG(svg, "chart_line.svg")
 	case "bar":
 		svg, err := renderBarSVG(title, data)
 		if err != nil {
 			return nil, err
 		}
-		return []File{{
-			Name:     "chart_bar.svg",
-			Kind:     "svg",
-			MimeType: "image/svg+xml",
-			Bytes:    []byte(svg),
-		}}, nil
+		return filesFromSVG(svg, "chart_bar.svg")
 	case "histogram":
 		svg, err := renderHistogramSVG(title, data)
 		if err != nil {
 			return nil, err
 		}
-		return []File{{
-			Name:     "chart_histogram.svg",
-			Kind:     "svg",
-			MimeType: "image/svg+xml",
-			Bytes:    []byte(svg),
-		}}, nil
+		return filesFromSVG(svg, "chart_histogram.svg")
 	case "heatmap":
 		svg, err := renderHeatmapSVG(title, data)
 		if err != nil {
 			return nil, err
 		}
-		return []File{{
-			Name:     "chart_heatmap.svg",
-			Kind:     "svg",
-			MimeType: "image/svg+xml",
-			Bytes:    []byte(svg),
-		}}, nil
+		return filesFromSVG(svg, "chart_heatmap.svg")
 	default:
 		return nil, fmt.Errorf("不支持的 chart.type: %s（当前支持 scatter/pie/line/bar/histogram/heatmap）", typ)
 	}

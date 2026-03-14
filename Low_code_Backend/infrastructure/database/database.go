@@ -326,7 +326,7 @@ func SeedProviderTemplates() error {
 	}
 
 	defaults := map[string]providerSeed{
-		"deepseek": {name: "DeepSeek", description: "DeepSeek model provider", baseURL: "https://api.deepseek.com", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"deepseek": {name: "DeepSeek", description: "DeepSeek model provider", baseURL: "https://api.deepseek.com", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 8192}},
 		"doubao":   {name: "Doubao", description: "Doubao model provider", baseURL: "https://ark.cn-beijing.volces.com/api/v3", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
 		"qwen":     {name: "Qwen", description: "Qwen model provider", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
 		"zhipuai":  {name: "ZhipuAI", description: "GLM model provider", baseURL: "https://open.bigmodel.cn/api/paas/v4", defaultCfg: map[string]interface{}{"temperature": 1.0, "maxTokens": 2048}},
@@ -582,7 +582,7 @@ func defaultCapabilityForModel(provider, modelName string) *aiModels.ModelCapabi
 		cfg.SupportStream = true
 		cfg.SupportThinking = true
 		if modelName == "deepseek-reasoner" {
-			cfg.MaxTokensLimit = 65536
+			cfg.MaxTokensLimit = 8192
 		} else {
 			cfg.MaxTokensLimit = 8192
 		}

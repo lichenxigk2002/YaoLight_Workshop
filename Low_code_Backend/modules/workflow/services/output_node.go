@@ -21,18 +21,110 @@ func tryExtractJSONFromFencedCodeBlock(s string) string {
 	if !strings.HasPrefix(ss, "```") {
 		return ss
 	}
-	// 找第一行结束
+	// 找第一行结束（支持 \n 或 \r\n）
 	nl := strings.Index(ss, "\n")
-	if nl <= 0 {
-		return ss
+	if nl > 0 {
+		body := ss[nl+1:]
+		if end := strings.LastIndex(body, "```"); end >= 0 {
+			body = body[:end]
+		}
+		return strings.TrimSpace(body)
 	}
-	// 去掉首行 ```json / ```
-	body := ss[nl+1:]
-	// 去掉末尾 ```
-	if end := strings.LastIndex(body, "```"); end >= 0 {
-		body = body[:end]
+	// 无换行时（如 "```json{..."）：跳过开头的 ``` 和可选的 json，从第一个 { 或 [ 开始取到对应闭合或末尾 ```
+	rest := strings.TrimPrefix(ss, "```")
+	rest = strings.TrimSpace(rest)
+	if strings.HasPrefix(rest, "json") {
+		rest = strings.TrimSpace(rest[4:])
 	}
-	return strings.TrimSpace(body)
+	start := strings.Index(rest, "{")
+	if start < 0 {
+		start = strings.Index(rest, "[")
+	}
+	if start >= 0 {
+		body := rest[start:]
+		if end := strings.LastIndex(body, "```"); end >= 0 {
+			body = body[:end]
+		}
+		return strings.TrimSpace(body)
+	}
+	return ss
+}
+
+const maxStructuredPayloadDepth = 12 // 防止嵌套过深导致栈溢出
+
+// isStructuredPayload 判断对象是否已是可用的 timeline/network 结构（含 needKey 且对应数组非空）
+func isStructuredPayload(m map[string]interface{}, needKey string) bool {
+	v, ok := m[needKey]
+	if !ok || v == nil {
+		return false
+	}
+	arr, ok := v.([]interface{})
+	return ok && len(arr) > 0
+}
+
+// findStructuredPayloadDeep 在 payload 中递归查找第一个包含 events/edges 的有效对象，兼容嵌套与 JSON 字符串
+func findStructuredPayloadDeep(payload interface{}, needKey string, depth int) interface{} {
+	if depth > maxStructuredPayloadDepth {
+		return nil
+	}
+	if payload == nil {
+		return nil
+	}
+	switch v := payload.(type) {
+	case map[string]interface{}:
+		if isStructuredPayload(v, needKey) {
+			return v
+		}
+		for _, val := range v {
+			if found := findStructuredPayloadDeep(val, needKey, depth+1); found != nil {
+				return found
+			}
+		}
+		return nil
+	case []interface{}:
+		for _, item := range v {
+			if found := findStructuredPayloadDeep(item, needKey, depth+1); found != nil {
+				return found
+			}
+		}
+		return nil
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return nil
+		}
+		// 可能是 ```json ... ``` 或裸 JSON，解析后继续在子树中查找
+		raw := s
+		if strings.HasPrefix(s, "```") {
+			raw = tryExtractJSONFromFencedCodeBlock(s)
+		} else if !strings.HasPrefix(s, "{") && !strings.HasPrefix(s, "[") {
+			return nil
+		}
+		var decoded interface{}
+		if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+			return nil
+		}
+		return findStructuredPayloadDeep(decoded, needKey, depth+1)
+	default:
+		return nil
+	}
+}
+
+// tryResolveStructuredPayload 从 payload 中解析出 timeline/network/sankey 所需结构；优先用顶层，否则在整棵树中深度查找
+func tryResolveStructuredPayload(payload interface{}, format string) interface{} {
+	needKey := "events" // timeline
+	switch strings.ToLower(format) {
+	case "network":
+		needKey = "edges"
+	case "sankey":
+		needKey = "flows"
+	}
+	// 1) 顶层已是合格结构，直接沿用（不覆盖 exportInput）
+	if m, ok := payload.(map[string]interface{}); ok && m != nil && isStructuredPayload(m, needKey) {
+		return nil
+	}
+	// 2) 在整棵 payload 树中深度查找第一个含 events/edges 且数组非空的对象
+	return findStructuredPayloadDeep(payload, needKey, 0)
 }
 
 // executeOutputNode 执行输出节点
@@ -108,6 +200,13 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 			}
 		} else if s, ok := payload.(string); ok && strings.TrimSpace(s) != "" {
 			exportInput = tryExtractJSONFromFencedCodeBlock(s)
+		}
+	}
+
+	// timeline/network/sankey：在整棵 payload 中深度查找 events/edges/flows，兼容 AI 嵌套或 JSON 字符串
+	if strings.EqualFold(format, "timeline") || strings.EqualFold(format, "network") || strings.EqualFold(format, "sankey") {
+		if resolved := tryResolveStructuredPayload(payload, format); resolved != nil {
+			exportInput = resolved
 		}
 	}
 
