@@ -1,34 +1,51 @@
-import { useState, useEffect } from 'react';
-import { Button, Modal, Form, Input, Popconfirm, Tag, Breadcrumb, App, Tooltip, Pagination } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, PlayCircleOutlined, SearchOutlined, CalendarOutlined } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
+﻿import { useEffect, useMemo, useState } from 'react';
+import { App, Breadcrumb, Button, Form, Input, Modal, Pagination, Popconfirm, Tabs, Tag, Tooltip } from 'antd';
+import {
+  AppstoreOutlined,
+  CalendarOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  FolderOpenOutlined,
+  PlayCircleOutlined,
+  PlusOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { projectApi } from '@/api/project';
 import { workflowApi } from '@/api/workflow';
-import type { Workflow } from '@/types/workflow';
-import type { Project } from '@/types/project';
+import { ProjectAssetsContent } from '@/pages/ProjectAssets';
 import type { PageRequest } from '@/types/api';
+import type { Project } from '@/types/project';
+import type { Workflow } from '@/types/workflow';
 import styles from './index.module.scss';
 
 const { TextArea } = Input;
 
+type ProjectPrimaryTab = 'workflows' | 'assets';
+
 export default function ProjectDetail() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const { projectId } = useParams<{ projectId: string }>();
+
   const [project, setProject] = useState<Project | null>(null);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12); // Use 12 for grid layout (divisible by 2, 3, 4)
+  const [pageSize, setPageSize] = useState(12);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
   const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
 
-  // 加载项目信息
+  const activeTab = useMemo<ProjectPrimaryTab>(
+    () => (location.pathname.includes('/assets') ? 'assets' : 'workflows'),
+    [location.pathname],
+  );
+
   const loadProject = async () => {
     if (!projectId) return;
     try {
@@ -39,16 +56,13 @@ export default function ProjectDetail() {
     }
   };
 
-  // 加载工作流列表
   const loadWorkflows = async () => {
     if (!projectId) return;
     try {
-      setLoading(true);
       const params: PageRequest = {
         page,
         pageSize,
       };
-      // 按项目ID查询工作流
       const response = await workflowApi.getWorkflowList({
         ...params,
         projectId: Number(projectId),
@@ -57,17 +71,18 @@ export default function ProjectDetail() {
       setTotal(response?.total || 0);
     } catch (error: any) {
       message.error(error.message || t('workflow.execFailed'));
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadProject();
-    loadWorkflows();
-  }, [projectId, page, pageSize]);
+  }, [projectId]);
 
-  // 创建/更新工作流
+  useEffect(() => {
+    if (activeTab !== 'workflows') return;
+    loadWorkflows();
+  }, [activeTab, page, pageSize, projectId]);
+
   const handleSubmit = async (values: any) => {
     if (!projectId) return;
     try {
@@ -90,7 +105,6 @@ export default function ProjectDetail() {
     }
   };
 
-  // 删除工作流
   const handleDelete = async (id: number) => {
     try {
       await workflowApi.deleteWorkflow(id);
@@ -101,7 +115,6 @@ export default function ProjectDetail() {
     }
   };
 
-  // 打开编辑模态框
   const handleEdit = (workflow: Workflow) => {
     setEditingWorkflow(workflow);
     form.setFieldsValue({
@@ -111,19 +124,16 @@ export default function ProjectDetail() {
     setModalVisible(true);
   };
 
-  // 打开创建模态框
   const handleCreate = () => {
     setEditingWorkflow(null);
     form.resetFields();
     setModalVisible(true);
   };
 
-  // 进入工作流编辑器
   const handleEditWorkflow = (workflow: Workflow) => {
     navigate(`/projects/${projectId}/workflows/${workflow.id}/edit`);
   };
 
-  // 执行工作流
   const handleExecute = async (workflow: Workflow) => {
     try {
       const hide = message.loading(t('workflow.executeWorkflow'), 0);
@@ -137,9 +147,10 @@ export default function ProjectDetail() {
     }
   };
 
-  const filteredWorkflows = workflows.filter(w => 
-    w.name.toLowerCase().includes(searchText.toLowerCase()) || 
-    (w.description || '').toLowerCase().includes(searchText.toLowerCase())
+  const filteredWorkflows = workflows.filter(
+    (workflow) =>
+      workflow.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      (workflow.description || '').toLowerCase().includes(searchText.toLowerCase()),
   );
 
   const getStatusInfo = (status: string) => {
@@ -155,43 +166,28 @@ export default function ProjectDetail() {
     try {
       if (!dateStr) return '-';
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return '-';
-      
+      if (Number.isNaN(date.getTime())) return '-';
       return date.toLocaleDateString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       });
-    } catch (e) {
+    } catch {
       return '-';
     }
   };
 
-  return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.titleSection}>
-          <div className={styles.breadcrumb}>
-            <Breadcrumb
-              items={[
-                { title: <a onClick={() => navigate('/')}>{t('dashboard.projectsList')}</a> },
-                { title: project?.name || t('dashboard.projectDetail') },
-              ]}
-            />
-          </div>
-          <h1>{project?.name || t('dashboard.projectDetail')}</h1>
-        </div>
-        
-        <div className={styles.actions}>
-          <Input 
-            prefix={<SearchOutlined style={{ color: 'var(--text-tertiary)' }} />} 
-            placeholder={t('workflow.searchPlaceholder', '搜索工作流...')} 
-            value={searchText}
-            onChange={e => setSearchText(e.target.value)} 
-            style={{ width: 240, borderRadius: '8px' }}
-            allowClear
-          />
-        </div>
+  const renderWorkflowPanel = () => (
+    <>
+      <div className={styles.tabToolbar}>
+        <Input
+          prefix={<SearchOutlined style={{ color: 'var(--text-tertiary)' }} />}
+          placeholder={t('workflow.searchPlaceholder', '鎼滅储宸ヤ綔娴?..')}
+          value={searchText}
+          onChange={(event) => setSearchText(event.target.value)}
+          style={{ width: 260, borderRadius: '8px' }}
+          allowClear
+        />
       </div>
 
       <div className={styles.workflowGrid}>
@@ -200,22 +196,22 @@ export default function ProjectDetail() {
           <div className={styles.createText}>{t('workflow.createWorkflow')}</div>
         </div>
 
-        {filteredWorkflows.map(workflow => {
+        {filteredWorkflows.map((workflow) => {
           const statusInfo = getStatusInfo(workflow.status);
           return (
-            <div 
-              key={workflow.id} 
-              className={styles.workflowCard}
-              onClick={() => handleEditWorkflow(workflow)}
-            >
+            <div key={workflow.id} className={styles.workflowCard} onClick={() => handleEditWorkflow(workflow)}>
               <div className={styles.cardHeader}>
-                <div className={styles.title} title={workflow.name}>{workflow.name}</div>
-                <Tag color={statusInfo.color} style={{ margin: 0 }}>{statusInfo.text}</Tag>
+                <div className={styles.title} title={workflow.name}>
+                  {workflow.name}
+                </div>
+                <Tag color={statusInfo.color} style={{ margin: 0 }}>
+                  {statusInfo.text}
+                </Tag>
               </div>
-              
+
               <div className={styles.cardBody}>
                 <div className={styles.description} title={workflow.description}>
-                  {workflow.description || t('common.noDescription', '暂无描述')}
+                  {workflow.description || t('common.noDescription', '鏆傛棤鎻忚堪')}
                 </div>
                 <div className={styles.meta}>
                   <div className={styles.metaItem}>
@@ -225,20 +221,12 @@ export default function ProjectDetail() {
                 </div>
               </div>
 
-              <div className={styles.cardFooter} onClick={e => e.stopPropagation()}>
+              <div className={styles.cardFooter} onClick={(event) => event.stopPropagation()}>
                 <Tooltip title={t('common.edit')}>
-                  <Button 
-                    type="text" 
-                    icon={<EditOutlined />} 
-                    onClick={() => handleEdit(workflow)} 
-                  />
+                  <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(workflow)} />
                 </Tooltip>
                 <Tooltip title={t('common.execute')}>
-                  <Button 
-                    type="text" 
-                    icon={<PlayCircleOutlined />} 
-                    onClick={() => handleExecute(workflow)} 
-                  />
+                  <Button type="text" icon={<PlayCircleOutlined />} onClick={() => handleExecute(workflow)} />
                 </Tooltip>
                 <Popconfirm
                   title={t('workflow.deleteConfirm')}
@@ -256,21 +244,66 @@ export default function ProjectDetail() {
         })}
       </div>
 
-      {total > 0 && (
+      {total > 0 ? (
         <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center' }}>
           <Pagination
             current={page}
             pageSize={pageSize}
             total={total}
             showSizeChanger
-            showTotal={(total) => t('workflow.paginationTotal', { total })}
-            onChange={(p, ps) => {
-              setPage(p);
-              setPageSize(ps);
+            showTotal={(value) => t('workflow.paginationTotal', { total: value })}
+            onChange={(nextPage, nextPageSize) => {
+              setPage(nextPage);
+              setPageSize(nextPageSize);
             }}
           />
         </div>
-      )}
+      ) : null}
+    </>
+  );
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <div className={styles.titleSection}>
+          <div className={styles.breadcrumb}>
+            <Breadcrumb
+              items={[
+                { title: <a onClick={() => navigate('/')}>{t('dashboard.projectsList')}</a> },
+                { title: project?.name || t('dashboard.projectDetail') },
+              ]}
+            />
+          </div>
+          <h1>{project?.name || t('dashboard.projectDetail')}</h1>
+        </div>
+      </div>
+
+      <Tabs
+        activeKey={activeTab}
+        onChange={(key) => navigate(`/projects/${projectId}/${key}`)}
+        items={[
+          {
+            key: 'workflows',
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <AppstoreOutlined />
+                工作流
+              </span>
+            ),
+            children: renderWorkflowPanel(),
+          },
+          {
+            key: 'assets',
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <FolderOpenOutlined />
+                资产中心
+              </span>
+            ),
+            children: <ProjectAssetsContent embedded={true} projectId={Number(projectId)} project={project} />,
+          },
+        ]}
+      />
 
       <Modal
         title={editingWorkflow ? t('workflow.editWorkflow') : t('workflow.createWorkflow')}
@@ -285,26 +318,12 @@ export default function ProjectDetail() {
         cancelText={t('common.cancel')}
         centered
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-        >
-          <Form.Item
-            name="name"
-            label={t('workflow.workflowName')}
-            rules={[{ required: true, message: t('workflow.workflowName') }]}
-          >
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item name="name" label={t('workflow.workflowName')} rules={[{ required: true, message: t('workflow.workflowName') }]}>
             <Input placeholder={t('workflow.workflowName')} />
           </Form.Item>
-          <Form.Item
-            name="description"
-            label={t('workflow.workflowDescription')}
-          >
-            <TextArea
-              rows={4}
-              placeholder={t('workflow.workflowDescription')}
-            />
+          <Form.Item name="description" label={t('workflow.workflowDescription')}>
+            <TextArea rows={4} placeholder={t('workflow.workflowDescription')} />
           </Form.Item>
         </Form>
       </Modal>

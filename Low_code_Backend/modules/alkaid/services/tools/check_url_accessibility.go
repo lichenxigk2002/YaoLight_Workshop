@@ -53,6 +53,10 @@ func runCheckURLAccessibility(params map[string]interface{}) (result interface{}
 	return report, summary, nil
 }
 
+func InspectURLAccessibility(rawURL string, timeout time.Duration, maxReadBytes int) (map[string]interface{}, error) {
+	return inspectURLAccessibility(rawURL, timeout, maxReadBytes)
+}
+
 func inspectURLAccessibility(rawURL string, timeout time.Duration, maxReadBytes int) (map[string]interface{}, error) {
 	parsed, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {

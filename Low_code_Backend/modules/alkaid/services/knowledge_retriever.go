@@ -19,6 +19,8 @@ type KnowledgeRetrieveOptions struct {
 	Category       string
 	MaxResults     int
 	IncludeGeneral bool
+	ProjectID      uint
+	WorkflowID     uint
 }
 
 func NewKnowledgeRetriever() *KnowledgeRetriever {
@@ -52,16 +54,16 @@ func (kr *KnowledgeRetriever) RetrieveRelevantKnowledgeWithOptions(opts Knowledg
 
 	keywords := kr.extractKeywords(opts.Query)
 	if len(keywords) == 0 {
-		return kr.getGeneralKnowledge(userID, maxResults)
+		return kr.getGeneralKnowledge(userID, opts.ProjectID, opts.WorkflowID, maxResults)
 	}
 
-	results, err := kr.searchByKeywords(keywords, userID, maxResults)
+	results, err := kr.searchByKeywords(keywords, userID, opts.ProjectID, opts.WorkflowID, maxResults)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(results) < maxResults {
-		general, _ := kr.getGeneralKnowledge(userID, maxResults-len(results))
+		general, _ := kr.getGeneralKnowledge(userID, opts.ProjectID, opts.WorkflowID, maxResults-len(results))
 		results = appendDedupKnowledge(results, general, maxResults)
 	}
 
@@ -80,13 +82,13 @@ func (kr *KnowledgeRetriever) retrieveScopedKnowledge(opts KnowledgeRetrieveOpti
 	includeGeneral := opts.IncludeGeneral
 
 	if target != "" {
-		items, err := kr.knowledgeService.GetKnowledgeByTargetAndCategory(target, category, userID, maxResults)
+		items, err := kr.knowledgeService.GetKnowledgeByTargetAndCategoryScoped(target, category, userID, opts.ProjectID, opts.WorkflowID, maxResults)
 		if err != nil {
 			return nil, err
 		}
 		results = appendDedupKnowledge(results, items, maxResults)
 	} else if category != "" {
-		items, err := kr.knowledgeService.GetKnowledgeByCategory(category, userID, maxResults)
+		items, err := kr.knowledgeService.GetKnowledgeByCategoryScoped(category, userID, opts.ProjectID, opts.WorkflowID, maxResults)
 		if err != nil {
 			return nil, err
 		}
@@ -95,11 +97,13 @@ func (kr *KnowledgeRetriever) retrieveScopedKnowledge(opts KnowledgeRetrieveOpti
 
 	if len(results) < maxResults && query != "" {
 		items, err := kr.knowledgeService.SearchKnowledgeScoped(KnowledgeSearchOptions{
-			Query:    query,
-			UserID:   userID,
-			Limit:    maxResults - len(results),
-			Category: category,
-			Target:   target,
+			Query:      query,
+			UserID:     userID,
+			Limit:      maxResults - len(results),
+			Category:   category,
+			Target:     target,
+			ProjectID:  opts.ProjectID,
+			WorkflowID: opts.WorkflowID,
 		})
 		if err != nil {
 			return nil, err
@@ -108,7 +112,7 @@ func (kr *KnowledgeRetriever) retrieveScopedKnowledge(opts KnowledgeRetrieveOpti
 	}
 
 	if len(results) < maxResults && includeGeneral {
-		general, _ := kr.getGeneralKnowledge(userID, maxResults-len(results))
+		general, _ := kr.getGeneralKnowledge(userID, opts.ProjectID, opts.WorkflowID, maxResults-len(results))
 		results = appendDedupKnowledge(results, general, maxResults)
 	}
 
@@ -176,7 +180,7 @@ func (kr *KnowledgeRetriever) extractKeywords(userMessage string) []string {
 	return keywords
 }
 
-func (kr *KnowledgeRetriever) searchByKeywords(keywords []string, userID uint, maxResults int) ([]alkaidModels.AlkaidKnowledge, error) {
+func (kr *KnowledgeRetriever) searchByKeywords(keywords []string, userID uint, projectID uint, workflowID uint, maxResults int) ([]alkaidModels.AlkaidKnowledge, error) {
 	results := make([]alkaidModels.AlkaidKnowledge, 0, maxResults)
 	nodeTypeKeywords := []string{}
 	operationKeywords := []string{}
@@ -197,7 +201,7 @@ func (kr *KnowledgeRetriever) searchByKeywords(keywords []string, userID uint, m
 		if len(results) >= maxResults {
 			break
 		}
-		nodeKnowledge, err := kr.knowledgeService.GetKnowledgeByTarget(nodeType, userID)
+		nodeKnowledge, err := kr.knowledgeService.GetKnowledgeByTargetAndCategoryScoped(nodeType, "", userID, projectID, workflowID, maxResults)
 		if err == nil && len(nodeKnowledge) > 0 {
 			if len(nodeKnowledge) > 2 {
 				nodeKnowledge = nodeKnowledge[:2]
@@ -208,7 +212,13 @@ func (kr *KnowledgeRetriever) searchByKeywords(keywords []string, userID uint, m
 
 	if len(results) < maxResults && len(operationKeywords) > 0 {
 		searchQuery := strings.Join(operationKeywords, " ")
-		searchResults, err := kr.knowledgeService.SearchKnowledge(searchQuery, userID, maxResults-len(results))
+		searchResults, err := kr.knowledgeService.SearchKnowledgeScoped(KnowledgeSearchOptions{
+			Query:      searchQuery,
+			UserID:     userID,
+			Limit:      maxResults - len(results),
+			ProjectID:  projectID,
+			WorkflowID: workflowID,
+		})
 		if err == nil {
 			results = appendDedupKnowledge(results, searchResults, maxResults)
 		}
@@ -221,12 +231,13 @@ func (kr *KnowledgeRetriever) searchByKeywords(keywords []string, userID uint, m
 	return results, nil
 }
 
-func (kr *KnowledgeRetriever) getGeneralKnowledge(userID uint, maxResults int) ([]alkaidModels.AlkaidKnowledge, error) {
+func (kr *KnowledgeRetriever) getGeneralKnowledge(userID uint, projectID uint, workflowID uint, maxResults int) ([]alkaidModels.AlkaidKnowledge, error) {
 	var results []alkaidModels.AlkaidKnowledge
-	err := database.DB.Model(&alkaidModels.AlkaidKnowledge{}).Where(
-		"is_active = ? AND category IN (?) AND (user_id IS NULL OR user_id = ?)",
-		true, []string{"best_practice", "error_repair"}, userID,
-	).Order("category ASC").Limit(maxResults).Find(&results).Error
+	err := applyKnowledgeScope(database.DB.Model(&alkaidModels.AlkaidKnowledge{}), userID, projectID, workflowID).
+		Where("category IN (?)", []string{"best_practice", "error_repair"}).
+		Order("category ASC").
+		Limit(maxResults).
+		Find(&results).Error
 
 	return results, err
 }

@@ -198,11 +198,27 @@ func main() {
 
 			// 项目相关路由
 			projectController := projectControllers.NewProjectController()
+			projectWebsiteSourceController := projectControllers.NewProjectWebsiteSourceController()
+			projectKnowledgeController := alkaidControllers.NewProjectKnowledgeController()
 			auth.GET("/projects", projectController.GetProjectList)
 			auth.GET("/projects/:id", projectController.GetProjectByID)
 			auth.POST("/projects", projectController.CreateProject)
 			auth.PUT("/projects/:id", projectController.UpdateProject)
 			auth.DELETE("/projects/:id", projectController.DeleteProject)
+			auth.GET("/projects/:id/knowledge", projectKnowledgeController.ListKnowledge)
+			auth.POST("/projects/:id/knowledge", projectKnowledgeController.CreateKnowledge)
+			auth.POST("/projects/:id/knowledge/search-test", projectKnowledgeController.SearchTest)
+			auth.GET("/projects/:id/knowledge/:knowledgeId", projectKnowledgeController.GetKnowledge)
+			auth.PUT("/projects/:id/knowledge/:knowledgeId", projectKnowledgeController.UpdateKnowledge)
+			auth.DELETE("/projects/:id/knowledge/:knowledgeId", projectKnowledgeController.DeleteKnowledge)
+			auth.PATCH("/projects/:id/knowledge/:knowledgeId/status", projectKnowledgeController.SetKnowledgeStatus)
+			auth.GET("/projects/:id/sources", projectWebsiteSourceController.ListSources)
+			auth.POST("/projects/:id/sources", projectWebsiteSourceController.CreateSource)
+			auth.GET("/projects/:id/sources/:sourceId", projectWebsiteSourceController.GetSource)
+			auth.PUT("/projects/:id/sources/:sourceId", projectWebsiteSourceController.UpdateSource)
+			auth.DELETE("/projects/:id/sources/:sourceId", projectWebsiteSourceController.DeleteSource)
+			auth.PATCH("/projects/:id/sources/:sourceId/status", projectWebsiteSourceController.SetSourceStatus)
+			auth.POST("/projects/:id/sources/:sourceId/check", projectWebsiteSourceController.CheckSource)
 
 			// 工作流相关路由
 			workflowController := workflowControllers.NewWorkflowController()
@@ -245,6 +261,7 @@ func main() {
 
 			// 导出制品（输出节点生成的文件/图表等）
 			artifactController := artifactControllers.NewArtifactController()
+			auth.GET("/projects/:id/artifacts", artifactController.ListByProject)
 			auth.GET("/tasks/:id/artifacts", artifactController.ListByTask)
 			auth.GET("/artifacts/:id", artifactController.GetByID)
 			auth.GET("/artifacts/:id/download", artifactController.Download)
