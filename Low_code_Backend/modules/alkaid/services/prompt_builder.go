@@ -187,7 +187,7 @@ func (pb *PromptBuilder) writeWorkflowSchema(builder *strings.Builder) {
 	builder.WriteString("  \"source\": \"node-1\",  // 必填：源节点ID\n")
 	builder.WriteString("  \"target\": \"node-2\",  // 必填：目标节点ID\n")
 	builder.WriteString("  \"sourceHandle\": \"true\",  // 可选：条件节点的true/false分支\n")
-	builder.WriteString("  \"targetHandle\": \"input-0\"  // 可选：合并节点的input-0/input-1\n")
+	builder.WriteString("  \"targetHandle\": \"input-0\"  // 可选：merge 节点的 input-0 到 input-4，且要与节点 inputCount 对齐\n")
 	builder.WriteString("}\n")
 	builder.WriteString("```\n")
 }

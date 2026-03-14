@@ -10,29 +10,31 @@ import (
 	alkaidRepos "yaolight-workshop/backend/modules/alkaid/repositories"
 )
 
-// SSEWriter 向 gin 响应写入 SSE 事件（与文档 4.2 一致）
 type SSEWriter struct {
 	ctx                *gin.Context
 	flush              func() error
 	closed             bool
-	sessionID          uint                         // 会话 ID，用于保存工具步
-	userMessageID      uint                         // 当前用户消息ID（用于分组工具步）
-	userMessageContent string                       // 用户消息内容（用于前端展示标题）
-	toolSteps          []alkaidModels.AgentToolStep // 当前会话的工具步列表（内存缓存）
+	sessionID          uint
+	currentPhase       string
+	userMessageID      uint
+	userMessageContent string
+	toolSteps          []alkaidModels.AgentToolStep
+	planSteps          []alkaidModels.AgentPlanStep
 }
 
-// NewSSEWriter 创建 SSE 写入器
 func NewSSEWriter(ctx *gin.Context, sessionID uint, userMessageID uint, userMessageContent string) *SSEWriter {
 	ctx.Header("Content-Type", "text/event-stream")
 	ctx.Header("Cache-Control", "no-cache")
 	ctx.Header("Connection", "keep-alive")
 	ctx.Header("X-Accel-Buffering", "no")
+
 	var flush func() error
 	if f, ok := ctx.Writer.(http.Flusher); ok {
 		flush = func() error { f.Flush(); return nil }
 	} else {
 		flush = func() error { return nil }
 	}
+
 	return &SSEWriter{
 		ctx:                ctx,
 		flush:              flush,
@@ -40,6 +42,7 @@ func NewSSEWriter(ctx *gin.Context, sessionID uint, userMessageID uint, userMess
 		userMessageID:      userMessageID,
 		userMessageContent: userMessageContent,
 		toolSteps:          make([]alkaidModels.AgentToolStep, 0, 50),
+		planSteps:          make([]alkaidModels.AgentPlanStep, 0, 12),
 	}
 }
 
@@ -51,32 +54,159 @@ func (w *SSEWriter) writeEvent(event string, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	w.ctx.Writer.WriteString("event: " + event + "\n")
-	w.ctx.Writer.WriteString("data: " + string(payload) + "\n\n")
+	_, _ = w.ctx.Writer.WriteString("event: " + event + "\n")
+	_, _ = w.ctx.Writer.WriteString("data: " + string(payload) + "\n\n")
 	return w.flush()
 }
 
-// WriteContent 发送 content 事件（assistant 流式文本）
 func (w *SSEWriter) WriteContent(delta string) error {
 	return w.writeEvent("content", alkaidModels.SSEContent{Delta: delta})
 }
 
-// WritePhaseChanged 发送 phase_changed 事件
 func (w *SSEWriter) WritePhaseChanged(phase string) error {
+	w.currentPhase = phase
 	return w.writeEvent("phase_changed", alkaidModels.SSEPhaseChanged{
 		Phase: phase,
 		At:    time.Now().UTC().Format(time.RFC3339Nano),
 	})
 }
 
-// WriteToolStepStarted 发送 tool_step_started 事件，并保存到内存缓存
-func (w *SSEWriter) WriteToolStepStarted(stepID, toolName, phase string) error {
-	now := time.Now().UTC()
-	nowStr := now.Format(time.RFC3339Nano)
+func (w *SSEWriter) WritePlanCreated(steps []alkaidModels.AgentPlanStep) error {
+	w.planSteps = append([]alkaidModels.AgentPlanStep(nil), steps...)
+	return w.writeEvent("plan_created", alkaidModels.SSEPlanCreated{Steps: steps})
+}
 
-	// 添加到内存缓存，包含用户消息信息（用于分组显示）
+func (w *SSEWriter) WritePlanStepStarted(step alkaidModels.AgentPlanStep) error {
+	now := time.Now().UTC()
+	step.UserMessageID = w.userMessageID
+	step.UserMessageContent = w.userMessageContent
+	step.StartedAt = now
+	step.Status = alkaidModels.PlanStepRunning
+
+	found := false
+	for i := range w.planSteps {
+		if w.planSteps[i].PlanStepID == step.PlanStepID {
+			w.planSteps[i] = step
+			found = true
+			break
+		}
+	}
+	if !found {
+		w.planSteps = append(w.planSteps, step)
+	}
+
+	return w.writeEvent("plan_step_started", alkaidModels.SSEPlanStepStarted{
+		PlanStepID:         step.PlanStepID,
+		UserMessageID:      step.UserMessageID,
+		UserMessageContent: step.UserMessageContent,
+		Phase:              step.Phase,
+		Title:              step.Title,
+		Reason:             step.Reason,
+		ExpectedOutput:     step.ExpectedOutput,
+		ToolHints:          step.ToolHints,
+		Status:             step.Status,
+		At:                 now.Format(time.RFC3339Nano),
+	})
+}
+
+func (w *SSEWriter) WritePlanStepUpdated(step alkaidModels.AgentPlanStep) error {
+	now := time.Now().UTC()
+	found := false
+	for i := range w.planSteps {
+		if w.planSteps[i].PlanStepID == step.PlanStepID {
+			if step.UserMessageID == 0 {
+				step.UserMessageID = w.planSteps[i].UserMessageID
+			}
+			if step.UserMessageContent == "" {
+				step.UserMessageContent = w.planSteps[i].UserMessageContent
+			}
+			if step.StartedAt.IsZero() {
+				step.StartedAt = w.planSteps[i].StartedAt
+			}
+			if step.Phase == "" {
+				step.Phase = w.planSteps[i].Phase
+			}
+			if step.Title == "" {
+				step.Title = w.planSteps[i].Title
+			}
+			if step.Reason == "" {
+				step.Reason = w.planSteps[i].Reason
+			}
+			if step.ExpectedOutput == "" {
+				step.ExpectedOutput = w.planSteps[i].ExpectedOutput
+			}
+			if len(step.ToolHints) == 0 {
+				step.ToolHints = w.planSteps[i].ToolHints
+			}
+			if step.Status == "" {
+				step.Status = w.planSteps[i].Status
+			}
+			if step.ResultSummary == "" {
+				step.ResultSummary = w.planSteps[i].ResultSummary
+			}
+			if step.ErrorMessage == "" {
+				step.ErrorMessage = w.planSteps[i].ErrorMessage
+			}
+			if step.FinishedAt == nil {
+				step.FinishedAt = w.planSteps[i].FinishedAt
+			}
+			w.planSteps[i] = step
+			found = true
+			break
+		}
+	}
+	if !found {
+		step.UserMessageID = w.userMessageID
+		step.UserMessageContent = w.userMessageContent
+		if step.StartedAt.IsZero() {
+			step.StartedAt = now
+		}
+		w.planSteps = append(w.planSteps, step)
+	}
+
+	return w.writeEvent("plan_step_updated", alkaidModels.SSEPlanStepUpdated{
+		PlanStepID:     step.PlanStepID,
+		Phase:          step.Phase,
+		Title:          step.Title,
+		Reason:         step.Reason,
+		ExpectedOutput: step.ExpectedOutput,
+		ToolHints:      step.ToolHints,
+		Status:         step.Status,
+		ResultSummary:  step.ResultSummary,
+		ErrorMessage:   step.ErrorMessage,
+		At:             now.Format(time.RFC3339Nano),
+	})
+}
+
+func (w *SSEWriter) WritePlanStepFinished(planStepID, status, resultSummary, errorMessage string) error {
+	now := time.Now().UTC()
+	for i := range w.planSteps {
+		if w.planSteps[i].PlanStepID == planStepID {
+			w.planSteps[i].Status = status
+			w.planSteps[i].FinishedAt = &now
+			w.planSteps[i].ResultSummary = resultSummary
+			w.planSteps[i].ErrorMessage = errorMessage
+			break
+		}
+	}
+	return w.writeEvent("plan_step_finished", alkaidModels.SSEPlanStepFinished{
+		PlanStepID:    planStepID,
+		Status:        status,
+		ResultSummary: resultSummary,
+		ErrorMessage:  errorMessage,
+		At:            now.Format(time.RFC3339Nano),
+	})
+}
+
+func (w *SSEWriter) WriteToolStepStarted(stepID, toolName, phase string) error {
+	return w.WriteToolStepStartedWithPlan(stepID, toolName, phase, "")
+}
+
+func (w *SSEWriter) WriteToolStepStartedWithPlan(stepID, toolName, phase, planStepID string) error {
+	now := time.Now().UTC()
 	step := alkaidModels.AgentToolStep{
 		StepID:             stepID,
+		PlanStepID:         planStepID,
 		UserMessageID:      w.userMessageID,
 		UserMessageContent: w.userMessageContent,
 		Phase:              phase,
@@ -86,23 +216,19 @@ func (w *SSEWriter) WriteToolStepStarted(stepID, toolName, phase string) error {
 	}
 	w.toolSteps = append(w.toolSteps, step)
 
-	// 发送 SSE 事件（包含 userMessageId 用于前端分组显示）
 	return w.writeEvent("tool_step_started", alkaidModels.SSEToolStepStarted{
 		StepID:             stepID,
+		PlanStepID:         planStepID,
 		UserMessageID:      w.userMessageID,
 		UserMessageContent: w.userMessageContent,
 		ToolName:           toolName,
 		Phase:              phase,
-		At:                 nowStr,
+		At:                 now.Format(time.RFC3339Nano),
 	})
 }
 
-// WriteToolStepFinished 发送 tool_step_finished 事件，并更新内存缓存
 func (w *SSEWriter) WriteToolStepFinished(stepID, status, resultSummary, errorMessage string) error {
 	now := time.Now().UTC()
-	nowStr := now.Format(time.RFC3339Nano)
-
-	// 更新内存缓存中的工具步
 	for i := range w.toolSteps {
 		if w.toolSteps[i].StepID == stepID {
 			w.toolSteps[i].Status = status
@@ -114,18 +240,15 @@ func (w *SSEWriter) WriteToolStepFinished(stepID, status, resultSummary, errorMe
 			break
 		}
 	}
-
-	// 发送 SSE 事件
 	return w.writeEvent("tool_step_finished", alkaidModels.SSEToolStepFinished{
 		StepID:        stepID,
 		Status:        status,
 		ResultSummary: resultSummary,
 		ErrorMessage:  errorMessage,
-		At:            nowStr,
+		At:            now.Format(time.RFC3339Nano),
 	})
 }
 
-// WritePendingWorkflow 发送 pending_workflow 事件
 func (w *SSEWriter) WritePendingWorkflow(nodeCount, edgeCount int) error {
 	data := alkaidModels.SSEPendingWorkflow{}
 	data.Summary.NodeCount = nodeCount
@@ -133,31 +256,26 @@ func (w *SSEWriter) WritePendingWorkflow(nodeCount, edgeCount int) error {
 	return w.writeEvent("pending_workflow", data)
 }
 
-// WritePendingPatch 发送 pending_patch 事件
 func (w *SSEWriter) WritePendingPatch(patchCount int) error {
 	return w.writeEvent("pending_patch", alkaidModels.SSEPendingPatch{PatchCount: patchCount})
 }
 
-// WriteDone 发送 done 事件
 func (w *SSEWriter) WriteDone() error {
 	return w.writeEvent("done", alkaidModels.SSEDone{})
 }
 
-// WriteError 发送 error 事件
 func (w *SSEWriter) WriteError(message string) error {
 	return w.writeEvent("error", alkaidModels.SSEError{Message: message})
 }
 
-// WriteInterrupted 发送 interrupted 事件（客户端断开或主动打断）
 func (w *SSEWriter) WriteInterrupted() error {
 	return w.writeEvent("interrupted", alkaidModels.SSEInterrupted{
 		At: time.Now().UTC().Format(time.RFC3339Nano),
 	})
 }
 
-// SaveToolStepsToSession 将当前缓存的工具步保存到数据库
-func (w *SSEWriter) SaveToolStepsToSession() error {
-	if w.sessionID == 0 || len(w.toolSteps) == 0 {
+func (w *SSEWriter) SaveProgressToSession() error {
+	if w.sessionID == 0 {
 		return nil
 	}
 
@@ -167,36 +285,58 @@ func (w *SSEWriter) SaveToolStepsToSession() error {
 		return err
 	}
 
-	// 读取已有的工具步（如果有）
-	var existingSteps []alkaidModels.AgentToolStep
+	var existingToolSteps []alkaidModels.AgentToolStep
 	if session.ToolStepsJSON.Data != nil {
 		if stepsData, ok := session.ToolStepsJSON.Data.([]interface{}); ok {
-			for _, s := range stepsData {
-				if stepMap, ok := s.(map[string]interface{}); ok {
-					existingSteps = append(existingSteps, mapToAgentToolStep(stepMap))
+			for _, raw := range stepsData {
+				if stepMap, ok := raw.(map[string]interface{}); ok {
+					existingToolSteps = append(existingToolSteps, mapToAgentToolStep(stepMap))
 				}
 			}
 		}
 	}
 
-	// 合并新的工具步（追加到末尾）
-	allSteps := append(existingSteps, w.toolSteps...)
-
-	// 限制最多保存 100 条工具步（避免数据过大）
-	if len(allSteps) > 100 {
-		allSteps = allSteps[len(allSteps)-100:]
+	if len(w.toolSteps) > 0 {
+		allToolSteps := append(existingToolSteps, w.toolSteps...)
+		if len(allToolSteps) > 100 {
+			allToolSteps = allToolSteps[len(allToolSteps)-100:]
+		}
+		session.ToolStepsJSON.Data = allToolSteps
 	}
 
-	// 保存到数据库
-	session.ToolStepsJSON.Data = allSteps
+	var existingPlanSteps []alkaidModels.AgentPlanStep
+	if session.PlanStepsJSON.Data != nil {
+		if stepsData, ok := session.PlanStepsJSON.Data.([]interface{}); ok {
+			for _, raw := range stepsData {
+				if stepMap, ok := raw.(map[string]interface{}); ok {
+					existingPlanSteps = append(existingPlanSteps, mapToAgentPlanStep(stepMap))
+				}
+			}
+		}
+	}
+
+	if len(w.planSteps) > 0 {
+		allPlanSteps := append(existingPlanSteps, w.planSteps...)
+		if len(allPlanSteps) > 100 {
+			allPlanSteps = allPlanSteps[len(allPlanSteps)-100:]
+		}
+		session.PlanStepsJSON.Data = allPlanSteps
+	}
+
+	if w.currentPhase != "" {
+		session.CurrentPhase = w.currentPhase
+	}
+
 	return repo.UpdateSession(session)
 }
 
-// mapToAgentToolStep 将 map 转换为 AgentToolStep
 func mapToAgentToolStep(m map[string]interface{}) alkaidModels.AgentToolStep {
 	step := alkaidModels.AgentToolStep{}
 	if v, ok := m["stepId"].(string); ok {
 		step.StepID = v
+	}
+	if v, ok := m["planStepId"].(string); ok {
+		step.PlanStepID = v
 	}
 	if v, ok := m["userMessageId"].(float64); ok {
 		step.UserMessageID = uint(v)
@@ -232,11 +372,64 @@ func mapToAgentToolStep(m map[string]interface{}) alkaidModels.AgentToolStep {
 	return step
 }
 
-// Close 标记写入器已关闭，并保存工具步到数据库
-func (w *SSEWriter) Close() {
-	if !w.closed {
-		// 保存工具步到数据库
-		_ = w.SaveToolStepsToSession()
-		w.closed = true
+func mapToAgentPlanStep(m map[string]interface{}) alkaidModels.AgentPlanStep {
+	step := alkaidModels.AgentPlanStep{}
+	if v, ok := m["planStepId"].(string); ok {
+		step.PlanStepID = v
 	}
+	if v, ok := m["userMessageId"].(float64); ok {
+		step.UserMessageID = uint(v)
+	}
+	if v, ok := m["userMessageContent"].(string); ok {
+		step.UserMessageContent = v
+	}
+	if v, ok := m["phase"].(string); ok {
+		step.Phase = v
+	}
+	if v, ok := m["title"].(string); ok {
+		step.Title = v
+	}
+	if v, ok := m["reason"].(string); ok {
+		step.Reason = v
+	}
+	if v, ok := m["expectedOutput"].(string); ok {
+		step.ExpectedOutput = v
+	}
+	if hints, ok := m["toolHints"].([]interface{}); ok {
+		toolHints := make([]string, 0, len(hints))
+		for _, raw := range hints {
+			if hint, ok := raw.(string); ok {
+				toolHints = append(toolHints, hint)
+			}
+		}
+		step.ToolHints = toolHints
+	}
+	if v, ok := m["status"].(string); ok {
+		step.Status = v
+	}
+	if v, ok := m["startedAt"].(string); ok {
+		if t, err := time.Parse(time.RFC3339Nano, v); err == nil {
+			step.StartedAt = t
+		}
+	}
+	if v, ok := m["finishedAt"].(string); ok {
+		if t, err := time.Parse(time.RFC3339Nano, v); err == nil {
+			step.FinishedAt = &t
+		}
+	}
+	if v, ok := m["resultSummary"].(string); ok {
+		step.ResultSummary = v
+	}
+	if v, ok := m["errorMessage"].(string); ok {
+		step.ErrorMessage = v
+	}
+	return step
+}
+
+func (w *SSEWriter) Close() {
+	if w.closed {
+		return
+	}
+	_ = w.SaveProgressToSession()
+	w.closed = true
 }

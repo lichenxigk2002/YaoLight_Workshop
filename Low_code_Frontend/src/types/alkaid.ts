@@ -1,6 +1,7 @@
 /**
  * Alkaid AI 助手相关类型定义
  */
+import type { AgentPlanStep } from '@/components/Alkaid/types';
 
 /**
  * Phase 类型
@@ -57,6 +58,7 @@ export interface Session {
   status: string;
   currentPhase?: Phase;
   toolSteps?: AgentToolStep[];
+  planSteps?: AgentPlanStep[];
   pendingWorkflow?: unknown;
   pendingPatch?: unknown[];
   createdAt: string;
@@ -98,5 +100,6 @@ export interface GetSessionsResponse {
 export interface GetMessagesResponse {
   messages: Message[];
   toolSteps: AgentToolStep[];
+  planSteps: AgentPlanStep[];
 }
 

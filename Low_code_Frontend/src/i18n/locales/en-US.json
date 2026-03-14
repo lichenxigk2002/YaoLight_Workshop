@@ -545,6 +545,7 @@
         "loopCondition": "Loop Condition (while type)"
       },
       "merge": {
+        "inputCount": "Input Count",
         "mergeType": "Merge Type",
         "concat": "Concat",
         "union": "Union",

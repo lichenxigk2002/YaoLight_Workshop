@@ -543,6 +543,7 @@
         "loopCondition": "循环条件（while类型）"
       },
       "merge": {
+        "inputCount": "输入端口数量",
         "mergeType": "合并方式",
         "concat": "拼接 (concat)",
         "union": "并集 (union)",

@@ -16,6 +16,15 @@ export const MergeNodeConfig: React.FC = () => {
           <Option value="intersect">{t('node.config.merge.intersect')}</Option>
         </Select>
       </Form.Item>
+      <Form.Item label={t('node.config.merge.inputCount')} name="inputCount" initialValue={3}>
+        <Select>
+          <Option value={1}>1</Option>
+          <Option value={2}>2</Option>
+          <Option value={3}>3</Option>
+          <Option value={4}>4</Option>
+          <Option value={5}>5</Option>
+        </Select>
+      </Form.Item>
     </>
   );
 };

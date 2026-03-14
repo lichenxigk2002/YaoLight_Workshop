@@ -29,6 +29,27 @@ func TestParseDSMLToolCalls(t *testing.T) {
 	}
 }
 
+func TestParseDSMLToolCallsKeepsScalarTypes(t *testing.T) {
+	content := `<｜DSML｜function_calls>
+<｜DSML｜invoke name="check_url_accessibility">
+<｜DSML｜parameter name="url" string="true">https://baike.baidu.com/item/%E5%85%B3%E7%BE%BD</｜DSML｜parameter>
+<｜DSML｜parameter name="timeoutMs" string="false">10000</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜function_calls>`
+
+	_, toolCalls, ok := parseDSMLToolCalls(content)
+	if !ok {
+		t.Fatalf("expected DSML tool call to be parsed")
+	}
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(toolCalls))
+	}
+	expectedArgs := `{"timeoutMs":10000,"url":"https://baike.baidu.com/item/%E5%85%B3%E7%BE%BD"}`
+	if toolCalls[0].Function.Arguments != expectedArgs {
+		t.Fatalf("unexpected tool args: %s", toolCalls[0].Function.Arguments)
+	}
+}
+
 func TestParseDSMLToolCallsNoMatch(t *testing.T) {
 	content := "普通文本回复"
 	cleanContent, toolCalls, ok := parseDSMLToolCalls(content)

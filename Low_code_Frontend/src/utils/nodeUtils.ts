@@ -52,6 +52,7 @@ export function getDefaultConfig(type: string): any {
     case 'merge':
       return {
         mergeType: 'concat', // concat, union, intersect
+        inputCount: 3,
       };
     case 'delay':
       return {
