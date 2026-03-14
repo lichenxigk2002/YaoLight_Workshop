@@ -3,12 +3,22 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
 	"yaolight-workshop/backend/modules/workflow/services"
 )
 
 // CapabilitiesService 瑶光星能力说明服务
 // 负责聚合所有节点规格、I/O定义、配置规则等信息，供AI生成工作流时使用
 type CapabilitiesService struct{}
+
+var capabilitiesCache = struct {
+	sync.RWMutex
+	value     *WorkflowCapabilities
+	expiresAt time.Time
+}{}
+
+const capabilitiesCacheTTL = 15 * time.Second
 
 // NodeCapability 节点能力定义
 type NodeCapability struct {
@@ -91,6 +101,14 @@ func NewCapabilitiesService() *CapabilitiesService {
 // GetCapabilities 获取完整的能力说明文档
 // 现在会自动从源代码提取配置，无需手动维护
 func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
+	now := time.Now()
+	capabilitiesCache.RLock()
+	if capabilitiesCache.value != nil && now.Before(capabilitiesCache.expiresAt) {
+		cached, err := cloneWorkflowCapabilities(capabilitiesCache.value)
+		capabilitiesCache.RUnlock()
+		return cached, err
+	}
+	capabilitiesCache.RUnlock()
 	// 1. 构建节点能力列表（基础定义）
 	nodeTypes := s.buildNodeCapabilities()
 
@@ -156,13 +174,24 @@ func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
 		},
 	}
 
-	return &WorkflowCapabilities{
+	result := &WorkflowCapabilities{
 		Version:        "1.0.0",
 		WorkflowSchema: workflowSchema,
 		NodeTypes:      nodeTypes,
 		Template:       template,
 		Rules:          rules,
-	}, nil
+	}
+
+	cloned, err := cloneWorkflowCapabilities(result)
+	if err != nil {
+		return nil, err
+	}
+	capabilitiesCache.Lock()
+	capabilitiesCache.value = cloned
+	capabilitiesCache.expiresAt = now.Add(capabilitiesCacheTTL)
+	capabilitiesCache.Unlock()
+
+	return result, nil
 }
 
 // buildNodeCapabilities 构建节点能力列表
@@ -572,4 +601,22 @@ func (s *CapabilitiesService) BuildPromptContext() (string, error) {
 	}
 
 	return string(jsonData), nil
+}
+
+func cloneWorkflowCapabilities(capabilities *WorkflowCapabilities) (*WorkflowCapabilities, error) {
+	if capabilities == nil {
+		return nil, nil
+	}
+
+	data, err := json.Marshal(capabilities)
+	if err != nil {
+		return nil, err
+	}
+
+	var cloned WorkflowCapabilities
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil, err
+	}
+
+	return &cloned, nil
 }

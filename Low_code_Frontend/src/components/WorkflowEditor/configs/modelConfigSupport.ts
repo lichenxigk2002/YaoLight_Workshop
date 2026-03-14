@@ -76,7 +76,7 @@ export function getMaxTokensLimitFallback(
   if (!provider) return 32768;
   const p = provider.toLowerCase();
   if (p === 'deepseek') {
-    return modelName?.includes('reasoner') ? 65536 : 8192;
+    return 8192;
   }
   if (p === 'doubao') return 32768;
   if (p === 'zhipuai') return 131072;

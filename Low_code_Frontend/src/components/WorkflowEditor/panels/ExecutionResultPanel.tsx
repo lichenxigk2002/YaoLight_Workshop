@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
+import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
 import { ProviderIcon, MessageIcon, CollapseIcon } from '@/components/Icons';
 import { AIPreviewModal } from './components/AIPreviewModal';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
@@ -37,6 +38,13 @@ const canPreviewArtifact = (mimeType: string) => {
   );
 };
 
+/** 是否为 Mermaid 图制品（.mmd 或 kind=mermaid 或内容为纯 mermaid 源码） */
+const isMermaidArtifact = (a: { name?: string; kind?: string }, content: string) => {
+  const name = (a?.name || '').toLowerCase();
+  const kind = (a?.kind || '').toLowerCase();
+  return name.endsWith('.mmd') || kind === 'mermaid' || (!!content && looksLikeMermaid(content));
+};
+
 const getTokenForFetch = () => {
   try {
     const authStorage = localStorage.getItem('auth-storage');
@@ -56,9 +64,12 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
   const [content, setContent] = useState('');
   const [smartContent, setSmartContent] = useState<any>(null);
 
+  const [previewArtifactMeta, setPreviewArtifactMeta] = useState<{ name?: string; kind?: string } | null>(null);
+
   const previewArtifact = async (a: any) => {
     const downloadUrl = normalizeDownloadPathForHttp(a.downloadUrl || '');
     if (!downloadUrl) return;
+    setPreviewArtifactMeta({ name: a.name, kind: a.kind });
     const token = getTokenForFetch();
     try {
       const baseURL = import.meta.env.VITE_BASE_URL || '/api';
@@ -171,13 +182,24 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
           />
         </div>
       );
-    } else if (mime.toLowerCase().includes('markdown')) {
-      return <MarkdownRenderer content={content} />;
-    } else if (mime.toLowerCase().includes('application/json')) {
-      return <pre className={styles.jsonDisplay}>{content}</pre>;
-    } else {
-      return <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{content}</Paragraph>;
     }
+    if (mime.toLowerCase().includes('markdown')) {
+      return <MarkdownRenderer content={content} />;
+    }
+    // Mermaid 图：纯 .mmd 或 kind=mermaid，渲染图表并支持保存为 PNG
+    if (content && previewArtifactMeta && isMermaidArtifact(previewArtifactMeta, content)) {
+      return (
+        <MermaidRenderer
+          content={content}
+          showSavePng={true}
+          downloadName={title ? title.replace(/\.[^/.]+$/, '') : 'mermaid-diagram'}
+        />
+      );
+    }
+    if (mime.toLowerCase().includes('application/json')) {
+      return <pre className={styles.jsonDisplay}>{content}</pre>;
+    }
+    return <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{content}</Paragraph>;
   };
 
   return (
@@ -247,7 +269,7 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
       <Modal
         title={title}
         open={open}
-        onCancel={() => setOpen(false)}
+        onCancel={() => { setOpen(false); setPreviewArtifactMeta(null); }}
         footer={smartContent ? [
           <Button key="close" onClick={() => setOpen(false)}>关闭</Button>,
           <Button key="download-smart" type="primary" icon={<DownloadOutlined />} onClick={downloadSmartContent}>

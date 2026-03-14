@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -15,7 +16,7 @@ type ConfigField struct {
 	Type         string      `json:"type"`         // 类型: string, int, bool, uint, float64, object, array
 	DefaultValue interface{} `json:"defaultValue"` // 默认值
 	Required     bool        `json:"required"`     // 是否必填
-	Description  string      `json:"description"` // 描述（从注释提取）
+	Description  string      `json:"description"`  // 描述（从注释提取）
 	AllowVars    bool        `json:"allowVars"`    // 是否允许变量引用
 	EnumValues   []string    `json:"enumValues"`   // 枚举值（如果适用）
 }
@@ -40,6 +41,9 @@ func NewConfigExtractor() *ConfigExtractor {
 	// config_extractor.go 在 modules/alkaid/services/
 	// 目标目录是 modules/workflow/services/
 	workflowServicesPath := filepath.Join("..", "..", "workflow", "services")
+	if _, currentFile, _, ok := runtime.Caller(0); ok {
+		workflowServicesPath = filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..", "workflow", "services"))
+	}
 	return &ConfigExtractor{
 		workflowServicesPath: workflowServicesPath,
 	}
@@ -58,12 +62,15 @@ func (e *ConfigExtractor) ExtractNodeConfigs() (map[string]*NodeConfigDefinition
 		"output":    "output_node.go",
 		"end":       "end_node.go",
 		"condition": "condition_node.go",
+		"transform": "transform_node.go",
+		"loop":      "loop_node.go",
 		"merge":     "merge_node.go",
+		"delay":     "delay_node.go",
 		// 可以继续添加其他节点类型
 	}
 
 	// 获取绝对路径
-	basePath, err := os.Getwd()
+	basePath, err := "", error(nil)
 	if err != nil {
 		return nil, fmt.Errorf("获取工作目录失败: %w", err)
 	}
@@ -71,7 +78,7 @@ func (e *ConfigExtractor) ExtractNodeConfigs() (map[string]*NodeConfigDefinition
 	// 遍历每个节点文件
 	for nodeType, fileName := range nodeFiles {
 		filePath := filepath.Join(basePath, e.workflowServicesPath, fileName)
-		
+
 		// 检查文件是否存在
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			continue // 文件不存在，跳过
@@ -213,7 +220,7 @@ func (e *ConfigExtractor) parseDefaultValue(valueStr, fieldType string) interfac
 func (e *ConfigExtractor) checkAllowVarsRegex(source, fieldName string) bool {
 	// 查找 ResolveTemplate 或 ResolveTemplateToInterface 调用
 	// 如果字段名出现在这些调用中，说明允许变量引用
-	
+
 	// 匹配 ResolveTemplate(variableContext.ResolveTemplate, "fieldName" 或 fieldNameVariable)
 	resolvePattern := regexp.MustCompile(`ResolveTemplate(ToInterface)?\s*\([^)]*` + regexp.QuoteMeta(fieldName))
 	if resolvePattern.MatchString(source) {
@@ -280,12 +287,11 @@ func (e *ConfigExtractor) checkAllowVars(file interface{}, fieldName string) boo
 	return false
 }
 
-
 // ExtractEnumValues 提取枚举值（从代码中的switch语句或if-else链）
 // 使用正则表达式版本
 func (e *ConfigExtractor) ExtractEnumValues(source string, fieldName string) []string {
 	var enumValues []string
-	
+
 	// 查找switch语句中的case值
 	// 匹配 switch fieldName { case "value1": case "value2": }
 	switchPattern := regexp.MustCompile(`switch\s+[^{]*` + regexp.QuoteMeta(fieldName) + `[^{]*\{[^}]*case\s+"([^"]+)"`)
@@ -316,12 +322,11 @@ func (e *ConfigExtractor) ExtractEnumValues(source string, fieldName string) []s
 	return enumValues
 }
 
-
 // UpdateCapabilitiesFromSource 从源代码更新Capabilities
 // 这是主要的入口函数，会被CapabilitiesService调用
 func UpdateCapabilitiesFromSource(capabilities *WorkflowCapabilities) error {
 	extractor := NewConfigExtractor()
-	
+
 	// 提取所有节点配置
 	nodeConfigs, err := extractor.ExtractNodeConfigs()
 	if err != nil {
@@ -397,4 +402,3 @@ func UpdateCapabilitiesFromSource(capabilities *WorkflowCapabilities) error {
 
 	return nil
 }
-

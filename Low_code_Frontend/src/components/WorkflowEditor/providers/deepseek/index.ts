@@ -10,7 +10,7 @@ providerRegistry.register({
   displayName: 'DeepSeek',
   configuration: [
     { type: 'temperature', props: { defaultValue: 1.0 } },
-    { type: 'maxTokens', props: { defaultValue: 2000, max: 65536 } },
+    { type: 'maxTokens', props: { defaultValue: 2000, max: 8192 } },
     { type: 'topP', props: { defaultValue: 1.0 } },
     { type: 'stream', props: { defaultValue: false } },
     { type: 'thinking', props: { defaultValue: false } },

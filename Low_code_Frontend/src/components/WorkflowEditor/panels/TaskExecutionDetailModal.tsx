@@ -26,6 +26,7 @@ import {
   FileTextOutlined,
   CodeOutlined,
   MailOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -35,6 +36,7 @@ import { workflowApi } from '@/api/workflow';
 import { taskApi } from '@/api/task';
 import http from '@/http';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
+import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
 import { ProviderIcon } from '@/components/Icons';
 import styles from './TaskExecutionDetailModal.module.scss';
 
@@ -52,6 +54,17 @@ const normalizeDownloadPathForHttp = (p: string) => {
   return p.startsWith('/api/') ? p.replace(/^\/api/, '') : p;
 };
 
+const getTokenForFetch = () => {
+  try {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      const authData = JSON.parse(authStorage);
+      return authData.state?.token || null;
+    }
+  } catch { }
+  return null;
+};
+
 /**
  * 数据展示组件
  */
@@ -64,9 +77,13 @@ const DataViewer: React.FC<{
 }> = ({ title, data, filename, nodeType, taskId }) => {
   const { message } = App.useApp();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'preview' | 'json'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'json' | 'artifacts'>('preview');
   const [sendEmailModalOpen, setSendEmailModalOpen] = useState(false);
   const [sendEmailForm] = Form.useForm();
+  const [artifactPreviewOpen, setArtifactPreviewOpen] = useState(false);
+  const [artifactPreviewContent, setArtifactPreviewContent] = useState('');
+  const [artifactPreviewTitle, setArtifactPreviewTitle] = useState('');
+  const [artifactPreviewMeta, setArtifactPreviewMeta] = useState<{ name?: string; kind?: string } | null>(null);
 
   const isAI = nodeType === 'ai';
   const isOutput = nodeType === 'output';
@@ -344,8 +361,35 @@ const DataViewer: React.FC<{
     }
   };
 
+  const isMermaidArtifact = (a: { name?: string; kind?: string }, content: string) => {
+    const name = (a?.name || '').toLowerCase();
+    const kind = (a?.kind || '').toLowerCase();
+    return name.endsWith('.mmd') || kind === 'mermaid' || (!!content && looksLikeMermaid(content));
+  };
+
+  const handlePreviewArtifact = async (a: any) => {
+    const downloadUrl = normalizeDownloadPathForHttp(a.downloadUrl || '');
+    if (!downloadUrl) return;
+    const baseURL = import.meta.env.VITE_BASE_URL || '/api';
+    const base = baseURL.replace(/\/$/, '');
+    const fullUrl = base.startsWith('http') ? `${base}${downloadUrl}` : `${base}${downloadUrl}`;
+    try {
+      const resp = await fetch(fullUrl, {
+        headers: { ...(getTokenForFetch() ? { Authorization: `Bearer ${getTokenForFetch()}` } : {}) },
+      });
+      if (!resp.ok) return;
+      const text = await resp.text();
+      setArtifactPreviewTitle(a.name || '预览');
+      setArtifactPreviewContent(text);
+      setArtifactPreviewMeta({ name: a.name, kind: a.kind });
+      setArtifactPreviewOpen(true);
+    } catch {
+      message.error('加载制品失败');
+    }
+  };
+
   if ((isAI || isOutput) && hasContent) {
-    const tabItems = [
+    const tabItems: { key: string; label: React.ReactNode; children: React.ReactNode }[] = [
       {
         key: 'preview',
         label: (
@@ -410,6 +454,62 @@ const DataViewer: React.FC<{
       },
     ];
 
+    if (isOutput && artifacts.length > 0) {
+      tabItems.push({
+        key: 'artifacts',
+        label: (
+          <Space>
+            <FileTextOutlined />
+            <span>导出制品</span>
+            <Tag>{artifacts.length}</Tag>
+          </Space>
+        ),
+        children: (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {artifacts.map((a: any) => (
+              <div
+                key={String(a.id || a.name)}
+                style={{
+                  border: '1px solid var(--border-secondary, #e8e8e8)',
+                  borderRadius: 8,
+                  padding: 10,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <Text strong>{a.name || `#${a.id}`}</Text>
+                  <div style={{ marginTop: 4 }}>
+                    {a.kind && <Tag>{a.kind}</Tag>}
+                    {a.mimeType && <Tag color="geekblue">{a.mimeType}</Tag>}
+                  </div>
+                </div>
+                <Space>
+                  {(a.mimeType || '').toLowerCase().includes('text/') || (a.mimeType || '').toLowerCase().includes('markdown') ? (
+                    <Button size="small" icon={<EyeOutlined />} onClick={() => handlePreviewArtifact(a)}>
+                      预览
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    onClick={() => {
+                      const p = normalizeDownloadPathForHttp(a.downloadUrl || '');
+                      if (!p) return;
+                      http.download(p, undefined, a.name);
+                    }}
+                  >
+                    下载
+                  </Button>
+                </Space>
+              </div>
+            ))}
+          </div>
+        ),
+      });
+    }
+
     return (
       <div className={styles.dataViewer}>
         <div className={styles.dataHeader}>
@@ -445,9 +545,33 @@ const DataViewer: React.FC<{
         <Tabs
           items={tabItems}
           activeKey={activeTab}
-          onChange={(key) => setActiveTab(key as 'preview' | 'json')}
+          onChange={(key) => setActiveTab(key as 'preview' | 'json' | 'artifacts')}
           size="small"
         />
+        {artifactPreviewOpen && (
+          <Modal
+            title={artifactPreviewTitle}
+            open={artifactPreviewOpen}
+            onCancel={() => {
+              setArtifactPreviewOpen(false);
+              setArtifactPreviewMeta(null);
+            }}
+            footer={null}
+            width={720}
+            centered
+            destroyOnClose
+          >
+            {artifactPreviewContent && artifactPreviewMeta && isMermaidArtifact(artifactPreviewMeta, artifactPreviewContent) ? (
+              <MermaidRenderer
+                content={artifactPreviewContent}
+                showSavePng={true}
+                downloadName={artifactPreviewTitle ? artifactPreviewTitle.replace(/\.[^/.]+$/, '') : 'diagram'}
+              />
+            ) : (
+              <MarkdownRenderer content={artifactPreviewContent} />
+            )}
+          </Modal>
+        )}
         {isOutput && taskId && (
           <Modal
             open={sendEmailModalOpen}

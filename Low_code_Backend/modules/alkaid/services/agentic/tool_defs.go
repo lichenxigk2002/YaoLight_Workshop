@@ -32,6 +32,29 @@ func GetToolDefsForLLM() []providers.ToolDef {
 		{
 			Type: "function",
 			Function: &providers.ToolDefFunc{
+				Name:        "check_url_accessibility",
+				Description: "检查某个 URL 是否适合作为 crawler 节点的数据源。会判断链接是否可访问、是否为正文 HTML 页面、是否像搜索页或登录页、以及是否可能强依赖前端脚本渲染。只要准备生成或修改 crawler 节点，且涉及外部网站 URL，就应该先调用这个工具确认站点可抓取。",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"url": map[string]interface{}{
+							"type":        "string",
+							"description": "待检测的完整 URL，必须是 http 或 https 链接",
+						},
+						"timeoutMs": map[string]interface{}{
+							"type":        "integer",
+							"description": "可选。检测超时时间，单位毫秒，默认 8000",
+							"minimum":     1000,
+							"maximum":     15000,
+						},
+					},
+					"required": []string{"url"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
 				Name:        "get_capabilities",
 				Description: "获取工作流能力说明：支持的节点类型、工作流 JSON 格式规范、连接规则、变量引用语法等。在需要生成工作流前调用以了解技术规范。",
 				Parameters: map[string]interface{}{
