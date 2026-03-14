@@ -9,6 +9,7 @@ import (
 // executeMergeNode 执行合并节点
 func (e *WorkflowExecutor) executeMergeNode(node NodeConfig, dataFlow *DataFlow) NodeExecutionResult {
 	mergeType := strings.ToLower(strings.TrimSpace(getString(node.Config, "mergeType", "concat")))
+	inputCount := normalizeMergeInputCount(getInt(node.Config, "inputCount", 3))
 
 	inputsWithEdges, err := dataFlow.GetNodeInputWithEdges(node.ID)
 	if err != nil {
@@ -28,9 +29,8 @@ func (e *WorkflowExecutor) executeMergeNode(node NodeConfig, dataFlow *DataFlow)
 		}
 	}
 
-	ordered := make([]*NodeData, 0, len(inputsWithEdges))
+	ordered := make([]*NodeData, 0, inputCount)
 	indexed := make(map[int]*NodeData)
-	maxIdx := -1
 	fallback := make([]*NodeData, 0)
 	for _, it := range inputsWithEdges {
 		if it.Data == nil {
@@ -40,21 +40,26 @@ func (e *WorkflowExecutor) executeMergeNode(node NodeConfig, dataFlow *DataFlow)
 		if strings.HasPrefix(th, "input-") {
 			nStr := strings.TrimPrefix(th, "input-")
 			if n, err := strconv.Atoi(nStr); err == nil && n >= 0 {
-				indexed[n] = it.Data
-				if n > maxIdx {
-					maxIdx = n
+				if n >= inputCount {
+					continue
 				}
+				indexed[n] = it.Data
 				continue
 			}
 		}
 		fallback = append(fallback, it.Data)
 	}
-	for i := 0; i <= maxIdx; i++ {
+	for i := 0; i < inputCount; i++ {
 		if v, ok := indexed[i]; ok {
 			ordered = append(ordered, v)
 		}
 	}
-	ordered = append(ordered, fallback...)
+	for _, item := range fallback {
+		if len(ordered) >= inputCount {
+			break
+		}
+		ordered = append(ordered, item)
+	}
 	if len(ordered) == 0 {
 		return NodeExecutionResult{
 			NodeID:  node.ID,
@@ -85,6 +90,16 @@ func (e *WorkflowExecutor) executeMergeNode(node NodeConfig, dataFlow *DataFlow)
 			"merged": mergedPayload,
 		},
 	}
+}
+
+func normalizeMergeInputCount(inputCount int) int {
+	if inputCount < 1 {
+		return 1
+	}
+	if inputCount > 5 {
+		return 5
+	}
+	return inputCount
 }
 
 func mergePayloads(mergeType string, inputs []*NodeData) (interface{}, error) {

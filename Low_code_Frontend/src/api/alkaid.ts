@@ -2,11 +2,11 @@ import http from '@/http';
 import type {
   CreateSessionRequest,
   Session,
-  Message,
   SendMessageResponse,
   GetSessionsResponse,
   GetMessagesResponse,
 } from '@/types/alkaid';
+import type { AgentPlanStep, PendingPatchSummary } from '@/components/Alkaid/types';
 import { createSSEReader } from '@/utils/sseUtils';
 
 /**
@@ -137,10 +137,14 @@ export const alkaidApi = {
     callbacks: {
       onContent?: (delta: string) => void;
       onPhaseChanged?: (phase: string) => void;
-      onToolStepStarted?: (data: { stepId: string; toolName: string; phase: string }) => void;
+      onPlanCreated?: (data: { steps: AgentPlanStep[] }) => void;
+      onPlanStepStarted?: (data: any) => void;
+      onPlanStepUpdated?: (data: any) => void;
+      onPlanStepFinished?: (data: any) => void;
+      onToolStepStarted?: (data: { stepId: string; planStepId?: string; toolName: string; phase: string }) => void;
       onToolStepFinished?: (data: { stepId: string; status: string; resultSummary?: string; errorMessage?: string }) => void;
       onPendingWorkflow?: (data: { summary: { nodeCount: number; edgeCount: number } }) => void;
-      onPendingPatch?: (data: { patchCount: number }) => void;
+      onPendingPatch?: (data: { patchCount: number; summary?: PendingPatchSummary }) => void;
       onDone?: () => void;
       onError?: (message: string) => void;
     },
@@ -171,7 +175,7 @@ export const alkaidApi = {
         const decoder = new TextDecoder();
         let buffer = '';
         let eventType = '';
-        const process = () =>
+        const process = (): Promise<void> =>
           reader.read().then(({ value, done }) => {
             if (done) {
               callbacks.onDone?.();
@@ -187,6 +191,10 @@ export const alkaidApi = {
                   const data = JSON.parse(line.slice(6));
                   if (eventType === 'content') callbacks.onContent?.(data.delta ?? '');
                   else if (eventType === 'phase_changed') callbacks.onPhaseChanged?.(data.phase);
+                  else if (eventType === 'plan_created') callbacks.onPlanCreated?.(data);
+                  else if (eventType === 'plan_step_started') callbacks.onPlanStepStarted?.(data);
+                  else if (eventType === 'plan_step_updated') callbacks.onPlanStepUpdated?.(data);
+                  else if (eventType === 'plan_step_finished') callbacks.onPlanStepFinished?.(data);
                   else if (eventType === 'tool_step_started') callbacks.onToolStepStarted?.(data);
                   else if (eventType === 'tool_step_finished') callbacks.onToolStepFinished?.(data);
                   else if (eventType === 'pending_workflow') callbacks.onPendingWorkflow?.(data);

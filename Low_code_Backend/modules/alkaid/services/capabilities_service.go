@@ -170,7 +170,7 @@ func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
 			"start 节点只能作为入口，不能有入边",
 			"end 节点只能作为出口，不能有出边",
 			"condition 节点的出边需要使用 sourceHandle: 'true' 或 'false'",
-			"merge 节点的入边需要使用 targetHandle: 'input-0', 'input-1' 等",
+			"merge 节点的入边需要使用 targetHandle: 'input-0' 到 'input-4'，并与节点配置中的 inputCount 保持一致",
 		},
 	}
 
@@ -281,16 +281,22 @@ func (s *CapabilitiesService) buildNodeCapabilities() []NodeCapability {
 			Description: "将多个上游输入按 targetHandle 顺序合并为一个结果",
 			Stability:   "stable",
 			Config: map[string]interface{}{
-				"mergeType": "concat",
+				"mergeType":  "concat",
+				"inputCount": 3,
 			},
 			ConfigRules: ConfigRules{
 				Required: []string{"mergeType"},
 				Enums: map[string][]string{
-					"mergeType": {"concat", "union", "intersect"},
+					"mergeType":  {"concat", "union", "intersect"},
+					"inputCount": {"1", "2", "3", "4", "5"},
 				},
 				AllowVars: []string{},
 				Defaults: map[string]interface{}{
-					"mergeType": "concat",
+					"mergeType":  "concat",
+					"inputCount": 3,
+				},
+				Constraints: map[string]string{
+					"inputCount": "取值范围 1-5；merge 节点只会处理 0 到 inputCount-1 对应的 targetHandle",
 				},
 			},
 		},
@@ -533,7 +539,8 @@ func (s *CapabilitiesService) buildNodeExamples(nodeType string) []NodeExample {
 		examples = append(examples, NodeExample{
 			Description: "合并多个输入：concat/union/intersect",
 			Config: map[string]interface{}{
-				"mergeType": "concat",
+				"mergeType":  "concat",
+				"inputCount": 5,
 			},
 		})
 	case "crawler":

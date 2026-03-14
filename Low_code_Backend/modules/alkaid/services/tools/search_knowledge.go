@@ -2,34 +2,24 @@ package tools
 
 import (
 	"fmt"
+	"strings"
+
 	alkaidServices "yaolight-workshop/backend/modules/alkaid/services"
 )
 
-// toolSearchKnowledge 占位（无 Runner 时使用）
+// toolSearchKnowledge is used when no runner is attached.
 func toolSearchKnowledge(params map[string]interface{}, sessionID uint) (result interface{}, resultSummary string, err error) {
-	return map[string]interface{}{"placeholder": true}, "知识检索占位", nil
+	return map[string]interface{}{"placeholder": true}, "knowledge search placeholder", nil
 }
 
-// runSearchKnowledge 真实实现：从知识库检索相关信息
+// runSearchKnowledge retrieves knowledge snippets for the current session/user.
 func (r *Registry) runSearchKnowledge(params map[string]interface{}, sessionID uint) (result interface{}, resultSummary string, err error) {
-	query, ok := params["query"].(string)
-	if !ok || query == "" {
+	query := strings.TrimSpace(stringParam(params, "query"))
+	if query == "" {
 		return nil, "", fmt.Errorf("query 参数不能为空")
 	}
-	// 可选：让 AI 决定检索条数（仍受后端硬上限保护）
-	maxResults := 5
-	if v, ok := params["maxResults"]; ok {
-		switch t := v.(type) {
-		case float64:
-			maxResults = int(t)
-		case int:
-			maxResults = t
-		case int32:
-			maxResults = int(t)
-		case int64:
-			maxResults = int(t)
-		}
-	}
+
+	maxResults := intParam(params, "maxResults")
 	if maxResults <= 0 {
 		maxResults = 5
 	}
@@ -37,41 +27,91 @@ func (r *Registry) runSearchKnowledge(params map[string]interface{}, sessionID u
 		maxResults = 10
 	}
 
-	// 使用知识检索服务
+	target := strings.TrimSpace(stringParam(params, "target"))
+	category := strings.TrimSpace(stringParam(params, "category"))
+	includeGeneralFallback := boolParam(params, "includeGeneralFallback", true)
+
 	retriever := alkaidServices.NewKnowledgeRetriever()
-	userID := uint(0) // TODO: 从 RequestContext 中获取 userID
+	userID := uint(0)
 	if r.runner != nil && r.runner.Repo != nil {
-		// 尝试从 session 获取 userID
 		if session, err := r.runner.Repo.GetSessionByID(sessionID); err == nil && session != nil {
 			userID = session.UserID
 		}
 	}
 
-	knowledge, err := retriever.RetrieveRelevantKnowledge(query, userID, maxResults)
+	knowledge, err := retriever.RetrieveRelevantKnowledgeWithOptions(alkaidServices.KnowledgeRetrieveOptions{
+		Query:          query,
+		Target:         target,
+		Category:       category,
+		MaxResults:     maxResults,
+		IncludeGeneral: includeGeneralFallback,
+	}, userID)
 	if err != nil {
 		return nil, "", fmt.Errorf("知识检索失败: %w", err)
 	}
 
-	if len(knowledge) == 0 {
-		return map[string]interface{}{
-			"query":   query,
-			"results": []interface{}{},
-		}, "未找到相关知识", nil
-	}
-
-	// 格式化返回结果
 	results := make([]map[string]interface{}, len(knowledge))
 	for i, k := range knowledge {
 		results[i] = map[string]interface{}{
 			"title":    k.Title,
 			"category": k.Category,
+			"target":   k.Target,
 			"content":  k.Content,
 		}
 	}
 
 	summary := fmt.Sprintf("找到 %d 条相关知识", len(knowledge))
+	if len(knowledge) == 0 {
+		summary = "未找到相关知识"
+	}
+
 	return map[string]interface{}{
-		"query":   query,
-		"results": results,
+		"query":                     query,
+		"target":                    target,
+		"category":                  category,
+		"includeGeneralFallback":    includeGeneralFallback,
+		"resultCount":               len(knowledge),
+		"results":                   results,
+		"searchSuggestionIfUnclear": buildKnowledgeSearchSuggestion(query, target, category),
 	}, summary, nil
+}
+
+func stringParam(params map[string]interface{}, key string) string {
+	if value, ok := params[key].(string); ok {
+		return value
+	}
+	return ""
+}
+
+func boolParam(params map[string]interface{}, key string, defaultValue bool) bool {
+	value, ok := params[key]
+	if !ok {
+		return defaultValue
+	}
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		trimmed := strings.TrimSpace(strings.ToLower(v))
+		if trimmed == "true" {
+			return true
+		}
+		if trimmed == "false" {
+			return false
+		}
+	}
+	return defaultValue
+}
+
+func buildKnowledgeSearchSuggestion(query string, target string, category string) string {
+	switch {
+	case target == "" && category == "":
+		return fmt.Sprintf("如果结果仍不确定，可以继续缩小范围，例如指定 target 或 category 再搜索一次：query=%q", query)
+	case target != "" && category == "":
+		return fmt.Sprintf("如果结果仍不确定，可以保留 target=%q，并进一步指定 category（如 best_practice 或 error_repair）再次搜索", target)
+	case target == "" && category != "":
+		return fmt.Sprintf("如果结果仍不确定，可以保留 category=%q，并补充 target 再搜索一次", category)
+	default:
+		return "如果结果仍不确定，可以换一个更具体的 query 再搜索一次"
+	}
 }

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button, Popover, Space, Badge } from 'antd';
-import { UploadOutlined, CloseOutlined, BranchesOutlined } from '@ant-design/icons';
+import { UploadOutlined, BranchesOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { WorkflowExportData } from '../types';
 import styles from './AlkaidPending.module.scss';
@@ -13,12 +13,12 @@ interface AlkaidPendingWorkflowProps {
   loading?: boolean;
 }
 
-const AlkaidPendingWorkflow: React.FC<AlkaidPendingWorkflowProps> = ({
+const AlkaidPendingWorkflow = ({
   summary,
   onApply,
   onDiscard,
   loading = false,
-}) => {
+}: AlkaidPendingWorkflowProps) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 

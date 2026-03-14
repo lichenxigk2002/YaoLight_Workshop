@@ -22,7 +22,7 @@ type DeepSeekProvider struct {
 var (
 	dsmlFunctionCallsBlockRe = regexp.MustCompile(`(?s)<｜DSML｜function_calls>(.*?)</｜DSML｜function_calls>`)
 	dsmlInvokeRe             = regexp.MustCompile(`(?s)<｜DSML｜invoke\s+name="([^"]+)"\s*>(.*?)</｜DSML｜invoke>`)
-	dsmlParameterRe          = regexp.MustCompile(`(?s)<｜DSML｜parameter\s+name="([^"]+)"(?:\s+[^>]*)?>(.*?)</｜DSML｜parameter>`)
+	dsmlParameterRe          = regexp.MustCompile(`(?s)<｜DSML｜parameter\s+name="([^"]+)"([^>]*)>(.*?)</｜DSML｜parameter>`)
 )
 
 // NewDeepSeekProvider 创建DeepSeek提供商实例
@@ -334,12 +334,10 @@ func (p *DeepSeekProvider) ChatWithTools(ctx context.Context, config *providers.
 			}{Name: tc.Function.Name, Arguments: tc.Function.Arguments},
 		})
 	}
-	if len(out.ToolCalls) == 0 {
-		cleanContent, dsmlToolCalls, ok := parseDSMLToolCalls(out.Content)
-		if ok {
-			out.Content = cleanContent
-			out.ToolCalls = dsmlToolCalls
-		}
+	cleanContent, dsmlToolCalls, ok := parseDSMLToolCalls(out.Content)
+	if ok {
+		out.Content = cleanContent
+		out.ToolCalls = mergeToolCalls(out.ToolCalls, dsmlToolCalls)
 	}
 	return out, nil
 }
@@ -579,12 +577,10 @@ func (p *DeepSeekProvider) ChatWithToolsStream(ctx context.Context, config *prov
 	if usage != nil {
 		respOut.TokensUsed = usage.TotalTokens
 	}
-	if len(respOut.ToolCalls) == 0 {
-		cleanContent, dsmlToolCalls, ok := parseDSMLToolCalls(respOut.Content)
-		if ok {
-			respOut.Content = cleanContent
-			respOut.ToolCalls = dsmlToolCalls
-		}
+	cleanContent, dsmlToolCalls, ok := parseDSMLToolCalls(respOut.Content)
+	if ok {
+		respOut.Content = cleanContent
+		respOut.ToolCalls = mergeToolCalls(respOut.ToolCalls, dsmlToolCalls)
 	}
 	if !streamUserContent && len(respOut.ToolCalls) == 0 && respOut.Content != "" {
 		callback(respOut.Content, false, nil, nil)
@@ -613,12 +609,12 @@ func parseDSMLToolCalls(content string) (string, []*providers.ToolCall, bool) {
 				continue
 			}
 
-			params := make(map[string]string)
+			params := make(map[string]interface{})
 			for _, param := range dsmlParameterRe.FindAllStringSubmatch(invoke[2], -1) {
-				if len(param) < 3 {
+				if len(param) < 4 {
 					continue
 				}
-				params[strings.TrimSpace(param[1])] = strings.TrimSpace(param[2])
+				params[strings.TrimSpace(param[1])] = parseDSMLParameterValue(param[2], param[3])
 			}
 			argsJSON, err := json.Marshal(params)
 			if err != nil {
@@ -645,6 +641,49 @@ func parseDSMLToolCalls(content string) (string, []*providers.ToolCall, bool) {
 
 	cleanContent := strings.TrimSpace(dsmlFunctionCallsBlockRe.ReplaceAllString(content, ""))
 	return cleanContent, toolCalls, true
+}
+
+func parseDSMLParameterValue(attrs string, rawValue string) interface{} {
+	value := strings.TrimSpace(rawValue)
+	if strings.Contains(attrs, `string="true"`) {
+		return value
+	}
+
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+		return parsed
+	}
+	return value
+}
+
+func mergeToolCalls(existing []*providers.ToolCall, extra []*providers.ToolCall) []*providers.ToolCall {
+	if len(extra) == 0 {
+		return existing
+	}
+
+	merged := append([]*providers.ToolCall{}, existing...)
+	seen := make(map[string]struct{}, len(existing))
+	for _, tc := range existing {
+		if tc == nil {
+			continue
+		}
+		key := tc.Function.Name + "\n" + tc.Function.Arguments
+		seen[key] = struct{}{}
+	}
+
+	for _, tc := range extra {
+		if tc == nil {
+			continue
+		}
+		key := tc.Function.Name + "\n" + tc.Function.Arguments
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		merged = append(merged, tc)
+	}
+
+	return merged
 }
 
 // ChatStream 流式聊天对话

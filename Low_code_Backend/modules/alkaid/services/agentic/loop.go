@@ -140,7 +140,7 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 	}
 	contentForLLM := req.Message
 	if historyStr, histErr := alkaidSvc.GetConversationHistoryForAgentic(req.SessionID, 20); histErr == nil && historyStr != "" && strings.Contains(historyStr, "助手：") {
-		contentForLLM = historyStr + "\n\n请根据以上对话历史，回复最后一条用户消息。\n\n**工具调用建议**（请根据实际需求智能选择）：\n1. 如需了解最佳实践、示例或技巧 → 优先调用 search_knowledge\n2. 如需了解技术规范（节点类型、JSON格式等）→ 调用 get_capabilities\n3. 如需查看或修改现有工作流 → 调用 get_workflow\n4. 如需生成全新工作流 → 无需调用 get_workflow，直接基于 get_capabilities 和 search_knowledge 生成"
+		contentForLLM = historyStr + "\n\n请根据以上对话历史，回复最后一条用户消息。\n\n**工具调用建议**（请根据实际需求智能选择）：\n1. 如需了解最佳实践、示例或技巧 → 优先调用 search_knowledge\n2. 如需了解技术规范（节点类型、JSON格式等）→ 调用 get_capabilities\n3. 如需查看或修改现有工作流 → 调用 get_workflow\n4. 如需生成全新工作流 → 无需调用 get_workflow，直接基于 get_capabilities 和 search_knowledge 生成\n5. 如果第一次 search_knowledge 的结果仍不够确定，必须继续发起更具体的二次检索，可以补充 target/category，或把 query 缩小到某个节点、错误类型、场景模板\n6. 如果工作流涉及外部网站抓取，在最终确定 crawler 节点前，应优先确认数据源类型，并在需要时调用 check_url_accessibility"
 	}
 
 	aiConfig, err := buildAIConfig(req.UserID)
@@ -152,6 +152,65 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 	aiProvider := deepseek.NewDeepSeekProvider()
 	streamer, canStreamWithTools := aiProvider.(toolStreamingProvider)
 
+	planSteps := generateAgentPlan(reqCtx, aiProvider, aiConfig, systemPrompt, contentForLLM, userMsg.ID, req.Message)
+	if len(planSteps) > 0 {
+		_ = sw.WritePlanCreated(planSteps)
+	}
+
+	activePlanStepID := ""
+	startPlanStep := func(step *alkaidModels.AgentPlanStep) {
+		if step == nil {
+			return
+		}
+		if activePlanStepID == step.PlanStepID && step.Status == alkaidModels.PlanStepRunning {
+			return
+		}
+		if activePlanStepID != "" && activePlanStepID != step.PlanStepID {
+			_ = sw.WritePlanStepFinished(activePlanStepID, alkaidModels.PlanStepSuccess, "已完成当前计划步骤", "")
+			for i := range planSteps {
+				if planSteps[i].PlanStepID == activePlanStepID {
+					planSteps[i].Status = alkaidModels.PlanStepSuccess
+					break
+				}
+			}
+		}
+		step.Status = alkaidModels.PlanStepRunning
+		activePlanStepID = step.PlanStepID
+		_ = sw.WritePlanStepStarted(*step)
+	}
+
+	finishPlanStep := func(planStepID, status, resultSummary, errorMessage string) {
+		if planStepID == "" {
+			return
+		}
+		_ = sw.WritePlanStepFinished(planStepID, status, resultSummary, errorMessage)
+		for i := range planSteps {
+			if planSteps[i].PlanStepID == planStepID {
+				planSteps[i].Status = status
+				planSteps[i].ResultSummary = resultSummary
+				planSteps[i].ErrorMessage = errorMessage
+				break
+			}
+		}
+		if activePlanStepID == planStepID {
+			activePlanStepID = ""
+		}
+	}
+
+	updatePlanStep := func(planStepID string, mutate func(step *alkaidModels.AgentPlanStep)) {
+		if planStepID == "" || mutate == nil {
+			return
+		}
+		for i := range planSteps {
+			if planSteps[i].PlanStepID != planStepID {
+				continue
+			}
+			mutate(&planSteps[i])
+			_ = sw.WritePlanStepUpdated(planSteps[i])
+			return
+		}
+	}
+
 	messages := []providers.ChatMessage{{Role: "user", Content: contentForLLM}}
 	const maxTurns = 15
 	var assistantContent string
@@ -162,9 +221,19 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		if draftingStepID != "" {
 			return
 		}
+		step := ensureSyntheticPlanStep(
+			&planSteps,
+			userMsg.ID,
+			req.Message,
+			"整理并生成工作流方案",
+			"已收集到足够上下文，开始整理并输出最终工作流方案。",
+			alkaidModels.PhaseGenerating,
+			nil,
+		)
+		startPlanStep(step)
 		draftingStepID = fmt.Sprintf("step-%d-draft_workflow", time.Now().UnixNano())
 		_ = sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
-		_ = sw.WriteToolStepStarted(draftingStepID, "整理工作流方案", alkaidModels.PhaseGenerating)
+		_ = sw.WriteToolStepStartedWithPlan(draftingStepID, "整理工作流方案", alkaidModels.PhaseGenerating, step.PlanStepID)
 	}
 
 	finishDraftingStep := func(summary string) {
@@ -172,6 +241,7 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			return
 		}
 		_ = sw.WriteToolStepFinished(draftingStepID, alkaidModels.ToolStepSuccess, summary, "")
+		finishPlanStep(activePlanStepID, alkaidModels.PlanStepSuccess, summary, "")
 		draftingStepID = ""
 	}
 
@@ -249,6 +319,12 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		}
 
 		if len(resp.ToolCalls) == 0 {
+			for i := range planSteps {
+				if planSteps[i].PlanStepID == activePlanStepID && planSteps[i].Phase == alkaidModels.PhasePlanning {
+					finishPlanStep(activePlanStepID, alkaidModels.PlanStepSuccess, "已完成上下文确认，进入方案生成", "")
+					break
+				}
+			}
 			assistantContent = resp.Content
 			if canStreamWithTools {
 				var streamed strings.Builder
@@ -294,8 +370,21 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			if checkCancel() {
 				return nil
 			}
+			selectedPlanStep := selectPlanStepForTool(planSteps, tc.Function.Name)
+			if selectedPlanStep == nil {
+				selectedPlanStep = ensureSyntheticPlanStep(
+					&planSteps,
+					userMsg.ID,
+					req.Message,
+					fmt.Sprintf("执行 %s", tc.Function.Name),
+					"当前需要调用工具补充上下文或验证配置。",
+					alkaidModels.PhasePlanning,
+					[]string{tc.Function.Name},
+				)
+			}
+			startPlanStep(selectedPlanStep)
 			stepID := fmt.Sprintf("step-%d-%s", time.Now().UnixNano(), tc.Function.Name)
-			_ = sw.WriteToolStepStarted(stepID, tc.Function.Name, alkaidModels.PhasePlanning)
+			_ = sw.WriteToolStepStartedWithPlan(stepID, tc.Function.Name, alkaidModels.PhasePlanning, selectedPlanStep.PlanStepID)
 			args := tc.Function.Arguments
 			if args == "" {
 				args = "{}"
@@ -309,6 +398,14 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 				resultSummary = errMsg
 			}
 			_ = sw.WriteToolStepFinished(stepID, status, resultSummary, errMsg)
+			if status == alkaidModels.ToolStepSuccess {
+				updatePlanStep(selectedPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+					step.ResultSummary = resultSummary
+				})
+			}
+			if toolErr != nil {
+				finishPlanStep(selectedPlanStep.PlanStepID, alkaidModels.PlanStepError, resultSummary, errMsg)
+			}
 
 			toolContent := resultSummary
 			if result != nil {
@@ -450,7 +547,17 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 
 		// 阶段 1: 校验工作流结构
 		_ = sw.WritePhaseChanged(alkaidModels.PhaseValidating)
-		_ = sw.WriteToolStepStarted("step-validate", "validate_workflow", alkaidModels.PhaseValidating)
+		validatePlanStep := ensureSyntheticPlanStep(
+			&planSteps,
+			userMsg.ID,
+			req.Message,
+			"校验工作流结构",
+			"在交付前检查工作流 JSON 是否符合节点与连线规范。",
+			alkaidModels.PhaseValidating,
+			[]string{"validate_workflow"},
+		)
+		startPlanStep(validatePlanStep)
+		_ = sw.WriteToolStepStartedWithPlan("step-validate", "validate_workflow", alkaidModels.PhaseValidating, validatePlanStep.PlanStepID)
 		params := fmt.Sprintf(`{"workflow":%s}`, workflowJSON)
 		valResult, valSummary, valErr := registry.ExecuteTool("validate_workflow", params, req.SessionID)
 
@@ -467,12 +574,89 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 				errMsg = valErr.Error()
 			}
 			_ = sw.WriteToolStepFinished("step-validate", alkaidModels.ToolStepError, valSummary, errMsg)
+			finishPlanStep(validatePlanStep.PlanStepID, alkaidModels.PlanStepError, valSummary, errMsg)
 			_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
 			_ = sw.WriteError(fmt.Sprintf("工作流校验失败: %s", errMsg))
 			_ = sw.WriteDone()
 			return nil
 		}
 		_ = sw.WriteToolStepFinished("step-validate", alkaidModels.ToolStepSuccess, valSummary, "")
+		finishPlanStep(validatePlanStep.PlanStepID, alkaidModels.PlanStepSuccess, valSummary, "")
+
+		urlCandidates := collectWorkflowURLCandidates(workflowMap)
+		if len(urlCandidates) > 0 {
+			urlPlanStep := ensureSyntheticPlanStep(
+				&planSteps,
+				userMsg.ID,
+				req.Message,
+				"验证候选数据源 URL",
+				"工作流包含外部页面抓取时，需要先确认候选链接是否可直接作为 crawler 数据源，避免使用搜索页、登录页或难以抓取的页面。",
+				alkaidModels.PhaseValidating,
+				[]string{"check_url_accessibility"},
+			)
+			startPlanStep(urlPlanStep)
+			updatePlanStep(urlPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+				step.ResultSummary = fmt.Sprintf("检测到 %d 个候选 URL，开始逐个校验可访问性", len(urlCandidates))
+			})
+
+			failures := make([]string, 0)
+			okCount := 0
+			for i, rawURL := range urlCandidates {
+				urlStepID := fmt.Sprintf("step-url-check-%d", i+1)
+				_ = sw.WriteToolStepStartedWithPlan(urlStepID, "check_url_accessibility", alkaidModels.PhaseValidating, urlPlanStep.PlanStepID)
+				result, resultSummary, toolErr := registry.ExecuteTool("check_url_accessibility", fmt.Sprintf(`{"url":%q}`, rawURL), req.SessionID)
+				status := alkaidModels.ToolStepSuccess
+				errMsg := ""
+				if toolErr != nil {
+					status = alkaidModels.ToolStepError
+					errMsg = toolErr.Error()
+					resultSummary = errMsg
+				}
+				_ = sw.WriteToolStepFinished(urlStepID, status, resultSummary, errMsg)
+
+				if toolErr != nil {
+					failures = append(failures, fmt.Sprintf("%s (%s)", rawURL, errMsg))
+					continue
+				}
+
+				report, ok := result.(map[string]interface{})
+				if !ok {
+					failures = append(failures, fmt.Sprintf("%s (invalid accessibility result)", rawURL))
+					continue
+				}
+
+				if accessible, _ := report["ok"].(bool); accessible {
+					okCount++
+					continue
+				}
+
+				reason, _ := report["reason"].(string)
+				if reason == "" {
+					reason = "not suitable for crawler source"
+				}
+				failures = append(failures, fmt.Sprintf("%s (%s)", rawURL, reason))
+			}
+
+			urlValidationSummary := fmt.Sprintf("已校验 %d 个候选 URL，其中 %d 个可直接抓取", len(urlCandidates), okCount)
+			if len(failures) > 0 {
+				errMsg := "以下候选 URL 当前不适合作为 crawler 数据源: " + strings.Join(failures, "; ")
+				updatePlanStep(urlPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+					step.ResultSummary = urlValidationSummary
+					step.ErrorMessage = errMsg
+				})
+				finishPlanStep(urlPlanStep.PlanStepID, alkaidModels.PlanStepError, urlValidationSummary, errMsg)
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(errMsg)
+				_ = sw.WriteDone()
+				return nil
+			}
+
+			updatePlanStep(urlPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+				step.ResultSummary = urlValidationSummary
+			})
+			finishPlanStep(urlPlanStep.PlanStepID, alkaidModels.PlanStepSuccess, urlValidationSummary, "")
+		}
+
 		autoTrialAndRepairEnabled := false
 
 		// 阶段 2: 试跑工作流（预演执行，固定执行）
@@ -481,7 +665,17 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		}
 		if autoTrialAndRepairEnabled {
 			_ = sw.WritePhaseChanged(alkaidModels.PhaseRunningTrial)
-			_ = sw.WriteToolStepStarted("step-trial", "run_workflow_trial", alkaidModels.PhaseRunningTrial)
+			trialPlanStep := ensureSyntheticPlanStep(
+				&planSteps,
+				userMsg.ID,
+				req.Message,
+				"试跑工作流",
+				"在正式交付前做一次快速试跑，尽早发现不可执行问题。",
+				alkaidModels.PhaseRunningTrial,
+				[]string{"run_workflow_trial"},
+			)
+			startPlanStep(trialPlanStep)
+			_ = sw.WriteToolStepStartedWithPlan("step-trial", "run_workflow_trial", alkaidModels.PhaseRunningTrial, trialPlanStep.PlanStepID)
 			trialResult, trialSummary, trialErr := registry.ExecuteTool("run_workflow_trial", params, req.SessionID)
 
 			var trialSuccess bool
@@ -502,6 +696,7 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 					errMsg = trialErrorMsg
 				}
 				_ = sw.WriteToolStepFinished("step-trial", alkaidModels.ToolStepError, trialSummary, errMsg)
+				finishPlanStep(trialPlanStep.PlanStepID, alkaidModels.PlanStepError, trialSummary, errMsg)
 
 				// Hook: OnWorkflowRunFailed - 工作流运行失败时
 				workflowID := uint(0)
@@ -564,7 +759,17 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 					}
 
 					// 重新校验修复后的工作流
-					_ = sw.WriteToolStepStarted("step-validate-repair", "validate_workflow", alkaidModels.PhaseRepairing)
+					repairValidatePlanStep := ensureSyntheticPlanStep(
+						&planSteps,
+						userMsg.ID,
+						req.Message,
+						"校验修复后的工作流",
+						"修复后再次确认工作流结构已经满足规范。",
+						alkaidModels.PhaseRepairing,
+						[]string{"validate_workflow"},
+					)
+					startPlanStep(repairValidatePlanStep)
+					_ = sw.WriteToolStepStartedWithPlan("step-validate-repair", "validate_workflow", alkaidModels.PhaseRepairing, repairValidatePlanStep.PlanStepID)
 					valResult2, valSummary2, valErr2 := registry.ExecuteTool("validate_workflow", fmt.Sprintf(`{"workflow":%s}`, repairedWorkflowJSON), req.SessionID)
 
 					var validRepair bool
@@ -594,6 +799,7 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			} else {
 				// 试跑成功
 				_ = sw.WriteToolStepFinished("step-trial", alkaidModels.ToolStepSuccess, trialSummary, "")
+				finishPlanStep(trialPlanStep.PlanStepID, alkaidModels.PlanStepSuccess, trialSummary, "")
 			}
 
 			// 阶段 3: 确认与交付 - 提出工作流供用户确认
@@ -602,7 +808,17 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			}
 		}
 		_ = sw.WritePhaseChanged(alkaidModels.PhaseWaitingApproval)
-		_ = sw.WriteToolStepStarted("step-propose", "propose_workflow", alkaidModels.PhaseWaitingApproval)
+		proposePlanStep := ensureSyntheticPlanStep(
+			&planSteps,
+			userMsg.ID,
+			req.Message,
+			"整理待确认结果",
+			"将最终工作流整理成可确认的交付结果，等待用户决定是否应用。",
+			alkaidModels.PhaseWaitingApproval,
+			[]string{"propose_workflow", "propose_patch"},
+		)
+		startPlanStep(proposePlanStep)
+		_ = sw.WriteToolStepStartedWithPlan("step-propose", "propose_workflow", alkaidModels.PhaseWaitingApproval, proposePlanStep.PlanStepID)
 		_, propSummary, _ := registry.ExecuteTool("propose_workflow", fmt.Sprintf(`{"workflow":%s}`, workflowJSON), req.SessionID)
 		_ = sw.WriteToolStepFinished("step-propose", alkaidModels.ToolStepSuccess, propSummary, "")
 
@@ -624,14 +840,18 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			patch, patchErr := ComputeWorkflowDiff(currentWorkflowForDiff, proposedNodes, proposedEdges)
 			if patchErr == nil && len(patch) > 0 {
 				patchJSON, _ := json.Marshal(map[string]interface{}{"patch": patch})
-				_ = sw.WriteToolStepStarted("step-patch", "propose_patch", alkaidModels.PhaseWaitingApproval)
+				_ = sw.WriteToolStepStartedWithPlan("step-patch", "propose_patch", alkaidModels.PhaseWaitingApproval, proposePlanStep.PlanStepID)
 				_, _, _ = registry.ExecuteTool("propose_patch", string(patchJSON), req.SessionID)
 				_ = sw.WriteToolStepFinished("step-patch", alkaidModels.ToolStepSuccess, fmt.Sprintf("已生成 %d 项补丁", len(patch)), "")
 				_ = sw.WritePendingPatch(len(patch))
 			}
 		}
+		finishPlanStep(proposePlanStep.PlanStepID, alkaidModels.PlanStepSuccess, "已生成待确认结果", "")
 	}
 
+	if activePlanStepID != "" {
+		finishPlanStep(activePlanStepID, alkaidModels.PlanStepSuccess, "已完成当前计划步骤", "")
+	}
 	_ = sw.WritePhaseChanged(alkaidModels.PhaseIdle)
 	_ = sw.WriteDone()
 	return nil

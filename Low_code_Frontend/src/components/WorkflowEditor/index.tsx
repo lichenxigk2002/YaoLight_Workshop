@@ -479,10 +479,21 @@ const WorkflowEditor: React.FC = () => {
   const handleNodeConfigSave = useCallback(
     (nodeId: string, data: any) => {
       const oldNode = nodes.find((n) => n.id === nodeId);
+      const nodeType = oldNode?.data?.type || oldNode?.type;
       const oldDirection = oldNode?.data.connectionDirection || 'vertical';
       const newDirection = data.connectionDirection || oldDirection;
       const hasDirectionChange =
         data.connectionDirection !== undefined && oldDirection !== newDirection;
+      const oldMergeInputCount = Number(oldNode?.data?.config?.inputCount ?? 3);
+      const newMergeInputCount = Number(data?.config?.inputCount ?? 3);
+      const normalizedOldMergeInputCount = Number.isFinite(oldMergeInputCount)
+        ? Math.min(5, Math.max(1, Math.trunc(oldMergeInputCount)))
+        : 3;
+      const normalizedNewMergeInputCount = Number.isFinite(newMergeInputCount)
+        ? Math.min(5, Math.max(1, Math.trunc(newMergeInputCount)))
+        : 3;
+      const hasMergeInputCountChange =
+        nodeType === 'merge' && normalizedOldMergeInputCount !== normalizedNewMergeInputCount;
 
       updateNodeConfig(nodeId, {
         label: data.label,
@@ -504,6 +515,19 @@ const WorkflowEditor: React.FC = () => {
             },
           };
         });
+      }
+
+      if (hasMergeInputCountChange) {
+        setEdges((eds) =>
+          eds.filter((edge) => {
+            if (edge.target !== nodeId) return true;
+            if (!edge.targetHandle) return true;
+            const match = edge.targetHandle.match(/^input-(\d+)$/);
+            if (!match) return true;
+            return Number(match[1]) < normalizedNewMergeInputCount;
+          })
+        );
+        setNodeRenderKey((prev) => prev + 1);
       }
 
       // 濡傛灉杩炴帴鏂瑰悜鏀瑰彉浜嗭紝寮哄埗閲嶆柊娓叉煋鎵€鏈夎妭鐐瑰拰杈?
