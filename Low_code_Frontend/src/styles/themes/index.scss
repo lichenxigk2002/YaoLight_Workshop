@@ -1,5 +1,6 @@
 // 主题入口文件
 @use './_variables' as *;
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@500;600&display=swap');
 
 // 默认应用亮色主题
 :root {
@@ -9,10 +10,10 @@
   --app-scrollbar-track: transparent;
   --app-scrollbar-thumb: rgba(255, 255, 255, 0.28);
   --app-scrollbar-thumb-hover: rgba(0, 0, 0, 0.42);
-  --font-sans: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Source Han Sans SC',
+  --font-sans: 'IBM Plex Sans', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC',
     'Microsoft YaHei', 'Segoe UI', sans-serif;
-  --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Noto Serif SC', 'Source Han Serif SC',
-    'Songti SC', serif;
+  --font-display: 'Fraunces', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'Palatino Linotype',
+    serif;
   --font-mono: 'SFMono-Regular', 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Liberation Mono',
     monospace;
 }
