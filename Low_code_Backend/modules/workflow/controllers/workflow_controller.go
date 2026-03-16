@@ -221,7 +221,7 @@ func (c *WorkflowController) ExecuteWorkflow(ctx *gin.Context) {
 
 		// 执行流式工作流
 		log.Printf("流式执行: 开始执行工作流，节点数: %d", len(req.Nodes))
-		err := c.executor.ExecuteWorkflowStream(ctx.Request.Context(), req, callback)
+		err := c.executor.ExecuteWorkflowStreamConcurrent(ctx.Request.Context(), req, callback)
 		if err != nil {
 			log.Printf("流式执行: 执行失败: %v", err)
 			// 检查上下文是否已取消
@@ -392,7 +392,7 @@ func (c *WorkflowController) ExecuteWorkflowStream(ctx *gin.Context) {
 	}
 
 	// 执行流式工作流
-	err := c.executor.ExecuteWorkflowStream(requestCtx, req, callback)
+	err := c.executor.ExecuteWorkflowStreamConcurrent(requestCtx, req, callback)
 	if err != nil {
 		// 检查上下文是否已取消
 		select {
