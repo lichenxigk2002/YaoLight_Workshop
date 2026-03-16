@@ -16,7 +16,6 @@ import {
 import {
   PlusOutlined,
   SettingOutlined,
-  QuestionCircleOutlined,
   RightOutlined,
   SearchOutlined,
   CloudServerOutlined

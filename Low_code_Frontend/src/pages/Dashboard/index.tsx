@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
-import { Button, Modal, Form, Input, App, Popconfirm, Tag, Tooltip, Pagination, Row, Col, Card, Typography } from 'antd';
-import { 
-  PlusOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
-  SearchOutlined, 
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button, Modal, Form, Input, App, Popconfirm, Tooltip, Pagination, Spin } from 'antd';
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
   CalendarOutlined,
+  ArrowRightOutlined,
   GlobalOutlined,
   RobotOutlined,
   DatabaseOutlined,
-  RocketOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -18,18 +17,30 @@ import type { Project, CreateProjectRequest } from '@/types/project';
 import type { PageRequest } from '@/types/api';
 import styles from './index.module.scss';
 import { useAuth } from '@/components/AuthContext';
-import { useThemeStore } from '@/store/theme';
 
 const { TextArea } = Input;
-const { Title, Text } = Typography;
+
+function getGreeting(isZh: boolean) {
+  const hour = new Date().getHours();
+
+  if (isZh) {
+    if (hour < 12) return '早上好，今天想做点什么？';
+    if (hour < 18) return '下午好，今天想做点什么？';
+    return '晚上好，今天想做点什么？';
+  }
+
+  if (hour < 12) return 'Good morning, where would you like to begin?';
+  if (hour < 18) return 'Good afternoon, where would you like to begin?';
+  return 'Good evening, where would you like to begin?';
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const { user } = useAuth();
-  const { theme } = useThemeStore();
-  const isDark = theme === 'dark';
+  const isZh = i18n.language === 'zh-CN';
+  const projectsSectionRef = useRef<HTMLElement>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -37,10 +48,8 @@ export default function Dashboard() {
   const [pageSize, setPageSize] = useState(12);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
 
-  // 加载项目列表
   const loadProjects = async () => {
     try {
       setLoading(true);
@@ -59,10 +68,9 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    loadProjects();
+    void loadProjects();
   }, [page, pageSize]);
 
-  // 创建/更新项目
   const handleSubmit = async (values: CreateProjectRequest) => {
     try {
       if (editingProject) {
@@ -75,24 +83,22 @@ export default function Dashboard() {
       setModalVisible(false);
       form.resetFields();
       setEditingProject(null);
-      loadProjects();
+      void loadProjects();
     } catch (error: any) {
       message.error(error.message || t('common.operationFailed'));
     }
   };
 
-  // 删除项目
   const handleDelete = async (id: number) => {
     try {
       await projectApi.deleteProject(id);
       message.success(t('dashboard.deleteSuccess'));
-      loadProjects();
+      void loadProjects();
     } catch (error: any) {
       message.error(error.message || t('dashboard.deleteFailed'));
     }
   };
 
-  // 打开编辑模态框
   const handleEdit = (project: Project) => {
     setEditingProject(project);
     form.setFieldsValue({
@@ -102,210 +108,228 @@ export default function Dashboard() {
     setModalVisible(true);
   };
 
-  // 打开创建模态框
   const handleCreate = (templateName?: string, templateDesc?: string) => {
     setEditingProject(null);
     form.resetFields();
     if (templateName) {
       form.setFieldsValue({
         name: templateName,
-        description: templateDesc
+        description: templateDesc,
       });
     }
     setModalVisible(true);
   };
 
-  // 进入项目详情
   const handleEnterProject = (project: Project) => {
     navigate(`/projects/${project.id}/workflows`);
   };
 
-  const filteredProjects = projects.filter(p => 
-    p.name.toLowerCase().includes(searchText.toLowerCase()) || 
-    (p.description || '').toLowerCase().includes(searchText.toLowerCase())
+  const greeting = useMemo(() => getGreeting(isZh), [isZh]);
+
+  const quickStarts = useMemo(
+    () => [
+      {
+        key: 'crawler',
+        icon: <GlobalOutlined />,
+        title: isZh ? '网页采集' : 'Web capture',
+        desc: isZh ? '从网页内容开始' : 'Start from web content',
+      },
+      {
+        key: 'assistant',
+        icon: <RobotOutlined />,
+        title: isZh ? '助手项目' : 'Assistant project',
+        desc: isZh ? '适合对话或流程协作' : 'Good for chat or flow collaboration',
+      },
+      {
+        key: 'data',
+        icon: <DatabaseOutlined />,
+        title: isZh ? '数据处理' : 'Data flow',
+        desc: isZh ? '清洗与整理数据' : 'Clean and organize data',
+      },
+    ],
+    [isZh],
   );
 
   const formatDate = (dateStr: string) => {
     try {
       if (!dateStr) return '-';
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return '-';
-      
-      return date.toLocaleDateString(i18n.language === 'zh-CN' ? 'zh-CN' : 'en-US', {
+      if (Number.isNaN(date.getTime())) return '-';
+
+      return date.toLocaleDateString(isZh ? 'zh-CN' : 'en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       });
-    } catch (e) {
+    } catch {
       return '-';
     }
   };
 
-  // 场景模板数据
-  const templates = [
-    {
-      key: 'crawler',
-      icon: <GlobalOutlined />,
-      title: t('dashboard.templateCrawler', '网页采集助手'),
-      desc: t('dashboard.templateCrawlerDesc', '自动抓取网页数据并结构化提取')
-    },
-    {
-      key: 'ai',
-      icon: <RobotOutlined />,
-      title: t('dashboard.templateAI', 'AI 智能助手'),
-      desc: t('dashboard.templateAIDesc', '构建基于大模型的对话或处理应用')
-    },
-    {
-      key: 'data',
-      icon: <DatabaseOutlined />,
-      title: t('dashboard.templateData', '数据清洗流水线'),
-      desc: t('dashboard.templateDataDesc', '对多源数据进行清洗、转换和整合')
-    }
-  ];
+  const sectionTitle = isZh ? '最近项目' : 'Recent projects';
+  const sectionHint = isZh
+    ? '把常用项目留在眼前，方便继续推进。'
+    : 'Keep active work within easy reach.';
+  const emptyTitle = isZh ? '还没有项目' : 'No projects yet';
+  const emptyText = isZh
+    ? '从空白开始，或者用一个轻量模板先把工作铺开。'
+    : 'Start from blank, or use a light template to get moving.';
 
   return (
     <div className={styles.container}>
-      {/* 欢迎 Banner */}
-      <div className={styles.welcomeSection}>
-        <div className={styles.welcomeContent}>
-          <Title level={2} style={{ margin: 0, color: isDark ? '#ffffff' : '#000000' }}>
-            {t('dashboard.welcomeBack', '欢迎回来')}, {user?.username || 'User'} 👋
-          </Title>
-          <Text style={{ fontSize: 16, color: isDark ? '#d9d9d9' : '#333333', marginTop: 8, display: 'block' }}>
-            {t('dashboard.welcomeSubtitle', '今天想构建什么工作流？')}
-          </Text>
-          <div className={styles.quickStart}>
-            <Button 
-              type="primary" 
-              size="large" 
-              icon={<RocketOutlined />}
-              onClick={() => handleCreate()}
-              className={styles.startBtn}
-            >
-              {t('dashboard.startFromBlank', '从空白开始')}
-            </Button>
-            <Button 
-              size="large" 
-              className={styles.viewDocsBtn}
-              onClick={() => window.open('https://github.com/YaoLight/workshop', '_blank')}
-            >
-              {t('dashboard.viewDocs', '查看文档')}
-            </Button>
-          </div>
-        </div>
-      </div>
+      <div className={styles.glow} />
 
-      {/* 场景模板 */}
-      <div className={styles.section}>
-        <div className={styles.sectionTitle}>{t('dashboard.startWithTemplate', '从模板开始')}</div>
-        <div className={styles.templateGrid}>
-          {templates.map(tpl => (
-            <div 
-              key={tpl.key} 
-              className={styles.templateCard}
-              onClick={() => handleCreate(tpl.title, tpl.desc)}
+      <section className={styles.introSection}>
+        <span className={styles.eyebrow}>YaoLight Workspace</span>
+        <h1 className={styles.title}>{greeting}</h1>
+        <p className={styles.subtitle}>
+          {isZh
+            ? `${user?.username || '你'} 的工作从这里开始。少一点打扰，多一点留白。`
+            : `A quieter place for ${user?.username || 'you'} to begin. Less noise, more room to work.`}
+        </p>
+
+        <div className={styles.actionRow}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            className={styles.primaryButton}
+            onClick={() => handleCreate()}
+          >
+            {isZh ? '新建项目' : 'New project'}
+          </Button>
+          <Button
+            className={styles.softButton}
+            onClick={() => projectsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            {isZh ? '最近项目' : 'Recent projects'}
+          </Button>
+        </div>
+
+        <div className={styles.quickStartRow}>
+          {quickStarts.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={styles.quickStartChip}
+              onClick={() => handleCreate(item.title, item.desc)}
             >
-              <div className={styles.tplIcon}>{tpl.icon}</div>
-              <div className={styles.tplInfo}>
-                <div className={styles.tplTitle}>{tpl.title}</div>
-                <div className={styles.tplDesc}>{tpl.desc}</div>
-              </div>
-            </div>
+              <span className={styles.quickStartIcon}>{item.icon}</span>
+              <span className={styles.quickStartLabel}>{item.title}</span>
+            </button>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* 项目列表 */}
-      <div className={styles.section}>
-        <div className={styles.header}>
-          <div className={styles.titleSection}>
-            <div className={styles.sectionTitle} style={{ marginBottom: 0 }}>
-              {t('dashboard.myProjects', '我的项目')}
-            </div>
+      <section ref={projectsSectionRef} className={styles.projectsSection}>
+        <div className={styles.sectionHeader}>
+          <div>
+            <div className={styles.sectionTitle}>{sectionTitle}</div>
+            <div className={styles.sectionHint}>{sectionHint}</div>
           </div>
-          
-          <div className={styles.actions}>
-            <Input 
-              prefix={<SearchOutlined style={{ color: 'var(--text-tertiary)' }} />} 
-              placeholder={t('dashboard.searchPlaceholder', '搜索项目...')} 
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)} 
-              style={{ width: 240, borderRadius: '8px' }}
-              allowClear
-            />
+          <div className={styles.sectionMeta}>
+            {isZh ? `当前页 ${projects.length}` : `${projects.length} on this page`}
           </div>
         </div>
 
-        <div className={styles.projectGrid}>
-          <div className={styles.createCard} onClick={() => handleCreate()}>
-            <PlusOutlined className={styles.createIcon} />
-            <div className={styles.createText}>{t('dashboard.createProject')}</div>
+        {loading ? (
+          <div className={styles.loadingShell}>
+            <Spin />
           </div>
-
-          {filteredProjects.map(project => (
-            <div 
-              key={project.id} 
-              className={styles.projectCard}
-              onClick={() => handleEnterProject(project)}
-            >
-              <div className={styles.cardHeader}>
-                <div className={styles.title} title={project.name}>{project.name}</div>
-                <Tag color={project.status === 'active' ? 'green' : 'default'} style={{ margin: 0 }}>
-                  {project.status === 'active' ? t('dashboard.statusActive') : t('dashboard.statusArchived')}
-                </Tag>
+        ) : projects.length > 0 ? (
+          <div className={styles.projectGrid}>
+            <button type="button" className={styles.createCard} onClick={() => handleCreate()}>
+              <PlusOutlined className={styles.createIcon} />
+              <div className={styles.createTitle}>{isZh ? '开始一个新项目' : 'Start a new project'}</div>
+              <div className={styles.createText}>
+                {isZh ? '给下一段工作留一个干净的起点。' : 'Open a clean space for the next piece of work.'}
               </div>
-              
-              <div className={styles.cardBody}>
-                <div className={styles.description} title={project.description}>
-                  {project.description || t('common.noDescription', '暂无描述')}
+            </button>
+
+            {projects.map((project) => (
+              <article
+                key={project.id}
+                className={styles.projectCard}
+                onClick={() => handleEnterProject(project)}
+              >
+                <div className={styles.projectHeader}>
+                  <div className={styles.projectName} title={project.name}>
+                    {project.name}
+                  </div>
+
+                  <div className={styles.cardActions} onClick={(event) => event.stopPropagation()}>
+                    <Tooltip title={isZh ? '编辑项目' : 'Edit project'}>
+                      <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        className={styles.cardIconButton}
+                        onClick={() => handleEdit(project)}
+                      />
+                    </Tooltip>
+                    <Popconfirm
+                      title={t('dashboard.deleteConfirm')}
+                      onConfirm={() => void handleDelete(project.id)}
+                      okText={t('common.ok')}
+                      cancelText={t('common.cancel')}
+                    >
+                      <Tooltip title={isZh ? '删除项目' : 'Delete project'}>
+                        <Button
+                          type="text"
+                          icon={<DeleteOutlined />}
+                          className={styles.cardIconButton}
+                        />
+                      </Tooltip>
+                    </Popconfirm>
+                  </div>
                 </div>
-                <div className={styles.meta}>
-                  <div className={styles.metaItem}>
+
+                <div className={styles.projectDescription} title={project.description}>
+                  {project.description || (isZh ? '还没有描述，可以稍后再补充。' : 'No description yet, you can add one later.')}
+                </div>
+
+                <div className={styles.projectFooter}>
+                  <div className={styles.projectDate}>
                     <CalendarOutlined />
                     {formatDate(project.createdAt)}
                   </div>
+
+                  <button
+                    type="button"
+                    className={styles.projectLink}
+                    onClick={() => handleEnterProject(project)}
+                  >
+                    {isZh ? '进入项目' : 'Open'}
+                    <ArrowRightOutlined />
+                  </button>
                 </div>
-              </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyTitle}>{emptyTitle}</div>
+            <div className={styles.emptyText}>{emptyText}</div>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => handleCreate()}>
+              {isZh ? '创建项目' : 'Create project'}
+            </Button>
+          </div>
+        )}
 
-              <div className={styles.cardFooter} onClick={e => e.stopPropagation()}>
-                <Tooltip title={t('common.edit')}>
-                  <Button 
-                    type="text" 
-                    icon={<EditOutlined />} 
-                    onClick={() => handleEdit(project)} 
-                  />
-                </Tooltip>
-                <Popconfirm
-                  title={t('dashboard.deleteConfirm')}
-                  onConfirm={() => handleDelete(project.id)}
-                  okText={t('common.ok')}
-                  cancelText={t('common.cancel')}
-                >
-                  <Tooltip title={t('common.delete')}>
-                    <Button type="text" danger icon={<DeleteOutlined />} />
-                  </Tooltip>
-                </Popconfirm>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {total > 0 && (
-          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center' }}>
+        {total > 0 ? (
+          <div className={styles.paginationWrap}>
             <Pagination
               current={page}
               pageSize={pageSize}
               total={total}
               showSizeChanger
-              showTotal={(total) => t('dashboard.paginationTotal', { total })}
-              onChange={(p, ps) => {
-                setPage(p);
-                setPageSize(ps);
+              showTotal={(value) => t('dashboard.paginationTotal', { total: value })}
+              onChange={(nextPage, nextPageSize) => {
+                setPage(nextPage);
+                setPageSize(nextPageSize);
               }}
             />
           </div>
-        )}
-      </div>
+        ) : null}
+      </section>
 
       <Modal
         title={editingProject ? t('dashboard.editProject') : t('dashboard.newProject')}
@@ -320,11 +344,7 @@ export default function Dashboard() {
         cancelText={t('common.cancel')}
         centered
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-        >
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
             name="name"
             label={t('dashboard.projectName')}
@@ -332,14 +352,8 @@ export default function Dashboard() {
           >
             <Input placeholder={t('dashboard.namePlaceholder')} />
           </Form.Item>
-          <Form.Item
-            name="description"
-            label={t('dashboard.projectDescription')}
-          >
-            <TextArea
-              rows={4}
-              placeholder={t('dashboard.descriptionPlaceholder')}
-            />
+          <Form.Item name="description" label={t('dashboard.projectDescription')}>
+            <TextArea rows={4} placeholder={t('dashboard.descriptionPlaceholder')} />
           </Form.Item>
         </Form>
       </Modal>

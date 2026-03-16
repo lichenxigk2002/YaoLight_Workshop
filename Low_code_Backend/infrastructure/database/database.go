@@ -32,6 +32,7 @@ import (
 	taskModels "yaolight-workshop/backend/modules/task/models"
 	userModels "yaolight-workshop/backend/modules/user/models"
 	workflowModels "yaolight-workshop/backend/modules/workflow/models"
+	workflowAPIModels "yaolight-workshop/backend/modules/workflowapi/models"
 )
 
 var DB *gorm.DB
@@ -298,6 +299,9 @@ func AutoMigrate() error {
 		&workflowModels.WorkflowNode{},
 		&workflowModels.WorkflowVersion{},
 		&workflowModels.WorkflowCommentCard{},
+		&workflowAPIModels.WorkflowAPIEndpoint{},
+		&workflowAPIModels.WorkflowAPIKey{},
+		&workflowAPIModels.WorkflowAPIInvocation{},
 		&taskModels.TaskNodeExecution{},
 		&taskModels.TaskLog{},
 		&alkaidModels.AlkaidSession{},

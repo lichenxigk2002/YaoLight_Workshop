@@ -38,10 +38,13 @@ type EdgeConfig struct {
 
 // ExecutionRequest is the workflow execution payload.
 type ExecutionRequest struct {
-	Nodes      []NodeConfig `json:"nodes"`
-	Edges      []EdgeConfig `json:"edges"`
-	UserID     uint         `json:"userID,omitempty"`     // User ID for permission-aware execution.
-	WorkflowID uint         `json:"workflowId,omitempty"` // Workflow ID for task association.
+	Nodes         []NodeConfig           `json:"nodes"`
+	Edges         []EdgeConfig           `json:"edges"`
+	UserID        uint                   `json:"userID,omitempty"`     // User ID for permission-aware execution.
+	WorkflowID    uint                   `json:"workflowId,omitempty"` // Workflow ID for task association.
+	RuntimeInput  interface{}            `json:"runtimeInput,omitempty"`
+	RuntimeMeta   map[string]interface{} `json:"runtimeMeta,omitempty"`
+	OnTaskCreated func(taskID uint)      `json:"-"`
 }
 
 // NodeExecutionResult is the result of one node execution.
@@ -83,7 +86,9 @@ func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, erro
 	dataFlow := NewDataFlow(req.Edges)
 	variableContext := NewVariableContext()
 	execMeta := ExecutionMeta{
-		UserID: req.UserID,
+		UserID:       req.UserID,
+		RuntimeInput: req.RuntimeInput,
+		RuntimeMeta:  req.RuntimeMeta,
 	}
 	if req.WorkflowID > 0 {
 		wid := req.WorkflowID
@@ -334,7 +339,7 @@ func (e *WorkflowExecutor) findStartNodes(nodes []NodeConfig, edges []EdgeConfig
 func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, meta ExecutionMeta) NodeExecutionResult {
 	switch node.Type {
 	case "start":
-		return e.executeStartNode(node, dataFlow)
+		return e.executeStartNode(node, dataFlow, meta)
 	case "crawler":
 		return e.executeCrawlerNode(node, dataFlow, variableContext)
 	case "dataclean":

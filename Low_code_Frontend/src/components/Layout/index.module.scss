@@ -1,120 +1,220 @@
-// 使用 CSS 变量，不需要导入 SCSS 变量
-
 .layout {
   min-height: 100vh;
 }
 
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: var(--bg-primary) !important;
-  padding: 0 24px;
-  height: 64px;
+  height: 76px;
+  padding: 14px 24px;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px var(--shadow-sm);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  border-bottom: 1px solid var(--border-secondary);
+  background: rgba(247, 245, 241, 0.78) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(18px);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 
-  // 去掉 header 内圆形按钮的边框与阴影（主题/语言/通知）
+  [data-theme='dark'] & {
+    background: rgba(20, 20, 20, 0.82) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+  }
+
   :global(.ant-btn) {
     box-shadow: none !important;
+
     &::before,
     &::after {
       display: none !important;
     }
   }
+}
 
-  :global(.ant-dropdown-menu) {
-    background: var(--bg-primary);
-    border-color: var(--border-secondary);
-
-    :global(.ant-dropdown-menu-item) {
-      color: var(--text-primary);
-
-      &:hover {
-        background: var(--bg-secondary);
-      }
-    }
-  }
+.headerInner {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
 }
 
 .logo {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 12px;
-  font-size: 20px;
-  font-weight: bold;
-  color: var(--primary);
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
-  transition: opacity 0.3s ease;
-  user-select: none;
+  text-align: left;
+}
 
-  &:hover {
-    opacity: 0.8;
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+
+  [data-theme='dark'] & {
+    background: transparent;
   }
+}
 
-  .logoImage {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-  }
+.logoImage {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
 
-  .brandText {
-    color: var(--primary);
-  }
+.brandBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
-  .userInfo {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: 24px;
-    padding-left: 24px;
-    border-left: 1px solid var(--border-secondary);
+.brandText {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
 
-    .userAvatar {
-      flex-shrink: 0;
-      border: none !important;
-    }
-
-    .userName {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-primary);
-    }
-  }
+.brandCaption {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .headerRight {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
+}
+
+.toolDock {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.5));
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.04);
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.06);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
+    box-shadow: none;
+  }
+}
+
+.dockDivider {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: rgba(0, 0, 0, 0.08);
+
+  [data-theme='dark'] & {
+    background: rgba(255, 255, 255, 0.08);
+  }
 }
 
 .headerAvatarWrap {
   display: inline-flex;
   align-items: center;
   cursor: pointer;
-  margin-left: 4px;
+}
+
+.profileButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 5px 10px 5px 5px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.5));
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.04);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(0, 0, 0, 0.1);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6));
+  }
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.06);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
+    box-shadow: none;
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.1);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035));
+    }
+  }
 }
 
 .headerAvatar {
   cursor: pointer;
   border: none !important;
+  background: rgba(17, 17, 17, 0.92) !important;
+  color: #ffffff !important;
 
-  :global(.ant-avatar) {
-    border: none !important;
+  [data-theme='dark'] & {
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: #111111 !important;
   }
 }
 
-// 头像下拉面板：左头像右名字 + 快捷菜单
+.profileMeta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.headerUserText {
+  max-width: 124px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.profileHint {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
 .userDropdownPanel {
   min-width: 240px;
   padding: 12px 0;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-secondary);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 20px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.08);
+
+  [data-theme='dark'] & {
+    background: rgba(24, 24, 24, 0.96);
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+  }
 }
 
 .userDropdownHead {
@@ -187,7 +287,6 @@
   color: var(--text-secondary);
 }
 
-// 顶部栏三个按钮统一样式（主题 / 国际化 / 通知），按国际化按钮效果
 .headerIconBtn {
   width: 40px;
   height: 40px;
@@ -196,16 +295,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 14px;
   background: transparent !important;
-  border: none !important;
+  border: 1px solid transparent !important;
   box-shadow: none !important;
   outline: none !important;
   color: var(--text-primary) !important;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  transition: background 0.2s ease;
+  letter-spacing: 0.04em;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
   cursor: pointer;
 
   &::before,
@@ -214,7 +313,7 @@
   }
 
   :global(.anticon) {
-    font-size: 18px;
+    font-size: 17px;
     color: var(--text-primary);
   }
 
@@ -222,15 +321,20 @@
   &:focus,
   &:focus-visible,
   &:active {
-    background: var(--bg-secondary) !important;
-    border: none !important;
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.78) !important;
+    border-color: rgba(0, 0, 0, 0.06) !important;
     box-shadow: none !important;
     outline: none !important;
     color: var(--text-primary) !important;
+
+    [data-theme='dark'] & {
+      background: rgba(255, 255, 255, 0.06) !important;
+      border-color: rgba(255, 255, 255, 0.06) !important;
+    }
   }
 }
 
-// 通知铃铛图标：更小、更协调
 .notificationBellIcon {
   font-size: 15px !important;
   color: inherit;
@@ -240,23 +344,28 @@
   padding: 0;
   background: var(--bg-tertiary);
   transition: background-color 0.3s ease;
-  height: calc(100vh - 64px); // 减去 Header 高度
+  height: calc(100vh - 76px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-// 站内消息下拉（扣子风格 + 主体主题变量）
 .notificationDropdown {
   width: 380px;
   max-height: 440px;
-  background: var(--bg-primary);
-  border-radius: 12px;
-  border: 1px solid var(--border-secondary);
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+
+  [data-theme='dark'] & {
+    background: rgba(24, 24, 24, 0.96);
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.34);
+  }
 }
 
 .notificationHeader {
@@ -273,7 +382,6 @@
   color: var(--text-primary);
 }
 
-// 右上角常驻：全部已读(扫把) + 设置
 .notificationHeaderIcons {
   display: flex;
   align-items: center;
@@ -289,7 +397,7 @@
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-secondary);
   cursor: pointer;
   transition: color 0.2s, background 0.2s;
@@ -304,21 +412,20 @@
   }
 }
 
-// 全部 / 未读 Tab（更小巧）
 .notificationTabs {
   display: flex;
-  gap: 2px;
+  gap: 6px;
   padding: 0 16px 10px;
   border-bottom: 1px solid var(--border-secondary);
 }
 
 .notificationTab {
-  padding: 4px 10px;
+  padding: 5px 11px;
   font-size: 12px;
   color: var(--text-secondary);
   background: transparent;
   border: none;
-  border-radius: 4px;
+  border-radius: 999px;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
 
@@ -346,12 +453,11 @@
   padding: 24px;
 }
 
-// 通知卡片（扣子风格）
 .notificationCard {
   padding: 12px;
   margin-bottom: 8px;
   background: var(--bg-secondary);
-  border-radius: 8px;
+  border-radius: 12px;
   border: none;
   transition: background 0.2s;
 
@@ -382,7 +488,7 @@
   width: 28px;
   height: 28px;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--bg-tertiary, rgba(0, 0, 0, 0.04));
   color: var(--text-secondary);
   font-size: 14px;
@@ -422,12 +528,12 @@
   font-size: 11px;
   height: 24px;
   padding: 0 8px;
-  border-radius: 4px;
+  border-radius: 999px;
 }
 
 .notificationDetailModal {
   :global(.ant-modal-content) {
-    border-radius: 16px;
+    border-radius: 20px;
     background: var(--bg-primary);
   }
 
@@ -461,4 +567,33 @@
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .header {
+    height: auto;
+    padding: 12px 16px;
+  }
+
+  .headerInner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .headerRight {
+    justify-content: space-between;
+  }
+
+  .profileMeta {
+    display: none;
+  }
+
+  .notificationDropdown {
+    width: min(360px, calc(100vw - 24px));
+  }
+
+  .content {
+    height: auto;
+    min-height: calc(100vh - 120px);
+  }
 }

@@ -15,7 +15,6 @@ import type {
   BillSummaryParams,
 } from '@/types/user';
 import Statistics from './components/Statistics';
-import TransactionList from './components/TransactionList';
 import styles from './index.module.scss';
 
 const { Text } = Typography;
