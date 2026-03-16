@@ -34,6 +34,7 @@ import (
 	userRepositories "yaolight-workshop/backend/modules/user/repositories"
 	userServices "yaolight-workshop/backend/modules/user/services"
 	workflowControllers "yaolight-workshop/backend/modules/workflow/controllers"
+	workflowAPIControllers "yaolight-workshop/backend/modules/workflowapi/controllers"
 )
 
 func main() {
@@ -84,7 +85,7 @@ func main() {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     allowOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cache-Control"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cache-Control", "X-API-Key"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
 		AllowCredentials: true,
 		MaxAge:           12 * 60 * 60, // 12 hours
@@ -102,6 +103,16 @@ func main() {
 	})
 
 	// 6. API路由
+	workflowAPIController := workflowAPIControllers.NewWorkflowAPIController()
+	openAPI := r.Group("/open-api/v1")
+	{
+		openAPI.GET("/workflows/:slug/docs", workflowAPIController.GetDocs)
+		openAPI.POST("/workflows/:slug/invoke", workflowAPIController.PublicInvoke)
+		openAPI.GET("/workflows/:slug/invocations/:requestId", workflowAPIController.GetInvocation)
+		openAPI.GET("/workflows/:slug/invocations/:requestId/artifacts", workflowAPIController.ListInvocationArtifacts)
+		openAPI.GET("/workflows/:slug/invocations/:requestId/artifacts/:artifactId/download", workflowAPIController.DownloadInvocationArtifact)
+	}
+
 	api := r.Group("/api")
 	{
 		api.GET("/", func(c *gin.Context) {
@@ -232,6 +243,11 @@ func main() {
 			auth.GET("/workflows/:id/nodes", workflowController.GetWorkflowNodes)
 			auth.PUT("/workflows/:id/nodes", workflowController.SaveWorkflowNodes)
 			auth.PUT("/workflows/:id/nodes/:nodeId", workflowController.SaveWorkflowNode)
+			auth.GET("/workflows/:id/api", workflowAPIController.GetEndpoint)
+			auth.POST("/workflows/:id/api", workflowAPIController.UpsertEndpoint)
+			auth.GET("/workflows/:id/api/keys", workflowAPIController.ListKeys)
+			auth.POST("/workflows/:id/api/keys", workflowAPIController.CreateKey)
+			auth.GET("/workflows/:id/api/invocations", workflowAPIController.ListInvocations)
 			auth.POST("/workflows/execute", workflowController.ExecuteWorkflow)
 			auth.POST("/workflows/execute/stream", workflowController.ExecuteWorkflowStream)
 

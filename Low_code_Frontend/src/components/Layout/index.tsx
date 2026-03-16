@@ -32,6 +32,7 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useThemeStore();
+  const isZh = i18n.language === 'zh-CN';
 
   const handleLogoClick = () => {
     navigate('/');
@@ -139,44 +140,63 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <AntLayout className={styles.layout}>
       <Header className={styles.header}>
-        <div className={styles.logo} onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
-          <img
-            src={theme === 'dark' ? '/YaoLight_White.png' : '/YaoLight_Black.png'}
-            alt="YaoLight"
-            className={styles.logoImage}
-          />
-          <span className={styles.brandText}>{t('common.brandName')}</span>
-        </div>
-        <div className={styles.headerRight}>
-          <Button
-            className={styles.headerIconBtn}
-            shape="circle"
-            size="middle"
-            onClick={toggleTheme}
-            icon={theme === 'dark' ? <MoonOutlined /> : <SunOutlined />}
-          />
-          <Button
-            className={styles.headerIconBtn}
-            shape="circle"
-            size="middle"
-            onClick={handleLanguageToggle}
-          >
-            {i18n.language === 'zh-CN' ? 'CN' : 'US'}
-          </Button>
-          <NotificationBell />
-          <Dropdown
-            dropdownRender={() => dropdownContent}
-            placement="bottomRight"
-            trigger={['hover', 'click']}
-          >
-            <span className={styles.headerAvatarWrap}>
-              <Avatar
-                src={getAvatarUrl()}
-                className={styles.headerAvatar}
-                icon={<UserOutlined />}
+        <div className={styles.headerInner}>
+          <button type="button" className={styles.logo} onClick={handleLogoClick}>
+            <span className={styles.brandMark}>
+              <img
+                src={theme === 'dark' ? '/YaoLight_White.png' : '/YaoLight_Black.png'}
+                alt="YaoLight"
+                className={styles.logoImage}
               />
             </span>
-          </Dropdown>
+            <span className={styles.brandBlock}>
+              <span className={styles.brandText}>{t('common.brandName')}</span>
+              <span className={styles.brandCaption}>Workspace</span>
+            </span>
+          </button>
+
+          <div className={styles.headerRight}>
+            <div className={styles.toolDock}>
+              <Button
+                className={styles.headerIconBtn}
+                shape="circle"
+                size="middle"
+                onClick={toggleTheme}
+                icon={theme === 'dark' ? <MoonOutlined /> : <SunOutlined />}
+              />
+              <span className={styles.dockDivider} />
+              <Button
+                className={styles.headerIconBtn}
+                shape="circle"
+                size="middle"
+                onClick={handleLanguageToggle}
+              >
+                {i18n.language === 'zh-CN' ? 'CN' : 'US'}
+              </Button>
+              <span className={styles.dockDivider} />
+              <NotificationBell />
+            </div>
+
+            <Dropdown
+              dropdownRender={() => dropdownContent}
+              placement="bottomRight"
+              trigger={['hover', 'click']}
+            >
+              <span className={styles.headerAvatarWrap}>
+                <span className={styles.profileButton}>
+                  <Avatar
+                    src={getAvatarUrl()}
+                    className={styles.headerAvatar}
+                    icon={<UserOutlined />}
+                  />
+                  <span className={styles.profileMeta}>
+                    <span className={styles.headerUserText}>{user?.username || t('layout.userCenter')}</span>
+                    <span className={styles.profileHint}>{isZh ? '个人中心' : 'Account'}</span>
+                  </span>
+                </span>
+              </span>
+            </Dropdown>
+          </div>
         </div>
       </Header>
       <Content className={styles.content}>

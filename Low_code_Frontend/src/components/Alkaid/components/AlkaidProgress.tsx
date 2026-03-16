@@ -251,7 +251,20 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
     [displayPlanSteps],
   );
 
-  const showGeneratingTimelineStep = phase === 'generating';
+  const nonGeneratingPlanSteps = useMemo(
+    () => displayPlanSteps.filter((step) => step.phase !== 'generating'),
+    [displayPlanSteps],
+  );
+
+  const showGeneratingTimelineStep = useMemo(() => {
+    if (phase !== 'generating') return false;
+    if (generatingPlanStep) return true;
+    if (displayPlanSteps.length === 0) return true;
+
+    // Only expose the synthetic "content generating" step after prior plan steps
+    // have actually finished, otherwise later stages appear to start too early.
+    return nonGeneratingPlanSteps.every((step) => step.status === 'success' || step.status === 'skipped');
+  }, [displayPlanSteps.length, generatingPlanStep, nonGeneratingPlanSteps, phase]);
 
   const renderedPlanSteps = useMemo(
     () => (showGeneratingTimelineStep && generatingPlanStep

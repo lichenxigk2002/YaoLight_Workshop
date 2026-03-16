@@ -68,6 +68,7 @@ const initialEdges: Edge[] = [
 const LoginWorkflowCanvas: React.FC = () => {
   const { i18n } = useTranslation();
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // 根据语言生成节点 - 更宽松的布局，增加节点间距
   const getInitialNodes = (): Node[] => {
@@ -202,22 +203,52 @@ const LoginWorkflowCanvas: React.FC = () => {
     );
   }, [i18n.language, setNodes]);
 
-  // 初始化时调整视图 - 优化显示效果，确保所有节点都可见
-  useEffect(() => {
-    if (reactFlowInstance.current) {
-      setTimeout(() => {
-        reactFlowInstance.current?.fitView({
-          padding: 0.4,
-          duration: 800,
-          minZoom: 0.4,
-          maxZoom: 0.7
-        });
-      }, 100);
-    }
+  const fitPreview = useCallback(() => {
+    reactFlowInstance.current?.fitView({
+      padding: 0.28,
+      duration: 500,
+      minZoom: 0.42,
+      maxZoom: 0.82,
+    });
   }, []);
 
+  // 初始化时调整视图，并在容器尺寸变化时重新对齐预览
+  useEffect(() => {
+    if (!containerRef.current) return undefined;
+
+    const runFit = () => {
+      window.requestAnimationFrame(() => {
+        fitPreview();
+      });
+    };
+
+    const timer = window.setTimeout(runFit, 120);
+    const resizeObserver = new ResizeObserver(() => {
+      runFit();
+    });
+
+    resizeObserver.observe(containerRef.current);
+    window.addEventListener('resize', runFit);
+
+    return () => {
+      window.clearTimeout(timer);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', runFit);
+    };
+  }, [fitPreview]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      fitPreview();
+    }, 80);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [fitPreview, i18n.language]);
+
   return (
-    <div className={styles.canvasContainer}>
+    <div ref={containerRef} className={styles.canvasContainer}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -226,12 +257,16 @@ const LoginWorkflowCanvas: React.FC = () => {
         onConnect={onConnect}
         onInit={(instance) => {
           reactFlowInstance.current = instance;
+          window.requestAnimationFrame(() => {
+            fitPreview();
+          });
         }}
         nodeTypes={nodeTypes}
         fitView
         minZoom={0.5}
         maxZoom={0.8}
         defaultViewport={{ x: 0, y: 0, zoom: 0.65 }}
+        style={{ width: '100%', height: '100%' }}
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={false}

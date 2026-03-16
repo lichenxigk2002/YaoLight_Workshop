@@ -56,6 +56,9 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	if err := taskRepo.CreateTask(task); err != nil {
 		log.Printf("create task record failed: %v", err)
 	}
+	if task.ID > 0 && req.OnTaskCreated != nil {
+		req.OnTaskCreated(task.ID)
+	}
 
 	taskStartTime := time.Now()
 
@@ -85,7 +88,9 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	dataFlow := NewDataFlow(req.Edges)
 	variableContext := NewVariableContext()
 	execMeta := ExecutionMeta{
-		UserID: req.UserID,
+		UserID:       req.UserID,
+		RuntimeInput: req.RuntimeInput,
+		RuntimeMeta:  req.RuntimeMeta,
 	}
 	if req.WorkflowID > 0 {
 		wid := req.WorkflowID

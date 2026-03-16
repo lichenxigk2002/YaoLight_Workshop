@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
 import { Layout, Menu } from 'antd';
+import type { MenuProps } from 'antd';
 import {
-  UserOutlined,
+  BellOutlined,
   CloudServerOutlined,
   CreditCardOutlined,
-  GlobalOutlined,
   FileTextOutlined,
-  BellOutlined,
+  GlobalOutlined,
   TeamOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import styles from './index.module.scss';
 
 const { Sider, Content } = Layout;
@@ -21,7 +21,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const menuItems = [
+  const menuItems: MenuProps['items'] = [
     {
       key: 'workspace',
       label: t('settings.groupWorkspace'),
@@ -82,13 +82,12 @@ export default function Settings() {
         {
           key: 'assistant',
           icon: <Sparkles size={16} />,
-          label: '瑶光星AI助手',
+          label: '瑶光 AI 助手',
         },
       ],
     },
   ];
 
-  // 从路径中提取当前选中的 key
   const getSelectedKey = () => {
     const pathParts = location.pathname.split('/');
     return pathParts[pathParts.length - 1] || 'models';
@@ -102,23 +101,44 @@ export default function Settings() {
 
   return (
     <div className={styles.container}>
-      <Layout className={styles.layout}>
-        <Sider width={240} className={styles.sider} theme="light">
-          <div className={styles.sidebarTitle}>{t('settings.title')}</div>
-          <Menu
-            mode="inline"
-            selectedKeys={[selectedKey]}
-            items={menuItems}
-            onClick={handleMenuClick}
-            className={styles.menu}
-          />
-        </Sider>
-        <Content className={styles.content}>
-          <div className={styles.scrollContainer}>
-            <Outlet />
+      <div className={styles.glow} />
+      <div className={styles.shell}>
+        <div className={styles.pageIntro}>
+          <span className={styles.eyebrow}>{t('settings.title')}</span>
+          <div className={styles.pageTitle}>{t('settings.title')}</div>
+          <div className={styles.pageSubtitle}>
+            {t(
+              'settings.pageSubtitle',
+              '把账号、模型、账单和通知放在一个更安静的地方，保持设置清晰而不过载。',
+            )}
           </div>
-        </Content>
-      </Layout>
+        </div>
+
+        <Layout className={styles.layout}>
+          <Sider width={248} className={styles.sider} theme="light">
+            <div className={styles.sidebarPanel}>
+              <div className={styles.sidebarTitle}>{t('settings.title')}</div>
+              <div className={styles.sidebarHint}>
+                {t('settings.sidebarHint', '从这里调整账号、偏好与工作区配置。')}
+              </div>
+              <Menu
+                mode="inline"
+                selectedKeys={[selectedKey]}
+                items={menuItems}
+                onClick={handleMenuClick}
+                className={styles.menu}
+              />
+            </div>
+          </Sider>
+          <Content className={styles.content}>
+            <div className={styles.contentSurface}>
+              <div className={styles.scrollContainer}>
+                <Outlet />
+              </div>
+            </div>
+          </Content>
+        </Layout>
+      </div>
     </div>
   );
 }

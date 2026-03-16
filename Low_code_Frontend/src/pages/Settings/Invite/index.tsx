@@ -14,7 +14,6 @@ export default function Invite() {
   const { message: msg } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
   const [inviteCount, setInviteCount] = useState(0);
   const [list, setList] = useState<InviteRecord[]>([]);
   const [listTotal, setListTotal] = useState(0);
@@ -27,7 +26,6 @@ export default function Invite() {
       setLoading(true);
       const res = await userApi.getInviteLink();
       setInviteUrl(res.inviteUrl || '');
-      setInviteCode(res.inviteCode || '');
     } catch (error: any) {
       msg.error(error.message || t('common.operationFailed'));
     } finally {

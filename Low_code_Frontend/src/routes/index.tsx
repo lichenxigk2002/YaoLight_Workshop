@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import Login from '../pages/Login'
 import Dashboard from '../pages/Dashboard'
 import ProjectDetail from '../pages/ProjectDetail'
+import PublicWorkflowApiDocsPage from '../pages/PublicWorkflowApiDocs'
+import WorkflowApiPage from '../pages/WorkflowApi'
 import WorkflowEditor from '../components/WorkflowEditor'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
@@ -63,6 +65,20 @@ const router = createBrowserRouter([
         </Layout>
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '/projects/:projectId/workflows/:workflowId/api',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <WorkflowApiPage />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/open-api-docs/:slug',
+    element: <PublicWorkflowApiDocsPage />,
   },
   {
     path: '/settings',

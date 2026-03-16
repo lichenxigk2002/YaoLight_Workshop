@@ -645,16 +645,16 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 					step.ErrorMessage = errMsg
 				})
 				finishPlanStep(urlPlanStep.PlanStepID, alkaidModels.PlanStepError, urlValidationSummary, errMsg)
-				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
-				_ = sw.WriteError(errMsg)
-				_ = sw.WriteDone()
-				return nil
+				_ = sw.WriteContent("注意：部分 crawler 候选链接预检未通过，我仍保留了待确认工作流/补丁，方便你继续应用或手动修正这些链接。\n")
+				_ = sw.WriteContent(errMsg + "\n")
 			}
 
-			updatePlanStep(urlPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
-				step.ResultSummary = urlValidationSummary
-			})
-			finishPlanStep(urlPlanStep.PlanStepID, alkaidModels.PlanStepSuccess, urlValidationSummary, "")
+			if len(failures) == 0 {
+				updatePlanStep(urlPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+					step.ResultSummary = urlValidationSummary
+				})
+				finishPlanStep(urlPlanStep.PlanStepID, alkaidModels.PlanStepSuccess, urlValidationSummary, "")
+			}
 		}
 
 		autoTrialAndRepairEnabled := false

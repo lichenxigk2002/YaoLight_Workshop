@@ -34,6 +34,7 @@ import {
   SearchOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { projectApi } from '@/api/project';
 import { projectAssetsApi } from '@/api/projectAssets';
@@ -54,7 +55,7 @@ import type {
 } from '@/types/projectAssets';
 import styles from './index.module.scss';
 
-const { Title, Text, Paragraph } = Typography;
+const { Paragraph } = Typography;
 const { TextArea } = Input;
 
 type AssetTabKey = 'knowledge' | 'sources' | 'artifacts';
@@ -75,39 +76,17 @@ type SidePanelProps = {
   open: boolean;
   title: string;
   subtitle: string;
+  cancelText: string;
   confirmText: string;
   onClose: () => void;
   onSubmit: () => void;
   children: ReactNode;
 };
 
-const knowledgeCategoryOptions = [
-  { label: '最佳实践', value: 'best_practice' },
-  { label: '排错修复', value: 'error_repair' },
-  { label: '节点使用', value: 'node_usage' },
-  { label: '场景模板', value: 'scene_template' },
-  { label: '业务规则', value: 'business_rule' },
-];
-
-const sourceStatusOptions = [
-  { label: '启用', value: 'active' },
-  { label: '停用', value: 'disabled' },
-  { label: '无效', value: 'invalid' },
-];
-
-const knowledgeCategoryLabelMap = {
-  best_practice: '最佳实践',
-  error_repair: '排错修复',
-  node_usage: '节点使用',
-  scene_template: '场景模板',
-  business_rule: '业务规则',
-} as const;
-
-const sourceStatusLabelMap = {
-  active: '启用',
-  disabled: '停用',
-  invalid: '无效',
-} as const;
+const knowledgeCategoryValues = ['best_practice', 'error_repair', 'node_usage', 'scene_template', 'business_rule'] as const;
+const sourceStatusValues = ['active', 'disabled', 'invalid'] as const;
+type KnowledgeCategoryValue = (typeof knowledgeCategoryValues)[number];
+type SourceStatusValue = (typeof sourceStatusValues)[number];
 
 const importableKnowledgeExtensions = new Set(['txt', 'md', 'markdown', 'json', 'csv', 'html', 'htm', 'xml']);
 
@@ -150,11 +129,11 @@ const canPreviewArtifact = (mimeType: string) => {
   return lower.includes('text/') || lower.includes('json') || lower.includes('markdown') || lower.includes('svg');
 };
 
-const formatTime = (value?: string) => {
+const formatTime = (value?: string, locale = 'zh-CN') => {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('zh-CN', {
+  return date.toLocaleString(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -184,7 +163,7 @@ const getStatusClassName = (status: 'active' | 'disabled' | 'invalid' | 'muted')
   return styles.statusMuted;
 };
 
-function SidePanel({ open, title, subtitle, confirmText, onClose, onSubmit, children }: SidePanelProps) {
+function SidePanel({ open, title, subtitle, cancelText, confirmText, onClose, onSubmit, children }: SidePanelProps) {
   return (
     <>
       <div className={`${styles.sidePanelMask} ${open ? styles.sidePanelMaskOpen : ''}`} onClick={onClose} />
@@ -198,7 +177,7 @@ function SidePanel({ open, title, subtitle, confirmText, onClose, onSubmit, chil
         </div>
         <div className={styles.sidePanelBody}>{children}</div>
         <div className={styles.sidePanelFooter}>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{cancelText}</Button>
           <Button type="primary" onClick={onSubmit}>
             {confirmText}
           </Button>
@@ -211,9 +190,12 @@ function SidePanel({ open, title, subtitle, confirmText, onClose, onSubmit, chil
 export function ProjectAssetsContent({ embedded = false, projectId: providedProjectId, project: providedProject }: ProjectAssetsContentProps) {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
+  const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const knowledgeFileInputRef = useRef<HTMLInputElement | null>(null);
   const projectIdNumber = providedProjectId ?? (projectId ? Number(projectId) : 0);
+  const locale = i18n.language === 'en-US' ? 'en-US' : 'zh-CN';
+  const isZh = locale === 'zh-CN';
 
   const [project, setProject] = useState<Project | null>(providedProject || null);
   const [activeTab, setActiveTab] = useState<AssetTabKey>('knowledge');
@@ -261,10 +243,73 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
   const [artifactEmailTarget, setArtifactEmailTarget] = useState<ProjectArtifactItem | null>(null);
   const [artifactEmailForm] = Form.useForm();
 
+  const knowledgeCategoryLabelMap: Record<KnowledgeCategoryValue, string> = {
+    best_practice: t('projectAssets.categories.bestPractice'),
+    error_repair: t('projectAssets.categories.errorRepair'),
+    node_usage: t('projectAssets.categories.nodeUsage'),
+    scene_template: t('projectAssets.categories.sceneTemplate'),
+    business_rule: t('projectAssets.categories.businessRule'),
+  };
+
+  const sourceStatusLabelMap: Record<SourceStatusValue, string> = {
+    active: t('projectAssets.source.status.active'),
+    disabled: t('projectAssets.source.status.disabled'),
+    invalid: t('projectAssets.source.status.invalid'),
+  };
+
+  const knowledgeCategoryOptions = knowledgeCategoryValues.map((value) => ({
+    label: knowledgeCategoryLabelMap[value],
+    value,
+  }));
+
+  const sourceStatusOptions = sourceStatusValues.map((value) => ({
+    label: sourceStatusLabelMap[value],
+    value,
+  }));
+
+  const getKnowledgeCategoryLabel = (category: string) => knowledgeCategoryLabelMap[category as KnowledgeCategoryValue] || category;
+  const getSourceStatusLabel = (status: string) => sourceStatusLabelMap[status as SourceStatusValue] || status;
+
   const artifactKindOptions = useMemo(
     () => Array.from(new Set(artifactList.map((item) => item.kind).filter(Boolean))).map((value) => ({ label: value, value })),
     [artifactList],
   );
+
+  const collectionOverview = useMemo(
+    () => [
+      { key: 'knowledge', label: t('projectAssets.knowledge.title'), value: knowledgeTotal },
+      { key: 'sources', label: t('projectAssets.source.title'), value: sourceTotal },
+      { key: 'artifacts', label: t('projectAssets.artifact.title'), value: artifactTotal },
+    ],
+    [artifactTotal, knowledgeTotal, sourceTotal, t],
+  );
+
+  const activeCollectionIntro = useMemo(() => {
+    if (activeTab === 'sources') {
+      return {
+        title: isZh ? '维护可复用的网站来源' : 'Maintain reusable web sources',
+        description: isZh
+          ? '把入口地址、抓取提示和校验结果留在一起，后续项目更容易复用。'
+          : 'Keep entry URLs, crawl hints, and validation results together so later projects can reuse them.',
+      };
+    }
+
+    if (activeTab === 'artifacts') {
+      return {
+        title: isZh ? '把输出结果安静地收好' : 'Keep generated outputs within easy reach',
+        description: isZh
+          ? '这里保留流程产生的文件和内容，方便预览、下载和继续发送。'
+          : 'This is where workflow outputs stay available for preview, download, and delivery.',
+      };
+    }
+
+    return {
+      title: isZh ? '把知识和规则整理成库' : 'Collect reusable knowledge in one calmer library',
+      description: isZh
+        ? '把经验、规则和场景说明整理成长期可维护的内容，而不是临时备注。'
+        : 'Turn repeated know-how, rules, and scenarios into maintainable content instead of one-off notes.',
+    };
+  }, [activeTab, isZh]);
 
   const closePanel = () => {
     setPanelType(null);
@@ -344,11 +389,11 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
         const data = await projectApi.getProjectById(projectIdNumber);
         setProject(data);
       } catch (error: any) {
-        message.error(error.message || '加载项目失败');
+        message.error(error.message || t('projectAssets.messages.loadProjectFailed'));
       }
     };
     run();
-  }, [message, projectIdNumber, providedProject]);
+  }, [message, projectIdNumber, providedProject, t]);
 
   useEffect(() => {
     if (!projectIdNumber) return;
@@ -381,11 +426,11 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
         setArtifactPage(artifactResponse.page || 1);
         setArtifactPageSize(artifactResponse.pageSize || 10);
       } catch (error: any) {
-        message.error(error.message || '加载项目资产失败');
+        message.error(error.message || t('projectAssets.messages.loadAssetsFailed'));
       }
     };
     run();
-  }, [message, projectIdNumber]);
+  }, [message, projectIdNumber, t]);
   const openCreateKnowledge = () => {
     setEditingKnowledgeId(null);
     setKnowledgeSourceMeta(null);
@@ -424,11 +469,11 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
     event.target.value = '';
     if (!file) return;
     if (!inferFileType(file)) {
-      message.error('当前仅支持导入 txt、md、json、csv、html、xml 等文本类文件');
+      message.error(t('projectAssets.messages.fileTypeUnsupported'));
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      message.error('导入文件请控制在 2 MB 以内');
+      message.error(t('projectAssets.messages.fileTooLarge'));
       return;
     }
 
@@ -436,7 +481,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
     try {
       const content = await file.text();
       if (!content.trim()) {
-        throw new Error('文件内容为空');
+        throw new Error(t('projectAssets.messages.fileEmpty'));
       }
       const currentTitle = knowledgeForm.getFieldValue('title');
       knowledgeForm.setFieldsValue({
@@ -448,9 +493,9 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
         sourceMimeType: file.type || 'text/plain',
         sourceSize: file.size,
       });
-      message.success('文件内容已导入知识内容');
+      message.success(t('projectAssets.messages.fileImported'));
     } catch (error: any) {
-      message.error(error.message || '文件导入失败');
+      message.error(error.message || t('projectAssets.messages.fileImportFailed'));
     } finally {
       setKnowledgeUploading(false);
     }
@@ -476,9 +521,13 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
       await projectAssetsApi.createKnowledge(projectIdNumber, payload);
     }
 
-    message.success(editingKnowledgeId ? '知识库条目已更新' : '知识库条目已创建');
+    message.success(
+      editingKnowledgeId ? t('projectAssets.messages.knowledgeUpdated') : t('projectAssets.messages.knowledgeCreated'),
+    );
     closePanel();
-    loadKnowledge(knowledgePage, knowledgePageSize).catch((error: any) => message.error(error.message || '刷新知识库失败'));
+    loadKnowledge(knowledgePage, knowledgePageSize).catch((error: any) =>
+      message.error(error.message || t('projectAssets.messages.refreshKnowledgeFailed')),
+    );
   };
 
   const openCreateSource = () => {
@@ -543,9 +592,11 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
       await projectAssetsApi.createSource(projectIdNumber, payload);
     }
 
-    message.success(editingSourceId ? '网站源已更新' : '网站源已创建');
+    message.success(editingSourceId ? t('projectAssets.messages.sourceUpdated') : t('projectAssets.messages.sourceCreated'));
     closePanel();
-    loadSources(sourcePage, sourcePageSize).catch((error: any) => message.error(error.message || '刷新网站源失败'));
+    loadSources(sourcePage, sourcePageSize).catch((error: any) =>
+      message.error(error.message || t('projectAssets.messages.refreshSourceFailed')),
+    );
   };
 
   const previewArtifact = async (item: ProjectArtifactItem) => {
@@ -642,17 +693,17 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
             <div className={styles.resourceMain}>
               <div className={styles.resourceTitleRow}>
                 <div className={styles.primaryText}>{record.title}</div>
-                <span className={styles.softPill}>{knowledgeCategoryLabelMap[record.category]}</span>
+                <span className={styles.softPill}>{getKnowledgeCategoryLabel(record.category)}</span>
                 {record.target ? <span className={styles.mutedPill}>{record.target}</span> : null}
                 <span className={`${styles.statusPill} ${record.isActive ? styles.statusActive : styles.statusMuted}`}>
-                  {record.isActive ? '启用中' : '已停用'}
+                  {record.isActive ? t('projectAssets.knowledge.enabled') : t('projectAssets.knowledge.disabled')}
                 </span>
               </div>
-              <div className={styles.secondaryText}>{record.contentExcerpt || '暂无内容摘要'}</div>
+              <div className={styles.secondaryText}>{record.contentExcerpt || t('projectAssets.knowledge.noExcerpt')}</div>
               <div className={styles.metaRow}>
                 <span className={styles.metaText}>
                   <ClockCircleOutlined />
-                  更新于 {formatTime(record.updatedAt)}
+                  {t('projectAssets.updatedAt', { time: formatTime(record.updatedAt, locale) })}
                 </span>
                 {record.sourceName ? (
                   <span className={styles.metaText}>
@@ -671,7 +722,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
           </div>
         </div>
         <div className={styles.rowAside}>
-          <div className={styles.asideMetric}>ID #{record.id}</div>
+          <div className={styles.asideMetric}>{t('projectAssets.knowledge.idLabel', { id: record.id })}</div>
           <div className={styles.actionGroup}>
             <Switch
               checked={record.isActive}
@@ -682,14 +733,14 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
               }
             />
             <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEditKnowledge(record)}>
-              编辑
+              {t('common.edit')}
             </Button>
             <Popconfirm
-              title="确认删除这条知识？"
+              title={t('projectAssets.knowledge.deleteConfirm')}
               onConfirm={() => projectAssetsApi.deleteKnowledge(projectIdNumber, record.id).then(() => loadKnowledge(knowledgePage, knowledgePageSize))}
             >
               <Button size="small" type="text" danger icon={<DeleteOutlined />}>
-                删除
+                {t('common.delete')}
               </Button>
             </Popconfirm>
           </div>
@@ -708,18 +759,22 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
             <div className={styles.resourceMain}>
               <div className={styles.resourceTitleRow}>
                 <div className={styles.primaryText}>{record.name}</div>
-                <span className={`${styles.statusPill} ${getStatusClassName(record.status)}`}>{sourceStatusLabelMap[record.status]}</span>
+                <span className={`${styles.statusPill} ${getStatusClassName(record.status)}`}>{getSourceStatusLabel(record.status)}</span>
               </div>
               <a className={styles.primaryLink} href={record.baseUrl} rel="noreferrer" target="_blank">
                 {record.baseUrl}
               </a>
-              <div className={styles.secondaryText}>{record.entryUrl || '未设置入口页，Alkaid 将以基础域名作为默认入口'}</div>
+              <div className={styles.secondaryText}>{record.entryUrl || t('projectAssets.source.noEntryUrl')}</div>
               <div className={styles.metaRow}>
-                {record.lastCheckStatus ? <span className={styles.metaText}>校验 {record.lastCheckStatus}</span> : <span className={styles.metaText}>未校验</span>}
+                {record.lastCheckStatus ? (
+                  <span className={styles.metaText}>{t('projectAssets.source.checkedStatus', { status: record.lastCheckStatus })}</span>
+                ) : (
+                  <span className={styles.metaText}>{t('projectAssets.source.unchecked')}</span>
+                )}
                 {record.lastCheckedAt ? (
                   <span className={styles.metaText}>
                     <ClockCircleOutlined />
-                    {formatTime(record.lastCheckedAt)}
+                    {formatTime(record.lastCheckedAt, locale)}
                   </span>
                 ) : null}
                 {(record.tags || []).slice(0, 4).map((tag) => (
@@ -732,7 +787,9 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
           </div>
         </div>
         <div className={styles.rowAside}>
-          <div className={styles.asideMetric}>{record.entryUrl ? '已配置入口页' : '待补入口页'}</div>
+          <div className={styles.asideMetric}>
+            {record.entryUrl ? t('projectAssets.source.entryConfigured') : t('projectAssets.source.entryMissing')}
+          </div>
           <div className={styles.actionGroup}>
             <Switch
               checked={record.status === 'active'}
@@ -754,17 +811,17 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
                 })
               }
             >
-              校验
+              {t('projectAssets.source.check')}
             </Button>
             <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEditSource(record)}>
-              编辑
+              {t('common.edit')}
             </Button>
             <Popconfirm
-              title="确认删除这个网站源？"
+              title={t('projectAssets.source.deleteConfirm')}
               onConfirm={() => projectAssetsApi.deleteSource(projectIdNumber, record.id).then(() => loadSources(sourcePage, sourcePageSize))}
             >
               <Button size="small" type="text" danger icon={<DeleteOutlined />}>
-                删除
+                {t('common.delete')}
               </Button>
             </Popconfirm>
           </div>
@@ -786,13 +843,15 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
                 <span className={styles.softPill}>{record.kind}</span>
                 <span className={styles.mutedPill}>{record.mimeType}</span>
               </div>
-              <div className={styles.secondaryText}>{record.workflowName || `工作流 #${record.workflowId || '-'}`}</div>
+              <div className={styles.secondaryText}>
+                {record.workflowName || t('projectAssets.artifact.workflowFallback', { id: record.workflowId || '-' })}
+              </div>
               <div className={styles.metaRow}>
-                <span className={styles.metaText}>节点 {record.nodeId || '-'}</span>
+                <span className={styles.metaText}>{t('projectAssets.artifact.nodeLabel', { id: record.nodeId || '-' })}</span>
                 {record.taskName ? <span className={styles.metaText}>{record.taskName}</span> : null}
                 <span className={styles.metaText}>
                   <ClockCircleOutlined />
-                  {formatTime(record.createdAt)}
+                  {formatTime(record.createdAt, locale)}
                 </span>
               </div>
             </div>
@@ -806,9 +865,9 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
                 size="small"
                 type="text"
                 icon={<EyeOutlined />}
-                onClick={() => previewArtifact(record).catch((error: any) => message.error(error.message || '预览失败'))}
+                onClick={() => previewArtifact(record).catch((error: any) => message.error(error.message || t('projectAssets.messages.previewFailed')))}
               >
-                预览
+                {t('projectAssets.artifact.preview')}
               </Button>
             ) : null}
             <Button
@@ -817,7 +876,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
               icon={<DownloadOutlined />}
               onClick={() => http.download(normalizeDownloadPathForHttp(record.downloadUrl), undefined, record.name)}
             >
-              下载
+              {t('projectAssets.artifact.download')}
             </Button>
             <Button
               size="small"
@@ -830,7 +889,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
                 setArtifactEmailOpen(true);
               }}
             >
-              邮件
+              {t('projectAssets.artifact.email')}
             </Button>
           </div>
         </div>
@@ -840,45 +899,45 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
   return (
     <div className={`${styles.container} ${embedded ? styles.embedded : ''}`}>
       {!embedded ? (
-        <div className={styles.header}>
-          <div>
+        <div className={styles.pageTopbar}>
+          <div className={styles.pageTopbarLeft}>
             <Breadcrumb
               items={[
-                { title: <a onClick={() => navigate('/')}>项目列表</a> },
-                { title: <a onClick={() => navigate(`/projects/${projectIdNumber}/workflows`)}>{project?.name || '项目'}</a> },
-                { title: '资产中心' },
+                { title: <a onClick={() => navigate('/')}>{t('dashboard.projectsList')}</a> },
+                { title: <a onClick={() => navigate(`/projects/${projectIdNumber}/workflows`)}>{project?.name || t('projectAssets.projectFallback')}</a> },
+                { title: t('projectAssets.pageTitle') },
               ]}
             />
-            <div className={styles.titleRow}>
-              <span className={styles.titleIcon}>
-                <BookOutlined />
-              </span>
-              <Title level={2} className={styles.title}>
-                项目资产中心
-              </Title>
-            </div>
-            <Text className={styles.subtitle}>统一管理知识库、网站源和生成物，列表改成更接近资源库的卡片行结构</Text>
           </div>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate(`/projects/${projectIdNumber}/workflows`)}>
-            返回项目
+          <Button className={styles.backButton} icon={<ArrowLeftOutlined />} onClick={() => navigate(`/projects/${projectIdNumber}/workflows`)}>
+            {t('projectAssets.backToProject')}
           </Button>
         </div>
       ) : null}
 
-      <div className={styles.summaryRow}>
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>知识库</div>
-          <div className={styles.summaryValue}>{knowledgeTotal}</div>
+      <div className={styles.libraryHero}>
+        <div className={styles.libraryHeroCopy}>
+          <span className={styles.libraryEyebrow}>
+            {embedded ? (isZh ? '项目资产' : 'Project assets') : t('projectAssets.pageTitle')}
+          </span>
+          <div className={styles.libraryTitle}>
+            {embedded ? activeCollectionIntro.title : t('projectAssets.pageTitle')}
+          </div>
+          <div className={styles.librarySubtitle}>
+            {embedded ? activeCollectionIntro.description : t('projectAssets.pageSubtitle')}
+          </div>
         </div>
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>网站源</div>
-          <div className={styles.summaryValue}>{sourceTotal}</div>
-        </div>
-        <div className={styles.summaryCard}>
-          <div className={styles.summaryLabel}>生成物</div>
-          <div className={styles.summaryValue}>{artifactTotal}</div>
+
+        <div className={styles.libraryStats}>
+          {collectionOverview.map((item) => (
+            <div key={item.key} className={styles.libraryStatCard}>
+              <div className={styles.libraryStatLabel}>{item.label}</div>
+              <div className={styles.libraryStatValue}>{item.value}</div>
+            </div>
+          ))}
         </div>
       </div>
+
       <Tabs
         activeKey={activeTab}
         onChange={(key) => setActiveTab(key as AssetTabKey)}
@@ -888,7 +947,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
             label: (
               <span className={styles.tabLabel}>
                 <BookOutlined />
-                知识库
+                {t('projectAssets.knowledge.title')}
               </span>
             ),
             children: (
@@ -899,21 +958,28 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
                       value={knowledgeKeyword}
                       onChange={(event) => setKnowledgeKeyword(event.target.value)}
                       prefix={<SearchOutlined />}
-                      placeholder="搜索知识标题、目标或内容"
+                      placeholder={t('projectAssets.knowledge.searchPlaceholder')}
                       style={{ width: 280 }}
                     />
-                    <Select allowClear value={knowledgeCategory} onChange={setKnowledgeCategory} options={knowledgeCategoryOptions} placeholder="分类" style={{ width: 180 }} />
-                    <Button onClick={() => loadKnowledge(1, knowledgePageSize)}>查询</Button>
+                    <Select
+                      allowClear
+                      value={knowledgeCategory}
+                      onChange={setKnowledgeCategory}
+                      options={knowledgeCategoryOptions}
+                      placeholder={t('projectAssets.knowledge.categoryFilter')}
+                      style={{ width: 180 }}
+                    />
+                    <Button onClick={() => loadKnowledge(1, knowledgePageSize)}>{t('common.search')}</Button>
                   </div>
                   <div className={styles.toolbarActions}>
-                    <span className={styles.toolbarStat}>共 {knowledgeTotal} 条</span>
-                    <Button onClick={() => setKnowledgeSearchOpen(true)}>检索测试</Button>
+                    <span className={styles.toolbarStat}>{t('projectAssets.totalCount', { count: knowledgeTotal })}</span>
+                    <Button onClick={() => setKnowledgeSearchOpen(true)}>{t('projectAssets.searchTest.title')}</Button>
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreateKnowledge}>
-                      新建知识
+                      {t('projectAssets.knowledge.create')}
                     </Button>
                   </div>
                 </div>
-                {renderListShell(knowledgeLoading, renderKnowledgeRows(), '暂无知识库内容', {
+                {renderListShell(knowledgeLoading, renderKnowledgeRows(), t('projectAssets.knowledge.empty'), {
                   current: knowledgePage,
                   pageSize: knowledgePageSize,
                   total: knowledgeTotal,
@@ -927,7 +993,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
             label: (
               <span className={styles.tabLabel}>
                 <GlobalOutlined />
-                网站源
+                {t('projectAssets.source.title')}
               </span>
             ),
             children: (
@@ -938,20 +1004,27 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
                       value={sourceKeyword}
                       onChange={(event) => setSourceKeyword(event.target.value)}
                       prefix={<SearchOutlined />}
-                      placeholder="搜索网站源名称或 URL"
+                      placeholder={t('projectAssets.source.searchPlaceholder')}
                       style={{ width: 280 }}
                     />
-                    <Select allowClear value={sourceStatus} onChange={setSourceStatus} options={sourceStatusOptions} placeholder="状态" style={{ width: 180 }} />
-                    <Button onClick={() => loadSources(1, sourcePageSize)}>查询</Button>
+                    <Select
+                      allowClear
+                      value={sourceStatus}
+                      onChange={setSourceStatus}
+                      options={sourceStatusOptions}
+                      placeholder={t('projectAssets.source.statusFilter')}
+                      style={{ width: 180 }}
+                    />
+                    <Button onClick={() => loadSources(1, sourcePageSize)}>{t('common.search')}</Button>
                   </div>
                   <div className={styles.toolbarActions}>
-                    <span className={styles.toolbarStat}>共 {sourceTotal} 条</span>
+                    <span className={styles.toolbarStat}>{t('projectAssets.totalCount', { count: sourceTotal })}</span>
                     <Button type="primary" icon={<PlusOutlined />} onClick={openCreateSource}>
-                      新建网站源
+                      {t('projectAssets.source.create')}
                     </Button>
                   </div>
                 </div>
-                {renderListShell(sourceLoading, renderSourceRows(), '暂无网站源', {
+                {renderListShell(sourceLoading, renderSourceRows(), t('projectAssets.source.empty'), {
                   current: sourcePage,
                   pageSize: sourcePageSize,
                   total: sourceTotal,
@@ -965,7 +1038,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
             label: (
               <span className={styles.tabLabel}>
                 <FileTextOutlined />
-                生成物
+                {t('projectAssets.artifact.title')}
               </span>
             ),
             children: (
@@ -976,17 +1049,24 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
                       value={artifactKeyword}
                       onChange={(event) => setArtifactKeyword(event.target.value)}
                       prefix={<SearchOutlined />}
-                      placeholder="搜索生成物名称"
+                      placeholder={t('projectAssets.artifact.searchPlaceholder')}
                       style={{ width: 280 }}
                     />
-                    <Select allowClear value={artifactKind} onChange={setArtifactKind} options={artifactKindOptions} placeholder="类型" style={{ width: 180 }} />
-                    <Button onClick={() => loadArtifacts(1, artifactPageSize)}>查询</Button>
+                    <Select
+                      allowClear
+                      value={artifactKind}
+                      onChange={setArtifactKind}
+                      options={artifactKindOptions}
+                      placeholder={t('projectAssets.artifact.kindFilter')}
+                      style={{ width: 180 }}
+                    />
+                    <Button onClick={() => loadArtifacts(1, artifactPageSize)}>{t('common.search')}</Button>
                   </div>
                   <div className={styles.toolbarActions}>
-                    <span className={styles.toolbarStat}>共 {artifactTotal} 条</span>
+                    <span className={styles.toolbarStat}>{t('projectAssets.totalCount', { count: artifactTotal })}</span>
                   </div>
                 </div>
-                {renderListShell(artifactLoading, renderArtifactRows(), '暂无生成物', {
+                {renderListShell(artifactLoading, renderArtifactRows(), t('projectAssets.artifact.empty'), {
                   current: artifactPage,
                   pageSize: artifactPageSize,
                   total: artifactTotal,
@@ -1000,27 +1080,36 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
 
       <SidePanel
         open={panelType === 'knowledge'}
-        title={editingKnowledgeId ? '编辑知识库条目' : '新建知识库条目'}
-        subtitle="右侧侧板承载表单，便于一边看列表一边维护内容"
-        confirmText={editingKnowledgeId ? '保存修改' : '创建知识'}
+        title={editingKnowledgeId ? t('projectAssets.knowledge.editPanelTitle') : t('projectAssets.knowledge.createPanelTitle')}
+        subtitle={t('projectAssets.knowledge.panelSubtitle')}
+        cancelText={t('common.cancel')}
+        confirmText={editingKnowledgeId ? t('projectAssets.actions.saveChanges') : t('projectAssets.knowledge.create')}
         onClose={closePanel}
-        onSubmit={() => submitKnowledge().catch((error: any) => message.error(error.message || '保存失败'))}
+        onSubmit={() => submitKnowledge().catch((error: any) => message.error(error.message || t('projectAssets.messages.saveFailed')))}
       >
         <Form form={knowledgeForm} layout="vertical">
-          <Form.Item label="分类" name="category" rules={[{ required: true, message: '请选择分类' }]}>
+          <Form.Item
+            label={t('projectAssets.knowledge.form.category')}
+            name="category"
+            rules={[{ required: true, message: t('projectAssets.validation.selectCategory') }]}
+          >
             <Select options={knowledgeCategoryOptions} />
           </Form.Item>
-          <Form.Item label="Target" name="target">
-            <Input placeholder="例如 crawler / output / extract" />
+          <Form.Item label={t('projectAssets.knowledge.form.target')} name="target">
+            <Input placeholder={t('projectAssets.knowledge.form.targetPlaceholder')} />
           </Form.Item>
-          <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
-            <Input placeholder="例如：新闻站详情页抓取规则" />
+          <Form.Item
+            label={t('projectAssets.knowledge.form.title')}
+            name="title"
+            rules={[{ required: true, message: t('projectAssets.validation.enterTitle') }]}
+          >
+            <Input placeholder={t('projectAssets.knowledge.form.titlePlaceholder')} />
           </Form.Item>
 
           <div className={styles.importStrip}>
             <div className={styles.importMeta}>
-              <div className={styles.primaryText}>可导入文本文件</div>
-              <div className={styles.secondaryText}>支持 txt、md、json、csv、html、xml。当前导入会转成知识正文，不做二进制文件托管。</div>
+              <div className={styles.primaryText}>{t('projectAssets.knowledge.importTitle')}</div>
+              <div className={styles.secondaryText}>{t('projectAssets.knowledge.importDescription')}</div>
             </div>
             <div className={styles.importActions}>
               <input
@@ -1028,14 +1117,14 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
                 className={styles.uploadInput}
                 type="file"
                 accept=".txt,.md,.markdown,.json,.csv,.html,.htm,.xml,text/*,application/json,application/xml"
-                onChange={(event) => handleKnowledgeFilePick(event).catch((error: any) => message.error(error.message || '导入失败'))}
+                onChange={(event) => handleKnowledgeFilePick(event).catch((error: any) => message.error(error.message || t('projectAssets.messages.importFailed')))}
               />
               <Button icon={<UploadOutlined />} loading={knowledgeUploading} onClick={() => knowledgeFileInputRef.current?.click()}>
-                导入文件
+                {t('projectAssets.knowledge.importAction')}
               </Button>
               {knowledgeSourceMeta?.sourceName ? (
                 <Button type="text" onClick={() => setKnowledgeSourceMeta(null)}>
-                  清除来源
+                  {t('projectAssets.knowledge.clearSource')}
                 </Button>
               ) : null}
             </div>
@@ -1052,13 +1141,17 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
             </div>
           ) : null}
 
-          <Form.Item label="内容" name="content" rules={[{ required: true, message: '请输入内容' }]}>
-            <TextArea rows={12} placeholder="支持直接编写，也可以先导入文本文件再补充整理" />
+          <Form.Item
+            label={t('projectAssets.knowledge.form.content')}
+            name="content"
+            rules={[{ required: true, message: t('projectAssets.validation.enterContent') }]}
+          >
+            <TextArea rows={12} placeholder={t('projectAssets.knowledge.form.contentPlaceholder')} />
           </Form.Item>
-          <Form.Item label="标签" name="tags">
-            <Input placeholder="逗号分隔，例如 爬虫, 详情页, 选择器" />
+          <Form.Item label={t('projectAssets.knowledge.form.tags')} name="tags">
+            <Input placeholder={t('projectAssets.knowledge.form.tagsPlaceholder')} />
           </Form.Item>
-          <Form.Item label="启用" name="isActive" valuePropName="checked">
+          <Form.Item label={t('projectAssets.knowledge.form.enabled')} name="isActive" valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>
@@ -1066,74 +1159,93 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
 
       <SidePanel
         open={panelType === 'source'}
-        title={editingSourceId ? '编辑网站源' : '新建网站源'}
-        subtitle="更像资源库右侧配置板，不打断列表浏览"
-        confirmText={editingSourceId ? '保存修改' : '创建网站源'}
+        title={editingSourceId ? t('projectAssets.source.editPanelTitle') : t('projectAssets.source.createPanelTitle')}
+        subtitle={t('projectAssets.source.panelSubtitle')}
+        cancelText={t('common.cancel')}
+        confirmText={editingSourceId ? t('projectAssets.actions.saveChanges') : t('projectAssets.source.create')}
         onClose={closePanel}
-        onSubmit={() => submitSource().catch((error: any) => message.error(error.message || '保存失败'))}
+        onSubmit={() => submitSource().catch((error: any) => message.error(error.message || t('projectAssets.messages.saveFailed')))}
       >
         <Form form={sourceForm} layout="vertical">
           <div className={styles.formGrid}>
-            <Form.Item label="名称" name="name" rules={[{ required: true, message: '请输入名称' }]}>
-              <Input placeholder="例如：36kr 新闻站" />
+            <Form.Item
+              label={t('projectAssets.source.form.name')}
+              name="name"
+              rules={[{ required: true, message: t('projectAssets.validation.enterName') }]}
+            >
+              <Input placeholder={t('projectAssets.source.form.namePlaceholder')} />
             </Form.Item>
-            <Form.Item label="状态" name="status" rules={[{ required: true, message: '请选择状态' }]}>
+            <Form.Item
+              label={t('projectAssets.source.form.status')}
+              name="status"
+              rules={[{ required: true, message: t('projectAssets.validation.selectStatus') }]}
+            >
               <Select options={sourceStatusOptions} />
             </Form.Item>
           </div>
-          <Form.Item label="基础 URL" name="baseUrl" rules={[{ required: true, message: '请输入基础 URL' }]}>
+          <Form.Item
+            label={t('projectAssets.source.form.baseUrl')}
+            name="baseUrl"
+            rules={[{ required: true, message: t('projectAssets.validation.enterBaseUrl') }]}
+          >
             <Input placeholder="https://example.com" />
           </Form.Item>
-          <Form.Item label="推荐入口页" name="entryUrl">
+          <Form.Item label={t('projectAssets.source.form.entryUrl')} name="entryUrl">
             <Input placeholder="https://example.com/news" />
           </Form.Item>
           <div className={styles.formGrid}>
-            <Form.Item label="列表页样例" name="listUrlExamples">
-              <TextArea rows={4} placeholder="每行一个 URL" />
+            <Form.Item label={t('projectAssets.source.form.listExamples')} name="listUrlExamples">
+              <TextArea rows={4} placeholder={t('projectAssets.source.form.lineUrlPlaceholder')} />
             </Form.Item>
-            <Form.Item label="详情页样例" name="detailUrlExamples">
-              <TextArea rows={4} placeholder="每行一个 URL" />
+            <Form.Item label={t('projectAssets.source.form.detailExamples')} name="detailUrlExamples">
+              <TextArea rows={4} placeholder={t('projectAssets.source.form.lineUrlPlaceholder')} />
             </Form.Item>
           </div>
           <div className={styles.formGrid}>
-            <Form.Item label="允许路径模式" name="allowedPatterns">
-              <TextArea rows={4} placeholder="每行一条规则" />
+            <Form.Item label={t('projectAssets.source.form.allowedPatterns')} name="allowedPatterns">
+              <TextArea rows={4} placeholder={t('projectAssets.source.form.lineRulePlaceholder')} />
             </Form.Item>
-            <Form.Item label="禁止路径模式" name="blockedPatterns">
-              <TextArea rows={4} placeholder="每行一条规则" />
+            <Form.Item label={t('projectAssets.source.form.blockedPatterns')} name="blockedPatterns">
+              <TextArea rows={4} placeholder={t('projectAssets.source.form.lineRulePlaceholder')} />
             </Form.Item>
           </div>
-          <Form.Item label="抓取提示" name="crawlTips">
-            <TextArea rows={3} placeholder="例如：列表页需等待 2 秒，正文容器常见为 .article-content" />
+          <Form.Item label={t('projectAssets.source.form.crawlTips')} name="crawlTips">
+            <TextArea rows={3} placeholder={t('projectAssets.source.form.crawlTipsPlaceholder')} />
           </Form.Item>
-          <Form.Item label="登录 / Header 提示" name="authHint">
-            <TextArea rows={3} placeholder="例如：需要特定 Cookie 或 Referer" />
+          <Form.Item label={t('projectAssets.source.form.authHint')} name="authHint">
+            <TextArea rows={3} placeholder={t('projectAssets.source.form.authHintPlaceholder')} />
           </Form.Item>
-          <Form.Item label="正文定位提示" name="contentHint">
-            <TextArea rows={3} placeholder="例如：正文常位于 article 或 .main-content" />
+          <Form.Item label={t('projectAssets.source.form.contentHint')} name="contentHint">
+            <TextArea rows={3} placeholder={t('projectAssets.source.form.contentHintPlaceholder')} />
           </Form.Item>
-          <Form.Item label="标签" name="tags">
-            <Input placeholder="逗号分隔，例如 新闻, 财经, 免登录" />
+          <Form.Item label={t('projectAssets.source.form.tags')} name="tags">
+            <Input placeholder={t('projectAssets.source.form.tagsPlaceholder')} />
           </Form.Item>
         </Form>
       </SidePanel>
       <Modal
-        title="知识库检索测试"
+        title={t('projectAssets.searchTest.title')}
         open={knowledgeSearchOpen}
         onCancel={() => setKnowledgeSearchOpen(false)}
+        okText={t('projectAssets.searchTest.action')}
+        cancelText={t('common.cancel')}
         onOk={() =>
           knowledgeSearchForm
             .validateFields()
             .then((values) => projectAssetsApi.searchKnowledgeTest(projectIdNumber, values.query, 8).then(setKnowledgeSearchResult))
             .catch((error: any) => {
-              if (!error?.errorFields) message.error(error.message || '测试失败');
+              if (!error?.errorFields) message.error(error.message || t('projectAssets.messages.searchTestFailed'));
             })
         }
         width={720}
       >
         <Form form={knowledgeSearchForm} layout="vertical">
-          <Form.Item label="测试问题" name="query" rules={[{ required: true, message: '请输入测试问题' }]}>
-            <Input placeholder="例如：帮我生成一个抓取详情页的 crawler 工作流" />
+          <Form.Item
+            label={t('projectAssets.searchTest.queryLabel')}
+            name="query"
+            rules={[{ required: true, message: t('projectAssets.validation.enterSearchQuery') }]}
+          >
+            <Input placeholder={t('projectAssets.searchTest.queryPlaceholder')} />
           </Form.Item>
         </Form>
         {knowledgeSearchResult ? (
@@ -1141,9 +1253,9 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
             {knowledgeSearchResult.list.map((item) => (
               <div key={`${item.scope}-${item.id}`} className={styles.resultCard}>
                 <Space wrap>
-                  <Tag color="blue">{item.scope}</Tag>
-                  <Tag>{item.category}</Tag>
-                  {item.target ? <Tag color="geekblue">{item.target}</Tag> : null}
+                  <Tag>{item.scope}</Tag>
+                  <Tag>{getKnowledgeCategoryLabel(item.category)}</Tag>
+                  {item.target ? <Tag>{item.target}</Tag> : null}
                 </Space>
                 <div className={styles.primaryText}>{item.title}</div>
                 <div className={styles.secondaryText}>{item.contentExcerpt}</div>
@@ -1153,7 +1265,13 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
         ) : null}
       </Modal>
 
-      <Modal title="网站源校验结果" open={sourceCheckOpen} footer={null} onCancel={() => setSourceCheckOpen(false)} width={720}>
+      <Modal
+        title={t('projectAssets.source.checkResultTitle')}
+        open={sourceCheckOpen}
+        footer={null}
+        onCancel={() => setSourceCheckOpen(false)}
+        width={720}
+      >
         {sourceCheckData ? <pre className={styles.codeBlock}>{JSON.stringify(sourceCheckData, null, 2)}</pre> : null}
       </Modal>
 
@@ -1162,14 +1280,16 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
       </Modal>
 
       <Modal
-        title="发送生成物邮件"
+        title={t('projectAssets.artifact.emailTitle')}
         open={artifactEmailOpen}
         onCancel={() => setArtifactEmailOpen(false)}
+        okText={t('projectAssets.artifact.sendEmail')}
+        cancelText={t('common.cancel')}
         onOk={() =>
           artifactEmailForm
             .validateFields()
             .then((values) => {
-              if (!artifactEmailTarget?.taskId) return Promise.reject(new Error('缺少任务信息'));
+              if (!artifactEmailTarget?.taskId) return Promise.reject(new Error(t('projectAssets.messages.taskInfoMissing')));
               return taskApi.sendArtifactsEmail(artifactEmailTarget.taskId, {
                 to: values.to,
                 subject: values.subject,
@@ -1178,22 +1298,33 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
               });
             })
             .then(() => {
-              message.success('邮件已发送');
+              message.success(t('projectAssets.messages.emailSent'));
               setArtifactEmailOpen(false);
             })
             .catch((error: any) => {
-              if (!error?.errorFields) message.error(error.message || '发送失败');
+              if (!error?.errorFields) message.error(error.message || t('projectAssets.messages.sendFailed'));
             })
         }
       >
         <Form form={artifactEmailForm} layout="vertical">
-          <Form.Item label="收件邮箱" name="to" rules={[{ required: true, message: '请输入收件邮箱' }, { type: 'email', message: '请输入有效邮箱地址' }]}>
+          <Form.Item
+            label={t('projectAssets.artifact.emailTo')}
+            name="to"
+            rules={[
+              { required: true, message: t('projectAssets.validation.enterRecipientEmail') },
+              { type: 'email', message: t('projectAssets.validation.enterValidEmail') },
+            ]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item label="主题" name="subject" rules={[{ required: true, message: '请输入主题' }]}>
+          <Form.Item
+            label={t('projectAssets.artifact.emailSubject')}
+            name="subject"
+            rules={[{ required: true, message: t('projectAssets.validation.enterSubject') }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item label="正文" name="body">
+          <Form.Item label={t('projectAssets.artifact.emailBody')} name="body">
             <TextArea rows={4} />
           </Form.Item>
         </Form>

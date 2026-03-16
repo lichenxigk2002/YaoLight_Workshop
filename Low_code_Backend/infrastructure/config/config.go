@@ -62,6 +62,7 @@ var (
 	GitHubClientID     string
 	GitHubClientSecret string
 	FrontendURL        string // 登录成功后重定向的前端地址，如 http://localhost:3000
+	OpenAPIKeyPepper   string
 
 	// 支付宝支付配置
 	AlipayAppID      string // 支付宝应用ID
@@ -182,6 +183,7 @@ func LoadConfig() error {
 	GitHubClientID = getEnv("GITHUB_CLIENT_ID", "")
 	GitHubClientSecret = getEnv("GITHUB_CLIENT_SECRET", "")
 	FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
+	OpenAPIKeyPepper = getEnv("OPEN_API_KEY_PEPPER", "")
 
 	// 支付宝支付配置
 	AlipayAppID = getEnv("ALIPAY_APP_ID", "")

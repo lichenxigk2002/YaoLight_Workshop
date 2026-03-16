@@ -7,12 +7,33 @@ import (
 )
 
 // executeStartNode 执行开始节点
-func (e *WorkflowExecutor) executeStartNode(node NodeConfig, dataFlow *DataFlow) NodeExecutionResult {
+func (e *WorkflowExecutor) executeStartNode(node NodeConfig, dataFlow *DataFlow, meta ExecutionMeta) NodeExecutionResult {
 	// 获取用户输入的数据
 	inputData := getString(node.Config, "inputData", "")
 	inputDataType := getString(node.Config, "inputDataType", "auto")
 
 	var initialData map[string]interface{}
+
+	if meta.RuntimeInput != nil {
+		switch value := meta.RuntimeInput.(type) {
+		case map[string]interface{}:
+			initialData = value
+		default:
+			initialData = map[string]interface{}{
+				"data": value,
+			}
+		}
+		initialData["timestamp"] = time.Now().Unix()
+		if len(meta.RuntimeMeta) > 0 {
+			initialData["_runtime"] = meta.RuntimeMeta
+		}
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "start",
+			Success: true,
+			Data:    initialData,
+		}
+	}
 
 	// 如果用户输入了数据，使用用户输入
 	if inputData != "" {

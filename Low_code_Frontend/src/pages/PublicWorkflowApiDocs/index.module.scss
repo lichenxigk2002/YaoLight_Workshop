@@ -1,0 +1,321 @@
+.page {
+  min-height: 100vh;
+  padding: 32px;
+  background:
+    radial-gradient(circle at top left, rgba(0, 0, 0, 0.06), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(0, 0, 0, 0.03), transparent 32%),
+    var(--bg-tertiary);
+
+  [data-theme='dark'] & {
+    background:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.06), transparent 34%),
+      radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.04), transparent 32%),
+      var(--bg-tertiary);
+  }
+}
+
+.loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+}
+
+.errorPage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg-tertiary);
+}
+
+.errorAlert {
+  width: min(680px, 100%);
+  border-radius: 18px;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.92), transparent 42%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.01)),
+    var(--bg-primary);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+
+  [data-theme='dark'] & {
+    background:
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.06), transparent 35%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
+      var(--bg-primary);
+    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.36);
+  }
+}
+
+.heroGlow {
+  position: absolute;
+  inset: auto -10% -30% auto;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.12), transparent 68%);
+  pointer-events: none;
+
+  [data-theme='dark'] & {
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1), transparent 68%);
+  }
+}
+
+.heroContent {
+  position: relative;
+  padding: 28px;
+}
+
+.heroHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.heroCopy {
+  max-width: 760px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0 !important;
+}
+
+.description {
+  margin: 10px 0 0 !important;
+  max-width: 720px;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.badge {
+  display: inline-flex;
+  margin-bottom: 16px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+  }
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.metricCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(18px);
+
+  [data-theme='dark'] & {
+    background: rgba(255, 255, 255, 0.04);
+  }
+}
+
+.metricLabel {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.metricValue {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.metricHint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.card {
+  border-radius: 24px;
+  overflow: hidden;
+
+  :global(.ant-card-head) {
+    min-height: 72px;
+    padding: 0 24px;
+  }
+
+  :global(.ant-card-body) {
+    padding: 24px;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cardDesc {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.quickStartGrid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.infoCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.02), transparent), var(--bg-primary);
+
+  [data-theme='dark'] & {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent), var(--bg-primary);
+  }
+}
+
+.infoLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.valueRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.valueText {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  color: var(--text-primary);
+}
+
+.infoMuted {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.blockSection + .blockSection {
+  margin-top: 20px;
+}
+
+.blockHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.blockTitle {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.codeBlock {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.errorRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+@media (max-width: 1200px) {
+  .metricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 18px;
+  }
+
+  .heroContent {
+    padding: 22px;
+  }
+
+  .heroHeader {
+    flex-direction: column;
+  }
+
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    :global(.ant-card-head) {
+      padding: 0 18px;
+    }
+
+    :global(.ant-card-body) {
+      padding: 18px;
+    }
+  }
+
+  .valueRow,
+  .blockHeader,
+  .errorRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
