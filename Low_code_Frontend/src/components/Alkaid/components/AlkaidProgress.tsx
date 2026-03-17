@@ -79,12 +79,14 @@ function toolNameToI18nKey(toolName: string): string {
   return `workflowEditor.alkaid.${key}`;
 }
 
-function normalizeStepTitle(title: string): string {
-  return title.trim().replace(/\s+/g, ' ');
-}
+function getLatestRoundMessageId(planSteps: AgentPlanStep[], toolSteps: AgentToolStep[]): number | null {
+  const ids = [
+    ...planSteps.map((step) => step.userMessageId),
+    ...toolSteps.map((step) => step.userMessageId),
+  ].filter((id) => Number.isFinite(id) && id > 0);
 
-function mergePlanStepKey(step: AgentPlanStep): string {
-  return `${step.phase}::${normalizeStepTitle(step.title)}`;
+  if (ids.length === 0) return null;
+  return Math.max(...ids);
 }
 
 function dedupeToolSteps(steps: AgentToolStep[]): AgentToolStep[] {
@@ -141,6 +143,10 @@ function hasPlanStepDetails(step: DisplayPlanStep): boolean {
   );
 }
 
+function isSyntheticPlanStep(step: AgentPlanStep): boolean {
+  return step.source === 'synthetic';
+}
+
 const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
   phase,
   planSteps = [],
@@ -150,68 +156,61 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
   const [collapsedSteps, setCollapsedSteps] = useState<Record<string, boolean>>({});
   const [expandedTexts, setExpandedTexts] = useState<Record<string, boolean>>({});
 
+  const latestRoundMessageId = useMemo(
+    () => getLatestRoundMessageId(planSteps, toolSteps),
+    [planSteps, toolSteps],
+  );
+
+  const currentRoundPlanSteps = useMemo(
+    () => (latestRoundMessageId == null
+      ? planSteps
+      : planSteps.filter((step) => step.userMessageId === latestRoundMessageId)),
+    [latestRoundMessageId, planSteps],
+  );
+
+  const currentRoundToolSteps = useMemo(
+    () => (latestRoundMessageId == null
+      ? toolSteps
+      : toolSteps.filter((step) => step.userMessageId === latestRoundMessageId)),
+    [latestRoundMessageId, toolSteps],
+  );
+
   const planTools = useMemo(() => {
     const grouped: Record<string, AgentToolStep[]> = {};
-    toolSteps.forEach((step) => {
+    currentRoundToolSteps.forEach((step) => {
       const key = step.planStepId || '__unplanned__';
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(step);
     });
     return grouped;
-  }, [toolSteps]);
+  }, [currentRoundToolSteps]);
 
   const displayPlanSteps = useMemo<DisplayPlanStep[]>(() => {
-    const ordered: DisplayPlanStep[] = [];
-    const indexByKey = new Map<string, number>();
+    return currentRoundPlanSteps.map((step) => ({
+      ...step,
+      mergedPlanStepIds: [step.planStepId],
+      toolSteps: dedupeToolSteps(planTools[step.planStepId] || []),
+    }));
+  }, [currentRoundPlanSteps, planTools]);
 
-    planSteps.forEach((step) => {
-      const mergeKey = mergePlanStepKey(step);
-      const existingIndex = indexByKey.get(mergeKey);
+  const plannedDisplayPlanSteps = useMemo(
+    () => displayPlanSteps.filter((step) => !isSyntheticPlanStep(step)),
+    [displayPlanSteps],
+  );
 
-      if (existingIndex === undefined) {
-        ordered.push({
-          ...step,
-          mergedPlanStepIds: [step.planStepId],
-          toolSteps: [],
-        });
-        indexByKey.set(mergeKey, ordered.length - 1);
-        return;
-      }
-
-      const prev = ordered[existingIndex];
-      ordered[existingIndex] = {
-        ...prev,
-        ...step,
-        reason: step.reason || prev.reason,
-        expectedOutput: step.expectedOutput || prev.expectedOutput,
-        resultSummary: step.resultSummary || prev.resultSummary,
-        errorMessage: step.errorMessage || prev.errorMessage,
-        toolHints: step.toolHints?.length ? step.toolHints : prev.toolHints,
-        startedAt: prev.startedAt || step.startedAt,
-        finishedAt: step.finishedAt || prev.finishedAt,
-        mergedPlanStepIds: [...prev.mergedPlanStepIds, step.planStepId],
-        toolSteps: [],
-      };
-    });
-
-    ordered.forEach((step, index) => {
-      ordered[index] = {
-        ...step,
-        toolSteps: dedupeToolSteps(step.mergedPlanStepIds.flatMap((id) => planTools[id] || [])),
-      };
-    });
-
-    return ordered;
-  }, [planSteps, planTools]);
+  const syntheticDisplayPlanSteps = useMemo(
+    () => displayPlanSteps.filter((step) => isSyntheticPlanStep(step)),
+    [displayPlanSteps],
+  );
 
   const toolStepsByMessage = useMemo(() => {
     const groups: Record<number, AgentToolStep[]> = {};
-    toolSteps.forEach((step) => {
+    currentRoundToolSteps.forEach((step) => {
       if (!groups[step.userMessageId]) groups[step.userMessageId] = [];
       groups[step.userMessageId].push(step);
     });
     return groups;
-  }, [toolSteps]);
+  }, [currentRoundToolSteps]);
 
   const messageIds = useMemo(
     () => Object.keys(toolStepsByMessage).map(Number).sort((a, b) => a - b),
@@ -219,11 +218,11 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
   );
 
   const currentStepIndex = useMemo(() => {
-    if (phase === 'idle' && toolSteps.length === 0) return 0;
-    if (phase === 'idle' && !toolSteps.some((s) => s.status === 'error')) return PIPELINE_STEPS.length;
-    if (phase === 'error' || (phase === 'idle' && toolSteps.some((s) => s.status === 'error'))) {
-      if (toolSteps.length > 0) {
-        const lastTool = toolSteps[toolSteps.length - 1];
+    if (phase === 'idle' && currentRoundToolSteps.length === 0) return 0;
+    if (phase === 'idle' && !currentRoundToolSteps.some((s) => s.status === 'error')) return PIPELINE_STEPS.length;
+    if (phase === 'error' || (phase === 'idle' && currentRoundToolSteps.some((s) => s.status === 'error'))) {
+      if (currentRoundToolSteps.length > 0) {
+        const lastTool = currentRoundToolSteps[currentRoundToolSteps.length - 1];
         const idx = PIPELINE_STEPS.findIndex((step) => step.phases.includes(lastTool.phase));
         return idx !== -1 ? idx : 0;
       }
@@ -231,46 +230,46 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
     }
     const idx = PIPELINE_STEPS.findIndex((step) => step.phases.includes(phase));
     return idx !== -1 ? idx : 0;
-  }, [phase, toolSteps]);
+  }, [currentRoundToolSteps, phase]);
 
   const visibleSteps = useMemo(() => PIPELINE_STEPS.slice(0, currentStepIndex + 1), [currentStepIndex]);
 
   const stepsByPipeline = useMemo(() => {
     const grouped: Record<string, AgentToolStep[]> = {};
-    toolSteps.forEach((step) => {
+    currentRoundToolSteps.forEach((step) => {
       const pipelineStep = PIPELINE_STEPS.find((item) => item.phases.includes(step.phase));
       const key = pipelineStep?.key || 'planning';
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(step);
     });
     return grouped;
-  }, [toolSteps]);
+  }, [currentRoundToolSteps]);
 
   const generatingPlanStep = useMemo(
-    () => displayPlanSteps.find((step) => step.phase === 'generating' && step.status === 'running'),
-    [displayPlanSteps],
+    () => plannedDisplayPlanSteps.find((step) => step.phase === 'generating' && step.status === 'running'),
+    [plannedDisplayPlanSteps],
   );
 
   const nonGeneratingPlanSteps = useMemo(
-    () => displayPlanSteps.filter((step) => step.phase !== 'generating'),
-    [displayPlanSteps],
+    () => plannedDisplayPlanSteps.filter((step) => step.phase !== 'generating'),
+    [plannedDisplayPlanSteps],
   );
 
   const showGeneratingTimelineStep = useMemo(() => {
     if (phase !== 'generating') return false;
     if (generatingPlanStep) return true;
-    if (displayPlanSteps.length === 0) return true;
+    if (plannedDisplayPlanSteps.length === 0) return true;
 
     // Only expose the synthetic "content generating" step after prior plan steps
     // have actually finished, otherwise later stages appear to start too early.
     return nonGeneratingPlanSteps.every((step) => step.status === 'success' || step.status === 'skipped');
-  }, [displayPlanSteps.length, generatingPlanStep, nonGeneratingPlanSteps, phase]);
+  }, [generatingPlanStep, nonGeneratingPlanSteps, phase, plannedDisplayPlanSteps.length]);
 
   const renderedPlanSteps = useMemo(
     () => (showGeneratingTimelineStep && generatingPlanStep
-      ? displayPlanSteps.filter((step) => step.planStepId !== generatingPlanStep.planStepId)
-      : displayPlanSteps),
-    [displayPlanSteps, generatingPlanStep, showGeneratingTimelineStep],
+      ? plannedDisplayPlanSteps.filter((step) => step.planStepId !== generatingPlanStep.planStepId)
+      : plannedDisplayPlanSteps),
+    [plannedDisplayPlanSteps, generatingPlanStep, showGeneratingTimelineStep],
   );
 
   const planItemCount = renderedPlanSteps.length + (showGeneratingTimelineStep ? 1 : 0);
@@ -318,9 +317,16 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
     );
   };
 
-  const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
-    const timelineStatus = planStatusToTimelineStatus(status);
-    const label =
+const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
+  const timelineStatus = planStatusToTimelineStatus(status);
+  if (timelineStatus === 'skipped') {
+    return (
+      <span className={[styles.statusTag, styles[timelineStatus]].join(' ')}>
+        {t('workflowEditor.alkaid.skipped', '已跳过')}
+      </span>
+    );
+  }
+  const label =
       timelineStatus === 'inProgress'
         ? t('workflowEditor.alkaid.generating', '生成中')
         : timelineStatus === 'completed'
@@ -340,6 +346,91 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
       'workflowEditor.alkaid.streamingWorkflow',
       '正在流式生成工作流方案，内容会持续更新，不依赖卡片自身的 loading 状态。',
     );
+
+  const executionSection = syntheticDisplayPlanSteps.length > 0 ? (
+    <div className={styles.executionSection}>
+      <div className={styles.sectionHeader}>
+        <div className={styles.sectionTitle}>
+          {t('workflowEditor.alkaid.executionSteps', '执行过程')}
+        </div>
+        <span className={styles.sectionTag}>
+          {t('workflowEditor.alkaid.executionStepsDesc', '系统补充的执行步骤')}
+        </span>
+      </div>
+
+      <div className={styles.executionList}>
+        {syntheticDisplayPlanSteps.map((step) => {
+          const status = planStatusToTimelineStatus(step.status);
+          const canCollapse = hasPlanStepDetails(step);
+          const isCollapsed = collapsedSteps[step.planStepId] ?? false;
+
+          return (
+            <div key={step.planStepId} className={styles.executionCard}>
+              <div className={styles.executionTitleRow}>
+                <div className={styles.timelineTitleGroup}>
+                  <div className={[styles.timelineTitle, styles[status]].join(' ')}>
+                    {step.title}
+                  </div>
+                  <span className={styles.kindTag}>
+                    {t('workflowEditor.alkaid.syntheticStep', '执行步')}
+                  </span>
+                  {renderPlanStatusTag(step.status)}
+                </div>
+                {canCollapse && (
+                  <button
+                    type="button"
+                    className={[styles.collapseToggle, isCollapsed ? styles.collapsed : styles.expanded].join(' ')}
+                    onClick={() => toggleStep(step.planStepId)}
+                    aria-label={
+                      isCollapsed
+                        ? t('workflowEditor.alkaid.expandSubSteps', '灞曞紑璇︽儏')
+                        : t('workflowEditor.alkaid.collapseSubSteps', '鏀惰捣璇︽儏')
+                    }
+                  >
+                    <RoundedChevronDown />
+                  </button>
+                )}
+              </div>
+
+              {!isCollapsed && (
+                <>
+                  {renderTextBlock(step.reason, `synthetic-desc-${step.planStepId}`, 'desc')}
+                  {renderTextBlock(step.expectedOutput, `synthetic-expected-${step.planStepId}`, 'meta')}
+                  {renderTextBlock(step.resultSummary, `synthetic-summary-${step.planStepId}`, 'meta')}
+                  {renderTextBlock(step.errorMessage, `synthetic-error-${step.planStepId}`, 'error')}
+                </>
+              )}
+
+              {step.toolSteps.length > 0 && !isCollapsed && (
+                <div className={styles.subSteps}>
+                  {step.toolSteps.map((tool) => (
+                    <div key={tool.stepId} className={styles.subStepItem}>
+                      <div className={styles.subStepIcon}>
+                        {tool.status === 'running' ? (
+                          <LoadingOutlined spin style={{ color: '#1677ff' }} />
+                        ) : tool.status === 'success' ? (
+                          <CheckOutlined style={{ color: '#52c41a' }} />
+                        ) : tool.status === 'error' ? (
+                          <CloseOutlined style={{ color: '#ff4d4f' }} />
+                        ) : (
+                          <ClockCircleOutlined style={{ color: '#ccc' }} />
+                        )}
+                      </div>
+                      <div className={styles.subStepContent}>
+                        <div className={styles.subStepTitle}>{t(toolNameToI18nKey(tool.toolName), tool.toolName)}</div>
+                        {renderTextBlock(tool.resultSummary, `synthetic-tool-result-${tool.stepId}`, 'result')}
+                        {tool.errorMessage && renderTextBlock(tool.errorMessage, `synthetic-tool-error-${tool.stepId}`, 'error')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className={styles.wrapper}>
@@ -480,7 +571,7 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
             const hasSubSteps = stepTools.length > 0;
 
             if (stepHasError) status = 'error';
-            else if (phase === 'idle' && !toolSteps.some((tool) => tool.status === 'error')) status = 'completed';
+            else if (phase === 'idle' && !currentRoundToolSteps.some((tool) => tool.status === 'error')) status = 'completed';
             else if (index < currentStepIndex) status = 'completed';
             else if (index === currentStepIndex) status = phase === 'error' ? 'error' : 'inProgress';
 
@@ -596,6 +687,7 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
           })
         )}
       </div>
+      {executionSection}
     </div>
   );
 };

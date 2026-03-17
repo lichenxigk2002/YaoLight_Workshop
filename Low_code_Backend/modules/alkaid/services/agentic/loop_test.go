@@ -54,3 +54,100 @@ func TestBuildWorkflowFallbackConfigClonesBaseConfig(t *testing.T) {
 		t.Fatalf("base max tokens should remain unchanged, got %v", *base.MaxTokens)
 	}
 }
+
+func TestShouldForceCrawlerPreparation(t *testing.T) {
+	cases := []struct {
+		name     string
+		message  string
+		expected bool
+	}{
+		{
+			name:     "explicit crawler url",
+			message:  "请抓取 https://example.com/article/1 的正文",
+			expected: true,
+		},
+		{
+			name:     "crawler keyword",
+			message:  "做一个网页爬虫工作流，提取新闻列表",
+			expected: true,
+		},
+		{
+			name:     "non crawler request",
+			message:  "请帮我总结一篇文章",
+			expected: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shouldForceCrawlerPreparation(tc.message); got != tc.expected {
+				t.Fatalf("expected %v, got %v", tc.expected, got)
+			}
+		})
+	}
+}
+
+func TestEnsureCrawlerNodeDefaults(t *testing.T) {
+	workflow := map[string]interface{}{
+		"nodes": []interface{}{
+			map[string]interface{}{
+				"id":   "crawler-1",
+				"type": "crawler",
+				"data": map[string]interface{}{
+					"config": map[string]interface{}{
+						"url": "https://example.com/article/1",
+					},
+				},
+			},
+		},
+	}
+
+	changed := ensureCrawlerNodeDefaults(workflow)
+	if !changed {
+		t.Fatalf("expected crawler defaults to be added")
+	}
+
+	node := workflow["nodes"].([]interface{})[0].(map[string]interface{})
+	config := node["data"].(map[string]interface{})["config"].(map[string]interface{})
+	if config["method"] != "GET" {
+		t.Fatalf("expected default method GET, got %#v", config["method"])
+	}
+	if config["extractMode"] != "smart" {
+		t.Fatalf("expected default extractMode smart, got %#v", config["extractMode"])
+	}
+	if config["extractType"] != "text" {
+		t.Fatalf("expected default extractType text, got %#v", config["extractType"])
+	}
+	if config["timeout"] != 30 {
+		t.Fatalf("expected default timeout 30, got %#v", config["timeout"])
+	}
+	if config["retryCount"] != 3 {
+		t.Fatalf("expected default retryCount 3, got %#v", config["retryCount"])
+	}
+	if config["useHeadless"] != false {
+		t.Fatalf("expected default useHeadless false, got %#v", config["useHeadless"])
+	}
+}
+
+func TestValidateCrawlerNodeConfigs(t *testing.T) {
+	workflow := map[string]interface{}{
+		"nodes": []interface{}{
+			map[string]interface{}{
+				"id":   "crawler-1",
+				"type": "crawler",
+				"data": map[string]interface{}{
+					"config": map[string]interface{}{
+						"method":      "GET",
+						"extractMode": "custom",
+						"extractType": "attr",
+					},
+				},
+			},
+		},
+	}
+
+	errors := validateCrawlerNodeConfigs(workflow)
+	if len(errors) != 3 {
+		t.Fatalf("expected 3 crawler config errors, got %d: %#v", len(errors), errors)
+	}
+}

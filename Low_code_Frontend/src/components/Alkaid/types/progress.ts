@@ -11,12 +11,14 @@ export type Phase =
 
 export type ToolStepStatus = 'pending' | 'running' | 'success' | 'error';
 export type PlanStepStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped';
+export type PlanStepSource = 'planned' | 'synthetic';
 
 export interface AgentPlanStep {
   planStepId: string;
   userMessageId: number;
   userMessageContent?: string;
   phase: Phase;
+  source?: PlanStepSource;
   title: string;
   reason: string;
   expectedOutput?: string;
@@ -57,6 +59,7 @@ export interface SSEPlanStepStarted {
   userMessageId: number;
   userMessageContent?: string;
   phase: Phase;
+  source?: PlanStepSource;
   title: string;
   reason: string;
   expectedOutput?: string;
@@ -68,6 +71,7 @@ export interface SSEPlanStepStarted {
 export interface SSEPlanStepUpdated {
   planStepId: string;
   phase?: Phase;
+  source?: PlanStepSource;
   title?: string;
   reason?: string;
   expectedOutput?: string;

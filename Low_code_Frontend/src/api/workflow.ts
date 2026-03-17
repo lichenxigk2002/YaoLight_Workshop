@@ -22,6 +22,13 @@ interface WorkflowTemplateLibraryItemDTO {
   updated_at?: string;
 }
 
+interface SaveWorkflowNodesRequestDTO {
+  nodes: any[];
+  edges: any[];
+  commentCards?: any[];
+  templateId?: number;
+}
+
 function mapWorkflowTemplateLibraryItem(item: WorkflowTemplateLibraryItemDTO): WorkflowTemplateLibraryItem {
   return {
     id: item.id,
@@ -178,7 +185,7 @@ export const workflowApi = {
   /**
    * 保存工作流的节点和边
    */
-  saveWorkflowNodes: (workflowId: number, data: { nodes: any[]; edges: any[]; commentCards?: any[] }) =>
+  saveWorkflowNodes: (workflowId: number, data: SaveWorkflowNodesRequestDTO) =>
     http.put(`/workflows/${workflowId}/nodes`, data),
 
   /**

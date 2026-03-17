@@ -100,6 +100,7 @@ func (w *SSEWriter) WritePlanStepStarted(step alkaidModels.AgentPlanStep) error 
 		UserMessageID:      step.UserMessageID,
 		UserMessageContent: step.UserMessageContent,
 		Phase:              step.Phase,
+		Source:             step.Source,
 		Title:              step.Title,
 		Reason:             step.Reason,
 		ExpectedOutput:     step.ExpectedOutput,
@@ -125,6 +126,9 @@ func (w *SSEWriter) WritePlanStepUpdated(step alkaidModels.AgentPlanStep) error 
 			}
 			if step.Phase == "" {
 				step.Phase = w.planSteps[i].Phase
+			}
+			if step.Source == "" {
+				step.Source = w.planSteps[i].Source
 			}
 			if step.Title == "" {
 				step.Title = w.planSteps[i].Title
@@ -167,6 +171,7 @@ func (w *SSEWriter) WritePlanStepUpdated(step alkaidModels.AgentPlanStep) error 
 	return w.writeEvent("plan_step_updated", alkaidModels.SSEPlanStepUpdated{
 		PlanStepID:     step.PlanStepID,
 		Phase:          step.Phase,
+		Source:         step.Source,
 		Title:          step.Title,
 		Reason:         step.Reason,
 		ExpectedOutput: step.ExpectedOutput,
@@ -385,6 +390,9 @@ func mapToAgentPlanStep(m map[string]interface{}) alkaidModels.AgentPlanStep {
 	}
 	if v, ok := m["phase"].(string); ok {
 		step.Phase = v
+	}
+	if v, ok := m["source"].(string); ok {
+		step.Source = v
 	}
 	if v, ok := m["title"].(string); ok {
 		step.Title = v

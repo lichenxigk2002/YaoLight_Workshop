@@ -156,6 +156,7 @@ export default function AlkaidPanel({
   const [processSteps, setProcessSteps] = useState<ProcessStep[]>([])
   const [cancelStream, setCancelStream] = useState<(() => void) | null>(null)
   const [currentLoadingMessageId, setCurrentLoadingMessageId] = useState<string | null>(null)
+  const [progressDockCollapsed, setProgressDockCollapsed] = useState(false)
   const needsWorkflowRef = useRef<boolean | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<any>(null)
@@ -440,7 +441,7 @@ export default function AlkaidPanel({
       setMessages((prev) => [...prev, { id: assistantMsgId, role: 'assistant', content: '', timestamp: new Date() }])
 
       if (useAgentic) {
-        let context: any = {}
+        const context: any = {}
         if (getCurrentWorkflow) {
           try {
             const workflowData = await getCurrentWorkflow()
@@ -476,6 +477,7 @@ export default function AlkaidPanel({
                   userMessageId: data.userMessageId ?? 0,
                   userMessageContent: data.userMessageContent,
                   phase: (data.phase as Phase) || 'planning',
+                  source: data.source,
                   title: data.title,
                   reason: data.reason,
                   expectedOutput: data.expectedOutput,
@@ -501,6 +503,7 @@ export default function AlkaidPanel({
                       userMessageId: data.userMessageId ?? 0,
                       userMessageContent: data.userMessageContent,
                       phase: (data.phase as Phase) || 'planning',
+                      source: data.source,
                       title: data.title || t('workflowEditor.alkaid.progressGenerating', '生成工作流'),
                       reason: data.reason || '',
                       expectedOutput: data.expectedOutput,
@@ -517,6 +520,7 @@ export default function AlkaidPanel({
                 next[idx] = {
                   ...next[idx],
                   phase: (data.phase as Phase) || next[idx].phase,
+                  source: data.source ?? next[idx].source,
                   title: data.title || next[idx].title,
                   reason: data.reason || next[idx].reason,
                   expectedOutput: data.expectedOutput ?? next[idx].expectedOutput,
@@ -1084,10 +1088,66 @@ export default function AlkaidPanel({
     </div>
   )
 
+  const renderProgressDock = () => {
+    const showAgenticProgress = useAgentic && loading && currentLoadingMessageId
+    const showLegacySteps = !useAgentic && loading && processSteps.length > 0
+
+    if (!showAgenticProgress && !showLegacySteps) {
+      return null
+    }
+
+    const agenticPhaseLabelMap: Record<Phase, string> = {
+      idle: t('workflowEditor.alkaid.pending', '待处理'),
+      planning: t('workflowEditor.alkaid.progressPlanning', '规划中'),
+      generating: t('workflowEditor.alkaid.progressGenerating', '生成中'),
+      validating: t('workflowEditor.alkaid.progressValidating', '校验中'),
+      repairing: t('workflowEditor.alkaid.progressValidating', '修正中'),
+      running_trial: t('workflowEditor.alkaid.progressValidating', '试运行中'),
+      summarizing: t('workflowEditor.alkaid.progressFinishing', '整理中'),
+      waiting_approval: t('workflowEditor.alkaid.progressFinishing', '等待确认'),
+      error: t('workflowEditor.alkaid.failed', '执行异常'),
+    }
+
+    const summaryText = showAgenticProgress
+      ? `${agenticPhaseLabelMap[agenticPhase] || t('workflowEditor.alkaid.running', '进行中')} · ${t('workflowEditor.alkaid.executionStepsDesc', '可展开查看处理细节')}`
+      : processSteps.find((step) => step.status === 'loading')?.label || t('workflowEditor.alkaid.running', '进行中')
+
+    return (
+      <div className={[styles.progressDock, progressDockCollapsed ? styles.progressDockCollapsed : ''].join(' ')}>
+        <div className={styles.progressDockHeader}>
+          <div className={styles.progressDockMeta}>
+            <div className={styles.progressDockTitle}>
+              {t('workflowEditor.alkaid.executionSteps', '执行过程')}
+            </div>
+            <div className={styles.progressDockSummary}>{summaryText}</div>
+          </div>
+          <button
+            type="button"
+            className={styles.progressDockToggle}
+            onClick={() => setProgressDockCollapsed((value) => !value)}
+          >
+            {progressDockCollapsed
+              ? t('workflowEditor.alkaid.expandSubSteps', '展开详情')
+              : t('workflowEditor.alkaid.collapseSubSteps', '收起详情')}
+          </button>
+        </div>
+
+        {!progressDockCollapsed && showAgenticProgress && (
+          <div className={styles.progressDockInner}>
+            <AlkaidProgress phase={agenticPhase} planSteps={agenticPlanSteps} toolSteps={agenticToolSteps} maxSteps={10} />
+          </div>
+        )}
+        {!progressDockCollapsed && showLegacySteps && (
+          <div className={styles.progressDockInner}>
+            <ProcessLoader steps={processSteps} visible={true} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderMessageBubble = (msg: MessageItem) => {
     const isCurrentLoadingMessage = msg.role === 'assistant' && msg.id === currentLoadingMessageId && loading
-    const showAgenticProgress = useAgentic && isCurrentLoadingMessage
-    const showLegacySteps = !useAgentic && isCurrentLoadingMessage && processSteps.length > 0
 
     const isAgenticGeneratingPhase =
       useAgentic &&
@@ -1109,17 +1169,6 @@ export default function AlkaidPanel({
         )}
         <div className={styles.bubbleWrap}>
           <div className={styles.bubble}>
-            {showAgenticProgress && (
-              <div className={styles.progressArea}>
-                <AlkaidProgress phase={agenticPhase} planSteps={agenticPlanSteps} toolSteps={agenticToolSteps} maxSteps={10} />
-              </div>
-            )}
-            {showLegacySteps && (
-              <div className={styles.progressArea}>
-                <ProcessLoader steps={processSteps} visible={true} />
-              </div>
-            )}
-
             {parsed.text && (
               <div className={styles.markdownContent}>
                 <MarkdownRenderer content={parsed.text} className={styles.alkaidMarkdown} />
@@ -1191,6 +1240,7 @@ export default function AlkaidPanel({
 
   const renderChatView = () => (
     <div className={styles.chatMain}>
+      {renderProgressDock()}
       <div className={styles.messages}>
         {messages.length === 0 ? renderEmptyChat() : messages.map((m) => renderMessageBubble(m))}
         <div ref={messagesEndRef} />

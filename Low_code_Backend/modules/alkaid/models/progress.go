@@ -29,11 +29,17 @@ const (
 	PlanStepSkipped = "skipped"
 )
 
+const (
+	PlanStepSourcePlanned   = "planned"
+	PlanStepSourceSynthetic = "synthetic"
+)
+
 type AgentPlanStep struct {
 	PlanStepID         string     `json:"planStepId"`
 	UserMessageID      uint       `json:"userMessageId"`
 	UserMessageContent string     `json:"userMessageContent,omitempty"`
 	Phase              string     `json:"phase"`
+	Source             string     `json:"source,omitempty"`
 	Title              string     `json:"title"`
 	Reason             string     `json:"reason"`
 	ExpectedOutput     string     `json:"expectedOutput,omitempty"`
@@ -74,6 +80,7 @@ type SSEPlanStepStarted struct {
 	UserMessageID      uint     `json:"userMessageId"`
 	UserMessageContent string   `json:"userMessageContent,omitempty"`
 	Phase              string   `json:"phase"`
+	Source             string   `json:"source,omitempty"`
 	Title              string   `json:"title"`
 	Reason             string   `json:"reason"`
 	ExpectedOutput     string   `json:"expectedOutput,omitempty"`
@@ -85,6 +92,7 @@ type SSEPlanStepStarted struct {
 type SSEPlanStepUpdated struct {
 	PlanStepID     string   `json:"planStepId"`
 	Phase          string   `json:"phase,omitempty"`
+	Source         string   `json:"source,omitempty"`
 	Title          string   `json:"title,omitempty"`
 	Reason         string   `json:"reason,omitempty"`
 	ExpectedOutput string   `json:"expectedOutput,omitempty"`

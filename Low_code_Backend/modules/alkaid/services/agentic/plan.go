@@ -56,6 +56,7 @@ func generateAgentPlan(
 			UserMessageID:      userMessageID,
 			UserMessageContent: userMessageContent,
 			Phase:              phase,
+			Source:             alkaidModels.PlanStepSourcePlanned,
 			Title:              title,
 			Reason:             reason,
 			ExpectedOutput:     strings.TrimSpace(raw.ExpectedOutput),
@@ -188,6 +189,7 @@ func fallbackAgentPlan(userMessageID uint, userMessageContent string) []alkaidMo
 			UserMessageID:      userMessageID,
 			UserMessageContent: userMessageContent,
 			Phase:              alkaidModels.PhasePlanning,
+			Source:             alkaidModels.PlanStepSourcePlanned,
 			Title:              "梳理任务与补充知识",
 			Reason:             "先确认需求、最佳实践与关键约束，避免直接猜测工作流结构。",
 			ExpectedOutput:     "得到更可靠的方案输入。",
@@ -199,6 +201,7 @@ func fallbackAgentPlan(userMessageID uint, userMessageContent string) []alkaidMo
 			UserMessageID:      userMessageID,
 			UserMessageContent: userMessageContent,
 			Phase:              alkaidModels.PhaseGenerating,
+			Source:             alkaidModels.PlanStepSourcePlanned,
 			Title:              "生成工作流方案",
 			Reason:             "在确认上下文后生成更完整的工作流结构。",
 			ExpectedOutput:     "得到结构化工作流方案。",
@@ -218,11 +221,6 @@ func selectPlanStepForTool(planSteps []alkaidModels.AgentPlanStep, toolName stri
 			}
 		}
 	}
-	for i := range planSteps {
-		if planSteps[i].Status == alkaidModels.PlanStepPending || planSteps[i].Status == alkaidModels.PlanStepRunning {
-			return &planSteps[i]
-		}
-	}
 	return nil
 }
 
@@ -238,6 +236,9 @@ func ensureSyntheticPlanStep(
 	for i := range *planSteps {
 		step := &(*planSteps)[i]
 		if step.Title == title && step.Phase == phase && step.Status != alkaidModels.PlanStepSuccess {
+			if step.Source == "" {
+				step.Source = alkaidModels.PlanStepSourceSynthetic
+			}
 			return step
 		}
 	}
@@ -246,6 +247,7 @@ func ensureSyntheticPlanStep(
 		UserMessageID:      userMessageID,
 		UserMessageContent: userMessageContent,
 		Phase:              phase,
+		Source:             alkaidModels.PlanStepSourceSynthetic,
 		Title:              title,
 		Reason:             reason,
 		ToolHints:          toolHints,
@@ -253,4 +255,20 @@ func ensureSyntheticPlanStep(
 	}
 	*planSteps = append(*planSteps, step)
 	return &(*planSteps)[len(*planSteps)-1]
+}
+
+func resolvePlanStepTransition(step alkaidModels.AgentPlanStep, nextStep *alkaidModels.AgentPlanStep) (string, string, string) {
+	if step.Status == alkaidModels.PlanStepError {
+		return alkaidModels.PlanStepError, step.ResultSummary, step.ErrorMessage
+	}
+	if step.ResultSummary != "" {
+		return alkaidModels.PlanStepSuccess, step.ResultSummary, ""
+	}
+	if nextStep != nil && nextStep.Phase != "" && nextStep.Phase != step.Phase {
+		return alkaidModels.PlanStepSkipped, "执行流程已切换到后续阶段", ""
+	}
+	if step.Source == alkaidModels.PlanStepSourceSynthetic {
+		return alkaidModels.PlanStepSkipped, "当前执行路径未继续停留在该执行步骤", ""
+	}
+	return alkaidModels.PlanStepSkipped, "已根据新信息调整后续执行步骤", ""
 }
