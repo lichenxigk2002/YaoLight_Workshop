@@ -436,6 +436,88 @@
   flex-direction: column;
 }
 
+.progressDock {
+  flex-shrink: 0;
+  padding: 10px 12px 0;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.progressDockCollapsed {
+  padding-bottom: 6px;
+}
+
+.progressDockHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.progressDockMeta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.progressDockTitle {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--alkaid-text-1);
+}
+
+.progressDockSummary {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--alkaid-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.progressDockToggle {
+  flex-shrink: 0;
+  border: 1px solid var(--alkaid-stroke-0);
+  background: var(--alkaid-surface-0);
+  color: var(--alkaid-text-1);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+  transition: background var(--alkaid-dur-2) var(--alkaid-ease-out),
+    border-color var(--alkaid-dur-2) var(--alkaid-ease-out),
+    color var(--alkaid-dur-2) var(--alkaid-ease-out);
+
+  &:hover {
+    background: var(--alkaid-surface-1);
+    border-color: var(--alkaid-stroke-1);
+    color: var(--alkaid-text-0);
+  }
+}
+
+.progressDockInner {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--alkaid-surface-1);
+    border-radius: 3px;
+  }
+}
+
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -535,12 +617,6 @@
     background: var(--alkaid-surface-1);
     color: var(--alkaid-text-0);
   }
-}
-
-.progressArea {
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--alkaid-stroke-0);
 }
 
 .markdownContent {

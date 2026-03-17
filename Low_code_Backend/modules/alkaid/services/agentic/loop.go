@@ -118,6 +118,11 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		},
 	}
 	registry := tools.NewRegistry(runner)
+	forceCrawlerPreparation := shouldForceCrawlerPreparation(req.Message)
+	explicitSourceURLs := extractAbsoluteURLsFromText(req.Message)
+	var crawlerKnowledge interface{}
+	var crawlerNodeSpec interface{}
+	validatedExplicitCrawlerURLs := make([]string, 0)
 
 	// 解析请求上下文中的 currentWorkflow，用于最后 propose_patch 的 diff
 	var currentWorkflowForDiff *workflowSvc.SaveWorkflowNodesRequest
@@ -130,6 +135,89 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		}
 	}
 
+	if forceCrawlerPreparation {
+		_ = sw.WritePhaseChanged(alkaidModels.PhasePlanning)
+
+		knowledgeStepID := fmt.Sprintf("step-%d-crawler-knowledge-prefetch", time.Now().UnixNano())
+		_ = sw.WriteToolStepStarted(knowledgeStepID, "search_knowledge", alkaidModels.PhasePlanning)
+		knowledgeResult, resultSummary, toolErr := registry.ExecuteTool(
+			"search_knowledge",
+			`{"query":"crawler 节点 完整配置 可用性 校验","target":"crawler","maxResults":6,"includeGeneralFallback":true}`,
+			req.SessionID,
+		)
+		status := alkaidModels.ToolStepSuccess
+		errMsg := ""
+		if toolErr != nil {
+			status = alkaidModels.ToolStepError
+			errMsg = toolErr.Error()
+			resultSummary = errMsg
+		} else {
+			crawlerKnowledge = knowledgeResult
+		}
+		_ = sw.WriteToolStepFinished(knowledgeStepID, status, resultSummary, errMsg)
+
+		specStepID := fmt.Sprintf("step-%d-crawler-spec-prefetch", time.Now().UnixNano())
+		_ = sw.WriteToolStepStarted(specStepID, "get_node_spec", alkaidModels.PhasePlanning)
+		specResult, specSummary, specErr := registry.ExecuteTool("get_node_spec", `{"nodeType":"crawler"}`, req.SessionID)
+		specStatus := alkaidModels.ToolStepSuccess
+		specErrMsg := ""
+		if specErr != nil {
+			specStatus = alkaidModels.ToolStepError
+			specErrMsg = specErr.Error()
+			specSummary = specErrMsg
+		} else {
+			crawlerNodeSpec = specResult
+		}
+		_ = sw.WriteToolStepFinished(specStepID, specStatus, specSummary, specErrMsg)
+
+		for i, rawURL := range explicitSourceURLs {
+			urlStepID := fmt.Sprintf("step-%d-crawler-url-prefetch-%d", time.Now().UnixNano(), i+1)
+			_ = sw.WriteToolStepStarted(urlStepID, "check_url_accessibility", alkaidModels.PhasePlanning)
+			result, resultSummary, toolErr := registry.ExecuteTool(
+				"check_url_accessibility",
+				fmt.Sprintf(`{"url":%q}`, rawURL),
+				req.SessionID,
+			)
+			status := alkaidModels.ToolStepSuccess
+			errMsg := ""
+			if toolErr != nil {
+				status = alkaidModels.ToolStepError
+				errMsg = toolErr.Error()
+				resultSummary = errMsg
+			}
+			_ = sw.WriteToolStepFinished(urlStepID, status, resultSummary, errMsg)
+
+			if toolErr != nil {
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(fmt.Sprintf("Crawler source precheck failed: %s (%s)", rawURL, errMsg))
+				_ = sw.WriteDone()
+				return nil
+			}
+
+			report, ok := result.(map[string]interface{})
+			if !ok {
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(fmt.Sprintf("Crawler source precheck returned invalid result: %s", rawURL))
+				_ = sw.WriteDone()
+				return nil
+			}
+
+			if accessible, _ := report["ok"].(bool); accessible {
+				validatedExplicitCrawlerURLs = append(validatedExplicitCrawlerURLs, rawURL)
+				continue
+			}
+
+			reason, _ := report["reason"].(string)
+			if reason == "" {
+				reason = "URL is not suitable for crawler source"
+			}
+			_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+			_ = sw.WriteError(fmt.Sprintf("Crawler source URL did not pass accessibility validation: %s (%s)", rawURL, reason))
+			_ = sw.WriteDone()
+			return nil
+		}
+	}
+
 	alkaidSvc := alkaidServices.NewAlkaidService()
 	relevantKnowledge, _ := alkaidSvc.GetRelevantKnowledgeForAgentic(req.UserID, req.Message, 8)
 	// 系统提示词不再注入当前画布，由 LLM 按需调用 get_workflow
@@ -139,8 +227,27 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		return err
 	}
 	contentForLLM := req.Message
+	if forceCrawlerPreparation {
+		contentForLLM += "\n\n系统硬约束：如果这次任务需要 crawler，你必须生成一个完整、可运行、可校验的 crawler 节点。不要省略 method、extractMode、extractType；extractMode=custom 时必须提供 selector；extractType=attr 时必须提供 extractAttr。只有通过可抓取性校验的网站 URL 才能写入最终工作流；如果没有可验证的具体 URL，就不要交付最终工作流。"
+		if len(validatedExplicitCrawlerURLs) > 0 {
+			contentForLLM += "\n\n系统已预检通过的候选爬虫网址：\n- " + strings.Join(validatedExplicitCrawlerURLs, "\n- ")
+		}
+		if crawlerKnowledge != nil {
+			if b, marshalErr := json.Marshal(crawlerKnowledge); marshalErr == nil && len(b) < 12000 {
+				contentForLLM += "\n\nCrawler knowledge:\n" + string(b)
+			}
+		}
+		if crawlerNodeSpec != nil {
+			if b, marshalErr := json.Marshal(crawlerNodeSpec); marshalErr == nil && len(b) < 12000 {
+				contentForLLM += "\n\nCrawler node spec:\n" + string(b)
+			}
+		}
+	}
 	if historyStr, histErr := alkaidSvc.GetConversationHistoryForAgentic(req.SessionID, 20); histErr == nil && historyStr != "" && strings.Contains(historyStr, "助手：") {
 		contentForLLM = historyStr + "\n\n请根据以上对话历史，回复最后一条用户消息。\n\n**工具调用建议**（请根据实际需求智能选择）：\n1. 如需了解最佳实践、示例或技巧 → 优先调用 search_knowledge\n2. 如需了解技术规范（节点类型、JSON格式等）→ 调用 get_capabilities\n3. 如需查看或修改现有工作流 → 调用 get_workflow\n4. 如需生成全新工作流 → 无需调用 get_workflow，直接基于 get_capabilities 和 search_knowledge 生成\n5. 如果第一次 search_knowledge 的结果仍不够确定，必须继续发起更具体的二次检索，可以补充 target/category，或把 query 缩小到某个节点、错误类型、场景模板\n6. 如果工作流涉及外部网站抓取，在最终确定 crawler 节点前，应优先确认数据源类型，并在需要时调用 check_url_accessibility"
+	}
+	if forceCrawlerPreparation && strings.Contains(contentForLLM, "请根据以上对话历史") {
+		contentForLLM += "\n\n补充要求：如果这次任务需要 crawler，必须确保 crawler 节点配置完整、网站可抓取，并且在交付前通过可用性验证与试跑。未通过验证时不要交付最终工作流。"
 	}
 
 	aiConfig, err := buildAIConfig(req.UserID)
@@ -534,6 +641,23 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			return nil
 		}
 
+		crawlerRequired := workflowHasNodeType(workflowMap, "crawler")
+		if crawlerRequired && ensureCrawlerNodeDefaults(workflowMap) {
+			if normalizedWorkflowJSON, marshalErr := json.Marshal(workflowMap); marshalErr == nil {
+				workflowJSON = string(normalizedWorkflowJSON)
+			}
+		}
+		if crawlerRequired {
+			crawlerConfigErrors := validateCrawlerNodeConfigs(workflowMap)
+			if len(crawlerConfigErrors) > 0 {
+				errMsg := "crawler 节点配置不完整，无法保证可用性: " + strings.Join(crawlerConfigErrors, "; ")
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(errMsg)
+				_ = sw.WriteDone()
+				return nil
+			}
+		}
+
 		// Hook: AfterGenerate - 生成后审计
 		allow, reason, hookErr := CallAfterGenerate(req.SessionID, req.UserID, workflowMap)
 		if hookErr != nil {
@@ -584,6 +708,13 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		finishPlanStep(validatePlanStep.PlanStepID, alkaidModels.PlanStepSuccess, valSummary, "")
 
 		urlCandidates := collectWorkflowURLCandidates(workflowMap)
+		if crawlerRequired && len(urlCandidates) == 0 {
+			errMsg := "检测到工作流包含 crawler 节点，但没有找到可验证的具体网站 URL。请提供可直接访问的详情页或正文页链接后再生成工作流。"
+			_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+			_ = sw.WriteError(errMsg)
+			_ = sw.WriteDone()
+			return nil
+		}
 		if len(urlCandidates) > 0 {
 			urlPlanStep := ensureSyntheticPlanStep(
 				&planSteps,
@@ -645,8 +776,10 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 					step.ErrorMessage = errMsg
 				})
 				finishPlanStep(urlPlanStep.PlanStepID, alkaidModels.PlanStepError, urlValidationSummary, errMsg)
-				_ = sw.WriteContent("注意：部分 crawler 候选链接预检未通过，我仍保留了待确认工作流/补丁，方便你继续应用或手动修正这些链接。\n")
-				_ = sw.WriteContent(errMsg + "\n")
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(errMsg)
+				_ = sw.WriteDone()
+				return nil
 			}
 
 			if len(failures) == 0 {
@@ -657,7 +790,7 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			}
 		}
 
-		autoTrialAndRepairEnabled := false
+		autoTrialAndRepairEnabled := crawlerRequired
 
 		// 阶段 2: 试跑工作流（预演执行，固定执行）
 		if checkCancel() {
@@ -1179,6 +1312,200 @@ func validateWorkflowSourceURLs(registry *tools.Registry, urls []string, session
 		"results":         results,
 		"failure_reasons": failureReasons,
 	}, summary, nil
+}
+
+func shouldForceCrawlerPreparation(message string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(message))
+	if normalized == "" {
+		return false
+	}
+
+	keywords := []string{
+		"crawler",
+		"scrape",
+		"scraper",
+		"crawl",
+		"spider",
+		"爬虫",
+		"抓取",
+		"采集",
+		"网页",
+		"网站",
+		"正文页",
+		"详情页",
+	}
+	for _, keyword := range keywords {
+		if strings.Contains(normalized, keyword) {
+			return true
+		}
+	}
+
+	return len(absoluteURLRe.FindAllString(normalized, -1)) > 0
+}
+
+func extractAbsoluteURLsFromText(text string) []string {
+	matches := absoluteURLRe.FindAllString(text, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(matches))
+	result := make([]string, 0, len(matches))
+	for _, match := range matches {
+		raw := strings.TrimSpace(match)
+		if raw == "" {
+			continue
+		}
+		if _, exists := seen[raw]; exists {
+			continue
+		}
+		seen[raw] = struct{}{}
+		result = append(result, raw)
+	}
+	return result
+}
+
+func workflowHasNodeType(workflow map[string]interface{}, nodeType string) bool {
+	nodes, _ := workflow["nodes"].([]interface{})
+	for _, rawNode := range nodes {
+		nodeMap, ok := rawNode.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		currentType, _ := nodeMap["type"].(string)
+		if currentType == "" {
+			if dataMap, ok := nodeMap["data"].(map[string]interface{}); ok {
+				currentType, _ = dataMap["type"].(string)
+			}
+		}
+		if currentType == nodeType {
+			return true
+		}
+	}
+	return false
+}
+
+func ensureCrawlerNodeDefaults(workflow map[string]interface{}) bool {
+	nodes, _ := workflow["nodes"].([]interface{})
+	changed := false
+
+	for _, rawNode := range nodes {
+		nodeMap, ok := rawNode.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		nodeType, _ := nodeMap["type"].(string)
+		if nodeType == "" {
+			if dataMap, ok := nodeMap["data"].(map[string]interface{}); ok {
+				nodeType, _ = dataMap["type"].(string)
+			}
+		}
+		if nodeType != "crawler" {
+			continue
+		}
+
+		dataMap, ok := nodeMap["data"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		configMap, ok := dataMap["config"].(map[string]interface{})
+		if !ok || configMap == nil {
+			configMap = map[string]interface{}{}
+			dataMap["config"] = configMap
+			changed = true
+		}
+
+		if stringFieldValue(configMap["method"]) == "" {
+			configMap["method"] = "GET"
+			changed = true
+		}
+		if stringFieldValue(configMap["extractMode"]) == "" {
+			configMap["extractMode"] = "smart"
+			changed = true
+		}
+		if stringFieldValue(configMap["extractType"]) == "" {
+			configMap["extractType"] = "text"
+			changed = true
+		}
+		if _, exists := configMap["timeout"]; !exists {
+			configMap["timeout"] = 30
+			changed = true
+		}
+		if _, exists := configMap["retryCount"]; !exists {
+			configMap["retryCount"] = 3
+			changed = true
+		}
+		if _, exists := configMap["useHeadless"]; !exists {
+			configMap["useHeadless"] = false
+			changed = true
+		}
+	}
+
+	return changed
+}
+
+func validateCrawlerNodeConfigs(workflow map[string]interface{}) []string {
+	nodes, _ := workflow["nodes"].([]interface{})
+	errors := make([]string, 0)
+
+	for _, rawNode := range nodes {
+		nodeMap, ok := rawNode.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		nodeID, _ := nodeMap["id"].(string)
+		nodeType, _ := nodeMap["type"].(string)
+		if nodeType == "" {
+			if dataMap, ok := nodeMap["data"].(map[string]interface{}); ok {
+				nodeType, _ = dataMap["type"].(string)
+			}
+		}
+		if nodeType != "crawler" {
+			continue
+		}
+
+		dataMap, _ := nodeMap["data"].(map[string]interface{})
+		configMap, _ := dataMap["config"].(map[string]interface{})
+		if configMap == nil {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 缺少 config", nodeID))
+			continue
+		}
+
+		urlValue := stringFieldValue(configMap["url"])
+		urlVariable := stringFieldValue(configMap["urlVariable"])
+		if urlValue == "" && urlVariable == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 必须配置 url 或 urlVariable", nodeID))
+		}
+
+		extractMode := stringFieldValue(configMap["extractMode"])
+		if extractMode == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 缺少 extractMode", nodeID))
+		}
+		extractType := stringFieldValue(configMap["extractType"])
+		if extractType == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 缺少 extractType", nodeID))
+		}
+		method := stringFieldValue(configMap["method"])
+		if method == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 缺少 method", nodeID))
+		}
+
+		if extractMode == "custom" && stringFieldValue(configMap["selector"]) == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 在 custom 模式下必须配置 selector", nodeID))
+		}
+		if extractType == "attr" && stringFieldValue(configMap["extractAttr"]) == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 在 attr 提取下必须配置 extractAttr", nodeID))
+		}
+	}
+
+	return errors
+}
+
+func stringFieldValue(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprintf("%v", value))
 }
 
 func isValidWorkflowJSON(jsonStr string) bool {

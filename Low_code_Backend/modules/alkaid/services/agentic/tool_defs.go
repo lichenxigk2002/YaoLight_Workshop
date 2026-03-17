@@ -137,7 +137,7 @@ func GetToolDefsForLLM() []providers.ToolDef {
 			Type: "function",
 			Function: &providers.ToolDefFunc{
 				Name:        "get_user_constraints",
-				Description: "Get user-specific workflow generation constraints, such as max node count or forbidden node types.",
+				Description: "Get workflow generation preferences and constraints, such as keeping node count minimal when possible, avoiding certain node types, and whether there is any hard upper limit.",
 				Parameters: map[string]interface{}{
 					"type":       "object",
 					"properties": map[string]interface{}{},
