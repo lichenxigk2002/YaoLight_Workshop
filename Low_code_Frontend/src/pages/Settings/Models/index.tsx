@@ -363,7 +363,7 @@ export default function ModelProviders() {
             {t('settings.quota')}
           </div>
           <div className={styles.quotaValue}>
-            {user?.token_balance?.toLocaleString() || 0} <StardustIcon size={20} style={{ marginLeft: '8px', verticalAlign: 'middle' }} />
+            {user?.token_balance?.toLocaleString() || 0} <StardustIcon size={18} style={{ marginLeft: '6px', verticalAlign: 'middle' }} />
           </div>
         </div>
       </div>
@@ -409,7 +409,7 @@ export default function ModelProviders() {
             {t('common.confirm')}
           </Button>
         ]}
-        width={600}
+        width={560}
       >
         {!!models.find(m => m.provider === editingProvider && m.modelName === currentModelName) && (
           <Button
@@ -525,7 +525,7 @@ export default function ModelProviders() {
         open={isModelsListOpen}
         onCancel={handleCloseModelsList}
         footer={null}
-        width={500}
+        width={460}
       >
         <div className={styles.modelsListContent}>
           <div className={styles.listSection}>
@@ -576,7 +576,7 @@ export default function ModelProviders() {
         open={isSystemModelsOpen}
         onCancel={() => setIsSystemModelsOpen(false)}
         footer={null}
-        width={600}
+        width={560}
       >
         <List
           dataSource={systemModels}

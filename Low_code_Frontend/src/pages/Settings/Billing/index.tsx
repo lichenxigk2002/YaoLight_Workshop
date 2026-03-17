@@ -9,6 +9,7 @@ import { userApi } from '@/api/user';
 import { useAuthStore } from '@/store/auth';
 import { StardustIcon } from '@/components/Icons';
 import SettingsPageTitle from '@/components/SettingsPageTitle';
+import { subscribePaymentEvents } from '@/utils/paymentEvents';
 import type {
   BillPeriod,
   BillSummary,
@@ -57,33 +58,48 @@ export default function Billing() {
     [billDate, buildBillParams, period]
   );
 
-  useEffect(() => {
-    const refreshUserInfo = async () => {
-      try {
-        const userData = await userApi.getCurrentUser();
-        setUser(userData);
-      } catch (error: any) {
+  const refreshUserInfo = useCallback(async (silent = false) => {
+    try {
+      const userData = await userApi.getCurrentUser();
+      setUser(userData);
+    } catch (error: any) {
+      if (!silent) {
         message.error(error.message || t('profile.getUserInfoFailed'));
       }
-    };
-    refreshUserInfo();
+    }
   }, [message, setUser, t]);
 
-  useEffect(() => {
-    const fetchBillSummary = async () => {
-      try {
-        setBillLoading(true);
-        const sum = await userApi.getBillSummary(billParams);
-        setBillSummary(sum);
-      } catch (error: any) {
+  const refreshBillSummary = useCallback(async (silent = false) => {
+    try {
+      setBillLoading(true);
+      const sum = await userApi.getBillSummary(billParams);
+      setBillSummary(sum);
+    } catch (error: any) {
+      if (!silent) {
         message.error(error?.message || t('settings.getBillSummaryFailed'));
-        setBillSummary(null);
-      } finally {
-        setBillLoading(false);
       }
-    };
-    fetchBillSummary();
+      setBillSummary(null);
+    } finally {
+      setBillLoading(false);
+    }
   }, [billParams, message, t]);
+
+  useEffect(() => {
+    void refreshUserInfo();
+  }, [refreshUserInfo]);
+
+  useEffect(() => {
+    void refreshBillSummary();
+  }, [refreshBillSummary]);
+
+  useEffect(() => {
+    const unsubscribe = subscribePaymentEvents(() => {
+      void refreshUserInfo(true);
+      void refreshBillSummary(true);
+    });
+
+    return unsubscribe;
+  }, [refreshBillSummary, refreshUserInfo]);
 
   const formatDateRangeLabel = (start?: string, end?: string) => {
     if (!start && !end) return '-';

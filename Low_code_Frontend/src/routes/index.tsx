@@ -15,6 +15,7 @@ import OrdersPage from '../pages/Settings/Orders'
 import Invite from '../pages/Settings/Invite'
 import SettingsNotifications from '../pages/Settings/Notifications'
 import Payment from '../pages/Payment'
+import PaymentCallback from '../pages/Payment/Callback'
 import Help from '../pages/Help'
 import AssistantWorkspace from '../pages/AssistantWorkspace'
 import ConversationsPage from '../pages/Conversations'
@@ -161,6 +162,10 @@ const router = createBrowserRouter([
         </Layout>
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '/payment/callback',
+    element: <PaymentCallback />,
   },
   {
     path: '/help',
