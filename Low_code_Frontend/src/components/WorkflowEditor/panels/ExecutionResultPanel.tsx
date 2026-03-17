@@ -204,38 +204,29 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
 
   return (
     <div className={styles.dataPreview}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-        <Tag color="orange">format: {data?.format || '-'}</Tag>
-        <Tag color="blue">destination: {data?.destination || '-'}</Tag>
-        {data?.taskId ? <Tag color="purple">taskId: {String(data.taskId)}</Tag> : null}
+      <div className={styles.artifactMetaRow}>
+        <Tag bordered={false} className={styles.semanticTag}>format: {data?.format || '-'}</Tag>
+        <Tag bordered={false} className={styles.semanticTag}>destination: {data?.destination || '-'}</Tag>
+        {data?.taskId ? <Tag bordered={false} className={styles.semanticTag}>taskId: {String(data.taskId)}</Tag> : null}
       </div>
 
       {artifacts.length === 0 ? (
         <Empty description="暂无导出制品（artifacts）" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className={styles.artifactList}>
           {artifacts.map((a: any) => (
             <div
               key={String(a.id || a.downloadUrl || a.name)}
-              style={{
-                border: '1px solid var(--border-secondary)',
-                borderRadius: 8,
-                padding: 10,
-                background: 'var(--bg-secondary)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 12,
-                alignItems: 'center',
-              }}
+              className={styles.artifactCard}
             >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div className={styles.artifactCardMeta}>
+                <div className={styles.artifactCardTitle}>
                   {a.name || `artifact#${a.id}`}
                 </div>
-                <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {a.kind ? <Tag>{a.kind}</Tag> : null}
-                  {a.mimeType ? <Tag color="geekblue">{a.mimeType}</Tag> : null}
-                  {a.size != null ? <Tag color="default">{a.size} bytes</Tag> : null}
+                <div className={styles.artifactCardTags}>
+                  {a.kind ? <Tag bordered={false} className={styles.semanticTag}>{a.kind}</Tag> : null}
+                  {a.mimeType ? <Tag bordered={false} className={styles.semanticTag}>{a.mimeType}</Tag> : null}
+                  {a.size != null ? <Tag bordered={false} className={styles.semanticTag}>{a.size} bytes</Tag> : null}
                 </div>
               </div>
 
@@ -531,8 +522,8 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
              return (
                <div className={styles.dataPreview}>
                  <OutputArtifactsView data={data} />
-                 <div style={{ marginTop: 16, borderTop: '1px solid var(--border-secondary)', paddingTop: 16 }}>
-                   <div style={{ marginBottom: 8, fontWeight: 500 }}>预览内容：</div>
+                 <div className={styles.previewSection}>
+                   <div className={styles.previewLabel}>预览内容：</div>
                    <MarkdownRenderer content={mdContent} />
                  </div>
                </div>
@@ -549,13 +540,13 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
         <div className={styles.dataPreview}>
           <div className={styles.dataStats}>
             {data.count !== undefined && (
-              <Tag color="blue">{t('node.execution.extractedItems')}: {data.count}</Tag>
+              <Tag bordered={false} className={styles.semanticTag}>{t('node.execution.extractedItems')}: {data.count}</Tag>
             )}
             {data.mode && (
-              <Tag color="green">{t('node.execution.mode')}: {data.mode}</Tag>
+              <Tag bordered={false} className={styles.semanticTag}>{t('node.execution.mode')}: {data.mode}</Tag>
             )}
             {data.selector_used && (
-              <Tag color="purple">{t('node.execution.selector')}: {data.selector_used}</Tag>
+              <Tag bordered={false} className={styles.semanticTag}>{t('node.execution.selector')}: {data.selector_used}</Tag>
             )}
           </div>
 
@@ -795,10 +786,10 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
           {(data.model || data.tokensUsed) && (
             <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {data.model && (
-                <Tag color="blue">模型: {data.model}</Tag>
+                <Tag bordered={false} className={styles.semanticTag}>模型: {data.model}</Tag>
               )}
               {data.tokensUsed && (
-                <Tag color="green">Token数: {data.tokensUsed}</Tag>
+                <Tag bordered={false} className={styles.semanticTag}>Token数: {data.tokensUsed}</Tag>
               )}
             </div>
           )}

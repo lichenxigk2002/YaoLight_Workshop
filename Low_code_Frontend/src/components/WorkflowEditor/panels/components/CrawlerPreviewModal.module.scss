@@ -1,9 +1,30 @@
-// 爬虫预览模态框样式
+.modal {
+  :global(.ant-modal-content) {
+    border: 1px solid var(--editor-border-soft, var(--border-secondary));
+    border-radius: 28px;
+    background: var(--editor-surface, var(--bg-primary));
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.emptyState {
+  padding: 48px;
+  text-align: center;
+  color: var(--editor-text-tertiary, var(--text-tertiary));
+}
+
+.statusContainer,
+.cleanedViewer,
+.imagesViewer,
+.jsonViewer {
+  border: 1px solid var(--editor-border-soft, var(--border-secondary));
+  border-radius: 22px;
+  background: var(--editor-surface-soft, var(--bg-secondary));
+}
+
 .statusContainer {
   margin-bottom: 16px;
-  background: var(--bg-secondary);
-  padding: 12px;
-  border-radius: 6px;
+  padding: 14px;
 }
 
 .statusTitle {
@@ -11,54 +32,24 @@
 }
 
 .statusContent {
-  margin-top: 8px;
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  margin-top: 8px;
 }
 
-// 错误容器 - 支持亮色和暗色主题
 .errorContainer {
   margin-top: 12px;
-  padding: 8px;
-  border-radius: 4px;
-  border: 1px solid #ffa39e;
-  background: #fff1f0;
-
-  // 暗色主题
-  :global([data-theme='dark']) & {
-    background: rgba(255, 77, 79, 0.1);
-    border-color: #a8071a;
-  }
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 77, 79, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 77, 79, 0.06);
 }
 
-.contentArea {
-  max-height: 50vh;
-  padding-right: 4px;
-}
-
-.jsonViewer {
-  max-height: 50vh;
-  background: #282c34;
-  color: #abb2bf;
-  padding: 12px;
-  border-radius: 4px;
-}
-
-.jsonPre {
-  margin: 0;
-  font-size: 12px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-}
-
-.cleanedViewer {
-  max-height: 60vh;
-  background: var(--bg-secondary);
-  border-radius: 4px;
-  padding: 12px;
-}
-
+.contentArea,
+.cleanedViewer,
+.jsonViewer,
 .imagesViewer {
   max-height: 60vh;
-  padding: 12px;
+  padding: 14px;
 }
-

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Card, Tag } from 'antd';
+import { Card } from 'antd';
 import styles from './BaseNode.module.scss';
 
 export interface BaseNodeConfig {
@@ -45,6 +45,7 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
     <div
       className={`${styles.baseNode} ${selected ? styles.selected : ''}`}
       data-node-type={data.type}
+      style={{ ['--node-accent' as string]: color }}
     >
       {data.executionStatus && (
         <div
@@ -146,19 +147,13 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
         size="small"
         variant="outlined"
         className={`${styles.nodeCard} ${diffClass}`}
-        style={{
-          border: selected ? `2px solid ${color}` : `1px solid var(--border-primary)`,
-          boxShadow: selected ? `0 0 0 2px ${color}20` : 'none',
-        }}
         styles={{ body: { padding: '12px' }, header: { display: 'none', padding: 0, minHeight: 0 } }}
       >
         <div className={styles.nodeHeader}>
-          <span className={styles.nodeIcon} style={{ color }}>
-            {icon}
-          </span>
-          <Tag color={color} style={{ margin: 0 }}>
-            {label}
-          </Tag>
+          <div className={styles.nodeIdentity}>
+            <span className={styles.nodeIcon}>{icon}</span>
+            <span className={styles.nodeTag}>{label}</span>
+          </div>
         </div>
         <div className={styles.nodeContent}>
           <div className={styles.nodeTitle}>{displayLabel}</div>
@@ -198,14 +193,14 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
                   position={Position.Bottom}
                   id="true"
                   className={styles.handle}
-                  style={{ background: '#52c41a', left: '30%' }}
+                  style={{ background: 'rgba(82, 196, 26, 0.78)', left: '30%' }}
                 />
                 <Handle
                   type="source"
                   position={Position.Bottom}
                   id="false"
                   className={styles.handle}
-                  style={{ background: '#f5222d', left: '70%' }}
+                  style={{ background: 'rgba(245, 34, 45, 0.74)', left: '70%' }}
                 />
               </>
             ) : (
@@ -215,14 +210,14 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
                   position={Position.Right}
                   id="true"
                   className={styles.handle}
-                  style={{ background: '#52c41a', top: '30%' }}
+                  style={{ background: 'rgba(82, 196, 26, 0.78)', top: '30%' }}
                 />
                 <Handle
                   type="source"
                   position={Position.Right}
                   id="false"
                   className={styles.handle}
-                  style={{ background: '#f5222d', top: '70%' }}
+                  style={{ background: 'rgba(245, 34, 45, 0.74)', top: '70%' }}
                 />
               </>
             )

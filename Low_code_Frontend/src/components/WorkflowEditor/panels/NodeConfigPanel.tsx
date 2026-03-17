@@ -176,6 +176,7 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           type="text"
           icon={<CloseOutlined style={{ color: 'var(--text-primary)' }} />}
           onClick={onClose}
+          className={styles.closeButton}
         />
       </div>
 
@@ -187,22 +188,22 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
             {t('node.config.dataFormat')}
           </div>
           <div className={styles.dataFormatItem}>
-            <span style={{ color: 'var(--text-tertiary)' }}>
+            <span className={styles.dataFormatLabel}>
               {t('node.config.inputFormat')}：
             </span>
             <Space size={4} wrap>
               {inputFormats.map((format) => (
-                <Tag key={format} color="blue" style={{ margin: 0 }}>
+                <Tag key={format} bordered={false} className={styles.semanticTag}>
                   {formatLabels[format] || format}
                 </Tag>
               ))}
             </Space>
           </div>
           <div>
-            <span style={{ color: 'var(--text-tertiary)' }}>
+            <span className={styles.dataFormatLabel}>
               {t('node.config.outputFormat')}：
             </span>
-            <Tag color="green" style={{ margin: 0 }}>
+            <Tag bordered={false} className={`${styles.semanticTag} ${styles.semanticTagEmphasis}`}>
               {formatLabels[outputFormat] || outputFormat}
             </Tag>
           </div>
@@ -236,16 +237,16 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
       {/* 底部按钮 */}
       <div className={styles.footer}>
-        <Button onClick={onClose}>{t('common.cancel')}</Button>
+        <Button onClick={onClose} className={styles.footerButton}>{t('common.cancel')}</Button>
         {isCrawlerNode && (
-          <Button onClick={crawlerTest.handleTestCrawl}>
+          <Button onClick={crawlerTest.handleTestCrawl} className={styles.footerButton}>
             {t('node.config.crawler.testCrawl')}
           </Button>
         )}
         {isAINode && (
-          <Button onClick={aiTest.handleTestAI}>测试AI节点</Button>
+          <Button onClick={aiTest.handleTestAI} className={styles.footerButton}>测试AI节点</Button>
         )}
-        <Button type="primary" onClick={handleSave}>
+        <Button type="primary" onClick={handleSave} className={styles.footerPrimaryButton}>
           {t('workflowEditor.save')}
         </Button>
       </div>
