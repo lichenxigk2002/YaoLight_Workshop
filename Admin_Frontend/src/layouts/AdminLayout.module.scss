@@ -57,7 +57,12 @@
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #2f80ff, #5aa6ff);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--admin-brand) 84%, #0f172a 16%),
+    color-mix(in srgb, var(--admin-accent) 88%, white 12%)
+  );
+  border: 1px solid color-mix(in srgb, var(--admin-brand) 28%, transparent);
   box-shadow: 0 6px 14px color-mix(in srgb, var(--admin-brand) 24%, transparent);
 }
 

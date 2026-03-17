@@ -1,5 +1,5 @@
 export type AdminThemeMode = 'light' | 'dark';
-export type AdminThemePaletteId = 'blue' | 'green' | 'yellow' | 'purple' | 'red' | 'pink' | 'orange';
+export type AdminThemePaletteId = 'blue' | 'green' | 'yellow' | 'purple' | 'red' | 'pink' | 'orange' | 'white';
 
 type AdminThemePalette = {
   id: AdminThemePaletteId;
@@ -48,6 +48,7 @@ export const adminThemePalettes: AdminThemePalette[] = [
   { id: 'red', label: 'Red', brand: '#dc2626', accent: '#f87171', soft: '#fff1f2', softStrong: '#ffd9dd', brandInk: '#991b1b' },
   { id: 'pink', label: 'Pink', brand: '#db2777', accent: '#f472b6', soft: '#fff0f7', softStrong: '#ffd6ea', brandInk: '#9d174d' },
   { id: 'orange', label: 'Orange', brand: '#ea580c', accent: '#fb923c', soft: '#fff4eb', softStrong: '#ffe0cb', brandInk: '#9a3412' },
+  { id: 'white', label: 'White', brand: '#d0d5dd', accent: '#f8fafc', soft: '#ffffff', softStrong: '#f2f4f7', brandInk: '#111827' },
 ];
 
 function hexToRgba(hex: string, alpha: number) {
@@ -67,6 +68,7 @@ export function getAdminThemePalette(paletteId: AdminThemePaletteId) {
 
 export function resolveAdminTheme(paletteId: AdminThemePaletteId, mode: AdminThemeMode): AdminThemeResolvedPreset {
   const palette = getAdminThemePalette(paletteId);
+  const isWhitePalette = palette.id === 'white';
 
   if (mode === 'dark') {
     return {
@@ -84,13 +86,40 @@ export function resolveAdminTheme(paletteId: AdminThemePaletteId, mode: AdminThe
       warning: '#f59e0b',
       error: '#ef4444',
       shadow: `0 24px 48px ${hexToRgba(palette.brand, 0.18)}`,
-      soft: hexToRgba(palette.brand, 0.14),
-      softStrong: hexToRgba(palette.brand, 0.24),
-      menuSelectedBg: hexToRgba(palette.brand, 0.22),
-      menuHoverBg: hexToRgba(palette.brand, 0.12),
+      soft: isWhitePalette ? 'rgba(255, 255, 255, 0.10)' : hexToRgba(palette.brand, 0.14),
+      softStrong: isWhitePalette ? 'rgba(255, 255, 255, 0.18)' : hexToRgba(palette.brand, 0.24),
+      menuSelectedBg: isWhitePalette ? 'rgba(255, 255, 255, 0.16)' : hexToRgba(palette.brand, 0.22),
+      menuHoverBg: isWhitePalette ? 'rgba(255, 255, 255, 0.08)' : hexToRgba(palette.brand, 0.12),
       menuColor: '#c8d7ee',
       tableHeaderBg: '#10213a',
       tableRowHoverBg: '#132844',
+      segmentedSelectedBg: '#ffffff',
+    };
+  }
+
+  if (isWhitePalette) {
+    return {
+      ...palette,
+      mode,
+      bg: '#ffffff',
+      panel: '#ffffff',
+      panelAlt: '#fcfcfd',
+      headerBg: '#ffffff',
+      siderBg: '#ffffff',
+      ink: '#111827',
+      inkSoft: '#667085',
+      line: 'rgba(17, 24, 39, 0.08)',
+      success: '#15803d',
+      warning: '#b45309',
+      error: '#b91c1c',
+      shadow: '0 20px 36px rgba(15, 23, 42, 0.06)',
+      soft: '#ffffff',
+      softStrong: '#f2f4f7',
+      menuSelectedBg: '#f5f5f5',
+      menuHoverBg: '#fafafa',
+      menuColor: '#344054',
+      tableHeaderBg: '#fcfcfd',
+      tableRowHoverBg: '#fafafa',
       segmentedSelectedBg: '#ffffff',
     };
   }

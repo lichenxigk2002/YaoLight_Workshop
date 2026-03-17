@@ -1,80 +1,95 @@
 .container {
+  --editor-bg: #f7f5f1;
+  --editor-bg-overlay: rgba(255, 255, 255, 0.7);
+  --editor-surface: rgba(255, 255, 255, 0.72);
+  --editor-surface-strong: rgba(255, 255, 255, 0.92);
+  --editor-surface-soft: rgba(255, 255, 255, 0.52);
+  --editor-surface-muted: rgba(250, 248, 243, 0.88);
+  --editor-border-soft: rgba(0, 0, 0, 0.06);
+  --editor-border-strong: rgba(0, 0, 0, 0.1);
+  --editor-text: #111111;
+  --editor-text-secondary: rgba(17, 17, 17, 0.72);
+  --editor-text-tertiary: rgba(17, 17, 17, 0.48);
+  --editor-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.03);
+  --editor-shadow-panel: 0 16px 40px rgba(0, 0, 0, 0.08);
+  --editor-pill-radius: 999px;
+  --editor-card-radius: 28px;
+  --editor-panel-radius: 24px;
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--bg-secondary);
-  transition: background-color 0.3s ease;
+  background:
+    radial-gradient(circle at top center, rgba(0, 0, 0, 0.04), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.68)),
+    var(--editor-bg);
+  color: var(--editor-text);
   overflow: hidden;
-}
 
-.editorHeader {
-  flex-shrink: 0;
-  padding: 12px 16px;
-  margin: 0;
-  border-bottom: 1px solid var(--border-secondary);
-
-  :global(.ant-card-body) {
-    padding: 8px 16px;
+  [data-theme='dark'] & {
+    --editor-bg: #171717;
+    --editor-bg-overlay: rgba(255, 255, 255, 0.04);
+    --editor-surface: rgba(255, 255, 255, 0.04);
+    --editor-surface-strong: rgba(255, 255, 255, 0.06);
+    --editor-surface-soft: rgba(255, 255, 255, 0.03);
+    --editor-surface-muted: rgba(255, 255, 255, 0.025);
+    --editor-border-soft: rgba(255, 255, 255, 0.06);
+    --editor-border-strong: rgba(255, 255, 255, 0.1);
+    --editor-text: #f2f2f2;
+    --editor-text-secondary: rgba(255, 255, 255, 0.72);
+    --editor-text-tertiary: rgba(255, 255, 255, 0.48);
+    --editor-shadow-soft: 0 14px 32px rgba(0, 0, 0, 0.24);
+    --editor-shadow-panel: 0 20px 48px rgba(0, 0, 0, 0.32);
+    background:
+      radial-gradient(circle at top center, rgba(255, 255, 255, 0.05), transparent 22%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+      var(--editor-bg);
   }
 }
 
 .content {
   flex: 1;
   display: flex;
-  padding: 16px;
-  gap: 16px;
+  padding: 18px;
+  gap: 18px;
   overflow: hidden;
-  min-height: 0; // 重要：允许 flex 子元素缩小
+  min-height: 0;
 }
 
 .canvas {
-  flex: 1;
-  background: var(--bg-primary);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px var(--shadow-sm);
-  overflow: hidden;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  min-height: 0; // 重要：允许 flex 子元素缩小
   position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: var(--editor-card-radius);
+  background:
+    radial-gradient(circle at top center, rgba(0, 0, 0, 0.03), transparent 26%),
+    linear-gradient(180deg, var(--editor-bg-overlay), transparent 34%),
+    var(--editor-surface);
+  box-shadow: var(--editor-shadow-soft);
+  backdrop-filter: blur(18px);
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 
   :global(.react-flow) {
     width: 100%;
     height: 100%;
+    background: transparent;
   }
-}
 
-.sidebar {
-  width: 250px;
-  flex-shrink: 0;
-  background: var(--bg-primary);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px var(--shadow-sm);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  min-height: 0; // 重要：允许 flex 子元素缩小
-
-  :global(.ant-card) {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    border-radius: 8px;
-
-    :global(.ant-card-body) {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px;
-    }
+  :global(.react-flow__pane) {
+    cursor: default;
   }
 }
 
 .configPanelContainer {
   width: 0;
-  transition: width 0.3s cubic-bezier(0.2, 0, 0, 1);
   overflow: hidden;
   flex-shrink: 0;
+  transition: width 220ms ease;
 
   &.visible {
     width: 480px;
@@ -88,13 +103,16 @@
 .configPanelContent {
   width: 480px;
   height: 100%;
-  background: var(--bg-primary);
-  border-radius: 12px;
-  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.08), 0 9px 28px 0 rgba(0, 0, 0, 0.05), 0 12px 48px 16px rgba(0, 0, 0, 0.03);
-  border: 1px solid var(--border-secondary);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: var(--editor-panel-radius);
+  background:
+    linear-gradient(180deg, var(--editor-surface-strong), var(--editor-surface)),
+    var(--editor-surface);
+  box-shadow: var(--editor-shadow-panel);
+  backdrop-filter: blur(18px);
 
   @media (max-width: 1600px) {
     width: 360px;
@@ -103,114 +121,253 @@
 
 .saveStatus {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 18px;
+  left: 18px;
   z-index: 10;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: var(--editor-pill-radius);
+  background: var(--editor-surface-strong);
+  color: var(--editor-text-secondary);
+  box-shadow: var(--editor-shadow-soft);
+  backdrop-filter: blur(18px);
+  font-size: 12px;
 }
 
 .previewBanner {
   position: absolute;
-  bottom: 16px;
   left: 50%;
-  transform: translateX(-50%);
+  bottom: 18px;
   z-index: 10;
+  max-width: min(80%, 820px);
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 16px;
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: var(--editor-pill-radius);
+  background: var(--editor-surface-strong);
+  color: var(--editor-text-secondary);
+  box-shadow: var(--editor-shadow-panel);
+  backdrop-filter: blur(18px);
   font-size: 12px;
-  max-width: 80%;
+}
+
+.previewBannerWarning {
+  background: rgba(252, 248, 231, 0.92);
+  border-color: rgba(141, 109, 56, 0.18);
+  color: rgba(95, 72, 31, 0.92);
+
+  [data-theme='dark'] & {
+    background: rgba(92, 74, 28, 0.18);
+    border-color: rgba(222, 197, 130, 0.18);
+    color: rgba(255, 236, 188, 0.92);
+  }
 }
 
 .actionButtons {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 10;
+  top: 18px;
+  right: 18px;
+  z-index: 30;
+  pointer-events: auto;
 
   :global(.ant-space) {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    gap: 5px !important;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+
+    [data-theme='dark'] & {
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+    }
+
+    transform-origin: right center;
+    pointer-events: auto;
   }
 
   :global(.ant-btn) {
-    font-size: 12px;
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    height: 31px;
+    border-radius: 999px;
+    border: 1px solid rgba(17, 17, 17, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.8) inset,
+      0 2px 8px rgba(17, 17, 17, 0.06);
+    color: rgba(17, 17, 17, 0.82);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding-inline: 11px;
+    transition:
+      transform 180ms ease,
+      background 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease,
+      box-shadow 180ms ease;
+
+    :global(.anticon) {
+      font-size: 11px;
+    }
+
+    &:hover,
+    &:focus,
+    &:active {
+      transform: translateY(-1px);
+      background: #ffffff !important;
+      border-color: rgba(17, 17, 17, 0.12) !important;
+      color: #111111 !important;
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.85) inset,
+        0 8px 18px rgba(17, 17, 17, 0.08) !important;
+    }
+
+    [data-theme='dark'] & {
+      border-color: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.08) inset,
+        0 10px 18px rgba(0, 0, 0, 0.2);
+      color: rgba(255, 255, 255, 0.9);
+
+      &:hover,
+      &:focus,
+      &:active {
+        background: rgba(255, 255, 255, 0.14) !important;
+        border-color: rgba(255, 255, 255, 0.12) !important;
+        color: #ffffff !important;
+        box-shadow:
+          0 1px 0 rgba(255, 255, 255, 0.1) inset,
+          0 12px 24px rgba(0, 0, 0, 0.24) !important;
+      }
+    }
+
+    pointer-events: auto;
   }
 
-  // 为按钮容器添加滑动动效
+  :global(.ant-btn-primary) {
+    padding-inline: 12px;
+    border-color: rgba(17, 17, 17, 0.92);
+    background: rgba(17, 17, 17, 0.96);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.16) inset,
+      0 10px 18px rgba(17, 17, 17, 0.16);
+    color: #ffffff;
+
+    &:hover,
+    &:focus,
+    &:active {
+      background: #111111 !important;
+      border-color: #111111 !important;
+      color: #ffffff !important;
+      opacity: 0.96;
+    }
+
+    [data-theme='dark'] & {
+      border-color: rgba(255, 255, 255, 0.94);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.32) inset,
+        0 14px 24px rgba(0, 0, 0, 0.22);
+      color: #111111;
+
+      &:hover,
+      &:focus,
+      &:active {
+        background: #ffffff !important;
+        border-color: #ffffff !important;
+        color: #111111 !important;
+      }
+    }
+  }
+
+  :global(.ant-btn-circle) {
+    width: 31px;
+    min-width: 31px;
+    padding: 0;
+  }
+
   :global(.ant-space-item) {
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     opacity: 1;
     transform: translateX(0);
-    will-change: transform, opacity;
+    transition: opacity 180ms ease, transform 180ms ease;
+    pointer-events: auto;
   }
 
-  // 展开状态下的按钮动画
+  &.collapsed :global(.ant-space-item:not(:last-child)) {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+
   &.expanded {
-    :global(.ant-space-item) {
-      animation: slideInFromRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    :global(.ant-space) {
+      animation: workflowDockExpand 220ms cubic-bezier(0.22, 1, 0.36, 1);
     }
+
+    :global(.ant-space-item) {
+      opacity: 0;
+      transform: translateX(8px);
+      animation: workflowDockItemIn 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    :global(.ant-space-item:nth-child(1)) { animation-delay: 0ms; }
+    :global(.ant-space-item:nth-child(2)) { animation-delay: 16ms; }
+    :global(.ant-space-item:nth-child(3)) { animation-delay: 32ms; }
+    :global(.ant-space-item:nth-child(4)) { animation-delay: 48ms; }
+    :global(.ant-space-item:nth-child(5)) { animation-delay: 64ms; }
+    :global(.ant-space-item:nth-child(6)) { animation-delay: 80ms; }
+    :global(.ant-space-item:nth-child(7)) { animation-delay: 96ms; }
+    :global(.ant-space-item:nth-child(8)) { animation-delay: 112ms; }
+    :global(.ant-space-item:nth-child(9)) { animation-delay: 128ms; }
   }
 
-  // 收起状态下的按钮动画
   &.collapsed {
-    :global(.ant-space-item) {
-      animation: slideInFromLeft 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    :global(.ant-space) {
+      animation: workflowDockCollapse 200ms cubic-bezier(0.4, 0, 0.2, 1);
     }
-  }
-}
 
-// 从右侧滑入动画（展开时）
-@keyframes slideInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(40px);
-  }
+    :global(.ant-space-item) {
+      opacity: 0;
+      transform: translateX(-6px);
+      animation: workflowDockCollapsedIn 180ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
 
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-// 从左侧滑入动画（收起时）
-@keyframes slideInFromLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-40px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
+    :global(.ant-space-item:nth-child(1)) { animation-delay: 0ms; }
+    :global(.ant-space-item:nth-child(2)) { animation-delay: 24ms; }
   }
 }
 
 .nodeListPopup {
   position: absolute;
-  top: 40px;
+  top: 56px;
   right: 0;
-  width: 250px;
-  max-height: 60vh;
   z-index: 11;
-  box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
+  width: 280px;
+  max-height: 62vh;
+  overflow: hidden;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 24px;
+  background: var(--editor-surface-strong);
+  box-shadow: var(--editor-shadow-panel);
+  backdrop-filter: blur(18px);
 }
 
 .nodePanel {
-  max-height: 60vh;
-  border-radius: 8px;
+  height: 100%;
+  max-height: 62vh;
 }
 
 .contextMenu {
@@ -220,64 +377,129 @@
 
 .contextMenuOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 999;
 }
 
 .miniMap {
-  background-color: var(--bg-primary) !important;
-  border: 1px solid var(--border-secondary) !important;
+  overflow: hidden;
+  border: 1px solid var(--editor-border-soft) !important;
+  border-radius: 20px !important;
+  background: var(--editor-surface-strong) !important;
+  box-shadow: var(--editor-shadow-soft);
+  backdrop-filter: blur(14px);
 }
 
-// ReactFlow 样式覆盖
+.flowControls {
+  pointer-events: all;
+}
+
+@keyframes workflowDockExpand {
+  from {
+    opacity: 0.72;
+    transform: scaleX(0.92) translateY(-1px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleX(1) translateY(0);
+  }
+}
+
+@keyframes workflowDockCollapse {
+  from {
+    opacity: 0.92;
+    transform: scaleX(1);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleX(0.96);
+  }
+}
+
+@keyframes workflowDockItemIn {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes workflowDockCollapsedIn {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.templateModal {
+  :global(.ant-modal-content) {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 28px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
+      #f7f5f1;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.08);
+  }
+
+  :global(.ant-modal-header) {
+    margin-bottom: 0;
+    padding: 20px 24px 0;
+    background: transparent;
+  }
+
+  :global(.ant-modal-title) {
+    color: #111111;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  :global(.ant-modal-body) {
+    padding: 20px 24px 24px;
+  }
+
+  [data-theme='dark'] & {
+    :global(.ant-modal-content) {
+      border-color: rgba(255, 255, 255, 0.06);
+      background:
+        linear-gradient(180deg, rgba(24, 24, 24, 0.96), rgba(24, 24, 24, 0.9)),
+        #171717;
+      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.36);
+    }
+
+    :global(.ant-modal-title) {
+      color: #f2f2f2;
+    }
+  }
+}
+
 :global(.react-flow__node) {
   cursor: grab;
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
   padding: 0 !important;
-  // 确保 ReactFlow 节点容器本身没有背景色
-  background: transparent !important;
-  background-color: transparent !important;
-  // 确保节点容器宽度固定，避免影响 handle 定位
-  // ReactFlow 的 handle 定位是相对于这个容器的，所以必须固定宽度
-  width: 200px !important;
-  min-width: 200px !important;
-  max-width: 200px !important;
+  width: 188px !important;
+  min-width: 188px !important;
+  max-width: 188px !important;
   display: flex !important;
-  flex-direction: column !important;
   align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
 
-  // 确保节点容器内的所有元素都没有意外的背景色
-  &>* {
+  & > * {
     background: transparent !important;
-  }
-
-  // 确保节点 Card 圆角统一，并覆盖 filled 变体的背景色
-  :global(.ant-card),
-  :global(.ant-card-filled),
-  :global(.ant-card[class*="filled"]) {
-    border-radius: 8px !important;
-    overflow: hidden;
-    // 强制覆盖 filled 变体的背景色
-    background: var(--bg-primary) !important;
-    background-color: var(--bg-primary) !important;
-
-    :global(.ant-card-head) {
-      display: none !important;
-      padding: 0 !important;
-      min-height: 0 !important;
-      background: transparent !important;
-    }
-
-    :global(.ant-card-body) {
-      border-radius: 8px;
-      background: transparent !important;
-      background-color: transparent !important;
-    }
   }
 }
 
@@ -291,48 +513,50 @@
   box-shadow: none !important;
 }
 
-:global(.react-flow__node.selected .react-flow__handle) {
-  background: var(--text-secondary);
-}
-
 :global(.react-flow__handle) {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: 2px solid var(--bg-primary);
-  background: var(--primary);
+  border: 2px solid var(--editor-surface-strong);
+  background: rgba(17, 17, 17, 0.28);
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
-// 确保单个输入/输出端口居中
-// 顶部输入端口居中
+:global(.react-flow__handle-connecting),
+:global(.react-flow__handle-valid) {
+  transform: scale(1.08);
+  background: rgba(17, 17, 17, 0.56);
+  box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.08);
+}
+
 :global(.react-flow__handle-top:not([style*="left"])) {
   top: -5px;
   left: 50% !important;
   transform: translateX(-50%) !important;
 }
 
-// 底部输出端口居中
 :global(.react-flow__handle-bottom:not([style*="left"])) {
   bottom: -5px;
   left: 50% !important;
   transform: translateX(-50%) !important;
 }
 
-// 左侧输入端口居中
 :global(.react-flow__handle-left:not([style*="top"])) {
   left: -5px;
   top: 50% !important;
   transform: translateY(-50%) !important;
 }
 
-// 右侧输出端口居中
 :global(.react-flow__handle-right:not([style*="top"])) {
   right: -5px;
   top: 50% !important;
   transform: translateY(-50%) !important;
 }
 
-// 多个端口的情况（有 left 或 top 样式），保持原有位置但应用 transform
 :global(.react-flow__handle-top[style*="left"]),
 :global(.react-flow__handle-bottom[style*="left"]) {
   transform: translateX(-50%) !important;
@@ -343,69 +567,118 @@
   transform: translateY(-50%) !important;
 }
 
-:global(.react-flow__edge) {
+:global(.react-flow__edge-path) {
+  stroke: rgba(17, 17, 17, 0.22);
   stroke-width: 2;
-  stroke: var(--text-tertiary);
 }
 
-:global(.react-flow__edge.selected) {
-  stroke: var(--primary);
+:global(.react-flow__edge.selected .react-flow__edge-path) {
+  stroke: rgba(17, 17, 17, 0.52);
+}
+
+:global(.react-flow__connection-path) {
+  stroke: rgba(17, 17, 17, 0.46);
+  stroke-width: 2;
+}
+
+:global([data-theme='dark'] .react-flow__edge-path) {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+
+:global([data-theme='dark'] .react-flow__edge.selected .react-flow__edge-path) {
+  stroke: rgba(255, 255, 255, 0.5);
+}
+
+:global([data-theme='dark'] .react-flow__connection-path) {
+  stroke: rgba(255, 255, 255, 0.48);
 }
 
 :global(.react-flow__controls) {
-  box-shadow: 0 0 2px 1px var(--shadow-sm);
-  border-radius: 4px;
   overflow: hidden;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 18px;
+  background: var(--editor-surface-strong);
+  box-shadow: var(--editor-shadow-soft);
+  backdrop-filter: blur(14px);
 }
 
 :global(.react-flow__controls-button) {
-  background: var(--bg-primary);
-  border-bottom: 1px solid var(--border-secondary);
-  color: var(--text-primary);
-}
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--editor-border-soft);
+  color: var(--editor-text);
 
-:global(.react-flow__controls-button:hover) {
-  background: var(--bg-secondary);
-}
-
-:global(.react-flow__controls-button svg) {
-  fill: var(--text-primary);
-  max-width: 14px;
-  max-height: 14px;
+  &:hover {
+    background: var(--editor-surface-soft);
+  }
 }
 
 :global(.react-flow__controls-button:last-child) {
   border-bottom: none;
 }
 
-// 统一通知样式为黑白风格
+:global(.react-flow__controls-button svg) {
+  fill: var(--editor-text);
+  max-width: 14px;
+  max-height: 14px;
+}
+
 :global(.ant-notification-notice) {
-  background: var(--bg-primary) !important;
-  border: 1px solid var(--border-secondary) !important;
-  box-shadow: 0 2px 8px var(--shadow-sm) !important;
-  border-radius: 8px !important;
+  border: 1px solid var(--editor-border-soft) !important;
+  border-radius: 22px !important;
+  background: var(--editor-surface-strong) !important;
+  box-shadow: var(--editor-shadow-panel) !important;
+  backdrop-filter: blur(16px);
 }
 
 :global(.ant-notification-notice-message),
 :global(.ant-notification-notice-description) {
-  color: var(--text-primary) !important;
+  color: var(--editor-text) !important;
 }
 
 :global(.ant-notification-notice-close) {
-  color: var(--text-secondary) !important;
-}
-
-:global(.ant-notification-notice-close:hover) {
-  color: var(--text-primary) !important;
+  color: var(--editor-text-secondary) !important;
 }
 
 :global(.ant-notification-notice-btn .ant-btn) {
-  background: var(--bg-secondary) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-secondary) !important;
+  border-radius: 999px !important;
 }
 
-:global(.ant-notification-notice-btn .ant-btn:hover) {
-  background: var(--bg-tertiary) !important;
-  border-color: var(--border-primary) !important;
+@media (max-width: 900px) {
+  .content {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .configPanelContainer.visible {
+    width: 320px;
+  }
+
+  .configPanelContent {
+    width: 320px;
+  }
+
+  .actionButtons {
+    top: 14px;
+    right: 14px;
+
+    :global(.ant-space) {
+      gap: 4px !important;
+    }
+  }
+
+  .saveStatus {
+    top: 14px;
+    left: 14px;
+  }
+
+  .nodeListPopup {
+    width: min(280px, calc(100vw - 44px));
+  }
+
+  .previewBanner {
+    max-width: calc(100% - 28px);
+  }
 }

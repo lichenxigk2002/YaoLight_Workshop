@@ -136,7 +136,9 @@
   height: 12px;
   border-radius: 999px;
   flex: 0 0 auto;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--admin-line) 78%, transparent);
 }
 
 .trigger {

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { Form, Modal, InputNumber, Tooltip, Select, Input, type FormInstance } from 'antd';
 import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
@@ -79,6 +79,37 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
   const [modalStyle, setModalStyle] = useState<React.CSSProperties>({});
   const [modalWidth, setModalWidth] = useState<number | undefined>(undefined);
 
+  const updateModalPosition = useCallback(() => {
+    if (!triggerRef.current) return;
+
+    const rect = triggerRef.current.getBoundingClientRect();
+
+    const gap = 12;
+    const margin = 10;
+    const maxWidth = 520;
+    const minWidth = 360;
+
+    let availableLeft = rect.left - gap - margin;
+    let width = Math.max(Math.min(availableLeft, maxWidth), minWidth);
+    let left = rect.left - width - gap;
+
+    if (left < margin) {
+      const availableRight = window.innerWidth - rect.right - gap - margin;
+      width = Math.max(Math.min(availableRight, maxWidth), minWidth);
+      left = rect.right + gap;
+    }
+
+    setModalWidth(width);
+    setModalStyle({
+      top: '50%',
+      left: `${left}px`,
+      margin: 0,
+      transform: 'translateY(-50%)',
+      position: 'fixed',
+      padding: 0
+    });
+  }, []);
+
   // 弹窗内按当前 provider+model 按需拉取能力，避免写死 configuration（与主面板一致）
   const [popupCapability, setPopupCapability] = useState<ModelCapability | null | undefined>(undefined);
   useEffect(() => {
@@ -112,37 +143,25 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
 
   // 监听打开状态，计算水平位置（模仿 Popover left）但垂直居中
   useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
+    if (!open) return;
 
-      const gap = 12;
-      const margin = 10;
-      const maxWidth = 520;
-      const minWidth = 360;
+    updateModalPosition();
 
-      let availableLeft = rect.left - gap - margin;
-      let width = Math.max(Math.min(availableLeft, maxWidth), minWidth);
+    const handleViewportChange = () => updateModalPosition();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
 
-      let left = rect.left - width - gap;
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [open, updateModalPosition]);
 
-      if (left < margin) {
-        const availableRight = window.innerWidth - rect.right - gap - margin;
-        width = Math.max(Math.min(availableRight, maxWidth), minWidth);
-        left = rect.right + gap;
-      }
-
-      setModalWidth(width);
-
-      setModalStyle({
-        top: '50%',
-        left: `${left}px`,
-        margin: 0,
-        transform: 'translateY(-50%)',
-        position: 'fixed',
-        padding: 0
-      });
-    }
-  }, [open]);
+  const openPopup = useCallback((e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
+    onOpen?.();
+    setOpen(true);
+  }, [onOpen]);
 
   const providerReg = currentProvider ? providerRegistry.get(currentProvider) : null;
 
@@ -381,8 +400,16 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
     <>
       <div
         ref={triggerRef}
-        onClick={(e) => { e.stopPropagation(); onOpen?.(); setOpen(true); }}
-        style={{ display: 'inline-block', cursor: 'pointer' }}
+        className={styles.triggerWrapper}
+        onClick={openPopup}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openPopup(e);
+          }
+        }}
+        role="button"
+        tabIndex={0}
       >
         {trigger || (
           <div className={styles.defaultTrigger}>
@@ -398,12 +425,13 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
         closable={false}
         width={modalWidth}
         style={modalStyle}
-        getContainer={false}
+        getContainer={typeof document !== 'undefined' ? () => document.body : undefined}
         destroyOnHidden
         maskClosable={true}
         mask={false}
         centered
         className={styles.configModal}
+        zIndex={1400}
         transitionName=""
         maskTransitionName=""
       >

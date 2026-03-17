@@ -29,7 +29,7 @@ import type { Task, TaskNodeExecution, TaskStatus } from '@/types/task';
 import { ProviderIcon } from '@/components/Icons/ProviderIcon';
 import styles from './TaskHistoryPanel.module.scss';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface TaskHistoryPanelProps {
   visible: boolean;
@@ -38,9 +38,6 @@ interface TaskHistoryPanelProps {
   onViewExecutionDetail?: (executions: TaskNodeExecution[], task: Task) => void;
 }
 
-/**
- * 任务历史面板组件
- */
 const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
   visible,
   onClose,
@@ -57,11 +54,9 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [hasRunningTasks, setHasRunningTasks] = useState(false);
 
-  // 使用 useRef 来存储定时器，避免状态更新问题
   const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingRef = useRef(false);
 
-  // 获取任务列表
   const fetchTasks = async () => {
     try {
       setLoading(true);
@@ -75,7 +70,6 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
     }
   };
 
-  // 停止轮询
   const stopPolling = () => {
     if (pollingTimerRef.current) {
       clearInterval(pollingTimerRef.current);
@@ -84,23 +78,17 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
     isPollingRef.current = false;
   };
 
-  // 开始轮询
   const startPolling = () => {
-    // 如果已经在轮询，先停止
     stopPolling();
-
     isPollingRef.current = true;
 
-    // 创建新的定时器
     pollingTimerRef.current = setInterval(async () => {
-      // 检查是否还应该继续轮询
       if (!isPollingRef.current) {
         stopPolling();
         return;
       }
 
       try {
-        // 同时获取任务列表和运行状态
         const [tasksResponse, runningResponse] = await Promise.all([
           taskApi.getWorkflowTasks(workflowId, { page, limit }),
           taskApi.getRunningTasks(workflowId),
@@ -112,82 +100,64 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
         const hasRunning = runningResponse.hasTasks;
         setHasRunningTasks(hasRunning);
 
-        // 如果没有正在运行的任务，停止轮询
         if (!hasRunning) {
           stopPolling();
         }
       } catch (error) {
-        console.error('轮询失败:', error);
+        console.error('Task history polling failed:', error);
       }
-    }, 3000); // 每3秒轮询一次（从2秒改为3秒，减少请求频率）
+    }, 3000);
   };
 
-  // 检查是否有正在运行的任务
   const checkRunningTasks = async () => {
     try {
       const response = await taskApi.getRunningTasks(workflowId);
       const hasRunning = response.hasTasks;
       setHasRunningTasks(hasRunning);
 
-      // 如果有正在运行的任务且未在轮询，开启轮询
       if (hasRunning && !isPollingRef.current) {
         startPolling();
       } else if (!hasRunning && isPollingRef.current) {
         stopPolling();
       }
     } catch (error) {
-      console.error('检查运行状态失败:', error);
+      console.error('Failed to check running tasks:', error);
     }
   };
 
-  // 查看任务执行详情
   const handleViewDetail = async (task: Task) => {
     try {
       const response = await taskApi.getTaskNodeExecutions(task.id);
-      if (onViewExecutionDetail) {
-        onViewExecutionDetail(response.executions, task);
-      }
+      onViewExecutionDetail?.(response.executions, task);
     } catch (error: any) {
       message.error(error.message || t('taskHistory.getDetailFailed'));
     }
   };
 
-  // 面板打开/关闭时的处理
   useEffect(() => {
     if (visible && workflowId) {
-      // 面板打开时，获取数据并检查运行状态
-      fetchTasks();
-      checkRunningTasks();
+      void fetchTasks();
+      void checkRunningTasks();
     } else {
-      // 面板关闭时，停止轮询
       stopPolling();
     }
 
-    // 清理函数：组件卸载或面板关闭时停止轮询
     return () => {
       stopPolling();
     };
   }, [visible, workflowId]);
 
-  // 页码改变时重新获取数据
   useEffect(() => {
     if (visible && workflowId) {
-      fetchTasks();
+      void fetchTasks();
     }
-  }, [page]);
+  }, [page, visible, workflowId]);
 
-  // 刷新列表
   const handleRefresh = () => {
-    fetchTasks();
-    checkRunningTasks();
+    void fetchTasks();
+    void checkRunningTasks();
   };
 
-  // 页码改变
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-
-  // 关闭面板
   const handleClose = () => {
     stopPolling();
     onClose();
@@ -197,15 +167,17 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
 
   return (
     <div className={styles.panelContainer}>
-      {/* 标题栏 */}
       <div className={styles.panelHeader}>
         <div className={styles.headerLeft}>
           <HistoryOutlined />
-          <Text strong style={{ fontSize: '16px', marginLeft: 8 }}>
+          <Text strong className={styles.headerTitle}>
             {t('taskHistory.title')}
           </Text>
           {hasRunningTasks && (
-            <Badge status="processing" text={t('taskHistory.hasRunningTasks')} style={{ marginLeft: 12 }} />
+            <span className={styles.headerBadge}>
+              <Badge status="processing" />
+              {t('taskHistory.hasRunningTasks')}
+            </span>
           )}
         </div>
         <Space>
@@ -214,6 +186,7 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
             onClick={handleRefresh}
             loading={loading}
             size="small"
+            className={styles.actionButton}
           >
             {t('taskHistory.refresh')}
           </Button>
@@ -222,11 +195,11 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
             icon={<CloseOutlined />}
             onClick={handleClose}
             size="small"
+            className={styles.actionButton}
           />
         </Space>
       </div>
 
-      {/* 内容区域 */}
       <div className={styles.panelContent}>
         <Spin spinning={loading}>
           {tasks.length === 0 ? (
@@ -241,9 +214,11 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
                     className={styles.taskItem}
                     actions={[
                       <Button
+                        key="view"
                         type="link"
                         icon={<EyeOutlined />}
-                        onClick={() => handleViewDetail(task)}
+                        onClick={() => void handleViewDetail(task)}
+                        className={styles.linkButton}
                       >
                         {t('taskHistory.viewDetail')}
                       </Button>,
@@ -254,57 +229,52 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
                         <Space>
                           <TaskStatusTag status={task.status} task={task} />
                           <Text strong>
-                            {task.name || 
-                              (task.sequenceNumber !== undefined 
+                            {task.name ||
+                              (task.sequenceNumber !== undefined
                                 ? t('taskHistory.task', { id: task.sequenceNumber })
                                 : t('taskHistory.task', { id: task.id }))}
                           </Text>
-                          {/* AI供应商图标 */}
-                          {task.provider && (
-                            <ProviderIcon provider={task.provider} size={16} />
-                          )}
+                          {task.provider ? <ProviderIcon provider={task.provider} size={16} /> : null}
                         </Space>
                       }
                       description={
                         <Space direction="vertical" size={4} style={{ width: '100%' }}>
                           <Space size="large">
-                            <Text type="secondary">
+                            <Text type="secondary" className={styles.taskRowText}>
                               <ClockCircleOutlined /> {t('taskHistory.startTime')}：
-                              {task.startedAt
-                                ? new Date(task.startedAt).toLocaleString('zh-CN')
-                                : '-'}
+                              {task.startedAt ? new Date(task.startedAt).toLocaleString('zh-CN') : '-'}
                             </Text>
                           </Space>
                           <Space size="large">
-                            <Text type="secondary">
+                            <Text type="secondary" className={styles.taskRowText}>
                               {t('taskHistory.duration')}：{formatDuration(task.actualDuration)}
                             </Text>
-                            <Text type="secondary">
+                            <Text type="secondary" className={styles.taskRowText}>
                               {t('taskHistory.progress')}：{task.progress}%
                             </Text>
-                            <Text type="secondary">
+                            <Text type="secondary" className={styles.taskRowText}>
                               {t('taskHistory.priority')}：{task.priority}
                             </Text>
                           </Space>
-                          {task.errorMessage && (
-                            <Text type="danger" ellipsis>
+                          {task.errorMessage ? (
+                            <Text type="danger" ellipsis className={styles.taskError}>
                               {t('taskHistory.error')}：{task.errorMessage}
                             </Text>
-                          )}
+                          ) : null}
                         </Space>
                       }
                     />
                   </List.Item>
                 )}
               />
-              <div style={{ marginTop: 16, textAlign: 'right' }}>
+              <div className={styles.paginationWrap}>
                 <Pagination
                   current={page}
                   pageSize={limit}
                   total={total}
-                  onChange={handlePageChange}
+                  onChange={setPage}
                   showSizeChanger={false}
-                  showTotal={(total) => t('taskHistory.totalRecords', { total })}
+                  showTotal={(value) => t('taskHistory.totalRecords', { total: value })}
                 />
               </div>
             </>
@@ -315,12 +285,8 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
   );
 };
 
-/**
- * 任务状态标签
- */
 const TaskStatusTag: React.FC<{ status: TaskStatus; task?: Task }> = ({ status, task }) => {
   const { t } = useTranslation();
-  // 如果是手动中止（cancelledBy 不为空），显示"已终止"
   const isManuallyCancelled = status === 'cancelled' && task?.cancelledBy;
 
   const statusConfig = {
@@ -333,23 +299,30 @@ const TaskStatusTag: React.FC<{ status: TaskStatus; task?: Task }> = ({ status, 
     cancelled: {
       color: 'default',
       icon: <StopOutlined />,
-      text: isManuallyCancelled ? t('taskHistory.status.terminated') : t('taskHistory.status.cancelled')
+      text: isManuallyCancelled ? t('taskHistory.status.terminated') : t('taskHistory.status.cancelled'),
     },
     timeout: { color: 'error', icon: <ClockCircleOutlined />, text: t('taskHistory.status.timeout') },
   };
 
   const config = statusConfig[status] || statusConfig.pending;
+  const tagClassName = [
+    styles.semanticTag,
+    config.color === 'success'
+      ? styles.semanticTagSuccess
+      : config.color === 'error'
+        ? styles.semanticTagError
+        : config.color === 'warning'
+          ? styles.semanticTagWarning
+          : styles.semanticTagProcessing,
+  ].join(' ');
 
   return (
-    <Tag color={config.color} icon={config.icon}>
+    <Tag bordered={false} className={tagClassName} icon={config.icon}>
       {config.text}
     </Tag>
   );
 };
 
-/**
- * 格式化时长（毫秒转为可读格式）
- */
 const formatDuration = (milliseconds?: number): string => {
   if (!milliseconds) return '-';
 
@@ -359,12 +332,11 @@ const formatDuration = (milliseconds?: number): string => {
 
   if (hours > 0) {
     return `${hours}小时${minutes % 60}分${seconds % 60}秒`;
-  } else if (minutes > 0) {
-    return `${minutes}分${seconds % 60}秒`;
-  } else {
-    return `${seconds}秒`;
   }
+  if (minutes > 0) {
+    return `${minutes}分${seconds % 60}秒`;
+  }
+  return `${seconds}秒`;
 };
 
 export default TaskHistoryPanel;
-

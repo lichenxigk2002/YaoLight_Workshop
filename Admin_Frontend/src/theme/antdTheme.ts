@@ -2,11 +2,14 @@ import { theme, type ThemeConfig } from 'antd';
 import type { AdminThemeResolvedPreset, AdminThemeMode } from './presets';
 
 export function createAdminAntdTheme(preset: AdminThemeResolvedPreset, mode: AdminThemeMode): ThemeConfig {
+  const primaryColor = preset.id === 'white' && mode === 'light' ? preset.brandInk : preset.brand;
+  const infoColor = preset.id === 'white' && mode === 'light' ? preset.inkSoft : preset.accent;
+
   return {
     algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
     token: {
-      colorPrimary: preset.brand,
-      colorInfo: preset.accent,
+      colorPrimary: primaryColor,
+      colorInfo: infoColor,
       colorSuccess: preset.success,
       colorWarning: preset.warning,
       colorError: preset.error,
@@ -26,7 +29,7 @@ export function createAdminAntdTheme(preset: AdminThemeResolvedPreset, mode: Adm
         siderBg: preset.siderBg,
         bodyBg: preset.bg,
         triggerBg: preset.siderBg,
-        triggerColor: preset.brand,
+        triggerColor: primaryColor,
       },
       Menu: {
         itemBg: preset.siderBg,
@@ -34,7 +37,7 @@ export function createAdminAntdTheme(preset: AdminThemeResolvedPreset, mode: Adm
         itemSelectedBg: preset.menuSelectedBg,
         itemHoverBg: preset.menuHoverBg,
         itemColor: preset.menuColor,
-        itemSelectedColor: preset.brand,
+        itemSelectedColor: primaryColor,
       },
       Card: {
         borderRadiusLG: 20,
@@ -44,10 +47,10 @@ export function createAdminAntdTheme(preset: AdminThemeResolvedPreset, mode: Adm
         rowHoverBg: preset.tableRowHoverBg,
       },
       Tabs: {
-        itemSelectedColor: preset.brand,
-        itemHoverColor: preset.accent,
-        itemActiveColor: preset.brand,
-        inkBarColor: preset.brand,
+        itemSelectedColor: primaryColor,
+        itemHoverColor: infoColor,
+        itemActiveColor: primaryColor,
+        inkBarColor: primaryColor,
       },
       Segmented: {
         itemSelectedBg: preset.segmentedSelectedBg,

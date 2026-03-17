@@ -123,15 +123,20 @@
   border-radius: 999px;
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgba(14, 116, 144, 0.08), rgba(14, 116, 144, 0.02)),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--admin-brand) 10%, transparent),
+      color-mix(in srgb, var(--admin-accent) 4%, transparent)
+    ),
     repeating-linear-gradient(
       90deg,
-      rgba(15, 23, 42, 0.06) 0,
-      rgba(15, 23, 42, 0.06) 1px,
+      color-mix(in srgb, var(--admin-brand) 10%, transparent) 0,
+      color-mix(in srgb, var(--admin-brand) 10%, transparent) 1px,
       transparent 1px,
       transparent 16%
     );
-  border: 1px solid rgba(14, 116, 144, 0.14);
+  border: 1px solid color-mix(in srgb, var(--admin-brand) 18%, var(--admin-line));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--admin-panel) 72%, transparent);
 }
 
 .timelineBar {
@@ -149,8 +154,13 @@
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
-  background: linear-gradient(135deg, #0f766e, #0284c7);
-  box-shadow: 0 8px 16px rgba(2, 132, 199, 0.2);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--admin-brand) 82%, #0f172a 18%),
+    color-mix(in srgb, var(--admin-accent) 86%, white 14%)
+  );
+  border: 1px solid color-mix(in srgb, var(--admin-brand) 36%, transparent);
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--admin-brand) 22%, transparent);
 }
 
 .timelineBarLabel {

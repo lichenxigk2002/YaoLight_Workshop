@@ -246,13 +246,8 @@ const WorkflowEditor: React.FC = () => {
           let style = { ...n.style };
           let data = { ...n.data, diffMark: mark }; // Inject diffMark into data for custom nodes
 
-          if (mark === 'add') {
-              style.border = '2px solid #52c41a'; // Green
-          } else if (mark === 'remove') {
-              style.border = '2px solid #ff4d4f'; // Red
-              style.opacity = 0.6;
-          } else if (mark === 'update') {
-              style.border = '2px solid #faad14'; // Orange
+          if (mark === 'remove') {
+              style.opacity = 0.7;
           }
           return { ...n, style, data };
       });
@@ -776,13 +771,18 @@ const WorkflowEditor: React.FC = () => {
             attributionPosition="bottom-left"
             deleteKeyCode={configPanelVisible ? null : ['Delete', 'Backspace']}
           >
-            <Controls />
+            <Controls className={styles.flowControls} />
             <MiniMap
               className={styles.miniMap}
-              nodeColor={theme === 'dark' ? '#303030' : '#e8e8e8'}
-              maskColor={theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(240, 240, 240, 0.6)'}
+              nodeColor={theme === 'dark' ? 'rgba(255, 255, 255, 0.18)' : 'rgba(17, 17, 17, 0.12)'}
+              maskColor={theme === 'dark' ? 'rgba(0, 0, 0, 0.4)' : 'rgba(247, 245, 241, 0.72)'}
             />
-            <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={22}
+              size={1}
+              color={theme === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(17, 17, 17, 0.08)'}
+            />
           </ReactFlow>
 
           {workflowPreviewMode === 'workflow' && (
@@ -805,7 +805,7 @@ const WorkflowEditor: React.FC = () => {
           )}
 
           {patchPreviewMode === 'previewing' && (
-            <div className={styles.previewBanner} style={{ backgroundColor: '#fffbe6', borderBottom: '1px solid #ffe58f' }}>
+            <div className={`${styles.previewBanner} ${styles.previewBannerWarning}`}>
               <Space>
                 <span>{t('workflowEditor.alkaid.patchPreviewBanner')}</span>
                 <Button size="small" type="primary" onClick={handleConfirmPatchPreview}>
@@ -1047,6 +1047,8 @@ const WorkflowEditor: React.FC = () => {
         onCancel={() => setTemplateModalVisible(false)}
         footer={null}
         width={720}
+        className={styles.templateModal}
+        getContainer={false}
       >
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <Space.Compact style={{ width: '100%' }}>
