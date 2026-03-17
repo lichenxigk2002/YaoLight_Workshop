@@ -124,6 +124,7 @@ const WorkflowEditor: React.FC = () => {
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateImportingId, setTemplateImportingId] = useState<number | null>(null);
   const [templateItems, setTemplateItems] = useState<WorkflowTemplateLibraryItem[]>([]);
+  const [activeTemplateId, setActiveTemplateId] = useState<number | null>(null);
 
   const [workflowPreviewMode, setWorkflowPreviewMode] = useState<'none' | 'workflow'>('none');
   const originalWorkflowRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
@@ -168,7 +169,9 @@ const WorkflowEditor: React.FC = () => {
     setNodes,
     setEdges,
     getNodeLabel,
-    updateNodeIdCounter
+    updateNodeIdCounter,
+    activeTemplateId,
+    setActiveTemplateId
   );
 
   // 鍖呰 setConfigPanelVisible锛屽湪鎵撳紑閰嶇疆闈㈡澘鏃跺叧闂巻鍙茶褰曢潰鏉?
@@ -589,6 +592,7 @@ const WorkflowEditor: React.FC = () => {
         const { nodes: importedNodes, edges: importedEdges } = await importWorkflow(file, getNodeLabel);
         setNodes(importedNodes);
         setEdges(importedEdges);
+        setActiveTemplateId(null);
         updateNodeIdCounter(importedNodes);
         message.success(t('workflowEditor.importSuccess'));
 
@@ -645,6 +649,7 @@ const WorkflowEditor: React.FC = () => {
       const importedEdges = transformEdgesFromLoadFormat(response.edges || []);
       setNodes(importedNodes);
       setEdges(importedEdges);
+      setActiveTemplateId(templateId);
       updateNodeIdCounter(importedNodes);
       setTemplateModalVisible(false);
       message.success(t('workflowEditor.templateImported'));
