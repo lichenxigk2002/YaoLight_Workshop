@@ -29,7 +29,7 @@ export const getThemeConfig = (mode: 'light' | 'dark'): ThemeConfig => {
       borderRadiusSM: 8,
       fontSize: 14,
       fontFamily:
-        '"Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif',
+        '"IBM Plex Sans", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif',
       fontFamilyCode:
         '"SFMono-Regular", "JetBrains Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace',
       fontSizeHeading1: 38,

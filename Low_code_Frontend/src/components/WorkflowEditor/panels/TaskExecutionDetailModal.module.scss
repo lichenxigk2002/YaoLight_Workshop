@@ -43,6 +43,97 @@
   }
 }
 
+.concurrentPanel {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.concurrentStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.concurrentStatCard,
+.concurrentTimelineCard {
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(12, 74, 110, 0.08), rgba(2, 132, 199, 0.03)) !important;
+
+  :global(.ant-card-body) {
+    padding: 14px !important;
+  }
+}
+
+.concurrentStatValue {
+  margin-top: 8px;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.concurrentTimeline {
+  display: grid;
+  gap: 10px;
+}
+
+.concurrentRow {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) 84px;
+  align-items: center;
+  gap: 12px;
+}
+
+.concurrentMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.concurrentTrack {
+  position: relative;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(56, 189, 248, 0.08), rgba(34, 197, 94, 0.03)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(148, 163, 184, 0.14) 0,
+      rgba(148, 163, 184, 0.14) 1px,
+      transparent 1px,
+      transparent 16%
+    );
+}
+
+.concurrentBar {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  min-width: 18px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: #ecfeff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0369a1, #0f766e);
+  box-shadow: 0 10px 20px rgba(6, 95, 70, 0.18);
+}
+
+.concurrentDuration {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: right;
+}
+
 .nodeListContainer {
   .sectionTitle {
     margin-bottom: 12px;
@@ -269,5 +360,19 @@
         }
       }
     }
+  }
+}
+
+@media (max-width: 900px) {
+  .concurrentStats {
+    grid-template-columns: 1fr;
+  }
+
+  .concurrentRow {
+    grid-template-columns: 1fr;
+  }
+
+  .concurrentDuration {
+    text-align: left;
   }
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 // NodeVariable 节点变量定义
@@ -27,6 +28,7 @@ type NodeIODefinition struct {
 // VariableContext 变量上下文
 // 存储所有已执行节点的输出变量，供下游节点引用
 type VariableContext struct {
+	mu sync.RWMutex
 	// 格式：nodeId.variableName -> value
 	// 例如：{"crawler_1.data": {...}, "crawler_1.text": "...", "dataclean_1.cleaned": [...]}
 	variables map[string]interface{}
@@ -47,11 +49,15 @@ func NewVariableContext() *VariableContext {
 
 // SetNodeType 设置节点类型
 func (vc *VariableContext) SetNodeType(nodeID, nodeType string) {
+	vc.mu.Lock()
+	defer vc.mu.Unlock()
 	vc.nodeTypes[nodeID] = nodeType
 }
 
 // SetNodeOutput 设置节点输出（同时提取变量）
 func (vc *VariableContext) SetNodeOutput(nodeID string, data *NodeData) {
+	vc.mu.Lock()
+	defer vc.mu.Unlock()
 	vc.nodeOutputs[nodeID] = data
 
 	// 获取节点类型
@@ -157,6 +163,8 @@ func (vc *VariableContext) findValueInPayload(payload interface{}, variableName 
 //   - nodeId.variableName.field（路径访问，从对象中提取字段）
 //   - variableName（自动查找）
 func (vc *VariableContext) GetVariable(path string) (interface{}, error) {
+	vc.mu.RLock()
+	defer vc.mu.RUnlock()
 	if path == "" {
 		return nil, fmt.Errorf("变量路径为空")
 	}

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 
 	"yaolight-workshop/backend/domain/repository"
@@ -32,16 +33,16 @@ type NodeConfig struct {
 type EdgeConfig struct {
 	Source       string `json:"source"`
 	Target       string `json:"target"`
-	SourceHandle string `json:"sourceHandle,omitempty"` // Condition branch handle, such as true or false.
-	TargetHandle string `json:"targetHandle,omitempty"` // Input slot handle, such as input-0 or input-1.
+	SourceHandle string `json:"sourceHandle,omitempty"`
+	TargetHandle string `json:"targetHandle,omitempty"`
 }
 
 // ExecutionRequest is the workflow execution payload.
 type ExecutionRequest struct {
 	Nodes         []NodeConfig           `json:"nodes"`
 	Edges         []EdgeConfig           `json:"edges"`
-	UserID        uint                   `json:"userID,omitempty"`     // User ID for permission-aware execution.
-	WorkflowID    uint                   `json:"workflowId,omitempty"` // Workflow ID for task association.
+	UserID        uint                   `json:"userID,omitempty"`
+	WorkflowID    uint                   `json:"workflowId,omitempty"`
 	RuntimeInput  interface{}            `json:"runtimeInput,omitempty"`
 	RuntimeMeta   map[string]interface{} `json:"runtimeMeta,omitempty"`
 	OnTaskCreated func(taskID uint)      `json:"-"`
@@ -82,211 +83,7 @@ func NewWorkflowExecutor() *WorkflowExecutor {
 
 // Execute runs a workflow in non-stream mode.
 func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, error) {
-	results := make([]NodeExecutionResult, 0)
-	dataFlow := NewDataFlow(req.Edges)
-	variableContext := NewVariableContext()
-	execMeta := ExecutionMeta{
-		UserID:       req.UserID,
-		RuntimeInput: req.RuntimeInput,
-		RuntimeMeta:  req.RuntimeMeta,
-	}
-	if req.WorkflowID > 0 {
-		wid := req.WorkflowID
-		execMeta.WorkflowID = &wid
-	}
-
-	startNodes := e.findStartNodes(req.Nodes, req.Edges)
-	if len(startNodes) == 0 {
-		return &ExecutionResult{
-			Success: false,
-			Error:   "未找到起始节点",
-		}, fmt.Errorf("未找到起始节点")
-	}
-
-	executed := make(map[string]bool)
-	nodeStatus := make(map[string]string)
-	conditionResults := make(map[string]bool)
-	queue := make([]string, 0, len(startNodes))
-	workflowFailed := false
-
-	findNodeConfig := func(nodeID string) *NodeConfig {
-		for i := range req.Nodes {
-			if req.Nodes[i].ID == nodeID {
-				return &req.Nodes[i]
-			}
-		}
-		return nil
-	}
-
-	evaluateNodeState := func(nodeID string) (string, string) {
-		hasIncoming := false
-		for _, edge := range req.Edges {
-			if edge.Target != nodeID {
-				continue
-			}
-			hasIncoming = true
-
-			if !isEdgeActive(edge, req.Nodes, req.Edges, conditionResults, executed) {
-				continue
-			}
-			if !executed[edge.Source] {
-				return "waiting", ""
-			}
-			if nodeStatus[edge.Source] != "completed" {
-				return "blocked", fmt.Sprintf("上游节点 %s 未成功执行", edge.Source)
-			}
-		}
-
-		if !hasIncoming {
-			return "ready", ""
-		}
-		return "ready", ""
-	}
-
-	var markNodeSkipped func(nodeID string, reason string)
-	var enqueueTarget func(nodeID string)
-
-	markNodeSkipped = func(nodeID string, reason string) {
-		if executed[nodeID] {
-			return
-		}
-		nodeConfig := findNodeConfig(nodeID)
-		if nodeConfig == nil {
-			return
-		}
-
-		results = append(results, NodeExecutionResult{
-			NodeID:  nodeID,
-			Type:    nodeConfig.Type,
-			Success: false,
-			Error:   reason,
-		})
-		executed[nodeID] = true
-		nodeStatus[nodeID] = "skipped"
-
-		for _, edge := range req.Edges {
-			if edge.Source == nodeID {
-				enqueueTarget(edge.Target)
-			}
-		}
-	}
-
-	enqueueTarget = func(nodeID string) {
-		if executed[nodeID] {
-			return
-		}
-		state, reason := evaluateNodeState(nodeID)
-		switch state {
-		case "ready":
-			queue = append(queue, nodeID)
-		case "blocked":
-			markNodeSkipped(nodeID, reason)
-		}
-	}
-
-	for _, node := range startNodes {
-		queue = append(queue, node.ID)
-	}
-
-	for len(queue) > 0 {
-		nodeID := queue[0]
-		queue = queue[1:]
-
-		if executed[nodeID] {
-			continue
-		}
-
-		state, reason := evaluateNodeState(nodeID)
-		switch state {
-		case "waiting":
-			continue
-		case "blocked":
-			markNodeSkipped(nodeID, reason)
-			continue
-		}
-
-		nodeConfig := findNodeConfig(nodeID)
-		if nodeConfig == nil {
-			continue
-		}
-
-		variableContext.SetNodeType(nodeID, nodeConfig.Type)
-		result := e.executeNodeSafely(*nodeConfig, dataFlow, variableContext, execMeta)
-		results = append(results, result)
-
-		executed[nodeID] = true
-		if result.Success {
-			nodeData := NewNodeData(result.Data)
-			dataFlow.SetNodeOutput(nodeID, nodeData)
-			variableContext.SetNodeOutput(nodeID, nodeData)
-			nodeStatus[nodeID] = "completed"
-		} else {
-			nodeStatus[nodeID] = "failed"
-			workflowFailed = true
-		}
-
-		if nodeConfig.Type == "condition" && result.Success {
-			conditionResult := false
-			if resultData, ok := result.Data.(map[string]interface{}); ok {
-				if res, exists := resultData["result"]; exists {
-					if boolRes, ok := res.(bool); ok {
-						conditionResult = boolRes
-					}
-				}
-			}
-			conditionResults[nodeID] = conditionResult
-
-			for _, edge := range req.Edges {
-				if edge.Source != nodeID || executed[edge.Target] {
-					continue
-				}
-				shouldExecute := false
-				if edge.SourceHandle == "true" && conditionResult {
-					shouldExecute = true
-				} else if edge.SourceHandle == "false" && !conditionResult {
-					shouldExecute = true
-				} else if edge.SourceHandle == "" {
-					shouldExecute = true
-				}
-				if shouldExecute {
-					enqueueTarget(edge.Target)
-				}
-			}
-			continue
-		}
-
-		for _, edge := range req.Edges {
-			if edge.Source == nodeID {
-				enqueueTarget(edge.Target)
-			}
-		}
-	}
-
-	changed := true
-	for changed {
-		changed = false
-		for _, node := range req.Nodes {
-			if executed[node.ID] {
-				continue
-			}
-			state, reason := evaluateNodeState(node.ID)
-			if state == "blocked" {
-				markNodeSkipped(node.ID, reason)
-				changed = true
-			}
-		}
-	}
-
-	for _, node := range req.Nodes {
-		if !executed[node.ID] {
-			markNodeSkipped(node.ID, "节点未满足执行条件，已跳过")
-		}
-	}
-
-	return &ExecutionResult{
-		Success: !workflowFailed,
-		Results: results,
-	}, nil
+	return e.executeConcurrentWorkflow(req, concurrentRunOptions{ctx: context.Background()})
 }
 
 // isEdgeFromConditionBranch is the legacy helper used by the old stream executor.
@@ -369,16 +166,3 @@ func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, vari
 		}
 	}
 }
-
-// Node executors live in dedicated files:
-// - executeCrawlerNode -> crawler_node.go
-// - executeDataCleanNode -> dataclean_node.go
-// - executeAINode -> ai_node.go
-// - executeConditionNode -> condition_node.go
-// - executeStartNode -> start_node.go
-// - executeTransformNode -> transform_node.go
-// - executeLoopNode -> loop_node.go
-// - executeMergeNode -> merge_node.go
-// - executeDelayNode -> delay_node.go
-// - executeEndNode -> end_node.go
-// - executeOutputNode -> output_node.go

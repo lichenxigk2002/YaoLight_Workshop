@@ -386,7 +386,7 @@ func (s *WorkflowAPIService) PublicInvoke(ctx context.Context, slug string, rawK
 
 	if responseMode == "async" {
 		go func() {
-			execErr := s.executor.ExecuteWorkflowStream(context.Background(), execReq, func(string, string, bool, string, error) {})
+			execErr := s.executor.ExecuteWorkflowStreamConcurrent(context.Background(), execReq, func(string, string, bool, string, error) {})
 			_, _ = s.finalizeInvocation(invocation.ID, taskID, execErr)
 		}()
 		return &PublicInvokeResponse{
@@ -401,7 +401,7 @@ func (s *WorkflowAPIService) PublicInvoke(ctx context.Context, slug string, rawK
 	}
 	runCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
 	defer cancel()
-	execErr := s.executor.ExecuteWorkflowStream(runCtx, execReq, func(string, string, bool, string, error) {})
+	execErr := s.executor.ExecuteWorkflowStreamConcurrent(runCtx, execReq, func(string, string, bool, string, error) {})
 	return s.finalizeInvocation(invocation.ID, taskID, execErr)
 }
 

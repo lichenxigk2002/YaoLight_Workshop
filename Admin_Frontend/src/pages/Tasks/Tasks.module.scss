@@ -87,6 +87,82 @@
   line-height: 1.6;
 }
 
+.timelineBoard {
+  display: grid;
+  gap: 12px;
+}
+
+.timelineBoardRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) 96px;
+  gap: 12px;
+  align-items: center;
+}
+
+.timelineBoardMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.timelineBoardTime {
+  text-align: right;
+  color: var(--admin-ink-soft);
+  font-size: 12px;
+}
+
+.timelineCell {
+  display: grid;
+  gap: 8px;
+}
+
+.timelineTrack {
+  position: relative;
+  height: 18px;
+  border-radius: 999px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(14, 116, 144, 0.08), rgba(14, 116, 144, 0.02)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(15, 23, 42, 0.06) 0,
+      rgba(15, 23, 42, 0.06) 1px,
+      transparent 1px,
+      transparent 16%
+    );
+  border: 1px solid rgba(14, 116, 144, 0.14);
+}
+
+.timelineBar {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  min-width: 18px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0f766e, #0284c7);
+  box-shadow: 0 8px 16px rgba(2, 132, 199, 0.2);
+}
+
+.timelineBarLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timelineHint {
+  color: var(--admin-ink-soft);
+  font-size: 12px;
+}
+
 @media (max-width: 1440px) {
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -101,6 +177,14 @@
   .analysisGrid,
   .codePanels {
     grid-template-columns: 1fr;
+  }
+
+  .timelineBoardRow {
+    grid-template-columns: 1fr;
+  }
+
+  .timelineBoardTime {
+    text-align: left;
   }
 }
 

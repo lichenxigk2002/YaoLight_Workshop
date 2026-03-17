@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 // NodeData 节点数据格式
@@ -36,6 +37,7 @@ func getDataType(data interface{}) string {
 
 // DataFlow 数据流管理器
 type DataFlow struct {
+	mu sync.RWMutex
 	// 存储每个节点的输出数据
 	nodeOutputs map[string]*NodeData
 	// 存储边的数据传递关系
@@ -57,17 +59,23 @@ func NewDataFlow(edges []EdgeConfig) *DataFlow {
 
 // SetNodeOutput 设置节点的输出数据
 func (df *DataFlow) SetNodeOutput(nodeID string, data *NodeData) {
+	df.mu.Lock()
+	defer df.mu.Unlock()
 	df.nodeOutputs[nodeID] = data
 }
 
 // GetNodeOutput 获取节点的输出数据
 func (df *DataFlow) GetNodeOutput(nodeID string) *NodeData {
+	df.mu.RLock()
+	defer df.mu.RUnlock()
 	return df.nodeOutputs[nodeID]
 }
 
 // GetNodeInput 获取节点的输入数据
 // 返回所有上游节点的输出数据
 func (df *DataFlow) GetNodeInput(nodeID string) ([]*NodeData, error) {
+	df.mu.RLock()
+	defer df.mu.RUnlock()
 	inputs := make([]*NodeData, 0)
 
 	// 找到所有指向该节点的边
@@ -84,6 +92,8 @@ func (df *DataFlow) GetNodeInput(nodeID string) ([]*NodeData, error) {
 }
 
 func (df *DataFlow) GetNodeInputWithEdges(nodeID string) ([]NodeInput, error) {
+	df.mu.RLock()
+	defer df.mu.RUnlock()
 	inputs := make([]NodeInput, 0)
 	for _, edge := range df.edges {
 		if edge.Target != nodeID {
