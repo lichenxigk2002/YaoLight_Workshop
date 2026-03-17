@@ -4,6 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
 import SettingsPageTitle from '@/components/SettingsPageTitle';
 import { paymentApi, type UserOrderDetail, type UserOrderItem } from '@/api/payment';
+import { subscribePaymentEvents } from '@/utils/paymentEvents';
 
 const { Text } = Typography;
 
@@ -49,6 +50,18 @@ export default function OrdersPage() {
   useEffect(() => {
     void fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    const unsubscribe = subscribePaymentEvents((event) => {
+      void fetchOrders(page, pageSize);
+
+      if (detailVisible && detail?.orderId === event.orderId) {
+        void openDetail(event.orderId);
+      }
+    });
+
+    return unsubscribe;
+  }, [detail?.orderId, detailVisible, fetchOrders, page, pageSize]);
 
   const openDetail = async (orderId: string) => {
     setDetailVisible(true);

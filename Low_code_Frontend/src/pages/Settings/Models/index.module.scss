@@ -1,17 +1,17 @@
 .container {
-  max-width: 1000px;
+  max-width: 880px;
   margin: 0 auto;
   padding: 0;
 
   .searchRow {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .searchBox {
-    width: 320px;
+    width: 280px;
 
     :global(.ant-input-affix-wrapper) {
-      min-height: 42px;
+      min-height: 38px;
       border-radius: 999px;
       border-color: rgba(0, 0, 0, 0.08);
       background: rgba(255, 255, 255, 0.64);
@@ -29,28 +29,35 @@
   }
 
   .section {
-    margin-bottom: 40px;
+    margin-bottom: 28px;
 
     .sectionHeader {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
 
       h3 {
         margin: 0;
         color: var(--text-primary);
-        font-size: 22px;
+        font-size: 18px;
         font-weight: 500;
         letter-spacing: -0.03em;
+      }
+
+      :global(.ant-btn) {
+        height: 32px;
+        padding: 0 12px;
+        font-size: 12px;
+        border-radius: 999px;
       }
     }
 
     .cardGrid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
+      gap: 12px;
     }
   }
 
@@ -58,11 +65,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 18px;
-    padding: 24px 26px;
-    margin-bottom: 28px;
+    gap: 14px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
     border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 28px;
+    border-radius: 22px;
     background: rgba(255, 255, 255, 0.58);
 
     [data-theme='dark'] & {
@@ -73,13 +80,13 @@
     .quotaInfo {
       .quotaLabel {
         color: var(--text-secondary);
-        font-size: 13px;
-        margin-bottom: 6px;
+        font-size: 12px;
+        margin-bottom: 4px;
       }
 
       .quotaValue {
         color: var(--text-primary);
-        font-size: clamp(28px, 4vw, 40px);
+        font-size: clamp(24px, 3.2vw, 34px);
         font-weight: 500;
         letter-spacing: -0.04em;
         line-height: 1;
@@ -92,7 +99,7 @@
     flex-direction: column;
     overflow: hidden;
     border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 26px;
+    border-radius: 22px;
     background: rgba(255, 255, 255, 0.58);
     transition:
       transform 180ms ease,
@@ -119,24 +126,24 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      gap: 16px;
-      padding: 22px;
+      gap: 12px;
+      padding: 18px;
       flex: 1;
 
       .providerInfo {
         display: flex;
-        gap: 14px;
+        gap: 12px;
         min-width: 0;
 
         .iconWrapper {
-          width: 46px;
-          height: 46px;
+          width: 40px;
+          height: 40px;
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           border: 1px solid rgba(0, 0, 0, 0.06);
-          border-radius: 16px;
+          border-radius: 14px;
           background: rgba(255, 255, 255, 0.64);
 
           [data-theme='dark'] & {
@@ -152,12 +159,12 @@
             display: flex;
             align-items: center;
             flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 10px;
+            gap: 4px;
+            margin-bottom: 8px;
 
             .name {
               color: var(--text-primary);
-              font-size: 18px;
+              font-size: 16px;
               font-weight: 500;
               letter-spacing: -0.02em;
             }
@@ -174,7 +181,9 @@
               border-radius: 999px;
               background: rgba(0, 0, 0, 0.04);
               color: var(--text-secondary);
-              font-size: 11px;
+              font-size: 10px;
+              line-height: 18px;
+              padding-inline: 8px;
 
               [data-theme='dark'] & {
                 border-color: rgba(255, 255, 255, 0.06);
@@ -189,18 +198,18 @@
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 12px;
+        gap: 10px;
 
         .status {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          min-height: 28px;
-          padding: 0 12px;
+          min-height: 24px;
+          padding: 0 10px;
           border-radius: 999px;
           background: rgba(0, 0, 0, 0.04);
           color: var(--text-secondary);
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 500;
 
           [data-theme='dark'] & {
@@ -224,8 +233,9 @@
         }
 
         :global(.ant-btn) {
-          height: 36px;
-          padding: 0 14px;
+          height: 32px;
+          padding: 0 12px;
+          font-size: 12px;
           border-radius: 999px;
         }
       }
@@ -235,8 +245,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
-      padding: 16px 22px;
+      gap: 10px;
+      padding: 12px 18px;
       border-top: 1px solid rgba(0, 0, 0, 0.06);
 
       [data-theme='dark'] & {
@@ -249,7 +259,7 @@
         align-items: center;
         gap: 6px;
         color: var(--text-secondary);
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 500;
         cursor: pointer;
 
@@ -269,12 +279,12 @@
   }
 
   .iconWrapperSmall {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: 8px;
     background: rgba(0, 0, 0, 0.06);
     color: var(--text-primary);
 
@@ -284,11 +294,11 @@
   }
 
   .modelsListContent {
-    padding: 8px 0;
+    padding: 4px 0;
 
     .listSection {
       .listHeader {
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         color: var(--text-tertiary);
         font-size: 11px;
         font-weight: 600;
@@ -297,10 +307,10 @@
       }
 
       .modelItem {
-        padding: 16px;
-        margin-bottom: 10px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
         border: 1px solid rgba(0, 0, 0, 0.06);
-        border-radius: 20px;
+        border-radius: 16px;
         background: rgba(255, 255, 255, 0.48);
 
         [data-theme='dark'] & {
@@ -311,11 +321,11 @@
         .modelInfo {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
 
           .modelName {
             color: var(--text-primary);
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 500;
           }
 
@@ -332,8 +342,8 @@
 
 .configModal {
   :global(.ant-modal-content) {
-    border-radius: 28px;
-    padding: 30px;
+    border-radius: 24px;
+    padding: 24px;
   }
 
   :global(.ant-modal-header) {
@@ -343,18 +353,27 @@
   :global(.ant-input),
   :global(.ant-input-number),
   :global(.ant-select-selector) {
-    border-radius: 18px !important;
+    min-height: 36px;
+    border-radius: 16px !important;
+  }
+
+  :global(.ant-form-item) {
+    margin-bottom: 14px;
   }
 
   :global(.ant-btn-primary) {
-    height: 40px;
-    padding: 0 18px;
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 999px;
+  }
+
+  :global(.ant-btn) {
     border-radius: 999px;
   }
 
   :global(.ant-modal-close) {
-    top: 24px;
-    right: 24px;
+    top: 18px;
+    right: 18px;
   }
 
   .removeConfigurationBtn {
@@ -362,7 +381,7 @@
     top: 0;
     right: 56px;
     z-index: 4;
-    height: 56px;
+    height: 48px;
     display: flex;
     align-items: center;
     padding: 0 12px;
