@@ -1,0 +1,184 @@
+@use '../../theme' as settingsTheme;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--settings-card-border);
+  border-radius: 999px;
+  background: var(--settings-pill-bg);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 8px 0 0;
+  color: var(--text-primary);
+  font-size: clamp(18px, 2.2vw, 22px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.desc {
+  max-width: 480px;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summaryPanel,
+.tableSection {
+  @include settingsTheme.subcard(18px);
+}
+
+.summaryPanel {
+  padding: 14px;
+}
+
+.summaryTitle {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.metricsRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.metricBlock {
+  @include settingsTheme.subcard(12px);
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.metricLabel {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.metricValue {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-primary);
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.tableSection {
+  padding: 14px;
+}
+
+.tableHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tableTitle {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.tableDesc {
+  max-width: 300px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.tableShell {
+  overflow: hidden;
+  border-radius: 16px;
+
+  :global(.ant-table) {
+    background: transparent !important;
+  }
+}
+
+.modelCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.container {
+  :global(.ant-table-thead > tr > th) {
+    background: var(--settings-table-head-bg) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--settings-card-border) !important;
+  }
+
+  :global(.ant-table-thead > tr > th:first-child) {
+    border-top-left-radius: 18px !important;
+  }
+
+  :global(.ant-table-thead > tr > th:last-child) {
+    border-top-right-radius: 18px !important;
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    background: var(--settings-table-row-bg) !important;
+    border-bottom-color: var(--settings-card-border) !important;
+    color: var(--settings-row-ink) !important;
+  }
+
+  :global(.ant-table-tbody > tr:hover > td) {
+    background: var(--settings-table-row-hover) !important;
+  }
+
+  :global(.ant-table-cell) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :global(.ant-empty) {
+    margin-block: 40px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .metricsRow {
+    grid-template-columns: 1fr;
+  }
+
+  .tableHeader {
+    flex-direction: column;
+  }
+}

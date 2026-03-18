@@ -94,13 +94,14 @@ export default function Settings() {
   };
 
   const selectedKey = getSelectedKey();
+  const isProfilePage = selectedKey === 'profile';
 
   const handleMenuClick = ({ key }: { key: string }) => {
     navigate(`/settings/${key}`);
   };
 
   return (
-    <div className={styles.container}>
+    <div className={`${styles.container} ${isProfilePage ? styles.profileMode : ''}`}>
       <div className={styles.glow} />
       <div className={styles.shell}>
         <div className={styles.pageIntro}>
@@ -115,7 +116,7 @@ export default function Settings() {
         </div>
 
         <Layout className={styles.layout}>
-          <Sider width={248} className={styles.sider} theme="light">
+          <Sider width={228} className={styles.sider} theme="light">
             <div className={styles.sidebarPanel}>
               <div className={styles.sidebarTitle}>{t('settings.title')}</div>
               <div className={styles.sidebarHint}>

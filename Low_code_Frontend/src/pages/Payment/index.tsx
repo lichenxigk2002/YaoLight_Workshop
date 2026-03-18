@@ -1,26 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  App,
   Button,
-  Card,
-  Col,
   Modal,
   QRCode,
-  Radio,
   Result,
-  Row,
-  Spin,
+  Segmented,
+  Skeleton,
   Tag,
   Typography,
-  message,
 } from 'antd';
 import {
   AlipayCircleOutlined,
   CheckCircleOutlined,
+  ClockCircleOutlined,
   CloseCircleOutlined,
+  CreditCardOutlined,
   DesktopOutlined,
   MobileOutlined,
   ReloadOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { StardustIcon } from '@/components/Icons';
@@ -31,14 +31,25 @@ import { useAuthStore } from '@/store/auth';
 import { subscribePaymentEvents } from '@/utils/paymentEvents';
 import styles from './index.module.scss';
 
-const { Title, Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 type PaymentStatus = 'idle' | 'pending' | 'success' | 'failed';
 type PaymentMethod = 'alipay_pc' | 'alipay_qr';
 
+function formatPrice(value?: number) {
+  return `¥${(value || 0).toFixed(1)}`;
+}
+
+function getPackageTone(index: number) {
+  if (index === 1) return 'featured';
+  if (index === 2) return 'premium';
+  return 'default';
+}
+
 export default function Payment() {
   const { t } = useTranslation();
-  const { setUser } = useAuthStore();
+  const { message } = App.useApp();
+  const { user, setUser } = useAuthStore();
 
   const [packages, setPackages] = useState<StardustPackage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,30 +66,7 @@ export default function Payment() {
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const qrCodeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    void loadPackages();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = subscribePaymentEvents((event) => {
-      if (!orderId || event.orderId !== orderId) {
-        return;
-      }
-
-      void syncOrderStatus(event.orderId, true);
-    });
-
-    return unsubscribe;
-  }, [orderId]);
-
-  useEffect(() => {
-    return () => {
-      stopPolling();
-      stopQrCodeTimer();
-    };
-  }, []);
-
-  async function loadPackages() {
+  const loadPackages = useCallback(async () => {
     try {
       setLoading(true);
       const data = await paymentApi.getPackages();
@@ -88,16 +76,16 @@ export default function Payment() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [message]);
 
-  async function refreshUserInfo() {
+  const refreshUserInfo = useCallback(async () => {
     try {
       const userData = await userApi.getCurrentUser();
       setUser(userData);
     } catch (error) {
       console.error('Failed to refresh user info after payment', error);
     }
-  }
+  }, [setUser]);
 
   function stopPolling() {
     if (pollingIntervalRef.current) {
@@ -117,7 +105,7 @@ export default function Payment() {
     }
   }
 
-  function resetPaymentState(closeModal: boolean) {
+  const resetPaymentState = useCallback((closeModal: boolean) => {
     stopPolling();
     stopQrCodeTimer();
     if (closeModal) {
@@ -129,31 +117,34 @@ export default function Payment() {
     setPayUrl('');
     setQrCode('');
     setQrCodeExpired(false);
-  }
+  }, []);
 
-  async function syncOrderStatus(currentOrderId: string, silent = false) {
-    try {
-      const status = await paymentApi.getOrderStatus(currentOrderId);
-      if (status.status === 'paid') {
-        stopPolling();
-        setPaymentStatus('success');
-        await refreshUserInfo();
-        if (!silent) {
-          message.success('支付成功');
+  const syncOrderStatus = useCallback(
+    async (currentOrderId: string, silent = false) => {
+      try {
+        const status = await paymentApi.getOrderStatus(currentOrderId);
+        if (status.status === 'paid') {
+          stopPolling();
+          setPaymentStatus('success');
+          await refreshUserInfo();
+          if (!silent) {
+            message.success('支付成功');
+          }
+          return;
         }
-        return;
-      }
 
-      if (status.status === 'failed' || status.status === 'cancelled') {
-        stopPolling();
-        setPaymentStatus('failed');
+        if (status.status === 'failed' || status.status === 'cancelled') {
+          stopPolling();
+          setPaymentStatus('failed');
+        }
+      } catch (error) {
+        console.error('查询订单状态失败', error);
       }
-    } catch (error) {
-      console.error('查询订单状态失败', error);
-    }
-  }
+    },
+    [message, refreshUserInfo],
+  );
 
-  function startPolling(currentOrderId: string) {
+  const startPolling = useCallback((currentOrderId: string) => {
     stopPolling();
 
     pollingIntervalRef.current = setInterval(() => {
@@ -163,142 +154,264 @@ export default function Payment() {
     pollingTimeoutRef.current = setTimeout(() => {
       stopPolling();
     }, 5 * 60 * 1000);
-  }
+  }, [syncOrderStatus]);
 
-  async function handleCreateOrder(pkg: StardustPackage) {
-    try {
-      setSelectedPackage(pkg);
-      setModalVisible(true);
-      setPaymentStatus('pending');
-      setPayUrl('');
-      setQrCode('');
-      setQrCodeExpired(false);
-      stopPolling();
-      stopQrCodeTimer();
+  const handleCreateOrder = useCallback(
+    async (pkg: StardustPackage, methodOverride?: PaymentMethod) => {
+      try {
+        const resolvedMethod = methodOverride || paymentMethod;
+        setSelectedPackage(pkg);
+        setModalVisible(true);
+        setPaymentStatus('pending');
+        setPayUrl('');
+        setQrCode('');
+        setQrCodeExpired(false);
+        stopPolling();
+        stopQrCodeTimer();
 
-      const response: CreateOrderResponse = await paymentApi.createOrder({
-        packageId: pkg.id,
-        method: paymentMethod,
-      });
+        const response: CreateOrderResponse = await paymentApi.createOrder({
+          packageId: pkg.id,
+          method: resolvedMethod,
+        });
 
-      setOrderId(response.orderId);
+        setOrderId(response.orderId);
 
-      if (response.payUrl) {
-        setPayUrl(response.payUrl);
-        const popup = window.open(response.payUrl, '_blank');
-        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-          message.warning('浏览器阻止了弹窗，请点击下方按钮手动打开支付页面');
+        if (response.payUrl) {
+          setPayUrl(response.payUrl);
+          const popup = window.open(response.payUrl, '_blank');
+          if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+            message.warning('浏览器阻止了新窗口，请手动打开支付页面');
+          }
+          startPolling(response.orderId);
+          return;
         }
-        startPolling(response.orderId);
-        return;
+
+        if (response.qrCode) {
+          setQrCode(response.qrCode);
+          qrCodeTimerRef.current = setTimeout(() => {
+            setQrCodeExpired(true);
+            message.warning('二维码已过期，请刷新后重试');
+          }, 2 * 60 * 1000);
+          startPolling(response.orderId);
+          return;
+        }
+
+        message.warning('订单创建成功，但未获取到支付信息，请重试');
+        setPaymentStatus('failed');
+      } catch (error: any) {
+        message.error(`创建订单失败: ${error.message || '未知错误'}`);
+        setPaymentStatus('failed');
       }
+    },
+    [message, paymentMethod, startPolling],
+  );
 
-      if (response.qrCode) {
-        setQrCode(response.qrCode);
-        qrCodeTimerRef.current = setTimeout(() => {
-          setQrCodeExpired(true);
-          message.warning('二维码已过期，请刷新二维码');
-        }, 2 * 60 * 1000);
-        startPolling(response.orderId);
-        return;
-      }
-
-      message.warning('创建订单成功，但未获取到支付信息，请重试');
-    } catch (error: any) {
-      message.error(`创建订单失败: ${error.message || '未知错误'}`);
-      setPaymentStatus('failed');
-    }
-  }
-
-  function handlePaymentSuccess() {
-    void refreshUserInfo();
-    resetPaymentState(true);
-    message.success('充值成功，星尘已到账');
-  }
-
-  function handleRetry() {
+  const handleRetry = useCallback(() => {
     if (selectedPackage) {
       void handleCreateOrder(selectedPackage);
     }
-  }
+  }, [handleCreateOrder, selectedPackage]);
 
-  function handleClose() {
+  const handleSwitchMethod = useCallback(
+    (method: PaymentMethod) => {
+      setPaymentMethod(method);
+      if (selectedPackage) {
+        void handleCreateOrder(selectedPackage, method);
+      }
+    },
+    [handleCreateOrder, selectedPackage],
+  );
+
+  const handlePaymentSuccess = useCallback(() => {
+    void refreshUserInfo();
+    resetPaymentState(true);
+    message.success('充值成功，星尘已到账');
+  }, [message, refreshUserInfo, resetPaymentState]);
+
+  const handleClose = useCallback(() => {
     if (paymentStatus === 'success' || paymentStatus === 'failed') {
       resetPaymentState(true);
     }
-  }
+  }, [paymentStatus, resetPaymentState]);
+
+  useEffect(() => {
+    void loadPackages();
+  }, [loadPackages]);
+
+  useEffect(() => {
+    const unsubscribe = subscribePaymentEvents((event) => {
+      if (!orderId || event.orderId !== orderId) {
+        return;
+      }
+
+      void syncOrderStatus(event.orderId, true);
+    });
+
+    return unsubscribe;
+  }, [orderId, syncOrderStatus]);
+
+  useEffect(() => {
+    return () => {
+      stopPolling();
+      stopQrCodeTimer();
+    };
+  }, []);
+
+  const packageMetrics = useMemo(
+    () =>
+      packages.map((pkg, index) => ({
+        ...pkg,
+        tone: getPackageTone(index),
+        unitPrice: pkg.stardust > 0 ? (pkg.price / pkg.stardust) * 1000000 : 0,
+      })),
+    [packages],
+  );
 
   return (
-    <div className={styles.container}>
-      <SettingsPageTitle title={t('settings.recharge')} />
+    <div className={styles.page}>
+      <section className={styles.heroSection}>
+        <div className={styles.heroMain}>
+          <SettingsPageTitle
+            title={t('settings.recharge', '充值')}
+            desc="选择适合你的星尘包，支付成功后立即到账，可直接用于模型调用与平台消耗。"
+            icon={<CreditCardOutlined />}
+            style={{ marginBottom: 0 }}
+          />
+        </div>
 
-      <Alert
-        message="温馨提示"
-        description="星尘是平台内的通用资源，用于抵扣 AI 模型的 Token 消耗。充值后永久有效。"
-        type="info"
-        showIcon
-        className={styles.alert}
-      />
+        <div className={styles.balanceCard}>
+          <div className={styles.balanceLabel}>{t('settings.currentStardustBalance', '当前星尘余额')}</div>
+          <div className={styles.balanceValueRow}>
+            <span className={styles.balanceValue}>{(user?.token_balance || 0).toLocaleString()}</span>
+            <StardustIcon size={18} />
+          </div>
+          <div className={styles.balanceHint}>充值后永久有效，到账后会自动刷新余额。</div>
+        </div>
+      </section>
 
-      <Row gutter={[24, 24]} className={styles.packagesRow}>
-        {loading ? (
-          <Col span={24} style={{ textAlign: 'center', padding: 40 }}>
-            <Spin size="large" />
-          </Col>
-        ) : (
-          packages.map((pkg) => (
-            <Col xs={24} sm={8} key={pkg.id}>
-              <Card
-                hoverable
-                className={styles.packageCard}
-                bodyStyle={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                }}
-              >
-                {pkg.tag ? (
-                  <Tag color="blue" className={styles.packageTag}>
-                    {pkg.tag}
-                  </Tag>
-                ) : null}
+      <section className={styles.infoStrip}>
+        <Alert
+          message="充值说明"
+          description="星尘是平台内的通用资源，用于抵扣 AI 模型的 Token 消耗和部分工作流运行成本。"
+          type="info"
+          showIcon
+          className={styles.inlineAlert}
+        />
 
-                <Title level={3} className={styles.packageName}>
-                  {pkg.name}
-                </Title>
-                <div className={styles.stardustAmount}>
-                  {pkg.stardust.toLocaleString()} <StardustIcon size={20} />
+        <div className={styles.purchasePanel}>
+          <div className={styles.purchaseHeader}>
+            <div>
+              <div className={styles.eyebrow}>Payment</div>
+              <h2 className={styles.sectionTitle}>选择支付方式</h2>
+            </div>
+            <div className={styles.purchaseHint}>
+              <SafetyCertificateOutlined />
+              <span>支付宝安全支付，支持扫码和网页支付。</span>
+            </div>
+          </div>
+
+          <Segmented
+            value={paymentMethod}
+            onChange={(value) => setPaymentMethod(value as PaymentMethod)}
+            options={[
+              {
+                label: (
+                  <span className={styles.segmentLabel}>
+                    <DesktopOutlined />
+                    <span>网页支付</span>
+                  </span>
+                ),
+                value: 'alipay_pc',
+              },
+              {
+                label: (
+                  <span className={styles.segmentLabel}>
+                    <MobileOutlined />
+                    <span>扫码支付</span>
+                  </span>
+                ),
+                value: 'alipay_qr',
+              },
+            ]}
+            className={styles.paymentMethod}
+          />
+        </div>
+      </section>
+
+      <section className={styles.packagesSection}>
+        <div className={styles.sectionHead}>
+          <div>
+            <div className={styles.eyebrow}>Packages</div>
+            <h2 className={styles.sectionTitle}>选择星尘套餐</h2>
+            <p className={styles.sectionDesc}>主流充值页通常会强调对比与决策效率，所以这里会直接展示额度、价格和每百万星尘成本。</p>
+          </div>
+        </div>
+
+        <div className={styles.packagesGrid}>
+          {loading
+            ? Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className={styles.packageSkeleton}>
+                  <Skeleton active paragraph={{ rows: 5 }} />
                 </div>
-                <Text type="secondary" className={styles.stardustLabel}>
-                  星尘
-                </Text>
-
-                <Title level={2} className={styles.price}>
-                  ￥{pkg.price}
-                </Title>
-
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<AlipayCircleOutlined />}
-                  block
-                  className={styles.payButton}
-                  onClick={() => void handleCreateOrder(pkg)}
+              ))
+            : packageMetrics.map((pkg) => (
+                <article
+                  key={pkg.id}
+                  className={`${styles.packageCard} ${
+                    pkg.tone === 'featured'
+                      ? styles.packageCardFeatured
+                      : pkg.tone === 'premium'
+                        ? styles.packageCardPremium
+                        : ''
+                  }`}
                 >
-                  立即充值
-                </Button>
-              </Card>
-            </Col>
-          ))
-        )}
-      </Row>
+                  <div className={styles.packageTop}>
+                    <div className={styles.packageHeader}>
+                      <div>
+                        <h3 className={styles.packageName}>{pkg.name}</h3>
+                        <div className={styles.packageStardust}>
+                          <span>{pkg.stardust.toLocaleString()}</span>
+                          <StardustIcon size={18} />
+                        </div>
+                      </div>
+                      {pkg.tag ? <Tag className={styles.packageTag}>{pkg.tag}</Tag> : null}
+                    </div>
 
-      <div className={styles.footer}>
-        <Text type="secondary">
-          遇到问题，<a href="#">联系客服</a>
-        </Text>
+                    <div className={styles.packagePriceRow}>
+                      <div className={styles.packagePrice}>{formatPrice(pkg.price)}</div>
+                      <div className={styles.packageMeta}>约 ¥{pkg.unitPrice.toFixed(2)} / 百万星尘</div>
+                    </div>
+
+                    <Paragraph className={styles.packageDesc}>
+                      {pkg.description || '适合稳定使用平台能力的个人或团队，购买后直接到账。'}
+                    </Paragraph>
+                  </div>
+
+                  <div className={styles.packageFooter}>
+                    <div className={styles.packageFeature}>
+                      <CheckCircleOutlined />
+                      <span>支付成功后自动到账</span>
+                    </div>
+                    <div className={styles.packageFeature}>
+                      <ClockCircleOutlined />
+                      <span>{paymentMethod === 'alipay_qr' ? '支持手机扫码支付' : '支持网页跳转支付'}</span>
+                    </div>
+
+                    <Button
+                      icon={<AlipayCircleOutlined />}
+                      className={styles.purchaseButton}
+                      onClick={() => void handleCreateOrder(pkg)}
+                    >
+                      立即充值
+                    </Button>
+                  </div>
+                </article>
+              ))}
+        </div>
+      </section>
+
+      <div className={styles.footerNote}>
+        <Text type="secondary">如遇支付异常，可稍后在“我的订单”中继续支付或联系平台支持。</Text>
       </div>
 
       <Modal
@@ -306,140 +419,97 @@ export default function Payment() {
         open={modalVisible}
         onCancel={handleClose}
         footer={null}
-        width={500}
+        width={560}
         closable={paymentStatus === 'success' || paymentStatus === 'failed'}
         maskClosable={paymentStatus === 'success' || paymentStatus === 'failed'}
+        className={styles.paymentModal}
       >
         {paymentStatus === 'pending' ? (
-          <div className={styles.paymentPending}>
-            {!qrCode && !payUrl ? (
-              <div style={{ marginBottom: 24 }}>
-                <Text strong style={{ display: 'block', marginBottom: 12 }}>
-                  选择支付方式：
-                </Text>
-                <Radio.Group
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  style={{ width: '100%' }}
-                >
-                  <Radio.Button value="alipay_qr" style={{ flex: 1 }}>
-                    <MobileOutlined /> 扫码支付
-                  </Radio.Button>
-                  <Radio.Button value="alipay_pc" style={{ flex: 1 }}>
-                    <DesktopOutlined /> PC 支付
-                  </Radio.Button>
-                </Radio.Group>
+          <div className={styles.modalBody}>
+            <div className={styles.orderSummary}>
+              <div className={styles.summaryItem}>
+                <span className={styles.summaryLabel}>充值套餐</span>
+                <strong>{selectedPackage?.name || '-'}</strong>
               </div>
-            ) : null}
+              <div className={styles.summaryItem}>
+                <span className={styles.summaryLabel}>到账星尘</span>
+                <strong>{selectedPackage?.stardust.toLocaleString() || 0}</strong>
+              </div>
+              <div className={styles.summaryItem}>
+                <span className={styles.summaryLabel}>支付金额</span>
+                <strong>{formatPrice(selectedPackage?.price)}</strong>
+              </div>
+            </div>
 
-            <Spin size="large" />
-            <Title level={4} style={{ marginTop: 24, textAlign: 'center' }}>
-              {qrCode ? '请使用支付宝扫码支付' : payUrl ? '正在跳转到支付宝...' : '正在处理支付...'}
-            </Title>
-            <Typography.Paragraph type="secondary" style={{ textAlign: 'center', marginTop: 16 }}>
-              订单号：{orderId}
-            </Typography.Paragraph>
-            <Typography.Paragraph type="secondary" style={{ textAlign: 'center' }}>
-              套餐：{selectedPackage?.name} - ￥{selectedPackage?.price}
-            </Typography.Paragraph>
+            <div className={styles.methodSwitchRow}>
+              <Button
+                size="small"
+                type={paymentMethod === 'alipay_pc' ? 'primary' : 'default'}
+                onClick={() => handleSwitchMethod('alipay_pc')}
+              >
+                网页支付
+              </Button>
+              <Button
+                size="small"
+                type={paymentMethod === 'alipay_qr' ? 'primary' : 'default'}
+                onClick={() => handleSwitchMethod('alipay_qr')}
+              >
+                扫码支付
+              </Button>
+            </div>
 
-            {qrCode ? (
-              <div className={styles.qrCodeContainer}>
-                <Alert
-                  message="扫码支付"
-                  description={
-                    <div>
-                      <div style={{ marginBottom: 8 }}>如果二维码无法使用，可以：</div>
-                      <div style={{ marginTop: 8 }}>
-                        <Button
-                          type="link"
-                          size="small"
-                          onClick={() => window.open(qrCode, '_blank')}
-                          style={{ padding: 0, height: 'auto' }}
-                        >
-                          点击这里直接打开支付链接
-                        </Button>
-                      </div>
-                    </div>
-                  }
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-
-                {qrCodeExpired ? (
-                  <Alert
-                    message="二维码已过期"
-                    description="请点击下方按钮刷新二维码，或切换到 PC 支付。"
-                    type="warning"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                    action={
-                      <Button size="small" onClick={handleRetry}>
-                        刷新
-                      </Button>
-                    }
-                  />
-                ) : null}
-
-                <QRCode value={qrCode} size={200} status={qrCodeExpired ? 'expired' : 'active'} />
-                <Typography.Paragraph type="secondary" style={{ marginTop: 16, fontSize: 12, textAlign: 'center' }}>
-                  请使用支付宝扫码支付
-                </Typography.Paragraph>
-                <div style={{ marginTop: 16, textAlign: 'center' }}>
+            <div className={styles.paymentBody}>
+              {qrCode ? (
+                <div className={styles.qrPanel}>
+                  <QRCode value={qrCode} size={180} status={qrCodeExpired ? 'expired' : 'active'} />
+                  <div className={styles.qrMeta}>
+                    <div className={styles.qrTitle}>请使用支付宝扫码支付</div>
+                    <div className={styles.qrDesc}>支付成功后，本页会自动同步状态。</div>
+                  </div>
                   {qrCodeExpired ? (
-                    <Button type="primary" size="small" onClick={handleRetry} style={{ marginRight: 8 }}>
-                      刷新二维码
-                    </Button>
+                    <Alert
+                      type="warning"
+                      showIcon
+                      message="二维码已过期"
+                      description="请刷新二维码后继续支付，或切换到网页支付。"
+                      action={
+                        <Button size="small" onClick={handleRetry}>
+                          刷新
+                        </Button>
+                      }
+                    />
                   ) : null}
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setPaymentMethod('alipay_pc');
-                      handleRetry();
-                    }}
-                  >
-                    改用 PC 支付
+                </div>
+              ) : (
+                <div className={styles.redirectPanel}>
+                  <div className={styles.redirectIcon}>
+                    <DesktopOutlined />
+                  </div>
+                  <div className={styles.redirectTitle}>正在等待网页支付完成</div>
+                  <div className={styles.redirectDesc}>如果浏览器没有自动打开支付页，可以手动重新打开。</div>
+                  <Button type="primary" onClick={() => payUrl && window.open(payUrl, '_blank')}>
+                    打开支付页面
                   </Button>
                 </div>
-              </div>
-            ) : null}
+              )}
+            </div>
 
-            {payUrl ? (
-              <div style={{ textAlign: 'center', marginTop: 24 }}>
-                <Alert
-                  message="PC 支付"
-                  description="正在跳转到支付宝支付页面，如果未自动打开，请点击下方按钮。"
-                  type="info"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-                <Button
-                  type="primary"
-                  size="large"
-                  onClick={() => {
-                    window.open(payUrl, '_blank');
-                  }}
-                >
-                  打开支付宝支付页
-                </Button>
-                <Typography.Paragraph type="secondary" style={{ marginTop: 16, fontSize: 12 }}>
-                  支付完成后，原页面会自动刷新订单状态。
-                </Typography.Paragraph>
-              </div>
-            ) : null}
+            <div className={styles.orderFootnote}>
+              <span>订单号：{orderId || '-'}</span>
+              <span>支付完成后可在“我的订单”查看记录。</span>
+            </div>
           </div>
         ) : null}
 
         {paymentStatus === 'success' ? (
           <Result
             status="success"
-            icon={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+            icon={<CheckCircleOutlined style={{ color: '#2f9e44' }} />}
             title="支付成功"
             subTitle={`已成功充值 ${selectedPackage?.stardust.toLocaleString()} 星尘`}
             extra={[
               <Button type="primary" key="confirm" onClick={handlePaymentSuccess}>
-                确定
+                完成
               </Button>,
             ]}
           />
@@ -448,9 +518,9 @@ export default function Payment() {
         {paymentStatus === 'failed' ? (
           <Result
             status="error"
-            icon={<CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
+            icon={<CloseCircleOutlined style={{ color: '#d94841' }} />}
             title="支付失败"
-            subTitle="支付过程中出现错误，请重试或联系客服"
+            subTitle="支付过程遇到异常，请重试或切换支付方式后再次发起。"
             extra={[
               <Button key="retry" icon={<ReloadOutlined />} onClick={handleRetry}>
                 重试

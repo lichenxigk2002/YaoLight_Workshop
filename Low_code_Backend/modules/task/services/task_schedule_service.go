@@ -49,6 +49,7 @@ type RetryPolicy struct {
 
 type TaskScheduleListQuery struct {
 	WorkflowID  *uint
+	ProjectID   *uint
 	TriggerType string
 	Page        int
 	PageSize    int
@@ -96,6 +97,8 @@ type TriggerNowRequest struct {
 type TaskScheduleResponse struct {
 	ID                   uint        `json:"id"`
 	WorkflowID           uint        `json:"workflowId"`
+	WorkflowName         *string     `json:"workflowName,omitempty"`
+	ProjectID            *uint       `json:"projectId,omitempty"`
 	UserID               uint        `json:"userId"`
 	Name                 string      `json:"name"`
 	Description          *string     `json:"description,omitempty"`
@@ -188,21 +191,34 @@ func (s *TaskScheduleService) ListSchedules(userID uint, query TaskScheduleListQ
 		query.PageSize = 20
 	}
 
-	dbq := s.db.Model(&taskModels.TaskSchedule{}).Where("user_id = ?", userID)
+	type taskScheduleListRow struct {
+		taskModels.TaskSchedule
+		WorkflowName *string `gorm:"column:workflow_name"`
+		ProjectID    *uint   `gorm:"column:project_id"`
+	}
+
+	dbq := s.db.Model(&taskModels.TaskSchedule{}).
+		Joins("LEFT JOIN workflows ON workflows.id = task_schedules.workflow_id AND workflows.deleted_at IS NULL").
+		Where("task_schedules.user_id = ?", userID)
 	if query.WorkflowID != nil && *query.WorkflowID > 0 {
-		dbq = dbq.Where("workflow_id = ?", *query.WorkflowID)
+		dbq = dbq.Where("task_schedules.workflow_id = ?", *query.WorkflowID)
+	}
+	if query.ProjectID != nil && *query.ProjectID > 0 {
+		dbq = dbq.Where("workflows.project_id = ?", *query.ProjectID)
 	}
 	if strings.TrimSpace(query.TriggerType) != "" {
-		dbq = dbq.Where("trigger_type = ?", normalizeTriggerType(query.TriggerType))
+		dbq = dbq.Where("task_schedules.trigger_type = ?", normalizeTriggerType(query.TriggerType))
 	}
 
 	var total int64
-	if err := dbq.Count(&total).Error; err != nil {
+	if err := dbq.Distinct("task_schedules.id").Count(&total).Error; err != nil {
 		return nil, err
 	}
 
-	var rows []taskModels.TaskSchedule
-	if err := dbq.Order("updated_at DESC").
+	var rows []taskScheduleListRow
+	if err := dbq.
+		Select("task_schedules.*, workflows.name AS workflow_name, workflows.project_id AS project_id").
+		Order("task_schedules.updated_at DESC").
 		Offset((query.Page - 1) * query.PageSize).
 		Limit(query.PageSize).
 		Find(&rows).Error; err != nil {
@@ -211,7 +227,10 @@ func (s *TaskScheduleService) ListSchedules(userID uint, query TaskScheduleListQ
 
 	items := make([]TaskScheduleResponse, 0, len(rows))
 	for i := range rows {
-		items = append(items, s.toScheduleResponse(&rows[i], baseURL))
+		item := s.toScheduleResponse(&rows[i].TaskSchedule, baseURL)
+		item.WorkflowName = rows[i].WorkflowName
+		item.ProjectID = rows[i].ProjectID
+		items = append(items, item)
 	}
 
 	return &TaskSchedulePage{

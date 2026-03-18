@@ -6,7 +6,7 @@ import type {
 } from '@/types/taskSchedule';
 
 export const taskScheduleApi = {
-  list: (params?: { workflowId?: number; triggerType?: string; page?: number; pageSize?: number }) =>
+  list: (params?: { workflowId?: number; projectId?: number; triggerType?: string; page?: number; pageSize?: number }) =>
     http.get<TaskSchedulePage>('/task-schedules', params),
 
   create: (payload: Record<string, any>) =>

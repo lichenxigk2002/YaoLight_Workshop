@@ -1,15 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App, Button, Select, Table, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
 import { userApi } from '@/api/user';
 import { ProviderIcon } from '@/components/Icons';
-import { TokenTransaction } from '@/types/user';
+import type { TokenTransaction } from '@/types/user';
+import styles from './transaction-list.module.scss';
 
 interface TransactionListProps {
   filterStartDate?: string;
   filterEndDate?: string;
   onClearDateFilter?: () => void;
+}
+
+function formatNumber(value?: number) {
+  return (value || 0).toLocaleString();
 }
 
 export default function TransactionList({
@@ -40,24 +46,16 @@ export default function TransactionList({
     return found ? found.models : [];
   }, [providerOptions, selectedProvider]);
 
-  useEffect(() => {
-    void fetchOptions();
-  }, []);
-
-  useEffect(() => {
-    void fetchTransactions();
-  }, [filterEndDate, filterStartDate, page, pageSize, selectedModel, selectedProvider]);
-
-  async function fetchOptions() {
+  const fetchOptions = useCallback(async () => {
     try {
       const res = await userApi.getTransactionOptions();
       setProviderOptions(res.items || []);
     } catch (error) {
       console.error(error);
     }
-  }
+  }, []);
 
-  async function fetchTransactions() {
+  const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true);
       const res = await userApi.getTokenTransactions({
@@ -75,15 +73,25 @@ export default function TransactionList({
     } finally {
       setLoading(false);
     }
-  }
+  }, [filterEndDate, filterStartDate, message, page, pageSize, selectedModel, selectedProvider, t]);
+
+  useEffect(() => {
+    void fetchOptions();
+  }, [fetchOptions]);
+
+  useEffect(() => {
+    void fetchTransactions();
+  }, [fetchTransactions]);
 
   function handleProviderChange(value?: string) {
     setSelectedProvider(value);
     setSelectedModel(undefined);
+    setPage(1);
   }
 
   function handleModelChange(value?: string) {
     setSelectedModel(value);
+    setPage(1);
 
     if (value && !selectedProvider) {
       const possibleProviders = providerOptions.filter((item) => item.models.includes(value));
@@ -102,53 +110,58 @@ export default function TransactionList({
     return `${fmt(start)} ~ ${fmt(end)}`;
   }
 
-  const columns = useMemo(
+  const columns = useMemo<ColumnsType<TokenTransaction>>(
     () => [
       {
         title: t('settings.time'),
         dataIndex: 'created_at',
         key: 'created_at',
-        width: 180,
+        width: 156,
         render: (value: string) => {
           const date = value ? new Date(value) : null;
-          return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : '-';
+          return (
+            <span className={styles.timeValue}>
+              {date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : '-'}
+            </span>
+          );
         },
       },
       {
         title: t('settings.model'),
         key: 'model',
-        render: (_: unknown, record: TokenTransaction) => {
+        width: 204,
+        render: (_, record) => {
           const provider = record.provider || '';
           const model = record.model_name || '';
 
           return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
+            <div className={styles.modelCell}>
               {provider ? <ProviderIcon provider={provider} size={20} /> : null}
-              <span>{model || '-'}</span>
+              <span className={styles.modelText}>{model || '-'}</span>
             </div>
           );
         },
       },
       {
         title: (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className={styles.inlineLabel}>
             {t('settings.tokenDetails')}
             <Tooltip title="Input / Output">
-              <InfoCircleOutlined style={{ color: '#999', cursor: 'pointer' }} />
+              <InfoCircleOutlined className={styles.inlineInfoIcon} />
             </Tooltip>
           </div>
         ),
         key: 'tokens',
-        width: 150,
-        render: (_: unknown, record: TokenTransaction) => {
+        width: 132,
+        render: (_, record) => {
           const input = record.prompt_tokens || 0;
           const output = record.completion_tokens || 0;
           const totalTokens = record.total_tokens || 0;
 
           return (
             <Tooltip title={`${t('settings.totalTokens')}: ${totalTokens}`}>
-              <span style={{ whiteSpace: 'nowrap' }}>
-                {input} / {output}
+              <span className={styles.tokenPair}>
+                {formatNumber(input)} / {formatNumber(output)}
               </span>
             </Tooltip>
           );
@@ -157,8 +170,8 @@ export default function TransactionList({
       {
         title: t('settings.description'),
         key: 'description',
-        width: 200,
-        render: (_: unknown, record: TokenTransaction) => {
+        width: 190,
+        render: (_, record) => {
           let displayText = record.description;
 
           if (!displayText) {
@@ -170,30 +183,34 @@ export default function TransactionList({
           }
 
           const match =
-            displayText.match(/^(.*?)\s*（(.*?)）$/) ||
+            displayText.match(/^(.*?)\s*（(.*?)）/) ||
             displayText.match(/^(.*?)\s*\((.*?)\)$/);
 
           if (match) {
-            const mainText = match[1];
-            const tooltipText = match[2];
             return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                <span>{mainText}</span>
-                <Tooltip title={tooltipText}>
-                  <InfoCircleOutlined style={{ color: '#999', cursor: 'pointer' }} />
+              <div className={styles.descriptionLabel}>
+                <Tooltip title={match[1]}>
+                  <span className={styles.descriptionText}>{match[1]}</span>
+                </Tooltip>
+                <Tooltip title={match[2]}>
+                  <InfoCircleOutlined className={styles.inlineInfoIcon} />
                 </Tooltip>
               </div>
             );
           }
 
-          return <span style={{ whiteSpace: 'nowrap' }}>{displayText}</span>;
+          return (
+            <Tooltip title={displayText}>
+              <span className={styles.descriptionText}>{displayText}</span>
+            </Tooltip>
+          );
         },
       },
       {
         title: t('settings.stardustChange'),
         dataIndex: 'amount',
         key: 'amount',
-        width: 120,
+        width: 118,
         render: (value: number) => {
           const isIncome = typeof value === 'number' && value > 0;
           const isExpense = typeof value === 'number' && value < 0;
@@ -201,14 +218,12 @@ export default function TransactionList({
 
           return (
             <span
-              style={{
-                whiteSpace: 'nowrap',
-                color: isIncome ? '#52c41a' : isExpense ? '#ff4d4f' : '#999',
-                fontWeight: 'bold',
-              }}
+              className={`${styles.amountPill} ${
+                isIncome ? styles.amountPositive : isExpense ? styles.amountNegative : styles.amountNeutral
+              }`}
             >
               {isIncome ? '+' : isExpense ? '-' : ''}
-              {absValue.toLocaleString()}
+              {formatNumber(absValue)}
             </span>
           );
         },
@@ -216,8 +231,8 @@ export default function TransactionList({
       {
         title: t('settings.amount'),
         key: 'cost',
-        width: 160,
-        render: (_: unknown, record: TokenTransaction) => {
+        width: 128,
+        render: (_, record) => {
           const cost = typeof record.cost === 'number' ? record.cost : 0;
           const currency = record.currency || 'USD';
           if (!cost) {
@@ -225,7 +240,7 @@ export default function TransactionList({
           }
 
           return (
-            <span style={{ whiteSpace: 'nowrap' }}>
+            <span className={styles.costValue}>
               {cost.toFixed(6)} {currency}
             </span>
           );
@@ -236,54 +251,63 @@ export default function TransactionList({
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-        <Select
-          placeholder={t('settings.filterByProvider')}
-          style={{ width: 200 }}
-          allowClear
-          value={selectedProvider}
-          onChange={handleProviderChange}
-        >
-          {providerOptions.map((item) => (
-            <Select.Option key={item.provider} value={item.provider}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ProviderIcon provider={item.provider} size={16} />
-                {item.provider}
-              </div>
-            </Select.Option>
-          ))}
-        </Select>
+    <div className={styles.container}>
+      <div className={styles.toolbar}>
+        <div className={styles.toolbarGroup}>
+          <Select
+            placeholder={t('settings.filterByProvider')}
+            className={styles.filterSelect}
+            allowClear
+            value={selectedProvider}
+            onChange={handleProviderChange}
+          >
+            {providerOptions.map((item) => (
+              <Select.Option key={item.provider} value={item.provider}>
+                <div className={styles.modelCell}>
+                  <ProviderIcon provider={item.provider} size={16} />
+                  {item.provider}
+                </div>
+              </Select.Option>
+            ))}
+          </Select>
 
-        <Select
-          placeholder={t('settings.filterByModel')}
-          style={{ width: 240 }}
-          allowClear
-          value={selectedModel}
-          onChange={handleModelChange}
-        >
-          {availableModels.map((model) => (
-            <Select.Option key={model} value={model}>
-              {model}
-            </Select.Option>
-          ))}
-        </Select>
+          <Select
+            placeholder={t('settings.filterByModel')}
+            className={styles.filterSelectWide}
+            allowClear
+            value={selectedModel}
+            onChange={handleModelChange}
+          >
+            {availableModels.map((model) => (
+              <Select.Option key={model} value={model}>
+                {model}
+              </Select.Option>
+            ))}
+          </Select>
+        </div>
 
-        {filterStartDate || filterEndDate ? (
-          <div style={{ color: '#888', fontSize: '14px' }}>
-            {t('settings.transactions')}：{formatDateRangeLabel(filterStartDate, filterEndDate)}
+        {(filterStartDate || filterEndDate) && (
+          <div className={styles.dateFilterPill}>
+            <span>
+              {t('settings.transactions')}:
+              {' '}
+              {formatDateRangeLabel(filterStartDate, filterEndDate)}
+            </span>
             <Button type="link" size="small" onClick={onClearDateFilter}>
               {t('settings.clearDateFilter')}
             </Button>
           </div>
-        ) : null}
+        )}
       </div>
 
-      <Table
+      <Table<TokenTransaction>
         rowKey="id"
-        columns={columns as any}
+        columns={columns}
         dataSource={list}
         loading={loading}
+        size="small"
+        tableLayout="fixed"
+        scroll={{ x: 920 }}
         pagination={{
           current: page,
           pageSize,
