@@ -203,6 +203,18 @@
   gap: 10px;
 }
 
+.toolbarPrimary {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.toolbarActions {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
 .toolbarStat {
   color: var(--text-tertiary);
   font-size: 12px;

@@ -289,6 +289,7 @@ func AutoMigrate() error {
 		&aiModels.AIModel{},
 		&taskModels.Task{},
 		&taskModels.TaskSchedule{},
+		&taskModels.TaskScheduleRun{},
 		&fileModels.File{},
 		&artifactModels.Artifact{},
 		&notificationModels.Notification{},
