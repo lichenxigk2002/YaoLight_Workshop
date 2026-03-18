@@ -93,6 +93,7 @@ type TaskSchedule struct {
 	UserID             uint           `gorm:"not null;index" json:"user_id"`
 	Name               string         `gorm:"type:varchar(200);not null" json:"name"`
 	Description        *string        `gorm:"type:text" json:"description"`
+	TriggerType        string         `gorm:"type:varchar(20);not null;default:'cron';index" json:"trigger_type"`
 	CronExpression     string         `gorm:"type:varchar(100);not null" json:"cron_expression"`
 	Timezone           string         `gorm:"type:varchar(50);default:'UTC'" json:"timezone"`
 	IsActive           bool           `gorm:"default:true;index" json:"is_active"`
@@ -103,6 +104,13 @@ type TaskSchedule struct {
 	NextRunAt          *time.Time     `gorm:"index" json:"next_run_at"`
 	LastRunAt          *time.Time     `json:"last_run_at"`
 	LastRunStatus      *string        `gorm:"type:varchar(20)" json:"last_run_status"`
+	WebhookToken       *string        `gorm:"type:varchar(120);uniqueIndex" json:"webhook_token"`
+	WebhookSecretHash  *string        `gorm:"type:varchar(128)" json:"-"`
+	WebhookSecretEnc   *string        `gorm:"column:webhook_secret_encrypted;type:text" json:"-"`
+	LastErrorMessage   *string        `gorm:"type:text" json:"last_error_message"`
+	RetryPolicy        *shared.JSONB  `gorm:"type:jsonb" json:"retry_policy"`
+	InputTemplate      *shared.JSONB  `gorm:"type:jsonb" json:"input_template"`
+	LastTriggerRequest *string        `gorm:"column:last_trigger_request_id;type:varchar(120)" json:"last_trigger_request_id"`
 	Config             *shared.JSONB  `gorm:"type:jsonb" json:"config"`
 	NotificationConfig *shared.JSONB  `gorm:"type:jsonb" json:"notification_config"`
 	CreatedAt          time.Time      `json:"created_at"`
@@ -113,4 +121,30 @@ type TaskSchedule struct {
 // TableName 指定表名
 func (TaskSchedule) TableName() string {
 	return "task_schedules"
+}
+
+// TaskScheduleRun 计划执行记录
+type TaskScheduleRun struct {
+	ID           uint           `gorm:"primaryKey" json:"id"`
+	ScheduleID   uint           `gorm:"not null;index" json:"schedule_id"`
+	WorkflowID   uint           `gorm:"not null;index" json:"workflow_id"`
+	UserID       uint           `gorm:"not null;index" json:"user_id"`
+	TriggerType  string         `gorm:"type:varchar(20);not null;index" json:"trigger_type"`
+	TriggerKey   string         `gorm:"type:varchar(200);not null" json:"trigger_key"`
+	RequestID    *string        `gorm:"type:varchar(120)" json:"request_id"`
+	Status       string         `gorm:"type:varchar(20);not null;default:'queued';index" json:"status"`
+	TaskID       *uint          `gorm:"index" json:"task_id"`
+	AttemptCount int            `gorm:"not null;default:0" json:"attempt_count"`
+	ErrorMessage *string        `gorm:"type:text" json:"error_message"`
+	InputPayload *shared.JSONB  `gorm:"type:jsonb" json:"input_payload"`
+	Metadata     *shared.JSONB  `gorm:"type:jsonb" json:"metadata"`
+	TriggeredAt  time.Time      `gorm:"not null;index" json:"triggered_at"`
+	FinishedAt   *time.Time     `json:"finished_at"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+func (TaskScheduleRun) TableName() string {
+	return "task_schedule_runs"
 }

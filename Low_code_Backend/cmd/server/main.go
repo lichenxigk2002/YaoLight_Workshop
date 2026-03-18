@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -30,6 +31,7 @@ import (
 	rbacMiddleware "yaolight-workshop/backend/modules/rbac/middleware"
 	systemControllers "yaolight-workshop/backend/modules/system/controllers"
 	taskControllers "yaolight-workshop/backend/modules/task/controllers"
+	taskServices "yaolight-workshop/backend/modules/task/services"
 	authControllers "yaolight-workshop/backend/modules/user/controllers"
 	userRepositories "yaolight-workshop/backend/modules/user/repositories"
 	userServices "yaolight-workshop/backend/modules/user/services"
@@ -104,6 +106,8 @@ func main() {
 
 	// 6. API路由
 	workflowAPIController := workflowAPIControllers.NewWorkflowAPIController()
+	taskScheduleService := taskServices.NewTaskScheduleService(database.DB)
+	taskScheduleController := taskControllers.NewTaskScheduleController(taskScheduleService)
 	openAPI := r.Group("/open-api/v1")
 	{
 		openAPI.GET("/workflows/:slug/docs", workflowAPIController.GetDocs)
@@ -111,6 +115,7 @@ func main() {
 		openAPI.GET("/workflows/:slug/invocations/:requestId", workflowAPIController.GetInvocation)
 		openAPI.GET("/workflows/:slug/invocations/:requestId/artifacts", workflowAPIController.ListInvocationArtifacts)
 		openAPI.GET("/workflows/:slug/invocations/:requestId/artifacts/:artifactId/download", workflowAPIController.DownloadInvocationArtifact)
+		openAPI.POST("/triggers/:token/invoke", taskScheduleController.InvokeWebhook)
 	}
 
 	api := r.Group("/api")
@@ -258,6 +263,12 @@ func main() {
 			auth.GET("/tasks/:id", taskController.GetTaskDetail)                         // 获取任务详情
 			auth.GET("/tasks/:id/node-executions", taskController.GetTaskNodeExecutions) // 获取任务的节点执行记录
 			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs)                      // 获取任务日志
+			auth.GET("/task-schedules", taskScheduleController.ListSchedules)
+			auth.POST("/task-schedules", taskScheduleController.CreateSchedule)
+			auth.PATCH("/task-schedules/:id", taskScheduleController.UpdateSchedule)
+			auth.POST("/task-schedules/:id/cancel", taskScheduleController.CancelSchedule)
+			auth.POST("/task-schedules/:id/trigger-now", taskScheduleController.TriggerNow)
+			auth.GET("/task-schedules/:id/runs", taskScheduleController.ListRuns)
 
 			adminTaskController := taskControllers.NewAdminTaskController()
 			adminTasks := auth.Group("/admin/tasks")
@@ -477,6 +488,8 @@ func main() {
 	log.Printf("🚀 Server starting on http://localhost%s", addr)
 	log.Println("✅ Database migration completed")
 	log.Println("📐 Architecture: Domain-Driven Design (DDD)")
+
+	go taskScheduleService.StartScheduler(context.Background())
 
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

@@ -27,6 +27,7 @@ import {
   DeploymentUnitOutlined,
   UploadOutlined,
   HistoryOutlined,
+  ClockCircleOutlined,
   DoubleRightOutlined,
   DoubleLeftOutlined,
 } from '@ant-design/icons';
@@ -35,6 +36,7 @@ import NodeConfigPanel from './panels/NodeConfigPanel';
 import ExecutionResultPanel from './panels/ExecutionResultPanel';
 import TaskHistoryPanel from './panels/TaskHistoryPanel';
 import TaskExecutionDetailModal from './panels/TaskExecutionDetailModal';
+import AutomationPanel from './panels/AutomationPanel';
 import type { Task, TaskNodeExecution } from '@/types/task';
 import { validateNodeConnection } from './utils/nodeFormats';
 import styles from './index.module.scss';
@@ -113,6 +115,7 @@ const WorkflowEditor: React.FC = () => {
 
   // 浠诲姟鍘嗗彶璁板綍鐩稿叧鐘舵€?
   const [historyVisible, setHistoryVisible] = useState(false);
+  const [automationVisible, setAutomationVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskExecutions, setTaskExecutions] = useState<TaskNodeExecution[]>([]);
@@ -179,6 +182,7 @@ const WorkflowEditor: React.FC = () => {
     setConfigPanelVisible(visible);
     if (visible) {
       setHistoryVisible(false);
+      setAutomationVisible(false);
     }
   }, []);
 
@@ -187,6 +191,7 @@ const WorkflowEditor: React.FC = () => {
     setResultPanelVisible(visible);
     if (visible) {
       setHistoryVisible(false);
+      setAutomationVisible(false);
     }
   }, []);
 
@@ -205,6 +210,7 @@ const WorkflowEditor: React.FC = () => {
   // 鍖呰 handleRun锛屽湪鎵ц鏃跺叧闂巻鍙茶褰曢潰鏉?
   const handleRun = useCallback(() => {
     setHistoryVisible(false);
+    setAutomationVisible(false);
     originalHandleRun();
   }, [originalHandleRun]);
 
@@ -418,12 +424,14 @@ const WorkflowEditor: React.FC = () => {
         setConfigPanelVisible(false);
         setResultPanelVisible(false);
         setHistoryVisible(false);
+        setAutomationVisible(false);
         setContextMenu(null);
         return;
       }
       setSelectedNode(node);
       handleSetConfigPanelVisible(true);
       setResultPanelVisible(false);
+      setAutomationVisible(false);
       setContextMenu(null);
     },
     [setContextMenu]
@@ -754,6 +762,7 @@ const WorkflowEditor: React.FC = () => {
             onPaneClick={() => {
               setSelectedNode(null);
               setConfigPanelVisible(false);
+              setAutomationVisible(false);
               setContextMenu(null);
             }}
             onNodesDelete={onNodesDelete}
@@ -915,12 +924,27 @@ const WorkflowEditor: React.FC = () => {
                     icon={<HistoryOutlined />}
                     onClick={() => {
                       setHistoryVisible(true);
+                      setAutomationVisible(false);
                       setConfigPanelVisible(false);
                       setResultPanelVisible(false);
                       setSelectedNode(null);
                     }}
                   >
                     {t('taskHistory.history')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
+                    icon={<ClockCircleOutlined />}
+                    onClick={() => {
+                      setAutomationVisible(true);
+                      setHistoryVisible(false);
+                      setConfigPanelVisible(false);
+                      setResultPanelVisible(false);
+                      setSelectedNode(null);
+                    }}
+                  >
+                    {t('workflowEditor.automation.title', '自动化设置')}
                   </Button>
                   <Button
                     size="small"
@@ -995,10 +1019,16 @@ const WorkflowEditor: React.FC = () => {
         </div>
 
         <div
-          className={`${styles.configPanelContainer} ${(configPanelVisible || resultPanelVisible || historyVisible) ? styles.visible : ''}`}
+          className={`${styles.configPanelContainer} ${(configPanelVisible || resultPanelVisible || historyVisible || automationVisible) ? styles.visible : ''}`}
         >
           <div className={styles.configPanelContent}>
-            {historyVisible ? (
+            {automationVisible ? (
+              <AutomationPanel
+                visible={automationVisible}
+                workflowId={workflowId ? parseInt(workflowId) : 0}
+                onClose={() => setAutomationVisible(false)}
+              />
+            ) : historyVisible ? (
               <TaskHistoryPanel
                 visible={historyVisible}
                 onClose={() => {
