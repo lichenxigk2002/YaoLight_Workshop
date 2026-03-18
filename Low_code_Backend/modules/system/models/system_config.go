@@ -31,7 +31,7 @@ type OperationLog struct {
 	UserID       *uint         `gorm:"index" json:"user_id"`
 	Action       string        `gorm:"type:varchar(50);not null;index" json:"action"`
 	ResourceType string        `gorm:"type:varchar(50);not null;index" json:"resource_type"`
-	ResourceID   *uint         `json:"resource_id"`
+	ResourceID   *uint         `gorm:"index" json:"resource_id"`
 	IPAddress    *string       `gorm:"type:varchar(45)" json:"ip_address"`
 	UserAgent    *string       `gorm:"type:text" json:"user_agent"`
 	RequestData  *shared.JSONB `gorm:"type:jsonb" json:"request_data"`

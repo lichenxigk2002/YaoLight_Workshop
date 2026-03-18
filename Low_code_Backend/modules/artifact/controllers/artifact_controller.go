@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -14,16 +15,19 @@ import (
 	artifactModels "yaolight-workshop/backend/modules/artifact/models"
 	artifactRepos "yaolight-workshop/backend/modules/artifact/repositories"
 	artifactServices "yaolight-workshop/backend/modules/artifact/services"
+	projectSupport "yaolight-workshop/backend/modules/project/support"
 )
 
 // ArtifactController 对外提供导出制品查询/下载 API
 type ArtifactController struct {
-	repo artifactRepos.ArtifactRepository
+	repo                artifactRepos.ArtifactRepository
+	projectQueryService *artifactServices.ProjectArtifactQueryService
 }
 
 func NewArtifactController() *ArtifactController {
 	return &ArtifactController{
-		repo: artifactRepos.NewArtifactRepository(database.DB),
+		repo:                artifactRepos.NewArtifactRepository(database.DB),
+		projectQueryService: artifactServices.NewProjectArtifactQueryService(database.DB),
 	}
 }
 
@@ -32,6 +36,76 @@ type SendArtifactEmailRequest struct {
 	Subject     string  `json:"subject" binding:"required"`
 	Body        *string `json:"body"`
 	ArtifactIDs []uint  `json:"artifactIds" binding:"required"`
+}
+
+// ListByProject 获取项目维度的制品列表
+// GET /api/projects/:id/artifacts
+func (c *ArtifactController) ListByProject(ctx *gin.Context) {
+	userIDAny, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	userID := userIDAny.(uint)
+
+	projectIDStr := ctx.Param("projectId")
+	if projectIDStr == "" {
+		projectIDStr = ctx.Param("id")
+	}
+	projectID64, err := strconv.ParseUint(projectIDStr, 10, 32)
+	if err != nil || projectID64 == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 project id", "data": nil})
+		return
+	}
+
+	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", ctx.DefaultQuery("page_size", "20")))
+
+	var workflowID *uint
+	if raw := ctx.Query("workflow_id"); raw != "" {
+		parsed, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 workflow_id", "data": nil})
+			return
+		}
+		value := uint(parsed)
+		workflowID = &value
+	}
+
+	var taskID *uint
+	if raw := ctx.Query("task_id"); raw != "" {
+		parsed, err := strconv.ParseUint(raw, 10, 32)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 task_id", "data": nil})
+			return
+		}
+		value := uint(parsed)
+		taskID = &value
+	}
+
+	result, err := c.projectQueryService.ListByProject(userID, uint(projectID64), artifactServices.ProjectArtifactListQuery{
+		Keyword:    ctx.Query("keyword"),
+		Kind:       ctx.Query("kind"),
+		WorkflowID: workflowID,
+		TaskID:     taskID,
+		Page:       page,
+		PageSize:   pageSize,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, projectSupport.ErrProjectAccessDenied):
+			ctx.JSON(http.StatusForbidden, gin.H{"code": 403, "message": err.Error(), "data": nil})
+		default:
+			ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "ok",
+		"data":    result,
+	})
 }
 
 // ListByTask 获取某任务生成的制品列表（分页）

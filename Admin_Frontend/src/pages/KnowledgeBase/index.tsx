@@ -21,6 +21,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import PageHero from '@/components/PageHero';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import {
   createKnowledge,
   deleteKnowledge,
@@ -137,6 +138,7 @@ function getStatusMeta(active: boolean) {
 
 export default function KnowledgeBasePage() {
   const { message } = App.useApp();
+  const { canEdit } = useAdminPermission('knowledge_base');
   const [form] = Form.useForm<KnowledgeFormValues>();
   const [searchForm] = Form.useForm<SearchFormValues>();
   const scope = Form.useWatch('scope', form);
@@ -369,7 +371,7 @@ export default function KnowledgeBasePage() {
         return (
           <Space direction="vertical" size={4}>
             <Tag color={meta.color}>{meta.label}</Tag>
-            <Switch size="small" checked={record.is_active} onChange={(checked) => void handleStatusChange(record, checked)} />
+            <Switch size="small" checked={record.is_active} disabled={!canEdit} onChange={(checked) => void handleStatusChange(record, checked)} />
           </Space>
         );
       },
@@ -388,15 +390,17 @@ export default function KnowledgeBasePage() {
           <Button type="link" onClick={() => void openEditDrawer(record)}>
             编辑
           </Button>
-          <Popconfirm
-            title="确认删除这个知识条目？"
-            description="删除后不会参与知识检索。"
-            onConfirm={() => void handleDelete(record)}
-          >
-            <Button type="link" danger>
-              删除
-            </Button>
-          </Popconfirm>
+          {canEdit ? (
+            <Popconfirm
+              title="确认删除这个知识条目？"
+              description="删除后不会参与知识检索。"
+              onConfirm={() => void handleDelete(record)}
+            >
+              <Button type="link" danger>
+                删除
+              </Button>
+            </Popconfirm>
+          ) : null}
         </Space>
       ),
     },
@@ -420,9 +424,7 @@ export default function KnowledgeBasePage() {
             >
               检索测试
             </Button>
-            <Button type="primary" onClick={openCreateDrawer}>
-              新建知识
-            </Button>
+            {canEdit ? <Button type="primary" onClick={openCreateDrawer}>新建知识</Button> : null}
           </Space>
         }
       />
@@ -549,13 +551,11 @@ export default function KnowledgeBasePage() {
         extra={
           <Space>
             <Button onClick={() => setDrawerOpen(false)}>取消</Button>
-            <Button type="primary" loading={saving} onClick={() => void handleSave()}>
-              保存
-            </Button>
+            {canEdit ? <Button type="primary" loading={saving} onClick={() => void handleSave()}>保存</Button> : null}
           </Space>
         }
       >
-        <Form form={form} layout="vertical" initialValues={DEFAULT_FORM_VALUES} className={styles.form}>
+        <Form form={form} layout="vertical" initialValues={DEFAULT_FORM_VALUES} className={styles.form} disabled={!canEdit}>
           <div className={styles.formGrid}>
             <Row gutter={16}>
               <Col xs={24} md={8}>

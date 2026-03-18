@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Card, Tag } from 'antd';
+import { Card } from 'antd';
 import styles from './BaseNode.module.scss';
 
 export interface BaseNodeConfig {
@@ -11,6 +11,8 @@ export interface BaseNodeConfig {
   showOutput?: boolean;
   inputCount?: number; // 输入端口数量（用于合并节点）
   outputCount?: number; // 输出端口数量（用于条件节点）
+  forceMultipleInputs?: boolean;
+  inputHandlePrefix?: string;
 }
 
 /**
@@ -28,6 +30,8 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
   showOutput = true,
   inputCount = 1,
   outputCount = 1,
+  forceMultipleInputs = false,
+  inputHandlePrefix = 'input',
 }) => {
   const displayLabel = data.label || label;
   const connectionDirection = data.connectionDirection || 'vertical';
@@ -41,6 +45,7 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
     <div
       className={`${styles.baseNode} ${selected ? styles.selected : ''}`}
       data-node-type={data.type}
+      style={{ ['--node-accent' as string]: color }}
     >
       {data.executionStatus && (
         <div
@@ -85,7 +90,7 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
       {/* 输入端口 */}
       {showInput && (
         <>
-          {inputCount === 1 ? (
+          {inputCount === 1 && !forceMultipleInputs ? (
             // 单个输入端口
             connectionDirection === 'vertical' ? (
               <Handle
@@ -110,10 +115,10 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
               <>
                 {Array.from({ length: inputCount }).map((_, index) => (
                   <Handle
-                    key={`input-${index}`}
+                    key={`${inputHandlePrefix}-${index}`}
                     type="target"
                     position={Position.Top}
-                    id={`input-${index}`}
+                    id={`${inputHandlePrefix}-${index}`}
                     className={styles.handle}
                     style={{ left: `${((index + 1) * 100) / (inputCount + 1)}%` }}
                   />
@@ -123,10 +128,10 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
               <>
                 {Array.from({ length: inputCount }).map((_, index) => (
                   <Handle
-                    key={`input-${index}`}
+                    key={`${inputHandlePrefix}-${index}`}
                     type="target"
                     position={Position.Left}
-                    id={`input-${index}`}
+                    id={`${inputHandlePrefix}-${index}`}
                     className={styles.handle}
                     style={{ top: `${((index + 1) * 100) / (inputCount + 1)}%` }}
                   />
@@ -140,21 +145,15 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
       {/* 节点卡片 */}
       <Card
         size="small"
-        variant="filled"
+        variant="outlined"
         className={`${styles.nodeCard} ${diffClass}`}
-        style={{
-          border: selected ? `2px solid ${color}` : `1px solid var(--border-primary)`,
-          boxShadow: selected ? `0 0 0 2px ${color}20` : 'none',
-        }}
         styles={{ body: { padding: '12px' }, header: { display: 'none', padding: 0, minHeight: 0 } }}
       >
         <div className={styles.nodeHeader}>
-          <span className={styles.nodeIcon} style={{ color }}>
-            {icon}
-          </span>
-          <Tag color={color} style={{ margin: 0 }}>
-            {label}
-          </Tag>
+          <div className={styles.nodeIdentity}>
+            <span className={styles.nodeIcon}>{icon}</span>
+            <span className={styles.nodeTag}>{label}</span>
+          </div>
         </div>
         <div className={styles.nodeContent}>
           <div className={styles.nodeTitle}>{displayLabel}</div>
@@ -194,14 +193,14 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
                   position={Position.Bottom}
                   id="true"
                   className={styles.handle}
-                  style={{ background: '#52c41a', left: '30%' }}
+                  style={{ background: 'rgba(82, 196, 26, 0.78)', left: '30%' }}
                 />
                 <Handle
                   type="source"
                   position={Position.Bottom}
                   id="false"
                   className={styles.handle}
-                  style={{ background: '#f5222d', left: '70%' }}
+                  style={{ background: 'rgba(245, 34, 45, 0.74)', left: '70%' }}
                 />
               </>
             ) : (
@@ -211,14 +210,14 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
                   position={Position.Right}
                   id="true"
                   className={styles.handle}
-                  style={{ background: '#52c41a', top: '30%' }}
+                  style={{ background: 'rgba(82, 196, 26, 0.78)', top: '30%' }}
                 />
                 <Handle
                   type="source"
                   position={Position.Right}
                   id="false"
                   className={styles.handle}
-                  style={{ background: '#f5222d', top: '70%' }}
+                  style={{ background: 'rgba(245, 34, 45, 0.74)', top: '70%' }}
                 />
               </>
             )

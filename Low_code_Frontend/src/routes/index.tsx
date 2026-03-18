@@ -1,9 +1,9 @@
-import React from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import Login from '../pages/Login'
 import Dashboard from '../pages/Dashboard'
 import ProjectDetail from '../pages/ProjectDetail'
-import Profile from '../pages/Profile'
+import PublicWorkflowApiDocsPage from '../pages/PublicWorkflowApiDocs'
+import WorkflowApiPage from '../pages/WorkflowApi'
 import WorkflowEditor from '../components/WorkflowEditor'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
@@ -15,6 +15,7 @@ import OrdersPage from '../pages/Settings/Orders'
 import Invite from '../pages/Settings/Invite'
 import SettingsNotifications from '../pages/Settings/Notifications'
 import Payment from '../pages/Payment'
+import PaymentCallback from '../pages/Payment/Callback'
 import Help from '../pages/Help'
 import AssistantWorkspace from '../pages/AssistantWorkspace'
 import ConversationsPage from '../pages/Conversations'
@@ -47,6 +48,16 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: '/projects/:projectId/assets',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <ProjectDetail />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/projects/:projectId/workflows/:workflowId/edit',
     element: (
       <ProtectedRoute>
@@ -55,6 +66,20 @@ const router = createBrowserRouter([
         </Layout>
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '/projects/:projectId/workflows/:workflowId/api',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <WorkflowApiPage />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/open-api-docs/:slug',
+    element: <PublicWorkflowApiDocsPage />,
   },
   {
     path: '/settings',
@@ -137,6 +162,10 @@ const router = createBrowserRouter([
         </Layout>
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '/payment/callback',
+    element: <PaymentCallback />,
   },
   {
     path: '/help',

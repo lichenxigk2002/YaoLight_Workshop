@@ -177,8 +177,9 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
         maskClosable={false}
         getContainer={false}
         styles={{ body: { padding: '0 24px 24px' } }}
+        className={styles.modal}
       >
-        <div style={{ padding: 48, textAlign: 'center', color: '#999' }}>
+        <div className={styles.emptyState}>
           暂无测试数据
         </div>
       </Modal>
@@ -296,7 +297,7 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                   <div className={styles.emptySpacer}></div>
                 </>
               ) : (
-                <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
+                <div className={styles.emptyState}>
                   {aiTest.isStreaming ? '' : '暂无内容'}
                 </div>
               )}
@@ -338,7 +339,7 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                   <div className={styles.emptySpacer}></div>
                 </>
               ) : (
-                <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
+                <div className={styles.emptyState}>
                   {aiTest.isStreaming ? '等待思考内容...' : '无思考内容（可能未启用深度思考模式）'}
                 </div>
               )}
@@ -359,7 +360,7 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
               defaultExpanded={false}
             />
           ) : (
-            <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
+            <div className={styles.emptyState}>
               暂无原始数据
             </div>
           )}
@@ -378,8 +379,9 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
       centered
       maskClosable={false}
       styles={{ body: { padding: '0 24px 24px' } }}
+      className={styles.modal}
     >
-      <div style={{ position: 'relative', minHeight: '400px' }}>
+      <div className={styles.modalBody}>
         <Tabs
           defaultActiveKey="result"
           size="small"

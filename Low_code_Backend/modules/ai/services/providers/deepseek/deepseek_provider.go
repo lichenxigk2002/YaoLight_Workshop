@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"yaolight-workshop/backend/modules/ai/services/providers"
@@ -17,6 +18,12 @@ import (
 type DeepSeekProvider struct {
 	client *http.Client
 }
+
+var (
+	dsmlFunctionCallsBlockRe = regexp.MustCompile(`(?s)<｜DSML｜function_calls>(.*?)</｜DSML｜function_calls>`)
+	dsmlInvokeRe             = regexp.MustCompile(`(?s)<｜DSML｜invoke\s+name="([^"]+)"\s*>(.*?)</｜DSML｜invoke>`)
+	dsmlParameterRe          = regexp.MustCompile(`(?s)<｜DSML｜parameter\s+name="([^"]+)"([^>]*)>(.*?)</｜DSML｜parameter>`)
+)
 
 // NewDeepSeekProvider 创建DeepSeek提供商实例
 func NewDeepSeekProvider() providers.AIProvider {
@@ -327,6 +334,11 @@ func (p *DeepSeekProvider) ChatWithTools(ctx context.Context, config *providers.
 			}{Name: tc.Function.Name, Arguments: tc.Function.Arguments},
 		})
 	}
+	cleanContent, dsmlToolCalls, ok := parseDSMLToolCalls(out.Content)
+	if ok {
+		out.Content = cleanContent
+		out.ToolCalls = mergeToolCalls(out.ToolCalls, dsmlToolCalls)
+	}
 	return out, nil
 }
 
@@ -423,6 +435,7 @@ func (p *DeepSeekProvider) ChatWithToolsStream(ctx context.Context, config *prov
 	toolCallMap := map[int]*providers.ToolCall{}
 	maxIndex := -1
 	var usage *providers.TokenUsage
+	streamUserContent := len(tools) == 0
 
 	type streamToolCall struct {
 		Index    *int   `json:"index"`
@@ -487,7 +500,9 @@ func (p *DeepSeekProvider) ChatWithToolsStream(ctx context.Context, config *prov
 			delta := streamResponse.Choices[0].Delta
 			if delta.Content != "" {
 				fullContent.WriteString(delta.Content)
-				callback(delta.Content, false, nil, nil)
+				if streamUserContent {
+					callback(delta.Content, false, nil, nil)
+				}
 			}
 			if len(delta.ToolCalls) > 0 {
 				for _, tc := range delta.ToolCalls {
@@ -562,8 +577,113 @@ func (p *DeepSeekProvider) ChatWithToolsStream(ctx context.Context, config *prov
 	if usage != nil {
 		respOut.TokensUsed = usage.TotalTokens
 	}
+	cleanContent, dsmlToolCalls, ok := parseDSMLToolCalls(respOut.Content)
+	if ok {
+		respOut.Content = cleanContent
+		respOut.ToolCalls = mergeToolCalls(respOut.ToolCalls, dsmlToolCalls)
+	}
+	if !streamUserContent && len(respOut.ToolCalls) == 0 && respOut.Content != "" {
+		callback(respOut.Content, false, nil, nil)
+	}
 	callback("", true, nil, usage)
 	return respOut, nil
+}
+
+func parseDSMLToolCalls(content string) (string, []*providers.ToolCall, bool) {
+	matches := dsmlFunctionCallsBlockRe.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return content, nil, false
+	}
+
+	toolCalls := make([]*providers.ToolCall, 0, len(matches))
+	for blockIndex, match := range matches {
+		block := match[1]
+		invokes := dsmlInvokeRe.FindAllStringSubmatch(block, -1)
+		for invokeIndex, invoke := range invokes {
+			if len(invoke) < 3 {
+				continue
+			}
+
+			toolName := strings.TrimSpace(invoke[1])
+			if toolName == "" {
+				continue
+			}
+
+			params := make(map[string]interface{})
+			for _, param := range dsmlParameterRe.FindAllStringSubmatch(invoke[2], -1) {
+				if len(param) < 4 {
+					continue
+				}
+				params[strings.TrimSpace(param[1])] = parseDSMLParameterValue(param[2], param[3])
+			}
+			argsJSON, err := json.Marshal(params)
+			if err != nil {
+				continue
+			}
+
+			toolCalls = append(toolCalls, &providers.ToolCall{
+				ID:   fmt.Sprintf("dsml-%d-%d", blockIndex, invokeIndex),
+				Type: "function",
+				Function: struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				}{
+					Name:      toolName,
+					Arguments: string(argsJSON),
+				},
+			})
+		}
+	}
+
+	if len(toolCalls) == 0 {
+		return content, nil, false
+	}
+
+	cleanContent := strings.TrimSpace(dsmlFunctionCallsBlockRe.ReplaceAllString(content, ""))
+	return cleanContent, toolCalls, true
+}
+
+func parseDSMLParameterValue(attrs string, rawValue string) interface{} {
+	value := strings.TrimSpace(rawValue)
+	if strings.Contains(attrs, `string="true"`) {
+		return value
+	}
+
+	var parsed interface{}
+	if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+		return parsed
+	}
+	return value
+}
+
+func mergeToolCalls(existing []*providers.ToolCall, extra []*providers.ToolCall) []*providers.ToolCall {
+	if len(extra) == 0 {
+		return existing
+	}
+
+	merged := append([]*providers.ToolCall{}, existing...)
+	seen := make(map[string]struct{}, len(existing))
+	for _, tc := range existing {
+		if tc == nil {
+			continue
+		}
+		key := tc.Function.Name + "\n" + tc.Function.Arguments
+		seen[key] = struct{}{}
+	}
+
+	for _, tc := range extra {
+		if tc == nil {
+			continue
+		}
+		key := tc.Function.Name + "\n" + tc.Function.Arguments
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		merged = append(merged, tc)
+	}
+
+	return merged
 }
 
 // ChatStream 流式聊天对话

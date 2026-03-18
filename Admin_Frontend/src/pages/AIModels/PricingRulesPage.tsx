@@ -3,6 +3,7 @@ import { Button, Card, Table, Tag, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import ProviderIcon from '@/components/Icons/ProviderIcon';
 import { getAIPricingRules, getAIModels } from '@/api/aiModels';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
 import type { AIAdminModel, AIModelPricingRule } from '@/types/aiModels';
 import { getAIProviderLabel, getAIPricingTypeLabel } from './i18n';
@@ -13,15 +14,42 @@ const { Paragraph, Title } = Typography;
 export default function PricingRulesPage() {
   const navigate = useNavigate();
   const { t } = useI18n();
+  const { canView: canViewModels } = useAdminPermission('ai_models.models');
   const [rules, setRules] = useState<AIModelPricingRule[]>([]);
   const [models, setModels] = useState<AIAdminModel[]>([]);
 
   useEffect(() => {
-    void Promise.all([getAIPricingRules(), getAIModels()]).then(([ruleData, modelData]) => {
-      setRules(ruleData);
-      setModels(modelData);
-    });
-  }, []);
+    let cancelled = false;
+
+    async function loadPage() {
+      const tasks: Promise<void>[] = [
+        getAIPricingRules().then((ruleData) => {
+          if (!cancelled) {
+            setRules(ruleData);
+          }
+        }),
+      ];
+
+      if (canViewModels) {
+        tasks.push(
+          getAIModels().then((modelData) => {
+            if (!cancelled) {
+              setModels(modelData);
+            }
+          }),
+        );
+      } else if (!cancelled) {
+        setModels([]);
+      }
+
+      await Promise.all(tasks);
+    }
+
+    void loadPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewModels]);
 
   return (
     <div className={styles.page}>

@@ -1,14 +1,15 @@
 import { Button, Form, Input, InputNumber, message } from 'antd';
 import { useI18n } from '@/i18n';
-import AdminUserSelect from '@/features/users/components/AdminUserSelect';
+import BillingUserSelect from './BillingUserSelect';
 import type { RecoverQuotaPayload } from '../types';
 
 interface QuotaRecoveryFormProps {
   onSubmit: (payload: RecoverQuotaPayload) => Promise<void>;
   loading?: boolean;
+  disabled?: boolean;
 }
 
-export default function QuotaRecoveryForm({ onSubmit, loading }: QuotaRecoveryFormProps) {
+export default function QuotaRecoveryForm({ onSubmit, loading, disabled }: QuotaRecoveryFormProps) {
   const { t } = useI18n();
   const [form] = Form.useForm<RecoverQuotaPayload>();
 
@@ -23,7 +24,7 @@ export default function QuotaRecoveryForm({ onSubmit, loading }: QuotaRecoveryFo
   }
 
   return (
-    <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ quota_delta: 1000 }}>
+    <Form form={form} layout="vertical" onFinish={handleFinish} initialValues={{ quota_delta: 1000 }} disabled={disabled}>
       <Form.Item
         name="order_id"
         label={t('billing.formOrderIdLabel')}
@@ -37,7 +38,7 @@ export default function QuotaRecoveryForm({ onSubmit, loading }: QuotaRecoveryFo
         rules={[{ required: true, message: t('billing.formUserIdRequired') }]}
         extra={t('billing.formUserIdHelp')}
       >
-        <AdminUserSelect placeholder={t('billing.formUserIdPlaceholder')} />
+        <BillingUserSelect placeholder={t('billing.formUserIdPlaceholder')} />
       </Form.Item>
       <Form.Item
         name="quota_delta"
@@ -57,7 +58,7 @@ export default function QuotaRecoveryForm({ onSubmit, loading }: QuotaRecoveryFo
         <Input.TextArea rows={3} placeholder={t('billing.formReasonPlaceholder')} />
       </Form.Item>
       <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading}>
+        <Button type="primary" htmlType="submit" loading={loading} disabled={disabled}>
           {t('billing.formSubmitRecovery')}
         </Button>
       </Form.Item>

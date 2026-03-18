@@ -22,7 +22,9 @@ export function useWorkflowSave(
   setNodes: (nodes: Node[] | ((nodes: Node[]) => Node[])) => void,
   setEdges: (edges: Edge[] | ((edges: Edge[]) => Edge[])) => void,
   getNodeLabel: (type: string) => string,
-  updateNodeIdCounter: (nodes: Node[]) => void
+  updateNodeIdCounter: (nodes: Node[]) => void,
+  templateId: number | null,
+  setTemplateId: (templateId: number | null) => void
 ) {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -57,6 +59,7 @@ export function useWorkflowSave(
 
       setNodes(allNodes);
       setEdges(loadedEdges);
+      setTemplateId(response.templateId ?? null);
 
       // 更新节点ID计数器
       updateNodeIdCounter(allNodes);
@@ -67,7 +70,7 @@ export function useWorkflowSave(
         })
       );
     }
-  }, [workflowId, setNodes, setEdges, getNodeLabel, updateNodeIdCounter, t]);
+  }, [workflowId, setNodes, setEdges, getNodeLabel, updateNodeIdCounter, setTemplateId, message, t]);
 
   /**
    * 保存工作流（内部函数）
@@ -99,6 +102,7 @@ export function useWorkflowSave(
           nodes: nodesData,
           edges: edgesData,
           commentCards: commentCardsData,
+          templateId: templateId ?? undefined,
         });
 
         if (!silent) {
@@ -117,7 +121,7 @@ export function useWorkflowSave(
         setIsSaving(false);
       }
     },
-    [workflowId, nodes, edges, t]
+    [workflowId, nodes, edges, message, t, templateId]
   );
 
   /**

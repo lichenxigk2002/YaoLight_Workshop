@@ -3,6 +3,7 @@ import { App, Button, Card, Popconfirm, Space, Table, Tag, Typography } from 'an
 import { useNavigate } from 'react-router-dom';
 import ProviderIcon from '@/components/Icons/ProviderIcon';
 import { deleteAIModel, getAIModels } from '@/api/aiModels';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
 import type { AIAdminModel } from '@/types/aiModels';
 import { getAIModelStatusLabel, getAIProviderLabel, getAIPricingTypeLabel } from './i18n';
@@ -14,6 +15,7 @@ export default function ModelsPage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
   const { locale, t } = useI18n();
+  const { canEdit } = useAdminPermission('ai_models.models');
   const [models, setModels] = useState<AIAdminModel[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -43,9 +45,11 @@ export default function ModelsPage() {
           </Title>
           <Paragraph className={styles.muted}>{t('aiModels.modelsDescription')}</Paragraph>
         </div>
-        <Button type="primary" onClick={() => navigate('/ai-models/models/new')}>
-          {t('aiModels.createModel')}
-        </Button>
+        {canEdit ? (
+          <Button type="primary" onClick={() => navigate('/ai-models/models/new')}>
+            {t('aiModels.createModel')}
+          </Button>
+        ) : null}
       </div>
 
       <Card bordered={false} className={styles.card}>
@@ -106,18 +110,20 @@ export default function ModelsPage() {
                   <Button type="link" onClick={() => navigate(`/ai-models/models/${record.id}`)}>
                     {t('aiModels.actionOpenDetail')}
                   </Button>
-                  <Popconfirm
-                    title={t('aiModels.deleteConfirmTitle')}
-                    description={t('aiModels.deleteConfirmDescription')}
-                    okText={t('aiModels.actionDelete')}
-                    cancelText={t('aiModels.actionCancel')}
-                    okButtonProps={{ danger: true, loading: deletingId === record.id }}
-                    onConfirm={() => void handleDelete(record)}
-                  >
-                    <Button type="link" danger loading={deletingId === record.id}>
-                      {t('aiModels.actionDelete')}
-                    </Button>
-                  </Popconfirm>
+                  {canEdit ? (
+                    <Popconfirm
+                      title={t('aiModels.deleteConfirmTitle')}
+                      description={t('aiModels.deleteConfirmDescription')}
+                      okText={t('aiModels.actionDelete')}
+                      cancelText={t('aiModels.actionCancel')}
+                      okButtonProps={{ danger: true, loading: deletingId === record.id }}
+                      onConfirm={() => void handleDelete(record)}
+                    >
+                      <Button type="link" danger loading={deletingId === record.id}>
+                        {t('aiModels.actionDelete')}
+                      </Button>
+                    </Popconfirm>
+                  ) : null}
                 </Space>
               ),
             },

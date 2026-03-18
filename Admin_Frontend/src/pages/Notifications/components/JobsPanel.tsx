@@ -7,7 +7,7 @@ import { useI18n } from '@/i18n';
 import {
   getAdminNotificationDeliveries,
   getAdminNotificationJobs,
-  getAdminNotificationTemplates,
+  getAdminNotificationTemplateOptions,
   type AdminNotificationDelivery,
   type AdminNotificationJob,
   type AdminNotificationTemplate,
@@ -87,10 +87,10 @@ export default function JobsPanel({ refreshToken = 0 }: JobsPanelProps) {
 
   useEffect(() => {
     let cancelled = false;
-    getAdminNotificationTemplates({ page: 1, page_size: 100 })
+    getAdminNotificationTemplateOptions({ limit: 100 })
       .then((data) => {
         if (!cancelled) {
-          setTemplates(data.list);
+          setTemplates(data);
         }
       })
       .catch((error: Error) => {

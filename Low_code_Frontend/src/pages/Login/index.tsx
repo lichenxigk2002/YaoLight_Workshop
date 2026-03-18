@@ -1,20 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
-import { Form, Input, Button, Card, Tabs, Typography, Select, Space, Divider, App } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, ApiOutlined, GlobalOutlined, GithubOutlined, GoogleOutlined } from '@ant-design/icons';
+import { useEffect, useMemo, useState } from 'react';
+import { Form, Input, Button, Tabs, Select, Divider, App, Typography } from 'antd';
+import {
+  UserOutlined,
+  LockOutlined,
+  MailOutlined,
+  GlobalOutlined,
+  GithubOutlined,
+  GoogleOutlined,
+} from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { userApi } from '@/api/user';
-import { md5Hash } from '@/utils/crypto';
 import { useTranslation } from 'react-i18next';
 import type { LoginRequest } from '@/types/user';
 import LoginWorkflowCanvas from '@/components/LoginWorkflowCanvas';
 import SplitText from '@/components/SplitText';
-import CircularText from '@/components/CircularText';
 import styles from './index.module.scss';
 
-const { TabPane } = Tabs;
-const { Title, Text } = Typography;
 const { Option } = Select;
+const { Text } = Typography;
 
 const getOAuthBaseUrl = () => {
   const base = import.meta.env.VITE_BASE_URL || '/api';
@@ -27,281 +31,264 @@ export default function Login() {
   const { login: loginStore, isAuthenticated, setToken, setUser } = useAuthStore();
   const { message } = App.useApp();
   const { t, i18n } = useTranslation();
+  const isZh = i18n.language === 'zh-CN';
+  const inviteCode = searchParams.get('invite') || '';
+
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [countdown, setCountdown] = useState(0);
-  const anchorRef = useRef<HTMLDivElement>(null);
-  // 从 URL 获取邀请码（?invite=xxx），用于注册/邮箱登录/OAuth
-  const inviteCode = searchParams.get('invite') || '';
-  const circularTextRef = useRef<HTMLDivElement>(null);
+  const [emailForm] = Form.useForm();
 
-  // 如果已登录，重定向到首页
+  const copy = useMemo(
+    () => ({
+      brandName: t('common.brandName'),
+      brandNameEn: t('common.brandNameEn', 'YaoLight Workshop'),
+      copyright: t('common.copyright'),
+      brandTitle: t('login.title'),
+      brandSubtitle: t('login.subtitle'),
+      welcomeTitle: t('login.welcomeTitle'),
+      welcomeSubtitle: t('login.welcomeSubtitle'),
+      accountTab: t('login.tabLogin'),
+      emailTab: t('login.tabEmailLogin'),
+      usernamePlaceholder: t('login.usernamePlaceholder'),
+      passwordPlaceholder: t('login.passwordPlaceholder'),
+      emailPlaceholder: t('login.emailPlaceholder'),
+      codePlaceholder: t('login.codePlaceholder'),
+      loginButton: t('login.loginButton'),
+      emailButton: t('login.loginRegisterButton'),
+      sendCode: t('login.getCode'),
+      codeCountdown: t('login.codeCountdown'),
+      socialLogin: t('login.socialLogin'),
+      githubLogin: t('login.githubLogin'),
+      googleLogin: t('login.googleLogin'),
+      firstTimeNote: t('login.firstTimeNote'),
+      usernameRequired: t('login.usernameRequired'),
+      passwordRequired: t('login.passwordRequired'),
+      emailRequired: t('login.emailRequired'),
+      emailInvalid: t('login.emailInvalid'),
+      codeRequired: t('login.codeRequired'),
+      codeInvalid: t('login.codeInvalid'),
+      inviteLabel: isZh ? '邀请码已生效' : 'Invite code applied',
+      previewLabel: isZh ? '工作流预览' : 'Workflow Preview',
+      previewMeta: isZh ? '保留原始画布元素' : 'Original workflow elements',
+      loginSuccess: isZh ? '登录成功' : 'Signed in successfully.',
+      loginInvalid: isZh ? '登录失败，请检查用户名和密码' : 'Sign in failed. Please check your username and password.',
+      oauthNotConfigured: isZh ? 'OAuth 未配置' : 'OAuth is not configured.',
+      oauthMissingCode: isZh ? '授权未完成' : 'Authorization was not completed.',
+      oauthFailed: isZh ? '第三方登录失败' : 'Third-party sign in failed.',
+      oauthTokenInvalid: isZh ? '登录已过期，请重试' : 'The sign-in session expired. Please try again.',
+      sendCodeSuccess: isZh ? '验证码已发送，请查收邮件' : 'Verification code sent. Please check your inbox.',
+      sendCodeEmpty: isZh ? '请输入邮箱地址' : 'Please enter your email address.',
+      sendCodeFailed: isZh ? '发送验证码失败' : 'Failed to send verification code.',
+    }),
+    [isZh, t],
+  );
+
+  const titleText = useMemo(
+    () => copy.brandTitle.replace(/<br\s*\/?>/gi, '\n'),
+    [copy.brandTitle],
+  );
+  const subtitleText = useMemo(
+    () => copy.brandSubtitle.replace(/<br\s*\/?>/gi, '\n'),
+    [copy.brandSubtitle],
+  );
+
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
-  const oauthProcessedRef = useRef(false);
-  // OAuth 回调：URL 带 token 时先设 token，再拉用户信息并登录
+  useEffect(() => {
+    if (countdown <= 0) return undefined;
+    const timer = setTimeout(() => setCountdown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
   useEffect(() => {
     const token = searchParams.get('token');
     const error = searchParams.get('error');
+
     if (error) {
-      const msg =
+      const errorMessage =
         error === 'google_not_configured' || error === 'github_not_configured'
-          ? t('login.oauthNotConfigured', 'OAuth 未配置')
+          ? copy.oauthNotConfigured
           : error === 'missing_code'
-            ? t('login.oauthMissingCode', '授权未完成')
-            : t('login.oauthFailed', '第三方登录失败');
-      message.error(msg);
-      setSearchParams((p) => {
-        p.delete('error');
-        return p;
-      }, { replace: true });
+            ? copy.oauthMissingCode
+            : copy.oauthFailed;
+      message.error(errorMessage);
+
+      const next = new URLSearchParams(searchParams);
+      next.delete('error');
+      setSearchParams(next, { replace: true });
       return;
     }
-    if (!token || oauthProcessedRef.current) return;
-    oauthProcessedRef.current = true;
+
+    if (!token) return;
+
     setToken(token);
-    setSearchParams((p) => {
-      p.delete('token');
-      return p;
-    }, { replace: true });
-    // 等 persist 写入 localStorage 后再发请求
+    const next = new URLSearchParams(searchParams);
+    next.delete('token');
+    setSearchParams(next, { replace: true });
+
     setTimeout(() => {
       userApi
         .getCurrentUser()
         .then((user) => {
           setUser(user);
-          message.success(t('login.loginSuccess', '登录成功！'));
+          message.success(copy.loginSuccess);
           navigate('/', { replace: true });
         })
         .catch(() => {
-          message.error(t('login.oauthTokenInvalid', '登录已过期，请重试'));
+          message.error(copy.oauthTokenInvalid);
           useAuthStore.getState().logout();
         });
     }, 0);
-  }, [searchParams, setToken, setUser, setSearchParams, message, navigate, t]);
+  }, [
+    copy.loginSuccess,
+    copy.oauthFailed,
+    copy.oauthMissingCode,
+    copy.oauthNotConfigured,
+    copy.oauthTokenInvalid,
+    message,
+    navigate,
+    searchParams,
+    setSearchParams,
+    setToken,
+    setUser,
+  ]);
 
-  // 倒计时
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
-
-  // 动态更新圆圈文字位置，使其跟随定位锚点
-  useEffect(() => {
-    const updateCircularTextPosition = () => {
-      if (!anchorRef.current || !circularTextRef.current) return;
-
-      const anchor = anchorRef.current;
-      const circularText = circularTextRef.current;
-
-      // 找到 wrapper 元素
-      let wrapper = anchor.parentElement;
-      while (wrapper && !wrapper.classList.contains(styles.wrapper)) {
-        wrapper = wrapper.parentElement;
-      }
-
-      if (!wrapper) return;
-
-      const anchorRect = anchor.getBoundingClientRect();
-      const wrapperRect = wrapper.getBoundingClientRect();
-
-      // 计算相对于 wrapper 的位置，圆心与锚点对齐
-      const top = anchorRect.top - wrapperRect.top + anchorRect.height / 2;
-      const left = anchorRect.left - wrapperRect.left + anchorRect.width / 2;
-
-      circularText.style.top = `${top}px`;
-      circularText.style.left = `${left}px`;
-    };
-
-    // 延迟执行，确保 DOM 已渲染
-    const timer = setTimeout(() => {
-      updateCircularTextPosition();
-    }, 100);
-
-    // 监听窗口大小变化和滚动
-    window.addEventListener('resize', updateCircularTextPosition);
-    window.addEventListener('scroll', updateCircularTextPosition, true);
-
-    // 使用 ResizeObserver 监听锚点位置变化
-    let resizeObserver: ResizeObserver | null = null;
-    if (anchorRef.current) {
-      resizeObserver = new ResizeObserver(updateCircularTextPosition);
-      resizeObserver.observe(anchorRef.current);
-    }
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateCircularTextPosition);
-      window.removeEventListener('scroll', updateCircularTextPosition, true);
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
-    };
-  }, []);
-
-  // 登录
   const onLogin = async (values: LoginRequest) => {
     try {
       setLoading(true);
-      // MD5 加密密码
-      const encryptedPassword = md5Hash(values.password);
-
       const response = await userApi.login({
         username: values.username,
-        password: encryptedPassword,
+        password: values.password,
       });
 
-      // 保存 token 和用户信息
-      if (response && response.token && response.user) {
-        loginStore(response.token, response.user);
-      } else {
-        throw new Error('登录响应格式错误');
+      if (!response?.token) {
+        throw new Error(copy.loginInvalid);
       }
 
-      message.success('登录成功！');
+      setToken(response.token);
+      const currentUser = await userApi.getCurrentUser();
+      setUser(currentUser);
+      message.success(copy.loginSuccess);
       navigate('/', { replace: true });
     } catch (error: any) {
-      message.error(error.message || '登录失败，请检查用户名和密码');
+      message.error(error.message || copy.loginInvalid);
     } finally {
       setLoading(false);
     }
   };
 
-  // 注册
-  const onRegister = async (values: any) => {
-    try {
-      setLoading(true);
-      // MD5 加密密码
-      const encryptedPassword = md5Hash(values.password);
-
-      // 移除 confirmPassword 字段
-      const { confirmPassword, ...registerData } = values;
-
-      await userApi.register({
-        ...registerData,
-        password: encryptedPassword,
-        inviteCode: inviteCode || undefined,
-      });
-
-      message.success('注册成功！请登录');
-      setActiveTab('login');
-    } catch (error: any) {
-      message.error(error.message || '注册失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 发送验证码（登录/注册通用）
   const onSendCode = async (email: string) => {
     if (!email) {
-      message.error('请输入邮箱地址');
+      message.error(copy.sendCodeEmpty);
       return;
     }
 
     try {
       await userApi.sendVerificationCode(email);
-      message.success('验证码已发送，请查收邮件');
+      message.success(copy.sendCodeSuccess);
       setCountdown(60);
     } catch (error: any) {
-      message.error(error.message || '发送验证码失败');
+      message.error(error.message || copy.sendCodeFailed);
     }
   };
 
-  // 邮箱验证码登录/注册（自动判断）
   const onEmailLogin = async (values: { email: string; code: string }) => {
     try {
       setLoading(true);
       const response = await userApi.emailLogin(values.email, values.code, inviteCode || undefined);
 
-      if (response && response.token && response.user) {
-        loginStore(response.token, response.user);
-        message.success('登录成功！');
-        navigate('/', { replace: true });
-      } else {
-        throw new Error('登录响应格式错误');
+      if (!response?.token || !response?.user) {
+        throw new Error(copy.codeInvalid);
       }
+
+      loginStore(response.token, response.user);
+      message.success(copy.loginSuccess);
+      navigate('/', { replace: true });
     } catch (error: any) {
-      message.error(error.message || '验证失败，请检查验证码');
+      message.error(error.message || copy.codeInvalid);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className={styles.container}>
-      <div className={styles.wrapper}>
-        {/* 圆形文字装饰 - 移到 wrapper 层级，不受容器层级限制，保持混合模式工作 */}
-        <div ref={circularTextRef} className={styles.circularTextWrapper}>
-          <CircularText
-            text="YaoLight Workshop ❤️"
-            spinDuration={30}
-            onHover="speedUp"
-            radius={55}
-            className={styles.circularText}
-          />
-        </div>
-        {/* 左侧品牌展示区 */}
-        <div className={styles.brandSection}>
-          <div className={styles.brandHeader}>
-            <img src="/YaoLight_White.png" alt="YaoLight" className={styles.brandLogo} />
-            <span className={styles.brandName}>{t('common.brandName')}</span>
-          </div>
-          <div className={styles.brandContent}>
-            <SplitText
-              text={t('login.title').replace(/<br\s*\/?>/gi, '\n')}
-              className={styles.brandTitle}
-              delay={50}
-              duration={1.25}
-              ease="power3.out"
-              splitType="chars"
-              from={{ opacity: 0, y: 40 }}
-              to={{ opacity: 1, y: 0 }}
-              threshold={0.1}
-              rootMargin="-100px"
-              textAlign="left"
-              showCallback
-            />
-            <SplitText
-              text={t('login.subtitle').replace(/<br\s*\/?>/gi, '\n')}
-              className={styles.brandSubtitle}
-              delay={50}
-              duration={1.25}
-              ease="power3.out"
-              splitType="chars"
-              from={{ opacity: 0, y: 40 }}
-              to={{ opacity: 1, y: 0 }}
-              threshold={0.1}
-              rootMargin="-100px"
-              textAlign="left"
-            />
-            <div className={styles.demoPreview}>
-              {/* 装饰性背景元素 */}
-              <div className={styles.decorationCircle1} />
-              <div className={styles.decorationCircle2} />
+  const openOAuth = (provider: 'github' | 'google') => {
+    const state = inviteCode ? `invite_${inviteCode}` : '';
+    const url = `${getOAuthBaseUrl()}/auth/${provider}${state ? `?state=${encodeURIComponent(state)}` : ''}`;
+    window.location.href = url;
+  };
 
-              {/* 可交互的工作流画布 */}
-              <div className={styles.workflowCanvasWrapper}>
-                {/* 1px 透明定位锚点，用于定位圆圈文字 */}
-                <div ref={anchorRef} className={styles.circularTextAnchor} />
+  return (
+    <div className={styles.page}>
+      <div className={styles.splitLayout}>
+        <section className={styles.brandPane}>
+          <div className={styles.brandTop}>
+            <div className={styles.brandIdentity}>
+              <img src="/YaoLight_White.png" alt="YaoLight" className={styles.brandLogo} />
+              <div className={styles.brandWordmarkGroup}>
+                <span className={styles.brandWordmark}>{copy.brandName}</span>
+                <span className={styles.brandWordmarkEn}>{copy.brandNameEn}</span>
+              </div>
+            </div>
+
+            {inviteCode ? (
+              <div className={styles.invitePill}>
+                <span>{copy.inviteLabel}</span>
+                <strong>{inviteCode}</strong>
+              </div>
+            ) : null}
+          </div>
+
+          <div className={styles.brandMain}>
+            <div className={styles.brandTextBlock}>
+              <SplitText
+                text={titleText}
+                className={styles.brandTitle}
+                delay={36}
+                duration={1}
+                ease="power3.out"
+                splitType="chars"
+                from={{ opacity: 0, y: 26 }}
+                to={{ opacity: 1, y: 0 }}
+                threshold={0.1}
+                rootMargin="-60px"
+                textAlign="left"
+              />
+              <SplitText
+                text={subtitleText}
+                className={styles.brandSubtitle}
+                delay={18}
+                duration={0.9}
+                ease="power3.out"
+                splitType="chars"
+                from={{ opacity: 0, y: 18 }}
+                to={{ opacity: 1, y: 0 }}
+                threshold={0.1}
+                rootMargin="-60px"
+                textAlign="left"
+              />
+            </div>
+
+            <div className={styles.previewPanel}>
+              <div className={styles.previewHeader}>
+                <span className={styles.previewLabel}>{copy.previewLabel}</span>
+                <span className={styles.previewMeta}>{copy.previewMeta}</span>
+              </div>
+              <div className={styles.previewFrame}>
                 <LoginWorkflowCanvas />
               </div>
             </div>
           </div>
-          <div className={styles.brandFooter}>
-            <Text className={styles.copyrightText}>{t('common.copyright')}</Text>
-          </div>
-        </div>
 
-        {/* 右侧登录表单区 */}
-        <div className={styles.formSection}>
-          <div className={styles.formHeader}>
+          <Text className={styles.copyrightText}>{copy.copyright}</Text>
+        </section>
+
+        <section className={styles.formPane}>
+          <div className={styles.formTopbar}>
             <Select
               value={i18n.language}
               onChange={(value) => i18n.changeLanguage(value)}
@@ -314,76 +301,70 @@ export default function Login() {
             </Select>
           </div>
 
-          <div className={styles.formCard}>
-            <div className={styles.cardHeader}>
-              <Title level={2} className={styles.cardTitle}>
-                {t('login.welcomeTitle')}
-              </Title>
-              <Text className={styles.cardSubtitle}>
-                {t('login.welcomeSubtitle')}
-              </Text>
-            </div>
+          <div className={styles.formBody}>
+            <div className={styles.formPanel}>
+              <div className={styles.authHeader}>
+                <h2 className={styles.authTitle}>{copy.welcomeTitle}</h2>
+                <p className={styles.authSubtitle}>{copy.welcomeSubtitle}</p>
+              </div>
 
-            <Tabs
-              activeKey={activeTab}
-              onChange={setActiveTab}
-              className={styles.tabs}
-              centered
-              items={[
-                {
-                  key: 'login',
-                  label: t('login.tabLogin'),
-                  children: (
-                    <Form
-                      name="login"
-                      onFinish={onLogin}
-                      autoComplete="off"
-                      size="large"
-                      layout="vertical"
-                      className={styles.form}
-                    >
-                      <Form.Item
-                        name="username"
-                        rules={[{ required: true, message: t('login.usernameRequired') }]}
+              <Tabs
+                activeKey={activeTab}
+                onChange={setActiveTab}
+                className={styles.tabs}
+                items={[
+                  {
+                    key: 'login',
+                    label: copy.accountTab,
+                    children: (
+                      <Form
+                        name="login"
+                        onFinish={onLogin}
+                        autoComplete="off"
+                        size="large"
+                        layout="vertical"
+                        className={styles.form}
                       >
-                        <Input
-                          prefix={<UserOutlined className={styles.inputIcon} />}
-                          placeholder={t('login.usernamePlaceholder')}
-                          className={styles.input}
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="password"
-                        rules={[{ required: true, message: t('login.passwordRequired') }]}
-                      >
-                        <Input.Password
-                          prefix={<LockOutlined className={styles.inputIcon} />}
-                          placeholder={t('login.passwordPlaceholder')}
-                          className={styles.input}
-                        />
-                      </Form.Item>
-
-                      <Form.Item className={styles.submitItem}>
-                        <Button
-                          type="primary"
-                          htmlType="submit"
-                          block
-                          loading={loading}
-                          className={styles.submitButton}
+                        <Form.Item
+                          name="username"
+                          rules={[{ required: true, message: copy.usernameRequired }]}
                         >
-                          {t('login.loginButton')}
-                        </Button>
-                      </Form.Item>
-                    </Form>
-                  )
-                },
-                {
-                  key: 'email',
-                  label: t('login.tabEmailLogin'),
-                  children: (() => {
-                    const [emailForm] = Form.useForm();
-                    return (
+                          <Input
+                            prefix={<UserOutlined className={styles.inputIcon} />}
+                            placeholder={copy.usernamePlaceholder}
+                            className={styles.input}
+                          />
+                        </Form.Item>
+
+                        <Form.Item
+                          name="password"
+                          rules={[{ required: true, message: copy.passwordRequired }]}
+                        >
+                          <Input.Password
+                            prefix={<LockOutlined className={styles.inputIcon} />}
+                            placeholder={copy.passwordPlaceholder}
+                            className={styles.input}
+                          />
+                        </Form.Item>
+
+                        <Form.Item className={styles.submitItem}>
+                          <Button
+                            type="primary"
+                            htmlType="submit"
+                            block
+                            loading={loading}
+                            className={styles.submitButton}
+                          >
+                            {copy.loginButton}
+                          </Button>
+                        </Form.Item>
+                      </Form>
+                    ),
+                  },
+                  {
+                    key: 'email',
+                    label: copy.emailTab,
+                    children: (
                       <Form
                         form={emailForm}
                         name="emailLogin"
@@ -396,13 +377,13 @@ export default function Login() {
                         <Form.Item
                           name="email"
                           rules={[
-                            { required: true, message: t('login.emailRequired') },
-                            { type: 'email', message: t('login.emailInvalid') },
+                            { required: true, message: copy.emailRequired },
+                            { type: 'email', message: copy.emailInvalid },
                           ]}
                         >
                           <Input
                             prefix={<MailOutlined className={styles.inputIcon} />}
-                            placeholder={t('login.emailPlaceholder')}
+                            placeholder={copy.emailPlaceholder}
                             className={styles.input}
                           />
                         </Form.Item>
@@ -410,13 +391,13 @@ export default function Login() {
                         <Form.Item
                           name="code"
                           rules={[
-                            { required: true, message: t('login.codeRequired') },
-                            { len: 6, message: t('login.codeInvalid') },
+                            { required: true, message: copy.codeRequired },
+                            { len: 6, message: copy.codeInvalid },
                           ]}
                         >
-                          <div style={{ display: 'flex', gap: '12px' }}>
+                          <div className={styles.codeRow}>
                             <Input
-                              placeholder={t('login.codePlaceholder')}
+                              placeholder={copy.codePlaceholder}
                               className={styles.input}
                               maxLength={6}
                             />
@@ -424,15 +405,15 @@ export default function Login() {
                               onClick={() => {
                                 const email = emailForm.getFieldValue('email');
                                 if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                                  onSendCode(email);
+                                  void onSendCode(email);
                                 } else {
-                                  message.error(t('login.emailInvalid'));
+                                  message.error(copy.emailInvalid);
                                 }
                               }}
                               disabled={countdown > 0}
                               className={styles.codeButton}
                             >
-                              {countdown > 0 ? `${countdown}${t('login.codeCountdown')}` : t('login.getCode')}
+                              {countdown > 0 ? `${countdown}${copy.codeCountdown}` : copy.sendCode}
                             </Button>
                           </div>
                         </Form.Item>
@@ -445,54 +426,43 @@ export default function Login() {
                             loading={loading}
                             className={styles.submitButton}
                           >
-                            {t('login.loginRegisterButton')}
+                            {copy.emailButton}
                           </Button>
                         </Form.Item>
 
-                        <div style={{ textAlign: 'center', color: '#666666', fontSize: '14px', marginTop: '16px', lineHeight: '1.6' }}>
-                          {t('login.firstTimeNote')}
-                        </div>
+                        <div className={styles.formHint}>{copy.firstTimeNote}</div>
                       </Form>
-                    );
-                  })()
-                }
-              ]}
-            />
+                    ),
+                  },
+                ]}
+              />
 
-            <Divider plain className={styles.divider}>
-              <span className={styles.dividerText}>{t('login.socialLogin')}</span>
-            </Divider>
+              <Divider plain className={styles.divider}>
+                <span className={styles.dividerText}>{copy.socialLogin}</span>
+              </Divider>
 
-            <div className={styles.socialLogin}>
-              <Button
-                icon={<GithubOutlined />}
-                className={styles.socialBtn}
-                block
-                onClick={() => {
-                  const state = inviteCode ? `invite_${inviteCode}` : '';
-                  const url = getOAuthBaseUrl() + '/auth/github' + (state ? `?state=${encodeURIComponent(state)}` : '');
-                  window.location.href = url;
-                }}
-              >
-                {t('login.githubLogin')}
-              </Button>
-              <Button
-                icon={<GoogleOutlined />}
-                className={styles.socialBtn}
-                block
-                onClick={() => {
-                  const state = inviteCode ? `invite_${inviteCode}` : '';
-                  const url = getOAuthBaseUrl() + '/auth/google' + (state ? `?state=${encodeURIComponent(state)}` : '');
-                  window.location.href = url;
-                }}
-              >
-                {t('login.googleLogin')}
-              </Button>
+              <div className={styles.socialLogin}>
+                <Button
+                  icon={<GithubOutlined />}
+                  className={styles.socialBtn}
+                  block
+                  onClick={() => openOAuth('github')}
+                >
+                  {copy.githubLogin}
+                </Button>
+                <Button
+                  icon={<GoogleOutlined />}
+                  className={styles.socialBtn}
+                  block
+                  onClick={() => openOAuth('google')}
+                >
+                  {copy.googleLogin}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
 }
-

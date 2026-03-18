@@ -27,6 +27,7 @@ import {
   DeploymentUnitOutlined,
   UploadOutlined,
   HistoryOutlined,
+  ClockCircleOutlined,
   DoubleRightOutlined,
   DoubleLeftOutlined,
 } from '@ant-design/icons';
@@ -35,6 +36,7 @@ import NodeConfigPanel from './panels/NodeConfigPanel';
 import ExecutionResultPanel from './panels/ExecutionResultPanel';
 import TaskHistoryPanel from './panels/TaskHistoryPanel';
 import TaskExecutionDetailModal from './panels/TaskExecutionDetailModal';
+import AutomationPanel from './panels/AutomationPanel';
 import type { Task, TaskNodeExecution } from '@/types/task';
 import { validateNodeConnection } from './utils/nodeFormats';
 import styles from './index.module.scss';
@@ -113,6 +115,7 @@ const WorkflowEditor: React.FC = () => {
 
   // 浠诲姟鍘嗗彶璁板綍鐩稿叧鐘舵€?
   const [historyVisible, setHistoryVisible] = useState(false);
+  const [automationVisible, setAutomationVisible] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskExecutions, setTaskExecutions] = useState<TaskNodeExecution[]>([]);
@@ -124,6 +127,7 @@ const WorkflowEditor: React.FC = () => {
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateImportingId, setTemplateImportingId] = useState<number | null>(null);
   const [templateItems, setTemplateItems] = useState<WorkflowTemplateLibraryItem[]>([]);
+  const [activeTemplateId, setActiveTemplateId] = useState<number | null>(null);
 
   const [workflowPreviewMode, setWorkflowPreviewMode] = useState<'none' | 'workflow'>('none');
   const originalWorkflowRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
@@ -168,7 +172,9 @@ const WorkflowEditor: React.FC = () => {
     setNodes,
     setEdges,
     getNodeLabel,
-    updateNodeIdCounter
+    updateNodeIdCounter,
+    activeTemplateId,
+    setActiveTemplateId
   );
 
   // 鍖呰 setConfigPanelVisible锛屽湪鎵撳紑閰嶇疆闈㈡澘鏃跺叧闂巻鍙茶褰曢潰鏉?
@@ -176,6 +182,7 @@ const WorkflowEditor: React.FC = () => {
     setConfigPanelVisible(visible);
     if (visible) {
       setHistoryVisible(false);
+      setAutomationVisible(false);
     }
   }, []);
 
@@ -184,6 +191,7 @@ const WorkflowEditor: React.FC = () => {
     setResultPanelVisible(visible);
     if (visible) {
       setHistoryVisible(false);
+      setAutomationVisible(false);
     }
   }, []);
 
@@ -202,6 +210,7 @@ const WorkflowEditor: React.FC = () => {
   // 鍖呰 handleRun锛屽湪鎵ц鏃跺叧闂巻鍙茶褰曢潰鏉?
   const handleRun = useCallback(() => {
     setHistoryVisible(false);
+    setAutomationVisible(false);
     originalHandleRun();
   }, [originalHandleRun]);
 
@@ -246,13 +255,8 @@ const WorkflowEditor: React.FC = () => {
           let style = { ...n.style };
           let data = { ...n.data, diffMark: mark }; // Inject diffMark into data for custom nodes
 
-          if (mark === 'add') {
-              style.border = '2px solid #52c41a'; // Green
-          } else if (mark === 'remove') {
-              style.border = '2px solid #ff4d4f'; // Red
-              style.opacity = 0.6;
-          } else if (mark === 'update') {
-              style.border = '2px solid #faad14'; // Orange
+          if (mark === 'remove') {
+              style.opacity = 0.7;
           }
           return { ...n, style, data };
       });
@@ -420,12 +424,14 @@ const WorkflowEditor: React.FC = () => {
         setConfigPanelVisible(false);
         setResultPanelVisible(false);
         setHistoryVisible(false);
+        setAutomationVisible(false);
         setContextMenu(null);
         return;
       }
       setSelectedNode(node);
       handleSetConfigPanelVisible(true);
       setResultPanelVisible(false);
+      setAutomationVisible(false);
       setContextMenu(null);
     },
     [setContextMenu]
@@ -479,10 +485,21 @@ const WorkflowEditor: React.FC = () => {
   const handleNodeConfigSave = useCallback(
     (nodeId: string, data: any) => {
       const oldNode = nodes.find((n) => n.id === nodeId);
+      const nodeType = oldNode?.data?.type || oldNode?.type;
       const oldDirection = oldNode?.data.connectionDirection || 'vertical';
       const newDirection = data.connectionDirection || oldDirection;
       const hasDirectionChange =
         data.connectionDirection !== undefined && oldDirection !== newDirection;
+      const oldMergeInputCount = Number(oldNode?.data?.config?.inputCount ?? 3);
+      const newMergeInputCount = Number(data?.config?.inputCount ?? 3);
+      const normalizedOldMergeInputCount = Number.isFinite(oldMergeInputCount)
+        ? Math.min(5, Math.max(1, Math.trunc(oldMergeInputCount)))
+        : 3;
+      const normalizedNewMergeInputCount = Number.isFinite(newMergeInputCount)
+        ? Math.min(5, Math.max(1, Math.trunc(newMergeInputCount)))
+        : 3;
+      const hasMergeInputCountChange =
+        nodeType === 'merge' && normalizedOldMergeInputCount !== normalizedNewMergeInputCount;
 
       updateNodeConfig(nodeId, {
         label: data.label,
@@ -504,6 +521,19 @@ const WorkflowEditor: React.FC = () => {
             },
           };
         });
+      }
+
+      if (hasMergeInputCountChange) {
+        setEdges((eds) =>
+          eds.filter((edge) => {
+            if (edge.target !== nodeId) return true;
+            if (!edge.targetHandle) return true;
+            const match = edge.targetHandle.match(/^input-(\d+)$/);
+            if (!match) return true;
+            return Number(match[1]) < normalizedNewMergeInputCount;
+          })
+        );
+        setNodeRenderKey((prev) => prev + 1);
       }
 
       // 濡傛灉杩炴帴鏂瑰悜鏀瑰彉浜嗭紝寮哄埗閲嶆柊娓叉煋鎵€鏈夎妭鐐瑰拰杈?
@@ -570,6 +600,7 @@ const WorkflowEditor: React.FC = () => {
         const { nodes: importedNodes, edges: importedEdges } = await importWorkflow(file, getNodeLabel);
         setNodes(importedNodes);
         setEdges(importedEdges);
+        setActiveTemplateId(null);
         updateNodeIdCounter(importedNodes);
         message.success(t('workflowEditor.importSuccess'));
 
@@ -626,6 +657,7 @@ const WorkflowEditor: React.FC = () => {
       const importedEdges = transformEdgesFromLoadFormat(response.edges || []);
       setNodes(importedNodes);
       setEdges(importedEdges);
+      setActiveTemplateId(templateId);
       updateNodeIdCounter(importedNodes);
       setTemplateModalVisible(false);
       message.success(t('workflowEditor.templateImported'));
@@ -730,6 +762,7 @@ const WorkflowEditor: React.FC = () => {
             onPaneClick={() => {
               setSelectedNode(null);
               setConfigPanelVisible(false);
+              setAutomationVisible(false);
               setContextMenu(null);
             }}
             onNodesDelete={onNodesDelete}
@@ -752,13 +785,18 @@ const WorkflowEditor: React.FC = () => {
             attributionPosition="bottom-left"
             deleteKeyCode={configPanelVisible ? null : ['Delete', 'Backspace']}
           >
-            <Controls />
+            <Controls className={styles.flowControls} />
             <MiniMap
               className={styles.miniMap}
-              nodeColor={theme === 'dark' ? '#303030' : '#e8e8e8'}
-              maskColor={theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(240, 240, 240, 0.6)'}
+              nodeColor={theme === 'dark' ? 'rgba(255, 255, 255, 0.18)' : 'rgba(17, 17, 17, 0.12)'}
+              maskColor={theme === 'dark' ? 'rgba(0, 0, 0, 0.4)' : 'rgba(247, 245, 241, 0.72)'}
             />
-            <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={22}
+              size={1}
+              color={theme === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(17, 17, 17, 0.08)'}
+            />
           </ReactFlow>
 
           {workflowPreviewMode === 'workflow' && (
@@ -781,7 +819,7 @@ const WorkflowEditor: React.FC = () => {
           )}
 
           {patchPreviewMode === 'previewing' && (
-            <div className={styles.previewBanner} style={{ backgroundColor: '#fffbe6', borderBottom: '1px solid #ffe58f' }}>
+            <div className={`${styles.previewBanner} ${styles.previewBannerWarning}`}>
               <Space>
                 <span>{t('workflowEditor.alkaid.patchPreviewBanner')}</span>
                 <Button size="small" type="primary" onClick={handleConfirmPatchPreview}>
@@ -886,12 +924,27 @@ const WorkflowEditor: React.FC = () => {
                     icon={<HistoryOutlined />}
                     onClick={() => {
                       setHistoryVisible(true);
+                      setAutomationVisible(false);
                       setConfigPanelVisible(false);
                       setResultPanelVisible(false);
                       setSelectedNode(null);
                     }}
                   >
                     {t('taskHistory.history')}
+                  </Button>
+                  <Button
+                    size="small"
+                    shape="round"
+                    icon={<ClockCircleOutlined />}
+                    onClick={() => {
+                      setAutomationVisible(true);
+                      setHistoryVisible(false);
+                      setConfigPanelVisible(false);
+                      setResultPanelVisible(false);
+                      setSelectedNode(null);
+                    }}
+                  >
+                    {t('workflowEditor.automation.title', '自动化设置')}
                   </Button>
                   <Button
                     size="small"
@@ -966,10 +1019,16 @@ const WorkflowEditor: React.FC = () => {
         </div>
 
         <div
-          className={`${styles.configPanelContainer} ${(configPanelVisible || resultPanelVisible || historyVisible) ? styles.visible : ''}`}
+          className={`${styles.configPanelContainer} ${(configPanelVisible || resultPanelVisible || historyVisible || automationVisible) ? styles.visible : ''}`}
         >
           <div className={styles.configPanelContent}>
-            {historyVisible ? (
+            {automationVisible ? (
+              <AutomationPanel
+                visible={automationVisible}
+                workflowId={workflowId ? parseInt(workflowId) : 0}
+                onClose={() => setAutomationVisible(false)}
+              />
+            ) : historyVisible ? (
               <TaskHistoryPanel
                 visible={historyVisible}
                 onClose={() => {
@@ -1023,6 +1082,8 @@ const WorkflowEditor: React.FC = () => {
         onCancel={() => setTemplateModalVisible(false)}
         footer={null}
         width={720}
+        className={styles.templateModal}
+        getContainer={false}
       >
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <Space.Compact style={{ width: '100%' }}>

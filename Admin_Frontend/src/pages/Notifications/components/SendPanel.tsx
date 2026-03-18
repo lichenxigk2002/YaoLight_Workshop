@@ -3,11 +3,11 @@ import { Avatar, Button, Card, DatePicker, Form, Input, Select, Space, Tooltip, 
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { getAdminUsers } from '@/features/users/api';
 import type { AdminUserListItem } from '@/features/users/types';
 import { useI18n } from '@/i18n';
 import {
-  getAdminNotificationTemplates,
+  getAdminNotificationRecipientOptions,
+  getAdminNotificationTemplateOptions,
   sendAdminNotification,
   type AdminNotificationTemplate,
 } from '../api';
@@ -17,6 +17,7 @@ const { TextArea } = Input;
 
 interface SendPanelProps {
   onSent?: () => void;
+  disabled?: boolean;
 }
 
 interface SendFormValues {
@@ -219,7 +220,7 @@ function renderTemplateVariableLabel(label: string, variableKey: string) {
   );
 }
 
-export default function SendPanel({ onSent }: SendPanelProps) {
+export default function SendPanel({ onSent, disabled = false }: SendPanelProps) {
   const { t } = useI18n();
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm<SendFormValues>();
@@ -272,12 +273,11 @@ export default function SendPanel({ onSent }: SendPanelProps) {
   async function loadRecipients(keyword?: string) {
     setRecipientLoading(true);
     try {
-      const data = await getAdminUsers({
-        page: 1,
-        page_size: 20,
+      const data = await getAdminNotificationRecipientOptions({
         keyword: keyword?.trim() || undefined,
+        limit: 20,
       });
-      setRecipientOptions((current) => mergeUsers(Array.isArray(current) ? current : [], Array.isArray(data.list) ? data.list : []));
+      setRecipientOptions((current) => mergeUsers(Array.isArray(current) ? current : [], data));
     } catch (error) {
       messageApi.error((error as Error).message);
     } finally {
@@ -288,12 +288,11 @@ export default function SendPanel({ onSent }: SendPanelProps) {
   async function loadTemplates() {
     setTemplateLoading(true);
     try {
-      const data = await getAdminNotificationTemplates({
-        page: 1,
-        page_size: 100,
+      const data = await getAdminNotificationTemplateOptions({
+        limit: 100,
         is_active: true,
       });
-      setTemplates(Array.isArray(data.list) ? data.list : []);
+      setTemplates(data);
     } catch (error) {
       messageApi.error((error as Error).message);
     } finally {
@@ -456,7 +455,7 @@ export default function SendPanel({ onSent }: SendPanelProps) {
   return (
     <>
       {contextHolder}
-      <Form<SendFormValues> layout="vertical" form={form} onFinish={(values) => void handleSubmit(values)}>
+      <Form<SendFormValues> layout="vertical" form={form} onFinish={(values) => void handleSubmit(values)} disabled={disabled}>
         <div className={styles.sendFormGrid}>
           <Form.Item name="name" label={t('notifications.send.jobName')}>
             <Input placeholder={t('notifications.send.jobNamePlaceholder')} />
@@ -653,7 +652,7 @@ export default function SendPanel({ onSent }: SendPanelProps) {
         ) : null}
 
         <Space>
-          <Button type="primary" htmlType="submit" icon={<SendOutlined />} loading={submitting}>
+          <Button type="primary" htmlType="submit" icon={<SendOutlined />} loading={submitting} disabled={disabled}>
             {t('notifications.send.submit')}
           </Button>
           <Button

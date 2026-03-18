@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-primary);
+  background: transparent;
   overflow: hidden;
 }
 
@@ -10,106 +10,153 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-secondary);
+  gap: 12px;
   flex-shrink: 0;
-  background: var(--bg-primary);
+  padding: 18px 22px 16px;
+  border-bottom: 1px solid var(--editor-border-soft, var(--border-secondary));
+  background: rgba(255, 255, 255, 0.14);
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
-  flex: 1;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--editor-text, var(--text-primary));
+}
+
+.headerTitle {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.headerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.05);
+  color: var(--editor-text-secondary, var(--text-secondary));
+  font-size: 12px;
+  font-weight: 500;
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
 .panelContent {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px;
-
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-
-  &::-webkit-scrollbar {
-    width: 0 !important;
-    height: 0 !important;
-    display: none !important;
-  }
+  padding: 18px 22px 22px;
 }
 
 .taskItem {
-  border-bottom: 1px solid var(--border-secondary);
-  padding: 16px 0;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
   position: relative;
-  overflow: hidden;
-  border-radius: 0;
+  padding: 16px 18px !important;
+  border: 1px solid var(--editor-border-soft, var(--border-secondary));
+  border-radius: 22px;
+  background: var(--editor-surface-soft, var(--bg-secondary));
+  margin-bottom: 12px;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
 
-  // 流畅的hover动效
   &:hover {
-    background-color: var(--bg-secondary);
-    border-radius: 8px;
-    padding: 16px 12px;
-    margin: 0 -12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
-    
-    // 添加一个微妙的背景渐变效果
-    &::before {
-      opacity: 1;
-    }
-  }
-
-  // 微妙的背景渐变层
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(24, 144, 255, 0.03) 0%, rgba(114, 46, 209, 0.03) 100%);
-    opacity: 0;
-    transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    pointer-events: none;
-    border-radius: 8px;
+    transform: translateY(-1px);
+    border-color: var(--editor-border-strong, var(--border-primary));
+    background: var(--editor-surface-strong, var(--bg-primary));
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.04);
   }
 
   &:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
   }
 
-  // 确保内部元素也有平滑过渡
-  :global(.ant-list-item-meta-title),
+  :global(.ant-list-item-meta-title) {
+    margin-bottom: 10px !important;
+  }
+
   :global(.ant-list-item-meta-description) {
-    transition: color 0.3s ease, transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   :global(.ant-list-item-action) {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-inline-start: 14px;
   }
 
-  // hover时按钮的动效
-  &:hover :global(.ant-list-item-action) {
-    transform: translateX(-3px);
-    
-    // 按钮颜色稍微加深
-    :global(.ant-btn-link) {
-      color: var(--primary-color);
-    }
-  }
-
-  // 图标和文本的平滑过渡
-  &:hover :global(.ant-list-item-meta-title) {
-    :global(.ant-typography) {
-      color: var(--text-primary);
-    }
+  :global(.ant-list-item-action > li) {
+    padding: 0;
   }
 }
 
-.taskItem :global(.ant-list-item-meta-description) {
+.taskRowText {
+  color: var(--editor-text-secondary, var(--text-secondary)) !important;
+  font-size: 12px;
+}
+
+.taskError {
+  color: #b42318 !important;
+}
+
+.semanticTag {
+  border: 1px solid var(--editor-border-soft, var(--border-secondary)) !important;
+  border-radius: 999px !important;
+  background: var(--editor-surface-strong, var(--bg-primary)) !important;
+  color: var(--editor-text-secondary, var(--text-secondary)) !important;
+  font-weight: 600 !important;
+}
+
+.semanticTagSuccess {
+  background: rgba(82, 196, 26, 0.08) !important;
+  border-color: rgba(82, 196, 26, 0.16) !important;
+}
+
+.semanticTagError {
+  background: rgba(255, 77, 79, 0.08) !important;
+  border-color: rgba(255, 77, 79, 0.16) !important;
+}
+
+.semanticTagWarning {
+  background: rgba(250, 173, 20, 0.08) !important;
+  border-color: rgba(250, 173, 20, 0.16) !important;
+}
+
+.semanticTagProcessing {
+  background: rgba(17, 17, 17, 0.06) !important;
+  border-color: rgba(17, 17, 17, 0.12) !important;
+
+  [data-theme='dark'] & {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+  }
+}
+
+.actionButton {
+  border-radius: 999px !important;
+  box-shadow: none !important;
+}
+
+.linkButton {
+  border-radius: 999px !important;
+  color: var(--editor-text, var(--text-primary)) !important;
+
+  &:hover {
+    background: rgba(17, 17, 17, 0.05) !important;
+  }
+}
+
+.paginationWrap {
+  margin-top: 18px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  justify-content: flex-end;
 }

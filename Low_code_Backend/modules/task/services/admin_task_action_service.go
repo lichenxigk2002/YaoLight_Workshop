@@ -148,7 +148,7 @@ func (s *AdminTaskService) RetryTask(taskID uint) (*AdminTaskActionResponse, err
 	}
 
 	go func() {
-		_ = s.executor.ExecuteWorkflowStream(context.Background(), req, func(string, string, bool, string, error) {})
+		_ = s.executor.ExecuteWorkflowStreamConcurrent(context.Background(), req, func(string, string, bool, string, error) {})
 	}()
 
 	return &AdminTaskActionResponse{

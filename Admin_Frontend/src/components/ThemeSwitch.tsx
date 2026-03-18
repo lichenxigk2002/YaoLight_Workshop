@@ -14,6 +14,7 @@ const paletteLabels: Record<'zh-CN' | 'en-US', Record<AdminThemePaletteId, strin
     red: '红',
     pink: '粉',
     orange: '橙',
+    white: '白',
   },
   'en-US': {
     blue: 'Blue',
@@ -23,6 +24,7 @@ const paletteLabels: Record<'zh-CN' | 'en-US', Record<AdminThemePaletteId, strin
     red: 'Red',
     pink: 'Pink',
     orange: 'Orange',
+    white: 'White',
   },
 };
 

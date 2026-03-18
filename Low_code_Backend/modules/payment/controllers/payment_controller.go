@@ -3,10 +3,13 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/modules/payment/services"
 )
 
@@ -354,7 +357,11 @@ func (c *PaymentController) HandleAlipayReturn(ctx *gin.Context) {
 
 	// 返回订单状态（前端可以根据状态跳转）
 	// 重定向到前端充值页面
-	ctx.Redirect(http.StatusFound, "/settings/recharge?status=success&orderId="+order.OrderID)
+	redirectBase := strings.TrimRight(config.FrontendURL, "/")
+	callbackQuery := url.Values{}
+	callbackQuery.Set("status", string(order.Status))
+	callbackQuery.Set("orderId", order.OrderID)
+	ctx.Redirect(http.StatusFound, redirectBase+"/payment/callback?"+callbackQuery.Encode())
 }
 
 // MockPay 模拟支付（仅开发环境）

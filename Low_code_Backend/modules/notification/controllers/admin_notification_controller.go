@@ -5,10 +5,13 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/modules/notification/services"
+	userModels "yaolight-workshop/backend/modules/user/models"
 )
 
 type AdminNotificationController struct {
@@ -26,6 +29,62 @@ func (c *AdminNotificationController) GetSummary(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": summary})
+}
+
+func (c *AdminNotificationController) ListRecipientOptions(ctx *gin.Context) {
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	db := database.DB.Model(&userModels.User{})
+	keyword := strings.TrimSpace(ctx.Query("keyword"))
+	if keyword != "" {
+		like := "%" + strings.ToLower(keyword) + "%"
+		db = db.Where(
+			"LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR CAST(id AS TEXT) LIKE ? OR CAST(user_no AS TEXT) LIKE ?",
+			like, like, like, like,
+		)
+	}
+
+	var users []userModels.User
+	if err := db.Select(
+		"id",
+		"user_no",
+		"username",
+		"email",
+		"avatar_url",
+		"role",
+		"status",
+		"login_count",
+		"last_login_at",
+	).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&users).Error; err != nil {
+		adminInternalError(ctx, "failed to load recipient options", err)
+		return
+	}
+
+	items := make([]gin.H, 0, len(users))
+	for _, user := range users {
+		items = append(items, gin.H{
+			"id":            user.ID,
+			"user_no":       user.UserNo,
+			"username":      user.Username,
+			"email":         user.Email,
+			"avatar_url":    user.AvatarURL,
+			"role":          user.Role,
+			"status":        user.Status,
+			"login_count":   user.LoginCount,
+			"last_login_at": user.LastLoginAt,
+		})
+	}
+
+	adminOK(ctx, "ok", items)
 }
 
 func (c *AdminNotificationController) List(ctx *gin.Context) {
@@ -143,6 +202,39 @@ func (c *AdminNotificationController) ListTemplates(ctx *gin.Context) {
 		return
 	}
 	adminOK(ctx, "ok", gin.H{"list": list, "total": total, "page": page, "page_size": pageSize})
+}
+
+func (c *AdminNotificationController) ListTemplateOptions(ctx *gin.Context) {
+	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "100"))
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	var isActive *bool
+	if raw := ctx.Query("is_active"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			adminBadRequest(ctx, "invalid is_active")
+			return
+		}
+		isActive = &parsed
+	}
+
+	list, _, err := c.service.ListTemplates(services.AdminNotificationTemplateListParams{
+		Page:     1,
+		PageSize: limit,
+		Keyword:  ctx.Query("keyword"),
+		IsActive: isActive,
+	})
+	if err != nil {
+		adminInternalError(ctx, "failed to list notification template options", err)
+		return
+	}
+
+	adminOK(ctx, "ok", list)
 }
 
 func (c *AdminNotificationController) CreateTemplate(ctx *gin.Context) {

@@ -10,6 +10,7 @@ export interface Workflow {
   name: string;
   description?: string;
   projectId: number;
+  templateId?: number;
   status: string; // 'draft' | 'published' | 'archived'
   nodes?: WorkflowNode[];
   edges?: WorkflowEdge[];
@@ -130,5 +131,6 @@ export interface WorkflowCanvasData {
   nodes?: WorkflowCanvasNodeData[];
   edges?: WorkflowCanvasEdgeData[];
   commentCards?: WorkflowCanvasCommentCardData[];
+  templateId?: number;
 }
 

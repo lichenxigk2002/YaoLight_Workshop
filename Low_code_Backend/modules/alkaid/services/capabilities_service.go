@@ -3,12 +3,22 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
 	"yaolight-workshop/backend/modules/workflow/services"
 )
 
 // CapabilitiesService 瑶光星能力说明服务
 // 负责聚合所有节点规格、I/O定义、配置规则等信息，供AI生成工作流时使用
 type CapabilitiesService struct{}
+
+var capabilitiesCache = struct {
+	sync.RWMutex
+	value     *WorkflowCapabilities
+	expiresAt time.Time
+}{}
+
+const capabilitiesCacheTTL = 15 * time.Second
 
 // NodeCapability 节点能力定义
 type NodeCapability struct {
@@ -91,6 +101,14 @@ func NewCapabilitiesService() *CapabilitiesService {
 // GetCapabilities 获取完整的能力说明文档
 // 现在会自动从源代码提取配置，无需手动维护
 func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
+	now := time.Now()
+	capabilitiesCache.RLock()
+	if capabilitiesCache.value != nil && now.Before(capabilitiesCache.expiresAt) {
+		cached, err := cloneWorkflowCapabilities(capabilitiesCache.value)
+		capabilitiesCache.RUnlock()
+		return cached, err
+	}
+	capabilitiesCache.RUnlock()
 	// 1. 构建节点能力列表（基础定义）
 	nodeTypes := s.buildNodeCapabilities()
 
@@ -152,17 +170,28 @@ func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
 			"start 节点只能作为入口，不能有入边",
 			"end 节点只能作为出口，不能有出边",
 			"condition 节点的出边需要使用 sourceHandle: 'true' 或 'false'",
-			"merge 节点的入边需要使用 targetHandle: 'input-0', 'input-1' 等",
+			"merge 节点的入边需要使用 targetHandle: 'input-0' 到 'input-4'，并与节点配置中的 inputCount 保持一致",
 		},
 	}
 
-	return &WorkflowCapabilities{
+	result := &WorkflowCapabilities{
 		Version:        "1.0.0",
 		WorkflowSchema: workflowSchema,
 		NodeTypes:      nodeTypes,
 		Template:       template,
 		Rules:          rules,
-	}, nil
+	}
+
+	cloned, err := cloneWorkflowCapabilities(result)
+	if err != nil {
+		return nil, err
+	}
+	capabilitiesCache.Lock()
+	capabilitiesCache.value = cloned
+	capabilitiesCache.expiresAt = now.Add(capabilitiesCacheTTL)
+	capabilitiesCache.Unlock()
+
+	return result, nil
 }
 
 // buildNodeCapabilities 构建节点能力列表
@@ -252,16 +281,22 @@ func (s *CapabilitiesService) buildNodeCapabilities() []NodeCapability {
 			Description: "将多个上游输入按 targetHandle 顺序合并为一个结果",
 			Stability:   "stable",
 			Config: map[string]interface{}{
-				"mergeType": "concat",
+				"mergeType":  "concat",
+				"inputCount": 3,
 			},
 			ConfigRules: ConfigRules{
 				Required: []string{"mergeType"},
 				Enums: map[string][]string{
-					"mergeType": {"concat", "union", "intersect"},
+					"mergeType":  {"concat", "union", "intersect"},
+					"inputCount": {"1", "2", "3", "4", "5"},
 				},
 				AllowVars: []string{},
 				Defaults: map[string]interface{}{
-					"mergeType": "concat",
+					"mergeType":  "concat",
+					"inputCount": 3,
+				},
+				Constraints: map[string]string{
+					"inputCount": "取值范围 1-5；merge 节点只会处理 0 到 inputCount-1 对应的 targetHandle",
 				},
 			},
 		},
@@ -504,7 +539,8 @@ func (s *CapabilitiesService) buildNodeExamples(nodeType string) []NodeExample {
 		examples = append(examples, NodeExample{
 			Description: "合并多个输入：concat/union/intersect",
 			Config: map[string]interface{}{
-				"mergeType": "concat",
+				"mergeType":  "concat",
+				"inputCount": 5,
 			},
 		})
 	case "crawler":
@@ -572,4 +608,22 @@ func (s *CapabilitiesService) BuildPromptContext() (string, error) {
 	}
 
 	return string(jsonData), nil
+}
+
+func cloneWorkflowCapabilities(capabilities *WorkflowCapabilities) (*WorkflowCapabilities, error) {
+	if capabilities == nil {
+		return nil, nil
+	}
+
+	data, err := json.Marshal(capabilities)
+	if err != nil {
+		return nil, err
+	}
+
+	var cloned WorkflowCapabilities
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil, err
+	}
+
+	return &cloned, nil
 }

@@ -1,0 +1,816 @@
+.panelContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  color: var(--editor-text, #111111);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 20%),
+    transparent;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid var(--editor-border-soft, rgba(0, 0, 0, 0.06));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08)),
+    rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.headerCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.headerEyebrow,
+.overviewEyebrow,
+.sectionEyebrow,
+.emptyEyebrow,
+.heroEyebrow,
+.formHeroEyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--editor-text-tertiary, rgba(17, 17, 17, 0.48));
+}
+
+.headerTitleRow,
+.heroTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.headerIcon {
+  color: rgba(17, 17, 17, 0.7);
+}
+
+.headerTitle {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--editor-text, #111111);
+}
+
+.headerDescription {
+  max-width: 360px;
+  color: var(--editor-text-secondary, rgba(17, 17, 17, 0.72));
+}
+
+.headerActions {
+  flex-wrap: wrap;
+
+  :global(.ant-btn) {
+    height: 34px;
+    border-radius: 999px;
+    border-color: var(--editor-border-soft, rgba(0, 0, 0, 0.08));
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: none;
+  }
+
+  :global(.ant-btn-primary) {
+    background: #111111;
+    border-color: #111111;
+    box-shadow: none;
+  }
+}
+
+.panelContent {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 20px;
+  min-height: 100%;
+}
+
+.sidebar,
+.detailPane,
+.detailStack {
+  min-width: 0;
+}
+
+.sidebar,
+.detailStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.overviewCard,
+.detailHero,
+.infoCard,
+.configCard,
+.emptyCard {
+  border: 1px solid var(--editor-border-soft, rgba(0, 0, 0, 0.06));
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.56)),
+    rgba(255, 255, 255, 0.5);
+  box-shadow: var(--editor-shadow-soft, 0 10px 28px rgba(0, 0, 0, 0.03));
+  backdrop-filter: blur(18px);
+}
+
+.overviewCard {
+  padding: 20px;
+
+  :global(.ant-btn) {
+    box-shadow: none;
+  }
+}
+
+.overviewTitle,
+.emptyTitle,
+.formHeroTitle {
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.metricRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.metricChip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.metricValue {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.metricLabel,
+.listSubtitle,
+.sectionHint,
+.configHint,
+.heroMetricHint,
+.emptyDescription,
+.formSectionHint,
+.formHeroDescription,
+.fieldHint {
+  color: var(--editor-text-secondary, rgba(17, 17, 17, 0.72));
+}
+
+.listHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.listTitle,
+.sectionTitle,
+.formSectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--editor-text, #111111);
+}
+
+.scheduleList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scheduleCard {
+  width: 100%;
+  padding: 16px;
+  text-align: left;
+  border: 1px solid var(--editor-border-soft, rgba(0, 0, 0, 0.06));
+  border-radius: 22px;
+  background: var(--editor-surface-soft, rgba(255, 255, 255, 0.52));
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+  cursor: pointer;
+}
+
+.scheduleCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--editor-border-strong, rgba(0, 0, 0, 0.1));
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+.scheduleCardActive {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 246, 241, 0.82)),
+    rgba(255, 255, 255, 0.82);
+  border-color: rgba(17, 17, 17, 0.14);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
+}
+
+.scheduleCardTop,
+.scheduleFoot,
+.sectionHeader,
+.runCardTop,
+.runTopLeft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.scheduleCardTop,
+.scheduleFoot {
+  align-items: flex-start;
+}
+
+.scheduleName,
+.configValue,
+.runMetaValue {
+  font-weight: 600;
+  color: var(--editor-text, #111111);
+}
+
+.scheduleMeta,
+.scheduleHint,
+.runTime,
+.runDuration {
+  font-size: 12px;
+  color: var(--editor-text-secondary, rgba(17, 17, 17, 0.72));
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.statusSuccess {
+  color: #24552f;
+  background: rgba(89, 173, 112, 0.14);
+}
+
+.statusDanger {
+  color: #7b2f2f;
+  background: rgba(214, 90, 90, 0.14);
+}
+
+.statusInfo {
+  color: #214b72;
+  background: rgba(86, 154, 219, 0.16);
+}
+
+.statusMuted {
+  color: rgba(17, 17, 17, 0.56);
+  background: rgba(17, 17, 17, 0.08);
+}
+
+.detailHero {
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(0, 0, 0, 0.05), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.6)),
+    rgba(255, 255, 255, 0.56);
+  box-shadow: none;
+}
+
+.heroTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.heroCopy {
+  min-width: 0;
+}
+
+.heroTitle {
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.heroDescription {
+  max-width: 620px;
+  margin: 10px 0 0 !important;
+  color: var(--editor-text-secondary, rgba(17, 17, 17, 0.72));
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+
+  :global(.ant-btn) {
+    height: 36px;
+    border-radius: 999px;
+    border-color: rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.86);
+    box-shadow: none;
+  }
+}
+
+.heroMetrics,
+.configGrid,
+.webhookGrid {
+  display: grid;
+  gap: 14px;
+}
+
+.heroMetrics,
+.configGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.heroMetricCard,
+.webhookCard,
+.runCard {
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.64);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.heroMetricLabel,
+.fieldLabel {
+  font-size: 12px;
+  color: var(--editor-text-tertiary, rgba(17, 17, 17, 0.48));
+  margin-bottom: 6px;
+}
+
+.heroMetricValue,
+.configValue {
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.infoCard {
+  padding: 20px;
+}
+
+.sectionHeader {
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.webhookGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.codeBlock {
+  min-height: 78px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 18px;
+  background: rgba(17, 17, 17, 0.05);
+  border: 1px solid rgba(17, 17, 17, 0.05);
+  font-family: 'Consolas', 'SFMono-Regular', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.inlineAlert {
+  margin-top: 14px;
+  border-radius: 18px;
+}
+
+.runList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.runMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.runError {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  color: #8a3838;
+  background: rgba(214, 90, 90, 0.1);
+  border: 1px solid rgba(214, 90, 90, 0.12);
+}
+
+.emptyState,
+.inlineEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+}
+
+.emptyCard {
+  max-width: 520px;
+  padding: 36px;
+  text-align: center;
+
+  :global(.ant-btn) {
+    box-shadow: none;
+  }
+}
+
+.emptyDescription {
+  margin: 14px auto 24px !important;
+}
+
+.modalBody {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  max-height: min(74vh, 860px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.formHero,
+.formSection {
+  padding: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.68)),
+    rgba(255, 255, 255, 0.68);
+}
+
+.formHero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  grid-column: 1 / -1;
+}
+
+.formHeroDescription {
+  margin: 10px 0 0 !important;
+  max-width: 520px;
+}
+
+.formHeroPills {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.formHeroPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.06);
+  color: var(--editor-text-secondary, rgba(17, 17, 17, 0.72));
+  font-size: 12px;
+}
+
+.formSectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.formGrid,
+.formGridWide {
+  display: grid;
+  gap: 14px;
+}
+
+.formGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.formGridWide {
+  grid-template-columns: 1fr;
+}
+
+.formGridTwo,
+.formGridCompact,
+.formGridRetry {
+  display: grid;
+  gap: 14px;
+}
+
+.formGridTwo {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.formGridCompact {
+  grid-template-columns: 1.2fr 1fr auto;
+  align-items: end;
+}
+
+.formGridRetry {
+  grid-template-columns: 1.2fr 1fr 1fr 1fr;
+}
+
+.fieldSpanFull {
+  grid-column: 1 / -1;
+}
+
+.modeGroup {
+  :global(.ant-radio-button-wrapper) {
+    height: 40px;
+    padding-inline: 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--editor-text-secondary, rgba(17, 17, 17, 0.72));
+    line-height: 38px;
+    margin-right: 8px;
+  }
+
+  :global(.ant-radio-button-wrapper-checked) {
+    background: #111111 !important;
+    color: #ffffff !important;
+    box-shadow: none;
+  }
+
+  :global(.ant-radio-button-wrapper::before) {
+    display: none;
+  }
+}
+
+.jsonEditor {
+  font-family: 'Consolas', 'SFMono-Regular', monospace;
+}
+
+.automationModal {
+  :global(.ant-modal-content) {
+    border-radius: 28px;
+    padding: 20px;
+    background:
+      linear-gradient(180deg, rgba(246, 244, 239, 0.98), rgba(255, 255, 255, 0.92)),
+      #f7f5f1;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.12);
+  }
+
+  :global(.ant-modal-header) {
+    margin-bottom: 18px;
+    background: transparent;
+  }
+
+  :global(.ant-modal-title) {
+    font-size: 22px;
+    font-weight: 600;
+  }
+
+  :global(.ant-modal-footer) {
+    margin-top: 22px;
+  }
+
+  :global(.ant-form-item) {
+    margin-bottom: 0;
+  }
+
+  :global(.ant-form-item-label > label) {
+    color: var(--editor-text-secondary, rgba(17, 17, 17, 0.72));
+    font-weight: 600;
+  }
+
+  :global(.ant-input),
+  :global(.ant-input-number),
+  :global(.ant-input-number-input),
+  :global(.ant-select-selector),
+  :global(.ant-input-affix-wrapper),
+  :global(.ant-input-textarea textarea) {
+    border-radius: 18px !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    background: rgba(255, 255, 255, 0.84) !important;
+    box-shadow: none !important;
+  }
+
+  :global(.ant-input),
+  :global(.ant-input-number),
+  :global(.ant-select-selector),
+  :global(.ant-input-affix-wrapper) {
+    min-height: 42px;
+  }
+
+  :global(.ant-switch) {
+    background: rgba(17, 17, 17, 0.18);
+  }
+
+  :global(.ant-switch-checked) {
+    background: #111111 !important;
+  }
+
+  :global(.ant-btn) {
+    height: 40px;
+    border-radius: 999px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .modalBody,
+  .formGridTwo,
+  .formGrid,
+  .formGridCompact,
+  .formGridRetry,
+  .heroMetrics,
+  .configGrid,
+  .webhookGrid,
+  .runMetaGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .panelHeader,
+  .panelContent {
+    padding: 16px;
+  }
+
+  .heroTop,
+  .formHero,
+  .formSectionHeader,
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .headerActions,
+  .heroActions,
+  .formHeroPills {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .metricRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+[data-theme='dark'] {
+  .panelContainer {
+    background: transparent;
+  }
+
+  .panelHeader,
+  .overviewCard,
+  .detailHero,
+  .infoCard,
+  .configCard,
+  .emptyCard,
+  .formHero,
+  .formSection {
+    background: rgba(255, 255, 255, 0.025);
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: none;
+  }
+
+  .scheduleCard,
+  .heroMetricCard,
+  .webhookCard,
+  .runCard,
+  .metricChip,
+  .codeBlock {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+  }
+
+  .panelHeader,
+  .detailHero {
+    background-image: none;
+  }
+
+  .statusMuted,
+  .formHeroPill {
+    color: rgba(255, 255, 255, 0.68);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .headerIcon,
+  .headerTitle,
+  .scheduleName,
+  .configValue,
+  .runMetaValue,
+  .listTitle,
+  .sectionTitle,
+  .formSectionTitle,
+  .heroMetricValue,
+  .heroTitle {
+    color: #f2f2f2;
+  }
+
+  .headerDescription,
+  .metricLabel,
+  .listSubtitle,
+  .sectionHint,
+  .configHint,
+  .heroMetricHint,
+  .emptyDescription,
+  .formSectionHint,
+  .formHeroDescription,
+  .fieldHint,
+  .scheduleMeta,
+  .scheduleHint,
+  .runTime,
+  .runDuration {
+    color: rgba(255, 255, 255, 0.68);
+  }
+
+  .headerActions {
+    :global(.ant-btn) {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    :global(.ant-btn-primary) {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+  }
+
+  .heroActions {
+    :global(.ant-btn) {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.9);
+    }
+  }
+
+  .overviewCard,
+  .emptyCard,
+  .webhookCard {
+    :global(.ant-btn) {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    :global(.ant-btn-primary) {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  .scheduleCardActive {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .automationModal {
+    :global(.ant-modal-content) {
+      background: #171717;
+      box-shadow: 0 22px 54px rgba(0, 0, 0, 0.32);
+    }
+
+    :global(.ant-input),
+    :global(.ant-input-number),
+    :global(.ant-select-selector),
+    :global(.ant-input-affix-wrapper),
+    :global(.ant-input-textarea textarea) {
+      background: rgba(255, 255, 255, 0.06) !important;
+      border-color: rgba(255, 255, 255, 0.08) !important;
+      color: #f2f2f2 !important;
+    }
+
+    :global(.ant-modal-title),
+    :global(.ant-form-item-label > label) {
+      color: #f2f2f2;
+    }
+
+    :global(.ant-btn) {
+      box-shadow: none;
+    }
+  }
+}

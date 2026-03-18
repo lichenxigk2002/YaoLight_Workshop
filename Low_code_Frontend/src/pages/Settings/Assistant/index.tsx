@@ -1,61 +1,86 @@
-import { Button, Segmented } from 'antd'
-import { useAssistantUIStore } from '@/store/assistantUi'
-import styles from './index.module.scss'
+import { Button, Segmented } from 'antd';
+import { useTranslation } from 'react-i18next';
+import SettingsPageTitle from '@/components/SettingsPageTitle';
+import { useAssistantUIStore } from '@/store/assistantUi';
+import styles from './index.module.scss';
 
 export default function AssistantSettings() {
-  const { density, accent, reduceMotion, setDensity, setAccent, setReduceMotion, reset } = useAssistantUIStore()
+  const { i18n } = useTranslation();
+  const { density, accent, reduceMotion, setDensity, setAccent, setReduceMotion, reset } = useAssistantUIStore();
+  const isZh = i18n.language === 'zh-CN';
 
   return (
     <div className={styles.container}>
-      <div className={styles.title}>瑶光星AI助手 · 外观与交互</div>
+      <SettingsPageTitle
+        title={isZh ? '瑶光 AI 助手' : 'YaoLight AI Assistant'}
+        desc={
+          isZh
+            ? '调整助手界面的密度、强调方式和动效节奏，让它更贴合你的使用习惯。'
+            : 'Adjust density, emphasis, and motion so the assistant feels calmer and more natural to use.'
+        }
+      />
 
       <div className={styles.grid}>
         <div className={styles.card}>
-          <div className={styles.label}>信息密度</div>
-          <div className={styles.desc}>影响会话列表行高、消息间距与输入区紧凑度。</div>
+          <div className={styles.label}>{isZh ? '信息密度' : 'Density'}</div>
+          <div className={styles.desc}>
+            {isZh
+              ? '影响会话列表、消息区和输入区的疏密程度。'
+              : 'Controls how spacious the conversation list, messages, and composer feel.'}
+          </div>
           <Segmented
+            block
             value={density}
-            onChange={(v) => setDensity(v as any)}
+            onChange={(value) => setDensity(value as 'comfortable' | 'compact')}
             options={[
-              { label: '舒适', value: 'comfortable' },
-              { label: '紧凑', value: 'compact' },
+              { label: isZh ? '舒适' : 'Comfortable', value: 'comfortable' },
+              { label: isZh ? '紧凑' : 'Compact', value: 'compact' },
             ]}
           />
         </div>
 
         <div className={styles.card}>
-          <div className={styles.label}>强调色</div>
-          <div className={styles.desc}>仅用于关键交互点缀（焦点、徽标、选中态）。</div>
+          <div className={styles.label}>{isZh ? '强调色' : 'Accent'}</div>
+          <div className={styles.desc}>
+            {isZh
+              ? '只在焦点、选中和少量关键交互里保留强调。'
+              : 'Keeps emphasis limited to focus, selection, and a few important interactions.'}
+          </div>
           <Segmented
+            block
             value={accent ? 'on' : 'off'}
-            onChange={(v) => setAccent(v === 'on')}
+            onChange={(value) => setAccent(value === 'on')}
             options={[
-              { label: '开启', value: 'on' },
-              { label: '关闭', value: 'off' },
+              { label: isZh ? '开启' : 'On', value: 'on' },
+              { label: isZh ? '关闭' : 'Off', value: 'off' },
             ]}
           />
         </div>
 
         <div className={styles.card}>
-          <div className={styles.label}>减少动效</div>
-          <div className={styles.desc}>关闭平滑滚动与位移动画，保留必要渐变。</div>
+          <div className={styles.label}>{isZh ? '减少动效' : 'Reduce motion'}</div>
+          <div className={styles.desc}>
+            {isZh
+              ? '减少平滑滚动和位移动画，只保留必要反馈。'
+              : 'Reduces scrolling and movement animation while keeping essential feedback.'}
+          </div>
           <Segmented
+            block
             value={reduceMotion ? 'on' : 'off'}
-            onChange={(v) => setReduceMotion(v === 'on')}
+            onChange={(value) => setReduceMotion(value === 'on')}
             options={[
-              { label: '开启', value: 'on' },
-              { label: '关闭', value: 'off' },
+              { label: isZh ? '开启' : 'On', value: 'on' },
+              { label: isZh ? '关闭' : 'Off', value: 'off' },
             ]}
           />
         </div>
       </div>
 
       <div className={styles.footer}>
-        <Button danger onClick={reset}>
-          恢复默认
+        <Button danger className={styles.resetButton} onClick={reset}>
+          {isZh ? '恢复默认' : 'Reset to default'}
         </Button>
       </div>
     </div>
-  )
+  );
 }
-

@@ -27,6 +27,7 @@ import { EyeOutlined, MoreOutlined } from '@ant-design/icons';
 import ReactFlow, { Background, BackgroundVariant, Edge, MiniMap, Node } from 'reactflow';
 import 'reactflow/dist/style.css';
 import PageHero from '@/components/PageHero';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
 import { formatDateTime } from '@/i18n/runtime';
 import {
@@ -285,6 +286,8 @@ export default function WorkflowTemplatesPage() {
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
   const { locale, t } = useI18n();
+  const { canEdit: canEditTemplate } = useAdminPermission('workflow_templates');
+  const { canEdit: canEditCanvas } = useAdminPermission('workflow_templates.canvas');
   const [form] = Form.useForm<TemplateFormValues>();
 
   const [summary, setSummary] = useState<WorkflowTemplateSummary | null>(null);
@@ -428,6 +431,9 @@ export default function WorkflowTemplatesPage() {
   }
 
   function openCreateDrawer() {
+    if (!canEditTemplate) {
+      return;
+    }
     setEditingId(null);
     setDetail(null);
     form.setFieldsValue(DEFAULT_FORM_VALUES);
@@ -436,6 +442,9 @@ export default function WorkflowTemplatesPage() {
   }
 
   async function openEditDrawer(record: WorkflowTemplateListItem) {
+    if (!canEditTemplate) {
+      return;
+    }
     setDrawerOpen(true);
     setEditingId(record.id);
     setDetail(null);
@@ -450,6 +459,9 @@ export default function WorkflowTemplatesPage() {
   }
 
   async function handleSave() {
+    if (!canEditTemplate) {
+      return;
+    }
     try {
       const values = await form.validateFields();
       const payload = toPayload(values);
@@ -485,6 +497,9 @@ export default function WorkflowTemplatesPage() {
   }
 
   async function handleDelete(record: WorkflowTemplateListItem) {
+    if (!canEditTemplate) {
+      return;
+    }
     try {
       await deleteWorkflowTemplate(record.id);
       message.success(t('workflowTemplates.deleteSuccess'));
@@ -495,6 +510,9 @@ export default function WorkflowTemplatesPage() {
   }
 
   async function handleSync(record: WorkflowTemplateListItem) {
+    if (!canEditCanvas) {
+      return;
+    }
     setSyncingId(record.id);
     try {
       const updated = await syncWorkflowTemplate(record.id);
@@ -511,6 +529,9 @@ export default function WorkflowTemplatesPage() {
   }
 
   async function handlePublish(record: WorkflowTemplateListItem) {
+    if (!canEditTemplate) {
+      return;
+    }
     setPublishingId(record.id);
     try {
       const updated = await updateWorkflowTemplate(record.id, buildListItemPayload(record, 'published'));
@@ -532,6 +553,9 @@ export default function WorkflowTemplatesPage() {
   }
 
   async function handleCreateBlank() {
+    if (!canEditTemplate) {
+      return;
+    }
     try {
       const created = await createWorkflowTemplate({
         name: t('workflowTemplates.blankTemplateName'),
@@ -654,9 +678,11 @@ export default function WorkflowTemplatesPage() {
       render: (_value, record) => {
         const publishMeta = getPublishActionMeta(record, locale);
         const moreItems: MenuProps['items'] = [
-          { key: 'edit', label: t('workflowTemplates.actionEdit') },
-          { key: 'sync', label: t('workflowTemplates.actionSync'), disabled: !record.source_workflow_id },
-          { key: 'delete', label: <Text type="danger">{t('workflowTemplates.actionDelete')}</Text> },
+          ...(canEditTemplate ? [{ key: 'edit', label: t('workflowTemplates.actionEdit') }] : []),
+          ...(canEditCanvas
+            ? [{ key: 'sync', label: t('workflowTemplates.actionSync'), disabled: !record.source_workflow_id }]
+            : []),
+          ...(canEditTemplate ? [{ key: 'delete', label: <Text type="danger">{t('workflowTemplates.actionDelete')}</Text> }] : []),
         ];
 
         return (
@@ -664,53 +690,57 @@ export default function WorkflowTemplatesPage() {
             <Button type="link" onClick={() => navigate(`/workflow-templates/${record.id}/canvas`)}>
               {t('workflowTemplates.actionCanvas')}
             </Button>
-            <Popconfirm
-              title={publishMeta.title}
-              description={publishMeta.description}
-              onConfirm={() => void handlePublish(record)}
-              disabled={publishMeta.disabled}
-            >
-              <Button type="link" loading={publishingId === record.id} disabled={publishMeta.disabled}>
-                {publishMeta.label}
-              </Button>
-            </Popconfirm>
-            <Dropdown
-              trigger={['click']}
-              menu={{
-                items: moreItems,
-                onClick: ({ key }) => {
-                  if (key === 'edit') {
-                    void openEditDrawer(record);
-                    return;
-                  }
-                  if (key === 'sync') {
-                    modal.confirm({
-                      title: locale === 'en-US' ? 'Sync from the source workflow?' : '确认从源工作流同步吗？',
-                      content:
-                        locale === 'en-US'
-                          ? 'This will overwrite the current template nodes, edges, and comment cards.'
-                          : '这会覆盖当前模板的节点、连线和注释卡。',
-                      onOk: async () => {
-                        await handleSync(record);
-                      },
-                    });
-                    return;
-                  }
-                  if (key === 'delete') {
-                    modal.confirm({
-                      title: t('workflowTemplates.deleteTitle'),
-                      content: t('workflowTemplates.deleteDescription'),
-                      okButtonProps: { danger: true },
-                      onOk: async () => {
-                        await handleDelete(record);
-                      },
-                    });
-                  }
-                },
-              }}
-            >
-              <Button type="text" icon={<MoreOutlined />} />
-            </Dropdown>
+            {canEditTemplate ? (
+              <Popconfirm
+                title={publishMeta.title}
+                description={publishMeta.description}
+                onConfirm={() => void handlePublish(record)}
+                disabled={publishMeta.disabled}
+              >
+                <Button type="link" loading={publishingId === record.id} disabled={publishMeta.disabled}>
+                  {publishMeta.label}
+                </Button>
+              </Popconfirm>
+            ) : null}
+            {moreItems.length > 0 ? (
+              <Dropdown
+                trigger={['click']}
+                menu={{
+                  items: moreItems,
+                  onClick: ({ key }) => {
+                    if (key === 'edit') {
+                      void openEditDrawer(record);
+                      return;
+                    }
+                    if (key === 'sync') {
+                      modal.confirm({
+                        title: locale === 'en-US' ? 'Sync from the source workflow?' : '确认从源工作流同步吗？',
+                        content:
+                          locale === 'en-US'
+                            ? 'This will overwrite the current template nodes, edges, and comment cards.'
+                            : '这会覆盖当前模板的节点、连线和注释卡。',
+                        onOk: async () => {
+                          await handleSync(record);
+                        },
+                      });
+                      return;
+                    }
+                    if (key === 'delete') {
+                      modal.confirm({
+                        title: t('workflowTemplates.deleteTitle'),
+                        content: t('workflowTemplates.deleteDescription'),
+                        okButtonProps: { danger: true },
+                        onOk: async () => {
+                          await handleDelete(record);
+                        },
+                      });
+                    }
+                  },
+                }}
+              >
+                <Button type="text" icon={<MoreOutlined />} />
+              </Dropdown>
+            ) : null}
           </Space>
         );
       },
@@ -732,10 +762,14 @@ export default function WorkflowTemplatesPage() {
         action={
           <Space>
             <Button onClick={() => void reloadAll(page)}>{t('workflowTemplates.actionRefresh')}</Button>
-            <Button onClick={() => void handleCreateBlank()}>{t('workflowTemplates.actionCreateBlank')}</Button>
-            <Button type="primary" onClick={openCreateDrawer}>
-              {t('workflowTemplates.actionCreate')}
-            </Button>
+            {canEditTemplate ? (
+              <Button onClick={() => void handleCreateBlank()}>{t('workflowTemplates.actionCreateBlank')}</Button>
+            ) : null}
+            {canEditTemplate ? (
+              <Button type="primary" onClick={openCreateDrawer}>
+                {t('workflowTemplates.actionCreate')}
+              </Button>
+            ) : null}
           </Space>
         }
       />
@@ -902,12 +936,12 @@ export default function WorkflowTemplatesPage() {
                   })
                 }
               >
-                <Button loading={syncingId === detail.id}>
+                <Button loading={syncingId === detail.id} disabled={!canEditCanvas}>
                   {t('workflowTemplates.drawerSyncFromSource')}
                 </Button>
               </Popconfirm>
             ) : null}
-            {isEditing && detail ? (
+            {isEditing && detail && canEditTemplate ? (
               <Popconfirm
                 title={getPublishActionMeta(detail, locale).title}
                 description={
@@ -950,7 +984,7 @@ export default function WorkflowTemplatesPage() {
               </Popconfirm>
             ) : null}
             <Button onClick={closeDrawer}>{t('workflowTemplates.actionCancel')}</Button>
-            <Button type="primary" loading={saving} onClick={() => void handleSave()}>
+            <Button type="primary" loading={saving} onClick={() => void handleSave()} disabled={!canEditTemplate}>
               {t('workflowTemplates.actionSave')}
             </Button>
           </Space>
@@ -961,7 +995,7 @@ export default function WorkflowTemplatesPage() {
             {isEditing ? t('workflowTemplates.drawerEditHint') : t('workflowTemplates.drawerCreateHint')}
           </Paragraph>
 
-          <Form form={form} layout="vertical" initialValues={DEFAULT_FORM_VALUES}>
+          <Form form={form} layout="vertical" initialValues={DEFAULT_FORM_VALUES} disabled={!canEditTemplate}>
             <div className={styles.formGrid}>
               {!isEditing ? (
                 <Form.Item

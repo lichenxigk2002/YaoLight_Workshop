@@ -2,11 +2,12 @@ package entity
 
 import "time"
 
-// Workflow 工作流领域实体（纯业务对象，不依赖 GORM）
+// Workflow 工作流领域实体
 type Workflow struct {
 	ID          uint
 	UserID      uint
 	ProjectID   *uint
+	TemplateID  *uint
 	Name        string
 	Description *string
 	Status      string

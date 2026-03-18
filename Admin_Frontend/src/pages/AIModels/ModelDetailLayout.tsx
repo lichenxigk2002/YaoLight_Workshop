@@ -3,6 +3,7 @@ import { App, Button, Card, Empty, Popconfirm, Space, Tabs } from 'antd';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
 import { deleteAIModel, getAIModel } from '@/api/aiModels';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
 import type { AIAdminModel } from '@/types/aiModels';
 import { getAIModelStatusLabel, getAIProviderLabel } from './i18n';
@@ -11,6 +12,7 @@ import styles from './AIModels.module.scss';
 export interface ModelDetailOutletContext {
   model: AIAdminModel;
   isDraft: boolean;
+  canEdit: boolean;
   setModel: (model: AIAdminModel) => void;
 }
 
@@ -30,6 +32,7 @@ export default function ModelDetailLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useI18n();
+  const { canEdit } = useAdminPermission('ai_models.models');
   const [model, setModel] = useState<AIAdminModel | null | undefined>(undefined);
   const [deleting, setDeleting] = useState(false);
 
@@ -94,18 +97,20 @@ export default function ModelDetailLayout() {
             <Button onClick={() => navigate(`/ai-models/usage?modelId=${model.id}`)}>
               {t('aiModels.detailActionUsage')}
             </Button>
-            <Popconfirm
-              title={t('aiModels.deleteConfirmTitle')}
-              description={t('aiModels.deleteConfirmDescription')}
-              okText={t('aiModels.actionDelete')}
-              cancelText={t('aiModels.actionCancel')}
-              okButtonProps={{ danger: true, loading: deleting }}
-              onConfirm={() => void handleDelete()}
-            >
-              <Button danger loading={deleting}>
-                {t('aiModels.actionDelete')}
-              </Button>
-            </Popconfirm>
+            {canEdit ? (
+              <Popconfirm
+                title={t('aiModels.deleteConfirmTitle')}
+                description={t('aiModels.deleteConfirmDescription')}
+                okText={t('aiModels.actionDelete')}
+                cancelText={t('aiModels.actionCancel')}
+                okButtonProps={{ danger: true, loading: deleting }}
+                onConfirm={() => void handleDelete()}
+              >
+                <Button danger loading={deleting}>
+                  {t('aiModels.actionDelete')}
+                </Button>
+              </Popconfirm>
+            ) : null}
           </Space>
         }
       />
@@ -122,7 +127,7 @@ export default function ModelDetailLayout() {
         />
       </Card>
 
-      <Outlet context={{ model, isDraft: model.id.startsWith('draft-'), setModel }} />
+      <Outlet context={{ model, isDraft: model.id.startsWith('draft-'), canEdit, setModel }} />
     </div>
   );
 }

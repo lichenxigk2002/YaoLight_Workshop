@@ -605,7 +605,7 @@ export default function ProfileInfo() {
         ))}
       </div>
 
-      <div className={styles.detailCard} style={{ marginTop: 24 }}>
+      <div className={styles.detailCard} style={{ marginTop: 16 }}>
         <div className={styles.detailRow}>
           <span className={styles.detailLabel}>
             <span className={styles.detailIcon}><LockOutlined /></span>
@@ -644,8 +644,8 @@ export default function ProfileInfo() {
         </div>
       </div>
 
-      <div className={styles.detailCard} style={{ marginTop: 24 }}>
-        <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 8, marginBottom: 4 }}>
+      <div className={styles.detailCard} style={{ marginTop: 16 }}>
+        <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 6, marginBottom: 2 }}>
           <span className={styles.detailLabel} style={{ fontWeight: 600 }}>
             <span className={styles.detailIcon}><LinkOutlined /></span>
             {t('profile.oauthBindings')}
@@ -687,8 +687,8 @@ export default function ProfileInfo() {
         </div>
       </div>
 
-      <div className={styles.detailCard} style={{ marginTop: 24 }}>
-        <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 8, marginBottom: 4 }}>
+      <div className={styles.detailCard} style={{ marginTop: 16 }}>
+        <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 6, marginBottom: 2 }}>
           <span className={styles.detailLabel} style={{ fontWeight: 600 }}>
             <span className={styles.detailIcon}><ExclamationCircleOutlined /></span>
             {t('profile.deactivateAccount')}

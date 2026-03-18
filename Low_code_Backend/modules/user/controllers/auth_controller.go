@@ -119,7 +119,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.authService.Login(&req)
+	response, err := c.authService.Login(&req, ctx.ClientIP())
 	if err != nil {
 		statusCode := http.StatusUnauthorized
 		code := 401
@@ -772,7 +772,7 @@ func (c *AuthController) EmailLogin(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.authService.EmailLogin(&req)
+	response, err := c.authService.EmailLogin(&req, ctx.ClientIP())
 	if err != nil {
 		statusCode := http.StatusUnauthorized
 		code := 401
@@ -858,7 +858,7 @@ func (c *AuthController) EmailRegister(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.authService.EmailRegister(&req)
+	response, err := c.authService.EmailRegister(&req, ctx.ClientIP())
 	if err != nil {
 		statusCode := http.StatusBadRequest
 		code := 400

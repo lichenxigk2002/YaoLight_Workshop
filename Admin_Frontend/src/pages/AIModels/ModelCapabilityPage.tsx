@@ -17,7 +17,7 @@ type CapabilityFormValues = AIModelCapabilityConfig & {
 export default function ModelCapabilityPage() {
   const { message } = App.useApp();
   const { t } = useI18n();
-  const { model } = useOutletContext<ModelDetailOutletContext>();
+  const { model, canEdit } = useOutletContext<ModelDetailOutletContext>();
   const [form] = Form.useForm<CapabilityFormValues>();
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function ModelCapabilityPage() {
       <Card bordered={false} className={styles.card}>
         <Paragraph className={styles.muted}>{t('aiModels.capabilityIntro')}</Paragraph>
 
-        <Form form={form} layout="vertical" onFinish={handleSave}>
+        <Form form={form} layout="vertical" onFinish={handleSave} disabled={!canEdit}>
           <div className={styles.formGrid}>
             <Form.Item label={t('aiModels.capabilityMaxTokens')} name="max_tokens_limit">
               <InputNumber min={0} style={{ width: '100%' }} />
@@ -130,7 +130,7 @@ export default function ModelCapabilityPage() {
             <Input.TextArea rows={8} placeholder={t('aiModels.capabilityOptionsPlaceholder')} />
           </Form.Item>
 
-          <Button htmlType="submit" type="primary">
+          <Button htmlType="submit" type="primary" disabled={!canEdit}>
             {t('aiModels.capabilitySubmit')}
           </Button>
         </Form>

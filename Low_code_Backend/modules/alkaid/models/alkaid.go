@@ -7,7 +7,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/shared"
 )
 
-// 注：Agentic 相关字段 CurrentPhase/ToolStepsJSON/PendingWorkflowJSON/PendingPatchJSON 需迁移 010 增加列
+// 注：Agentic 相关字段 CurrentPhase/ToolStepsJSON/PlanStepsJSON/PendingWorkflowJSON/PendingPatchJSON 需迁移增加列
 
 // AlkaidSession 瑶光星对话会话
 type AlkaidSession struct {
@@ -20,6 +20,7 @@ type AlkaidSession struct {
 	// Agentic 增强：当前阶段、工具步、待确认工作流/补丁（仅新流使用，旧流为空）
 	CurrentPhase        string       `gorm:"type:varchar(32);default:''" json:"currentPhase,omitempty"`
 	ToolStepsJSON       shared.JSONB `gorm:"type:jsonb" json:"toolSteps,omitempty"`       // []AgentToolStep，最近 N 条
+	PlanStepsJSON       shared.JSONB `gorm:"type:jsonb" json:"planSteps,omitempty"`       // []AgentPlanStep，最近 N 条
 	PendingWorkflowJSON shared.JSONB `gorm:"type:jsonb" json:"pendingWorkflow,omitempty"` // WorkflowExportData
 	PendingPatchJSON    shared.JSONB `gorm:"type:jsonb" json:"pendingPatch,omitempty"`    // []PatchItem
 

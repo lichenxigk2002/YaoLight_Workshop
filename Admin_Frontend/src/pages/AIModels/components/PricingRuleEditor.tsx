@@ -24,6 +24,7 @@ const { Paragraph, Title } = Typography;
 interface PricingRuleEditorProps {
   initialRule: AIModelPricingRule;
   onSubmit: (rule: AIModelPricingRule) => Promise<void>;
+  disabled?: boolean;
 }
 
 interface PricingRuleFormValues {
@@ -83,7 +84,7 @@ function buildFormValues(rule: AIModelPricingRule): PricingRuleFormValues {
   };
 }
 
-export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRuleEditorProps) {
+export default function PricingRuleEditor({ initialRule, onSubmit, disabled = false }: PricingRuleEditorProps) {
   const { message } = App.useApp();
   const { t } = useI18n();
   const [form] = Form.useForm<PricingRuleFormValues>();
@@ -127,7 +128,7 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
           description={t('aiModels.editorAlertDescription')}
         />
 
-        <Form form={form} layout="vertical" onFinish={handleFinish} onValuesChange={handleValuesChange}>
+        <Form form={form} layout="vertical" onFinish={handleFinish} onValuesChange={handleValuesChange} disabled={disabled}>
           <div className={styles.formGrid}>
             <Form.Item label={t('aiModels.editorTypeLabel')} name="pricing_type" rules={[{ required: true }]}>
               <Select options={getAIPricingTypeOptions(t)} />
@@ -235,7 +236,7 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
                         title={t('aiModels.editorSegmentTitle', { index: index + 1 })}
                         extra={
                           fields.length > 1 ? (
-                            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
+                            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} disabled={disabled} />
                           ) : null
                         }
                       >
@@ -271,7 +272,7 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
                         </div>
                       </Card>
                     ))}
-                    <Button icon={<PlusOutlined />} onClick={() => add({ context_length_limit: null })}>
+                    <Button icon={<PlusOutlined />} onClick={() => add({ context_length_limit: null })} disabled={disabled}>
                       {t('aiModels.editorAddSegment')}
                     </Button>
                   </Space>
@@ -296,7 +297,7 @@ export default function PricingRuleEditor({ initialRule, onSubmit }: PricingRule
             </Card>
           ) : null}
 
-          <Button htmlType="submit" type="primary" style={{ marginTop: 16 }}>
+          <Button htmlType="submit" type="primary" style={{ marginTop: 16 }} disabled={disabled}>
             {t('aiModels.editorSubmit')}
           </Button>
         </Form>

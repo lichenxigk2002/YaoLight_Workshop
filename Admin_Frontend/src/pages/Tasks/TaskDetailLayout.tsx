@@ -3,6 +3,7 @@ import { App, Button, Card, Empty, Popconfirm, Space, Tabs } from 'antd';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
 import { cancelAdminTask, getAdminTaskDetail, retryAdminTask } from '@/api/tasks';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import type { AdminTaskDetail } from '@/types/tasks';
 import styles from './Tasks.module.scss';
 
@@ -31,6 +32,7 @@ function canRetry(status: string) {
 
 export default function TaskDetailLayout() {
   const { message } = App.useApp();
+  const { canEdit } = useAdminPermission('tasks.detail');
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,7 +65,7 @@ export default function TaskDetailLayout() {
 
   const actions = (
     <Space wrap>
-      {canRetry(detail.task.status) ? (
+      {canEdit && canRetry(detail.task.status) ? (
         <Popconfirm
           title="确认重试这个任务？"
           okText="重试"
@@ -83,7 +85,7 @@ export default function TaskDetailLayout() {
           <Button loading={retryLoading}>重试任务</Button>
         </Popconfirm>
       ) : null}
-      {canCancel(detail.task.status) ? (
+      {canEdit && canCancel(detail.task.status) ? (
         <Popconfirm
           title="确认取消这个任务？"
           okText="取消任务"

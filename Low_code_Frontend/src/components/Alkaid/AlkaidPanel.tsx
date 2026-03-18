@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Avatar, Button, Card, Empty, Input, List, Modal, Segmented, Space, Spin, Typography, message } from 'antd'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Avatar, Button, Card, Empty, Input, List, Modal, Segmented, Space, Spin, message } from 'antd'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/store/auth'
 import { alkaidApi } from '@/api'
@@ -7,7 +7,7 @@ import { AlkaidIcon } from '@/components/Icons'
 import { MarkdownRenderer } from '@/components/WorkflowEditor/utils/MarkdownRenderer'
 import ProcessLoader, { ProcessStep } from './ProcessLoader'
 import { AlkaidPendingPatch, AlkaidPendingWorkflow, AlkaidProgress } from './components'
-import type { Phase, AgentToolStep, PatchItem } from './types'
+import type { Phase, AgentPlanStep, AgentToolStep, PatchItem, PendingPatchSummary } from './types'
 import { extractWorkflowJSON, hasWorkflowJSONBlock, parseWorkflowJSON, stripWorkflowJSONFromText } from './utils'
 import { useAssistantUIStore } from '@/store/assistantUi'
 import {
@@ -28,7 +28,6 @@ import {
 import styles from './AlkaidAssistant.module.scss'
 
 const { TextArea } = Input
-const { Text } = Typography
 
 interface MessageItem {
   id: string
@@ -42,6 +41,48 @@ interface SessionItem {
   title: string
   createdAt: string
   updatedAt: string
+}
+
+function summarizePatchList(patchList: PatchItem[]): PendingPatchSummary {
+  const addedNodeIds = new Set<string>()
+  const removedNodeIds = new Set<string>()
+  const updatedNodeIds = new Set<string>()
+  let edgesChanged = false
+
+  for (const patch of patchList || []) {
+    if (patch.op === 'add' && patch.node && typeof patch.node === 'object') {
+      const nodeId = (patch.node as { id?: string }).id
+      if (nodeId) addedNodeIds.add(nodeId)
+    } else if (patch.op === 'remove' && patch.nodeId) {
+      removedNodeIds.add(patch.nodeId)
+    } else if (patch.op === 'set' && patch.nodeId) {
+      updatedNodeIds.add(patch.nodeId)
+    } else if (patch.op === 'set_edges') {
+      edgesChanged = true
+    }
+  }
+
+  return {
+    addedNodeIds: [...addedNodeIds],
+    removedNodeIds: [...removedNodeIds],
+    updatedNodeIds: [...updatedNodeIds],
+    edgesChanged,
+  }
+}
+
+function summarizePendingWorkflow(workflow: any): { nodeCount: number; edgeCount: number } | null {
+  const pendingWorkflow = workflow?.data ?? workflow
+  if (!pendingWorkflow || typeof pendingWorkflow !== 'object') return null
+
+  const nodes = Array.isArray((pendingWorkflow as { nodes?: unknown[] }).nodes)
+    ? (pendingWorkflow as { nodes: unknown[] }).nodes
+    : []
+  const edges = Array.isArray((pendingWorkflow as { edges?: unknown[] }).edges)
+    ? (pendingWorkflow as { edges: unknown[] }).edges
+    : []
+
+  if (nodes.length === 0 && edges.length === 0) return null
+  return { nodeCount: nodes.length, edgeCount: edges.length }
 }
 
 export type AlkaidPanelView = 'chat' | 'conversations' | 'settings'
@@ -115,6 +156,7 @@ export default function AlkaidPanel({
   const [processSteps, setProcessSteps] = useState<ProcessStep[]>([])
   const [cancelStream, setCancelStream] = useState<(() => void) | null>(null)
   const [currentLoadingMessageId, setCurrentLoadingMessageId] = useState<string | null>(null)
+  const [progressDockCollapsed, setProgressDockCollapsed] = useState(false)
   const needsWorkflowRef = useRef<boolean | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<any>(null)
@@ -123,9 +165,11 @@ export default function AlkaidPanel({
   const isSendingMessage = useRef(false)
 
   const [agenticPhase, setAgenticPhase] = useState<Phase>('idle')
+  const [agenticPlanSteps, setAgenticPlanSteps] = useState<AgentPlanStep[]>([])
   const [agenticToolSteps, setAgenticToolSteps] = useState<AgentToolStep[]>([])
   const [agenticPendingSummary, setAgenticPendingSummary] = useState<{ nodeCount: number; edgeCount: number } | null>(null)
   const [agenticPendingPatchCount, setAgenticPendingPatchCount] = useState<number | null>(null)
+  const [agenticPendingPatchSummary, setAgenticPendingPatchSummary] = useState<PendingPatchSummary | null>(null)
   const [applyLoading, setApplyLoading] = useState(false)
   const [applyPatchLoading, setApplyPatchLoading] = useState(false)
 
@@ -135,6 +179,13 @@ export default function AlkaidPanel({
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' })
+  }
+
+  const extractPendingPatchList = (session: any): PatchItem[] => {
+    const pendingPatch = session?.pendingPatch
+    if (pendingPatch && Array.isArray(pendingPatch)) return pendingPatch
+    if (pendingPatch && pendingPatch.data && Array.isArray(pendingPatch.data)) return pendingPatch.data
+    return []
   }
 
   useEffect(() => {
@@ -161,12 +212,16 @@ export default function AlkaidPanel({
     if (isSendingMessage.current) return
     if (sessionId) {
       loadMessages(sessionId)
+      setAgenticPlanSteps([])
       setAgenticPendingSummary(null)
       setAgenticPendingPatchCount(null)
+      setAgenticPendingPatchSummary(null)
     } else {
       setMessages([])
+      setAgenticPlanSteps([])
       setAgenticPendingSummary(null)
       setAgenticPendingPatchCount(null)
+      setAgenticPendingPatchSummary(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
@@ -199,8 +254,12 @@ export default function AlkaidPanel({
 
   const loadMessages = async (sid: number) => {
     try {
-      const response = await alkaidApi.getMessages(sid)
+      const [response, session] = await Promise.all([
+        alkaidApi.getMessages(sid),
+        alkaidApi.getSession(sid),
+      ])
       const msgs = response.messages || []
+      const planSteps = response.planSteps || []
       const toolSteps = response.toolSteps || []
       const formatted: MessageItem[] = msgs.map((msg: any) => ({
         id: msg.id.toString(),
@@ -209,7 +268,18 @@ export default function AlkaidPanel({
         timestamp: new Date(msg.createdAt),
       }))
       setMessages(formatted)
+      setAgenticPhase((session.currentPhase as Phase) || 'idle')
+      setAgenticPlanSteps(planSteps)
       setAgenticToolSteps(toolSteps)
+      setAgenticPendingSummary(summarizePendingWorkflow(session?.pendingWorkflow))
+      const patchList = extractPendingPatchList(session)
+      if (patchList.length > 0) {
+        setAgenticPendingPatchCount(patchList.length)
+        setAgenticPendingPatchSummary(summarizePatchList(patchList))
+      } else {
+        setAgenticPendingPatchCount(null)
+        setAgenticPendingPatchSummary(null)
+      }
     } catch (e) {
       console.error('Load messages error:', e)
     }
@@ -272,9 +342,11 @@ export default function AlkaidPanel({
     setSessionId(null)
     setMessages([])
     if (variant === 'floating') setShowSessionList(false)
+    setAgenticPlanSteps([])
     setAgenticToolSteps([])
     setAgenticPendingSummary(null)
     setAgenticPendingPatchCount(null)
+    setAgenticPendingPatchSummary(null)
   }
 
   const updateProcessStep = (stepId: string, status: 'loading' | 'completed') => {
@@ -303,7 +375,11 @@ export default function AlkaidPanel({
     accumulatedContentRef.current = ''
     if (useAgentic) {
       setAgenticPhase('idle')
+      setAgenticPlanSteps([])
+      setAgenticToolSteps([])
       setAgenticPendingSummary(null)
+      setAgenticPendingPatchCount(null)
+      setAgenticPendingPatchSummary(null)
     } else {
       setProcessSteps([])
       needsWorkflowRef.current = null
@@ -318,7 +394,11 @@ export default function AlkaidPanel({
       setLoading(false)
       setCurrentLoadingMessageId(null)
       setAgenticPhase('idle')
+      setAgenticPlanSteps([])
+      setAgenticToolSteps([])
       setAgenticPendingSummary(null)
+      setAgenticPendingPatchCount(null)
+      setAgenticPendingPatchSummary(null)
     } else if (loading && !useAgentic) {
       return
     }
@@ -339,8 +419,11 @@ export default function AlkaidPanel({
     needsWorkflowRef.current = null
     setProcessSteps([])
     if (useAgentic) {
+      setAgenticPlanSteps([])
+      setAgenticToolSteps([])
       setAgenticPendingSummary(null)
       setAgenticPendingPatchCount(null)
+      setAgenticPendingPatchSummary(null)
       setAgenticPhase('planning')
     }
 
@@ -358,7 +441,7 @@ export default function AlkaidPanel({
       setMessages((prev) => [...prev, { id: assistantMsgId, role: 'assistant', content: '', timestamp: new Date() }])
 
       if (useAgentic) {
-        let context: any = {}
+        const context: any = {}
         if (getCurrentWorkflow) {
           try {
             const workflowData = await getCurrentWorkflow()
@@ -382,11 +465,94 @@ export default function AlkaidPanel({
               )
             },
             onPhaseChanged: (phase) => setAgenticPhase(phase as Phase),
+            onPlanCreated: (data: any) => {
+              setAgenticPlanSteps(Array.isArray(data?.steps) ? data.steps : [])
+            },
+            onPlanStepStarted: (data: any) => {
+              setAgenticPlanSteps((prev) => {
+                const next = [...prev]
+                const idx = next.findIndex((s) => s.planStepId === data.planStepId)
+                const step: AgentPlanStep = {
+                  planStepId: data.planStepId,
+                  userMessageId: data.userMessageId ?? 0,
+                  userMessageContent: data.userMessageContent,
+                  phase: (data.phase as Phase) || 'planning',
+                  source: data.source,
+                  title: data.title,
+                  reason: data.reason,
+                  expectedOutput: data.expectedOutput,
+                  toolHints: data.toolHints,
+                  status: data.status || 'running',
+                  startedAt: data.at || new Date().toISOString(),
+                  resultSummary: data.resultSummary,
+                  errorMessage: data.errorMessage,
+                }
+                if (idx === -1) next.push(step)
+                else next[idx] = { ...next[idx], ...step }
+                return next
+              })
+            },
+            onPlanStepUpdated: (data: any) => {
+              setAgenticPlanSteps((prev) => {
+                const idx = prev.findIndex((s) => s.planStepId === data.planStepId)
+                if (idx === -1) {
+                  return [
+                    ...prev,
+                    {
+                      planStepId: data.planStepId,
+                      userMessageId: data.userMessageId ?? 0,
+                      userMessageContent: data.userMessageContent,
+                      phase: (data.phase as Phase) || 'planning',
+                      source: data.source,
+                      title: data.title || t('workflowEditor.alkaid.progressGenerating', '生成工作流'),
+                      reason: data.reason || '',
+                      expectedOutput: data.expectedOutput,
+                      toolHints: data.toolHints,
+                      status: data.status || 'running',
+                      startedAt: data.at || new Date().toISOString(),
+                      resultSummary: data.resultSummary,
+                      errorMessage: data.errorMessage,
+                    },
+                  ]
+                }
+
+                const next = [...prev]
+                next[idx] = {
+                  ...next[idx],
+                  phase: (data.phase as Phase) || next[idx].phase,
+                  source: data.source ?? next[idx].source,
+                  title: data.title || next[idx].title,
+                  reason: data.reason || next[idx].reason,
+                  expectedOutput: data.expectedOutput ?? next[idx].expectedOutput,
+                  toolHints: data.toolHints ?? next[idx].toolHints,
+                  status: data.status || next[idx].status,
+                  resultSummary: data.resultSummary ?? next[idx].resultSummary,
+                  errorMessage: data.errorMessage ?? next[idx].errorMessage,
+                }
+                return next
+              })
+            },
+            onPlanStepFinished: (data: any) => {
+              setAgenticPlanSteps((prev) =>
+                prev.map((s) =>
+                  s.planStepId === data.planStepId
+                    ? {
+                        ...s,
+                        status: data.status || s.status,
+                        finishedAt: data.at || new Date().toISOString(),
+                        resultSummary: data.resultSummary,
+                        errorMessage: data.errorMessage,
+                      }
+                    : s,
+                ),
+              )
+            },
             onToolStepStarted: (data: any) => {
               setAgenticToolSteps((prev) => [
                 ...prev,
                 {
                   stepId: data.stepId,
+                  planStepId: data.planStepId,
                   userMessageId: data.userMessageId ?? 0,
                   userMessageContent: data.userMessageContent,
                   phase: (data.phase as Phase) || 'planning',
@@ -413,7 +579,10 @@ export default function AlkaidPanel({
               )
             },
             onPendingWorkflow: (data: any) => setAgenticPendingSummary(data.summary ?? null),
-            onPendingPatch: (data: any) => setAgenticPendingPatchCount(data.patchCount ?? 0),
+            onPendingPatch: (data: any) => {
+              setAgenticPendingPatchCount(data.patchCount ?? 0)
+              setAgenticPendingPatchSummary(data.summary ?? null)
+            },
             onDone: () => {
               setLoading(false)
               setCancelStream(null)
@@ -641,12 +810,14 @@ export default function AlkaidPanel({
             try {
               await alkaidApi.discardPending(sessionId, 'patch')
               setAgenticPendingPatchCount(null)
+              setAgenticPendingPatchSummary(null)
             } catch (err) {
               console.error('Failed to discard pending patch:', err)
             }
           })
           message.success(t('alkaid.patchPreview', '已进入补丁预览模式') || '已进入补丁预览模式')
           setAgenticPendingPatchCount(null)
+          setAgenticPendingPatchSummary(null)
           previewHandled = true
         }
       }
@@ -654,6 +825,7 @@ export default function AlkaidPanel({
         await alkaidApi.applyPatch(sessionId, workflowId ? parseInt(workflowId, 10) : undefined)
         message.success(t('alkaid.patchApplied', '补丁已应用') || '补丁已应用')
         setAgenticPendingPatchCount(null)
+        setAgenticPendingPatchSummary(null)
         onWorkflowApplied?.()
       }
     } catch (e: any) {
@@ -673,7 +845,7 @@ export default function AlkaidPanel({
   }, [convQuery, sessions])
 
   const convSelectedCount = useMemo(() => {
-    return Object.entries(convSelected).reduce((acc, [id, checked]) => (checked ? acc + 1 : acc), 0)
+    return Object.entries(convSelected).reduce((acc, [, checked]) => (checked ? acc + 1 : acc), 0)
   }, [convSelected])
 
   const handleBulkDelete = async () => {
@@ -916,10 +1088,66 @@ export default function AlkaidPanel({
     </div>
   )
 
+  const renderProgressDock = () => {
+    const showAgenticProgress = useAgentic && loading && currentLoadingMessageId
+    const showLegacySteps = !useAgentic && loading && processSteps.length > 0
+
+    if (!showAgenticProgress && !showLegacySteps) {
+      return null
+    }
+
+    const agenticPhaseLabelMap: Record<Phase, string> = {
+      idle: t('workflowEditor.alkaid.pending', '待处理'),
+      planning: t('workflowEditor.alkaid.progressPlanning', '规划中'),
+      generating: t('workflowEditor.alkaid.progressGenerating', '生成中'),
+      validating: t('workflowEditor.alkaid.progressValidating', '校验中'),
+      repairing: t('workflowEditor.alkaid.progressValidating', '修正中'),
+      running_trial: t('workflowEditor.alkaid.progressValidating', '试运行中'),
+      summarizing: t('workflowEditor.alkaid.progressFinishing', '整理中'),
+      waiting_approval: t('workflowEditor.alkaid.progressFinishing', '等待确认'),
+      error: t('workflowEditor.alkaid.failed', '执行异常'),
+    }
+
+    const summaryText = showAgenticProgress
+      ? `${agenticPhaseLabelMap[agenticPhase] || t('workflowEditor.alkaid.running', '进行中')} · ${t('workflowEditor.alkaid.executionStepsDesc', '可展开查看处理细节')}`
+      : processSteps.find((step) => step.status === 'loading')?.label || t('workflowEditor.alkaid.running', '进行中')
+
+    return (
+      <div className={[styles.progressDock, progressDockCollapsed ? styles.progressDockCollapsed : ''].join(' ')}>
+        <div className={styles.progressDockHeader}>
+          <div className={styles.progressDockMeta}>
+            <div className={styles.progressDockTitle}>
+              {t('workflowEditor.alkaid.executionSteps', '执行过程')}
+            </div>
+            <div className={styles.progressDockSummary}>{summaryText}</div>
+          </div>
+          <button
+            type="button"
+            className={styles.progressDockToggle}
+            onClick={() => setProgressDockCollapsed((value) => !value)}
+          >
+            {progressDockCollapsed
+              ? t('workflowEditor.alkaid.expandSubSteps', '展开详情')
+              : t('workflowEditor.alkaid.collapseSubSteps', '收起详情')}
+          </button>
+        </div>
+
+        {!progressDockCollapsed && showAgenticProgress && (
+          <div className={styles.progressDockInner}>
+            <AlkaidProgress phase={agenticPhase} planSteps={agenticPlanSteps} toolSteps={agenticToolSteps} maxSteps={10} />
+          </div>
+        )}
+        {!progressDockCollapsed && showLegacySteps && (
+          <div className={styles.progressDockInner}>
+            <ProcessLoader steps={processSteps} visible={true} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderMessageBubble = (msg: MessageItem) => {
     const isCurrentLoadingMessage = msg.role === 'assistant' && msg.id === currentLoadingMessageId && loading
-    const showAgenticProgress = useAgentic && isCurrentLoadingMessage
-    const showLegacySteps = !useAgentic && isCurrentLoadingMessage && processSteps.length > 0
 
     const isAgenticGeneratingPhase =
       useAgentic &&
@@ -941,17 +1169,6 @@ export default function AlkaidPanel({
         )}
         <div className={styles.bubbleWrap}>
           <div className={styles.bubble}>
-            {showAgenticProgress && (
-              <div className={styles.progressArea}>
-                <AlkaidProgress phase={agenticPhase} toolSteps={agenticToolSteps} maxSteps={10} />
-              </div>
-            )}
-            {showLegacySteps && (
-              <div className={styles.progressArea}>
-                <ProcessLoader steps={processSteps} visible={true} />
-              </div>
-            )}
-
             {parsed.text && (
               <div className={styles.markdownContent}>
                 <MarkdownRenderer content={parsed.text} className={styles.alkaidMarkdown} />
@@ -1023,6 +1240,7 @@ export default function AlkaidPanel({
 
   const renderChatView = () => (
     <div className={styles.chatMain}>
+      {renderProgressDock()}
       <div className={styles.messages}>
         {messages.length === 0 ? renderEmptyChat() : messages.map((m) => renderMessageBubble(m))}
         <div ref={messagesEndRef} />
@@ -1041,8 +1259,12 @@ export default function AlkaidPanel({
           {agenticPendingPatchCount != null && agenticPendingPatchCount > 0 && (
             <AlkaidPendingPatch
               patchCount={agenticPendingPatchCount}
+              summary={agenticPendingPatchSummary}
               onApply={handleApplyPatch}
-              onDiscard={() => setAgenticPendingPatchCount(null)}
+              onDiscard={() => {
+                setAgenticPendingPatchCount(null)
+                setAgenticPendingPatchSummary(null)
+              }}
               loading={applyPatchLoading}
             />
           )}

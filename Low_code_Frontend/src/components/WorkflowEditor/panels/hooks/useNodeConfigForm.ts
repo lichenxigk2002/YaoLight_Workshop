@@ -391,6 +391,16 @@ export function useNodeConfigForm({
 
           await workflowApi.saveWorkflowNode(Number(workflowId), node.id, nodeData);
           // 单个节点保存成功，不显示消息（避免频繁提示）
+
+          if (onSaveToBackend) {
+            setTimeout(async () => {
+              try {
+                await onSaveToBackend();
+              } catch (error) {
+                // 忽略整图补充保存失败，避免影响面板内节点保存体验
+              }
+            }, 100);
+          }
         } catch (error: any) {
           console.error('保存单个节点失败:', error);
           // 单个节点保存失败，不显示错误消息（避免干扰用户）

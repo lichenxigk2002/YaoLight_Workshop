@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import { MermaidRenderer } from './MermaidRenderer';
 import styles from './MarkdownRenderer.module.scss';
 
 interface MarkdownRendererProps {
@@ -37,10 +38,22 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
           // 强调
           strong: ({ node, ...props }) => <strong className={styles.strong} {...props} />,
           em: ({ node, ...props }) => <em className={styles.em} {...props} />,
-          // 代码
+          // 代码：支持 ```mermaid 渲染为图表并可保存 PNG
           code: ({ node, inline, className, children, ...props }: any) => {
             if (inline) {
               return <code className={styles.inlineCode} {...props}>{children}</code>;
+            }
+            const isMermaid = typeof className === 'string' && className.includes('language-mermaid');
+            if (isMermaid) {
+              return (
+                <div className={styles.mermaidWrap}>
+                  <MermaidRenderer
+                    content={String(children ?? '').replace(/\n$/, '')}
+                    showSavePng={true}
+                    downloadName="mermaid-diagram"
+                  />
+                </div>
+              );
             }
             return <code className={styles.codeBlock} {...props}>{children}</code>;
           },

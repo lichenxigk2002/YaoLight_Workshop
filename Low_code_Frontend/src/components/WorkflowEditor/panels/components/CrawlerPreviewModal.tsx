@@ -40,8 +40,9 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
         maskClosable={false}
         getContainer={false}
         styles={{ body: { padding: '0 24px 24px' } }}
+        className={styles.modal}
       >
-        <div style={{ padding: 48, textAlign: 'center', color: '#999' }}>
+        <div className={styles.emptyState}>
           {t('node.config.crawler.noPreviewData')}
         </div>
       </Modal>
@@ -277,7 +278,7 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
               />
             )
           ) : (
-            <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
+            <div className={styles.emptyState}>
               {t('node.config.crawler.noCleanResult')}
             </div>
           )}
@@ -369,6 +370,7 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
       maskClosable={false}
       getContainer={false}
       styles={{ body: { padding: '0 24px 24px' } }}
+      className={styles.modal}
     >
       <Tabs
         defaultActiveKey={isImageMode ? 'images' : 'overview'}

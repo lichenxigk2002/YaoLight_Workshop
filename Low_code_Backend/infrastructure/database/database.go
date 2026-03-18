@@ -26,10 +26,13 @@ import (
 	notificationModels "yaolight-workshop/backend/modules/notification/models"
 	paymentModels "yaolight-workshop/backend/modules/payment/models"
 	projectModels "yaolight-workshop/backend/modules/project/models"
+	rbacModule "yaolight-workshop/backend/modules/rbac"
+	rbacModels "yaolight-workshop/backend/modules/rbac/models"
 	systemModels "yaolight-workshop/backend/modules/system/models"
 	taskModels "yaolight-workshop/backend/modules/task/models"
 	userModels "yaolight-workshop/backend/modules/user/models"
 	workflowModels "yaolight-workshop/backend/modules/workflow/models"
+	workflowAPIModels "yaolight-workshop/backend/modules/workflowapi/models"
 )
 
 var DB *gorm.DB
@@ -82,6 +85,7 @@ func InitDatabase() error {
 		fn   func() error
 	}{
 		{name: "bootstrap admin", fn: SeedBootstrapAdmin},
+		{name: "rbac", fn: func() error { return rbacModule.SeedRBAC(DB) }},
 		{name: "node types", fn: SeedNodeTypes},
 		{name: "alkaid specs", fn: SeedAlkaidSpecs},
 		{name: "alkaid output knowledge", fn: SeedAlkaidOutputNodeKnowledge},
@@ -259,6 +263,10 @@ func AutoMigrate() error {
 
 	return DB.AutoMigrate(
 		&billingModels.QuotaLedger{},
+		&rbacModels.Role{},
+		&rbacModels.Permission{},
+		&rbacModels.RolePermission{},
+		&rbacModels.UserRole{},
 		&userModels.User{},
 		&userModels.UserOAuthBinding{},
 		&userModels.UserAvatarHistory{},
@@ -281,6 +289,7 @@ func AutoMigrate() error {
 		&aiModels.AIModel{},
 		&taskModels.Task{},
 		&taskModels.TaskSchedule{},
+		&taskModels.TaskScheduleRun{},
 		&fileModels.File{},
 		&artifactModels.Artifact{},
 		&notificationModels.Notification{},
@@ -291,6 +300,9 @@ func AutoMigrate() error {
 		&workflowModels.WorkflowNode{},
 		&workflowModels.WorkflowVersion{},
 		&workflowModels.WorkflowCommentCard{},
+		&workflowAPIModels.WorkflowAPIEndpoint{},
+		&workflowAPIModels.WorkflowAPIKey{},
+		&workflowAPIModels.WorkflowAPIInvocation{},
 		&taskModels.TaskNodeExecution{},
 		&taskModels.TaskLog{},
 		&alkaidModels.AlkaidSession{},
@@ -319,7 +331,7 @@ func SeedProviderTemplates() error {
 	}
 
 	defaults := map[string]providerSeed{
-		"deepseek": {name: "DeepSeek", description: "DeepSeek model provider", baseURL: "https://api.deepseek.com", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"deepseek": {name: "DeepSeek", description: "DeepSeek model provider", baseURL: "https://api.deepseek.com", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 8192}},
 		"doubao":   {name: "Doubao", description: "Doubao model provider", baseURL: "https://ark.cn-beijing.volces.com/api/v3", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
 		"qwen":     {name: "Qwen", description: "Qwen model provider", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
 		"zhipuai":  {name: "ZhipuAI", description: "GLM model provider", baseURL: "https://open.bigmodel.cn/api/paas/v4", defaultCfg: map[string]interface{}{"temperature": 1.0, "maxTokens": 2048}},
@@ -575,7 +587,7 @@ func defaultCapabilityForModel(provider, modelName string) *aiModels.ModelCapabi
 		cfg.SupportStream = true
 		cfg.SupportThinking = true
 		if modelName == "deepseek-reasoner" {
-			cfg.MaxTokensLimit = 65536
+			cfg.MaxTokensLimit = 8192
 		} else {
 			cfg.MaxTokensLimit = 8192
 		}

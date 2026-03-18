@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	paymentModels "yaolight-workshop/backend/modules/payment/models"
 	projectModels "yaolight-workshop/backend/modules/project/models"
@@ -194,7 +193,7 @@ func (s *AdminUserService) ResetPassword(userID uint, password string) error {
 		return ErrAdminUserInvalidPass
 	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashed, err := hashPasswordForStorage(password)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}

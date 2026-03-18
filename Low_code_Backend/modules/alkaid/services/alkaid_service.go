@@ -298,7 +298,7 @@ func (s *AlkaidService) SendMessageStream(req SendMessageRequest, callback SendM
 					// 后续如果需要收费，可以将ModelMode改为"system"
 					// 构造描述信息
 					desc := fmt.Sprintf("瑶光星AI助手对话（会话ID: %d）", req.SessionID)
-					
+
 					// 使用 TransactionService 记录
 					recordErr := s.transactionService.RecordTokenUsage(userServices.RecordTokenUsageRequest{
 						UserID:    req.UserID,
@@ -311,7 +311,7 @@ func (s *AlkaidService) SendMessageStream(req SendMessageRequest, callback SendM
 						Type:      "chat",
 						Desc:      desc,
 					})
-					
+
 					if recordErr != nil {
 						fmt.Printf("记录Token使用失败: %v\n", recordErr)
 					}
@@ -421,7 +421,7 @@ func (s *AlkaidService) buildAIConfig(userID uint) (*providers.AIModelConfig, er
 		APIKey:       config.DeepSeekAPIKey,
 		BaseURL:      "https://api.deepseek.com",
 		Temperature:  floatPtr(0.7),
-		MaxTokens:    intPtr(4000), // 增大maxTokens以支持长上下文
+		MaxTokens:    intPtr(8192), // 增大maxTokens以支持长上下文
 		SystemPrompt: "",           // SystemPrompt在调用时传入
 	}, nil
 }

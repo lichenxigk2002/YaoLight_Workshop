@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+
 	"yaolight-workshop/backend/domain/entity"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/shared"
@@ -13,14 +14,12 @@ var (
 	ErrWorkflowNotFound = errors.New("workflow not found")
 )
 
-// WorkflowService 工作流服务
 type WorkflowService struct {
 	workflowRepo     repository.WorkflowRepository
 	workflowNodeRepo *workflowRepos.WorkflowNodeRepository
 	commentCardRepo  *workflowRepos.WorkflowCommentCardRepository
 }
 
-// NewWorkflowService 创建工作流服务
 func NewWorkflowService(workflowRepo repository.WorkflowRepository, workflowNodeRepo *workflowRepos.WorkflowNodeRepository, commentCardRepo *workflowRepos.WorkflowCommentCardRepository) *WorkflowService {
 	return &WorkflowService{
 		workflowRepo:     workflowRepo,
@@ -29,24 +28,20 @@ func NewWorkflowService(workflowRepo repository.WorkflowRepository, workflowNode
 	}
 }
 
-// CreateWorkflowRequest 创建工作流请求
 type CreateWorkflowRequest struct {
 	Name        string  `json:"name" binding:"required,min=1,max=200"`
 	Description *string `json:"description,omitempty"`
-	ProjectID   *uint   `json:"projectId,omitempty"` // 支持前端发送的 projectId
+	ProjectID   *uint   `json:"projectId,omitempty"`
 	UserID      uint    `json:"-"`
 }
 
-// UpdateWorkflowRequest 更新工作流请求
 type UpdateWorkflowRequest struct {
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
 	Status      *string `json:"status,omitempty"`
 }
 
-// CreateWorkflow 创建工作流
 func (s *WorkflowService) CreateWorkflow(req *CreateWorkflowRequest) (*models.Workflow, error) {
-	// 创建工作流领域实体
 	workflow := &entity.Workflow{
 		UserID:      req.UserID,
 		ProjectID:   req.ProjectID,
@@ -55,16 +50,13 @@ func (s *WorkflowService) CreateWorkflow(req *CreateWorkflowRequest) (*models.Wo
 		Status:      "draft",
 	}
 
-	// 通过仓储创建工作流
 	if err := s.workflowRepo.Create(workflow); err != nil {
 		return nil, err
 	}
 
-	// 转换为持久化实体返回（保持向后兼容）
 	return toPersistenceModel(workflow), nil
 }
 
-// GetWorkflowByID 根据ID获取工作流
 func (s *WorkflowService) GetWorkflowByID(id uint) (*models.Workflow, error) {
 	workflow, err := s.workflowRepo.FindByID(id)
 	if err != nil {
@@ -74,7 +66,6 @@ func (s *WorkflowService) GetWorkflowByID(id uint) (*models.Workflow, error) {
 	return toPersistenceModel(workflow), nil
 }
 
-// GetWorkflowsByProjectID 根据项目ID获取工作流列表
 func (s *WorkflowService) GetWorkflowsByProjectID(projectID uint, page, pageSize int) ([]*models.Workflow, int64, error) {
 	offset := (page - 1) * pageSize
 	workflows, total, err := s.workflowRepo.FindByProjectID(projectID, offset, pageSize)
@@ -82,16 +73,14 @@ func (s *WorkflowService) GetWorkflowsByProjectID(projectID uint, page, pageSize
 		return nil, 0, err
 	}
 
-	// 转换为持久化模型
-	modelsList := make([]*models.Workflow, len(workflows))
+	modelList := make([]*models.Workflow, len(workflows))
 	for i, workflow := range workflows {
-		modelsList[i] = toPersistenceModel(workflow)
+		modelList[i] = toPersistenceModel(workflow)
 	}
 
-	return modelsList, total, nil
+	return modelList, total, nil
 }
 
-// GetWorkflowsByUserID 根据用户ID获取工作流列表
 func (s *WorkflowService) GetWorkflowsByUserID(userID uint, page, pageSize int) ([]*models.Workflow, int64, error) {
 	offset := (page - 1) * pageSize
 	workflows, total, err := s.workflowRepo.FindByUserID(userID, offset, pageSize)
@@ -99,23 +88,20 @@ func (s *WorkflowService) GetWorkflowsByUserID(userID uint, page, pageSize int) 
 		return nil, 0, err
 	}
 
-	// 转换为持久化模型
-	modelsList := make([]*models.Workflow, len(workflows))
+	modelList := make([]*models.Workflow, len(workflows))
 	for i, workflow := range workflows {
-		modelsList[i] = toPersistenceModel(workflow)
+		modelList[i] = toPersistenceModel(workflow)
 	}
 
-	return modelsList, total, nil
+	return modelList, total, nil
 }
 
-// UpdateWorkflow 更新工作流
 func (s *WorkflowService) UpdateWorkflow(id uint, req *UpdateWorkflowRequest) (*models.Workflow, error) {
 	workflow, err := s.workflowRepo.FindByID(id)
 	if err != nil {
 		return nil, ErrWorkflowNotFound
 	}
 
-	// 更新字段
 	if req.Name != nil {
 		workflow.Name = *req.Name
 	}
@@ -133,7 +119,6 @@ func (s *WorkflowService) UpdateWorkflow(id uint, req *UpdateWorkflowRequest) (*
 	return toPersistenceModel(workflow), nil
 }
 
-// DeleteWorkflow 删除工作流
 func (s *WorkflowService) DeleteWorkflow(id uint) error {
 	_, err := s.workflowRepo.FindByID(id)
 	if err != nil {
@@ -143,14 +128,13 @@ func (s *WorkflowService) DeleteWorkflow(id uint) error {
 	return s.workflowRepo.Delete(id)
 }
 
-// SaveWorkflowNodesRequest 保存工作流节点和边请求
 type SaveWorkflowNodesRequest struct {
 	Nodes        []WorkflowNodeData        `json:"nodes"`
 	Edges        []EdgeData                `json:"edges"`
 	CommentCards []WorkflowCommentCardData `json:"commentCards,omitempty"`
+	TemplateID   *uint                     `json:"templateId,omitempty"`
 }
 
-// WorkflowNodeData 工作流节点数据（用于保存/加载）
 type WorkflowNodeData struct {
 	ID       string                 `json:"id"`
 	Type     string                 `json:"type"`
@@ -162,63 +146,55 @@ type EdgeData struct {
 	ID           string `json:"id"`
 	Source       string `json:"source"`
 	Target       string `json:"target"`
-	SourceHandle string `json:"sourceHandle,omitempty"` // 条件节点的输出端口：true 或 false
-	TargetHandle string `json:"targetHandle,omitempty"` // 合并节点的输入端口：input-0, input-1, input-2
+	SourceHandle string `json:"sourceHandle,omitempty"`
+	TargetHandle string `json:"targetHandle,omitempty"`
 }
 
-// WorkflowCommentCardData 工作流注释卡片数据（用于保存/加载）
 type WorkflowCommentCardData struct {
 	ID       string                 `json:"id"`
 	Position map[string]interface{} `json:"position"`
 	Data     map[string]interface{} `json:"data"`
 }
 
-// SaveWorkflowNodes 保存工作流节点和边
 func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNodesRequest) error {
-	// 验证工作流是否存在
-	_, err := s.workflowRepo.FindByID(workflowID)
+	workflow, err := s.workflowRepo.FindByID(workflowID)
 	if err != nil {
 		return ErrWorkflowNotFound
 	}
 
-	// 收集所有节点ID，用于删除不存在的节点
 	nodeIDs := make([]string, len(req.Nodes))
-
-	// 转换并保存节点
 	nodes := make([]*models.WorkflowNode, len(req.Nodes))
+
 	for i, nodeData := range req.Nodes {
 		nodeIDs[i] = nodeData.ID
 
-		// 提取配置
 		config := nodeData.Data["config"]
 		if config == nil {
 			config = map[string]interface{}{}
 		}
 
-		// 提取标签
 		var label *string
 		if labelVal, ok := nodeData.Data["label"].(string); ok {
 			label = &labelVal
 		}
 
-		// 构建连接信息（从 edges 中提取）
 		connections := []map[string]interface{}{}
 		for _, edge := range req.Edges {
-			if edge.Source == nodeData.ID {
-				conn := map[string]interface{}{
-					"target": edge.Target,
-					"edgeId": edge.ID,
-				}
-				// 如果有 sourceHandle，保存它
-				if edge.SourceHandle != "" {
-					conn["sourceHandle"] = edge.SourceHandle
-				}
-				// 如果有 targetHandle，保存它
-				if edge.TargetHandle != "" {
-					conn["targetHandle"] = edge.TargetHandle
-				}
-				connections = append(connections, conn)
+			if edge.Source != nodeData.ID {
+				continue
 			}
+
+			connection := map[string]interface{}{
+				"target": edge.Target,
+				"edgeId": edge.ID,
+			}
+			if edge.SourceHandle != "" {
+				connection["sourceHandle"] = edge.SourceHandle
+			}
+			if edge.TargetHandle != "" {
+				connection["targetHandle"] = edge.TargetHandle
+			}
+			connections = append(connections, connection)
 		}
 
 		nodes[i] = &models.WorkflowNode{
@@ -233,33 +209,26 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 		}
 	}
 
-	// 批量保存节点
 	if err := s.workflowNodeRepo.BatchCreateOrUpdate(nodes); err != nil {
 		return err
 	}
-
-	// 删除不存在的节点
 	if err := s.workflowNodeRepo.DeleteByWorkflowIDAndNodeIDs(workflowID, nodeIDs); err != nil {
 		return err
 	}
 
-	// 处理注释卡片
 	if req.CommentCards != nil {
-		// 收集所有卡片ID，用于删除不存在的卡片
 		cardIDs := make([]string, len(req.CommentCards))
-
-		// 转换并保存注释卡片
 		cards := make([]*models.WorkflowCommentCard, len(req.CommentCards))
+
 		for i, cardData := range req.CommentCards {
 			cardIDs[i] = cardData.ID
 
-			// 提取文本和颜色
 			var text *string
 			if textVal, ok := cardData.Data["text"].(string); ok {
 				text = &textVal
 			}
 
-			color := "#fffacd" // 默认颜色
+			color := "#fffacd"
 			if colorVal, ok := cardData.Data["color"].(string); ok {
 				color = colorVal
 			}
@@ -273,13 +242,16 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 			}
 		}
 
-		// 批量保存注释卡片
 		if err := s.commentCardRepo.BatchCreateOrUpdate(cards); err != nil {
 			return err
 		}
-
-		// 删除不存在的注释卡片
 		if err := s.commentCardRepo.DeleteByWorkflowIDAndCardIDs(workflowID, cardIDs); err != nil {
+			return err
+		}
+	}
+
+	if (workflow.TemplateID == nil) != (req.TemplateID == nil) || (workflow.TemplateID != nil && req.TemplateID != nil && *workflow.TemplateID != *req.TemplateID) {
+		if err := s.workflowRepo.UpdateTemplateReference(workflowID, req.TemplateID); err != nil {
 			return err
 		}
 	}
@@ -287,34 +259,27 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 	return nil
 }
 
-// SaveWorkflowNodeRequest 保存单个节点请求
 type SaveWorkflowNodeRequest struct {
 	Node WorkflowNodeData `json:"node"`
 }
 
-// SaveWorkflowNode 保存单个节点
 func (s *WorkflowService) SaveWorkflowNode(workflowID uint, nodeID string, req *SaveWorkflowNodeRequest) error {
-	// 验证工作流是否存在
 	_, err := s.workflowRepo.FindByID(workflowID)
 	if err != nil {
 		return ErrWorkflowNotFound
 	}
 
 	nodeData := req.Node
-
-	// 提取配置
 	config := nodeData.Data["config"]
 	if config == nil {
 		config = map[string]interface{}{}
 	}
 
-	// 提取标签
 	var label *string
 	if labelVal, ok := nodeData.Data["label"].(string); ok {
 		label = &labelVal
 	}
 
-	// 构建节点实体
 	node := &models.WorkflowNode{
 		WorkflowID: workflowID,
 		NodeID:     nodeID,
@@ -323,62 +288,43 @@ func (s *WorkflowService) SaveWorkflowNode(workflowID uint, nodeID string, req *
 		Position:   shared.JSONB{Data: nodeData.Position},
 		Config:     shared.JSONB{Data: config},
 		IsEnabled:  true,
-		// 注意：不设置 Connections，让 CreateOrUpdate 方法保留现有的连接信息
 	}
 
-	// 保存节点（CreateOrUpdate 会自动处理创建或更新，并保留现有的 Connections）
 	return s.workflowNodeRepo.CreateOrUpdate(node)
 }
 
-// GetWorkflowNodes 获取工作流的节点和边
 func (s *WorkflowService) GetWorkflowNodes(workflowID uint) (*SaveWorkflowNodesRequest, error) {
-	// 验证工作流是否存在
-	_, err := s.workflowRepo.FindByID(workflowID)
+	workflow, err := s.workflowRepo.FindByID(workflowID)
 	if err != nil {
 		return nil, ErrWorkflowNotFound
 	}
 
-	// 查询节点
 	dbNodes, err := s.workflowNodeRepo.FindByWorkflowID(workflowID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 转换为前端格式
 	nodes := make([]WorkflowNodeData, len(dbNodes))
-	edges := []EdgeData{}
+	edges := make([]EdgeData, 0)
 
 	for i, dbNode := range dbNodes {
-		// 提取位置
 		position := map[string]interface{}{}
-		if dbNode.Position.Data != nil {
-			if posMap, ok := dbNode.Position.Data.(map[string]interface{}); ok {
-				position = posMap
-			}
+		if posMap, ok := dbNode.Position.Data.(map[string]interface{}); ok {
+			position = posMap
 		}
 
-		// 提取配置
 		config := map[string]interface{}{}
-		if dbNode.Config.Data != nil {
-			if configMap, ok := dbNode.Config.Data.(map[string]interface{}); ok {
-				config = configMap
-			}
+		if configMap, ok := dbNode.Config.Data.(map[string]interface{}); ok {
+			config = configMap
 		}
 
-		// 构建节点数据
 		nodeData := map[string]interface{}{
 			"label":  dbNode.Label,
 			"type":   dbNode.NodeType,
 			"config": config,
 		}
-
-		// 添加连接方向（如果有）
-		if dbNode.Config.Data != nil {
-			if configMap, ok := dbNode.Config.Data.(map[string]interface{}); ok {
-				if direction, ok := configMap["connectionDirection"]; ok {
-					nodeData["connectionDirection"] = direction
-				}
-			}
+		if direction, ok := config["connectionDirection"]; ok {
+			nodeData["connectionDirection"] = direction
 		}
 
 		nodes[i] = WorkflowNodeData{
@@ -388,57 +334,50 @@ func (s *WorkflowService) GetWorkflowNodes(workflowID uint) (*SaveWorkflowNodesR
 			Data:     nodeData,
 		}
 
-		// 从 connections 中提取边
-		if dbNode.Connections.Data != nil {
-			if conns, ok := dbNode.Connections.Data.([]interface{}); ok {
-				for _, conn := range conns {
-					if connMap, ok := conn.(map[string]interface{}); ok {
-						if target, ok := connMap["target"].(string); ok {
-							edgeID := ""
-							if edgeIDVal, ok := connMap["edgeId"].(string); ok {
-								edgeID = edgeIDVal
-							} else {
-								edgeID = dbNode.NodeID + "-" + target
-							}
-							edgeData := EdgeData{
-								ID:     edgeID,
-								Source: dbNode.NodeID,
-								Target: target,
-							}
-							// 如果有 sourceHandle，加载它
-							if sourceHandle, ok := connMap["sourceHandle"].(string); ok {
-								edgeData.SourceHandle = sourceHandle
-							}
-							// 如果有 targetHandle，加载它
-							if targetHandle, ok := connMap["targetHandle"].(string); ok {
-								edgeData.TargetHandle = targetHandle
-							}
-							edges = append(edges, edgeData)
-						}
-					}
+		if conns, ok := dbNode.Connections.Data.([]interface{}); ok {
+			for _, conn := range conns {
+				connMap, ok := conn.(map[string]interface{})
+				if !ok {
+					continue
 				}
+				target, ok := connMap["target"].(string)
+				if !ok {
+					continue
+				}
+
+				edgeID := dbNode.NodeID + "-" + target
+				if edgeIDVal, ok := connMap["edgeId"].(string); ok && edgeIDVal != "" {
+					edgeID = edgeIDVal
+				}
+
+				edge := EdgeData{
+					ID:     edgeID,
+					Source: dbNode.NodeID,
+					Target: target,
+				}
+				if sourceHandle, ok := connMap["sourceHandle"].(string); ok {
+					edge.SourceHandle = sourceHandle
+				}
+				if targetHandle, ok := connMap["targetHandle"].(string); ok {
+					edge.TargetHandle = targetHandle
+				}
+				edges = append(edges, edge)
 			}
 		}
 	}
 
-	// 查询注释卡片
 	dbCommentCards, err := s.commentCardRepo.FindByWorkflowID(workflowID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 转换为前端格式
 	commentCards := make([]WorkflowCommentCardData, len(dbCommentCards))
 	for i, dbCard := range dbCommentCards {
-		// 提取位置
 		position := map[string]interface{}{}
-		if dbCard.Position.Data != nil {
-			if posMap, ok := dbCard.Position.Data.(map[string]interface{}); ok {
-				position = posMap
-			}
+		if posMap, ok := dbCard.Position.Data.(map[string]interface{}); ok {
+			position = posMap
 		}
 
-		// 构建卡片数据
 		cardData := map[string]interface{}{
 			"text":  dbCard.Text,
 			"color": dbCard.Color,
@@ -455,15 +394,16 @@ func (s *WorkflowService) GetWorkflowNodes(workflowID uint) (*SaveWorkflowNodesR
 		Nodes:        nodes,
 		Edges:        edges,
 		CommentCards: commentCards,
+		TemplateID:   workflow.TemplateID,
 	}, nil
 }
 
-// toPersistenceModel 将领域实体转换为持久化模型（用于返回给 Controller）
 func toPersistenceModel(workflow *entity.Workflow) *models.Workflow {
 	return &models.Workflow{
 		ID:          workflow.ID,
 		UserID:      workflow.UserID,
 		ProjectID:   workflow.ProjectID,
+		TemplateID:  workflow.TemplateID,
 		Name:        workflow.Name,
 		Description: workflow.Description,
 		Status:      workflow.Status,

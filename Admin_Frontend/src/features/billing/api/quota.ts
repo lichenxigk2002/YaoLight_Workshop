@@ -6,6 +6,7 @@ import type {
   AdminOrderQuery,
   AdminTokenTransaction,
   AdminTokenTxQuery,
+  BillingUserOption,
   QuotaLedgerEntry,
   QuotaLedgerPage,
   QuotaLedgerParams,
@@ -97,6 +98,21 @@ export async function getQuotaSummary(): Promise<QuotaSummary> {
 
   if (data.code !== 200 || !data.data) {
     throw new Error(data.message || translateCurrent('billing.errorSummaryFailed'));
+  }
+
+  return data.data;
+}
+
+export async function searchBillingUsers(keyword?: string, limit = 20): Promise<BillingUserOption[]> {
+  const { data } = await http.get<ApiEnvelope<BillingUserOption[]>>('/admin/billing/users/options', {
+    params: {
+      keyword: keyword?.trim() || undefined,
+      limit,
+    },
+  });
+
+  if (data.code !== 200 || !Array.isArray(data.data)) {
+    throw new Error(data.message || translateCurrent('billing.formUserSearchFailed'));
   }
 
   return data.data;

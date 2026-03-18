@@ -36,7 +36,7 @@ export default function ModelOverviewPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { t } = useI18n();
-  const { model, setModel } = useOutletContext<ModelDetailOutletContext>();
+  const { model, canEdit, setModel } = useOutletContext<ModelDetailOutletContext>();
   const [form] = Form.useForm<
     Pick<AIAdminModel, 'display_name' | 'status' | 'is_active' | 'sort_order' | 'description'>
   >();
@@ -137,9 +137,11 @@ export default function ModelOverviewPage() {
                   </Button>
                 </Space>
               ) : (
-                <Button type="link" onClick={() => setEditing(true)}>
-                  {t('aiModels.overviewEdit')}
-                </Button>
+                canEdit ? (
+                  <Button type="link" onClick={() => setEditing(true)}>
+                    {t('aiModels.overviewEdit')}
+                  </Button>
+                ) : null
               )
             }
           >
@@ -204,6 +206,7 @@ export default function ModelOverviewPage() {
                   <Switch
                     checked={model.is_active}
                     loading={updatingActive}
+                    disabled={!canEdit}
                     checkedChildren={t('aiModels.switchEnabled')}
                     unCheckedChildren={t('aiModels.switchDisabled')}
                     onChange={handleToggleActive}
@@ -233,9 +236,11 @@ export default function ModelOverviewPage() {
             className={styles.card}
             title={t('aiModels.overviewPricingTitle')}
             extra={
-              <Button type="link" onClick={() => navigate(`/ai-models/models/${model.id}/pricing`)}>
-                {t('aiModels.overviewEdit')}
-              </Button>
+              canEdit ? (
+                <Button type="link" onClick={() => navigate(`/ai-models/models/${model.id}/pricing`)}>
+                  {t('aiModels.overviewEdit')}
+                </Button>
+              ) : null
             }
           >
             {activeRule ? (

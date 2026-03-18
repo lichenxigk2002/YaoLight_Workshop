@@ -26,6 +26,7 @@ import {
   FileTextOutlined,
   CodeOutlined,
   MailOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -35,6 +36,7 @@ import { workflowApi } from '@/api/workflow';
 import { taskApi } from '@/api/task';
 import http from '@/http';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
+import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
 import { ProviderIcon } from '@/components/Icons';
 import styles from './TaskExecutionDetailModal.module.scss';
 
@@ -52,6 +54,122 @@ const normalizeDownloadPathForHttp = (p: string) => {
   return p.startsWith('/api/') ? p.replace(/^\/api/, '') : p;
 };
 
+const getTokenForFetch = () => {
+  try {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      const authData = JSON.parse(authStorage);
+      return authData.state?.token || null;
+    }
+  } catch { }
+  return null;
+};
+
+type TimelineExecution = TaskNodeExecution & {
+  timelineStart: number;
+  timelineEnd: number;
+  lane: number;
+  offsetPercent: number;
+  widthPercent: number;
+};
+
+const getExecutionWindow = (execution: TaskNodeExecution) => {
+  const startedAt = execution.startedAt ? new Date(execution.startedAt).getTime() : null;
+  const completedAt = execution.completedAt ? new Date(execution.completedAt).getTime() : null;
+  const createdAt = new Date(execution.createdAt).getTime();
+  const start = startedAt ?? createdAt;
+  let end = completedAt ?? null;
+  if (end == null && execution.executionTime != null) {
+    end = start + execution.executionTime;
+  }
+  if (end == null || end < start) {
+    end = start + 1;
+  }
+  return { start, end };
+};
+
+const buildExecutionTimeline = (executions: TaskNodeExecution[]) => {
+  if (executions.length === 0) {
+    return {
+      executions: [] as TimelineExecution[],
+      peakConcurrency: 0,
+      laneCount: 0,
+      totalDuration: 0,
+    };
+  }
+
+  const sorted = [...executions].sort((a, b) => {
+    const windowA = getExecutionWindow(a);
+    const windowB = getExecutionWindow(b);
+    if (windowA.start !== windowB.start) {
+      return windowA.start - windowB.start;
+    }
+    return windowA.end - windowB.end;
+  });
+
+  let globalStart = Number.POSITIVE_INFINITY;
+  let globalEnd = Number.NEGATIVE_INFINITY;
+  const laneEndTimes: number[] = [];
+  const mapped: TimelineExecution[] = [];
+
+  sorted.forEach((execution) => {
+    const { start, end } = getExecutionWindow(execution);
+    globalStart = Math.min(globalStart, start);
+    globalEnd = Math.max(globalEnd, end);
+
+    let lane = laneEndTimes.findIndex((laneEnd) => laneEnd <= start);
+    if (lane === -1) {
+      lane = laneEndTimes.length;
+      laneEndTimes.push(end);
+    } else {
+      laneEndTimes[lane] = end;
+    }
+
+    mapped.push({
+      ...execution,
+      timelineStart: start,
+      timelineEnd: end,
+      lane,
+      offsetPercent: 0,
+      widthPercent: 0,
+    });
+  });
+
+  const totalDuration = Math.max(globalEnd - globalStart, 1);
+  const timelineExecutions = mapped.map((execution) => ({
+    ...execution,
+    offsetPercent: ((execution.timelineStart - globalStart) / totalDuration) * 100,
+    widthPercent: Math.max(((execution.timelineEnd - execution.timelineStart) / totalDuration) * 100, 3),
+  }));
+
+  const events: Array<{ time: number; delta: number }> = [];
+  timelineExecutions.forEach((execution) => {
+    events.push({ time: execution.timelineStart, delta: 1 });
+    events.push({ time: execution.timelineEnd, delta: -1 });
+  });
+  events.sort((a, b) => (a.time === b.time ? a.delta - b.delta : a.time - b.time));
+
+  let active = 0;
+  let peakConcurrency = 0;
+  events.forEach((event) => {
+    active += event.delta;
+    peakConcurrency = Math.max(peakConcurrency, active);
+  });
+
+  return {
+    executions: timelineExecutions,
+    peakConcurrency,
+    laneCount: laneEndTimes.length,
+    totalDuration,
+  };
+};
+
+const formatMs = (value?: number | null) => {
+  if (value == null) return '-';
+  if (value < 1000) return `${value}ms`;
+  return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}s`;
+};
+
 /**
  * 数据展示组件
  */
@@ -64,9 +182,13 @@ const DataViewer: React.FC<{
 }> = ({ title, data, filename, nodeType, taskId }) => {
   const { message } = App.useApp();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<'preview' | 'json'>('preview');
+  const [activeTab, setActiveTab] = useState<'preview' | 'json' | 'artifacts'>('preview');
   const [sendEmailModalOpen, setSendEmailModalOpen] = useState(false);
   const [sendEmailForm] = Form.useForm();
+  const [artifactPreviewOpen, setArtifactPreviewOpen] = useState(false);
+  const [artifactPreviewContent, setArtifactPreviewContent] = useState('');
+  const [artifactPreviewTitle, setArtifactPreviewTitle] = useState('');
+  const [artifactPreviewMeta, setArtifactPreviewMeta] = useState<{ name?: string; kind?: string } | null>(null);
 
   const isAI = nodeType === 'ai';
   const isOutput = nodeType === 'output';
@@ -344,8 +466,35 @@ const DataViewer: React.FC<{
     }
   };
 
+  const isMermaidArtifact = (a: { name?: string; kind?: string }, content: string) => {
+    const name = (a?.name || '').toLowerCase();
+    const kind = (a?.kind || '').toLowerCase();
+    return name.endsWith('.mmd') || kind === 'mermaid' || (!!content && looksLikeMermaid(content));
+  };
+
+  const handlePreviewArtifact = async (a: any) => {
+    const downloadUrl = normalizeDownloadPathForHttp(a.downloadUrl || '');
+    if (!downloadUrl) return;
+    const baseURL = import.meta.env.VITE_BASE_URL || '/api';
+    const base = baseURL.replace(/\/$/, '');
+    const fullUrl = base.startsWith('http') ? `${base}${downloadUrl}` : `${base}${downloadUrl}`;
+    try {
+      const resp = await fetch(fullUrl, {
+        headers: { ...(getTokenForFetch() ? { Authorization: `Bearer ${getTokenForFetch()}` } : {}) },
+      });
+      if (!resp.ok) return;
+      const text = await resp.text();
+      setArtifactPreviewTitle(a.name || '预览');
+      setArtifactPreviewContent(text);
+      setArtifactPreviewMeta({ name: a.name, kind: a.kind });
+      setArtifactPreviewOpen(true);
+    } catch {
+      message.error('加载制品失败');
+    }
+  };
+
   if ((isAI || isOutput) && hasContent) {
-    const tabItems = [
+    const tabItems: { key: string; label: React.ReactNode; children: React.ReactNode }[] = [
       {
         key: 'preview',
         label: (
@@ -410,6 +559,62 @@ const DataViewer: React.FC<{
       },
     ];
 
+    if (isOutput && artifacts.length > 0) {
+      tabItems.push({
+        key: 'artifacts',
+        label: (
+          <Space>
+            <FileTextOutlined />
+            <span>导出制品</span>
+            <Tag>{artifacts.length}</Tag>
+          </Space>
+        ),
+        children: (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {artifacts.map((a: any) => (
+              <div
+                key={String(a.id || a.name)}
+                style={{
+                  border: '1px solid var(--border-secondary, #e8e8e8)',
+                  borderRadius: 8,
+                  padding: 10,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <Text strong>{a.name || `#${a.id}`}</Text>
+                  <div style={{ marginTop: 4 }}>
+                    {a.kind && <Tag>{a.kind}</Tag>}
+                    {a.mimeType && <Tag color="geekblue">{a.mimeType}</Tag>}
+                  </div>
+                </div>
+                <Space>
+                  {(a.mimeType || '').toLowerCase().includes('text/') || (a.mimeType || '').toLowerCase().includes('markdown') ? (
+                    <Button size="small" icon={<EyeOutlined />} onClick={() => handlePreviewArtifact(a)}>
+                      预览
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    onClick={() => {
+                      const p = normalizeDownloadPathForHttp(a.downloadUrl || '');
+                      if (!p) return;
+                      http.download(p, undefined, a.name);
+                    }}
+                  >
+                    下载
+                  </Button>
+                </Space>
+              </div>
+            ))}
+          </div>
+        ),
+      });
+    }
+
     return (
       <div className={styles.dataViewer}>
         <div className={styles.dataHeader}>
@@ -445,9 +650,33 @@ const DataViewer: React.FC<{
         <Tabs
           items={tabItems}
           activeKey={activeTab}
-          onChange={(key) => setActiveTab(key as 'preview' | 'json')}
+          onChange={(key) => setActiveTab(key as 'preview' | 'json' | 'artifacts')}
           size="small"
         />
+        {artifactPreviewOpen && (
+          <Modal
+            title={artifactPreviewTitle}
+            open={artifactPreviewOpen}
+            onCancel={() => {
+              setArtifactPreviewOpen(false);
+              setArtifactPreviewMeta(null);
+            }}
+            footer={null}
+            width={720}
+            centered
+            destroyOnClose
+          >
+            {artifactPreviewContent && artifactPreviewMeta && isMermaidArtifact(artifactPreviewMeta, artifactPreviewContent) ? (
+              <MermaidRenderer
+                content={artifactPreviewContent}
+                showSavePng={true}
+                downloadName={artifactPreviewTitle ? artifactPreviewTitle.replace(/\.[^/.]+$/, '') : 'diagram'}
+              />
+            ) : (
+              <MarkdownRenderer content={artifactPreviewContent} />
+            )}
+          </Modal>
+        )}
         {isOutput && taskId && (
           <Modal
             open={sendEmailModalOpen}
@@ -568,8 +797,11 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
 
   if (!task) return null;
 
+  const timelineSummary = buildExecutionTimeline(executions);
+  const timelineExecutions = timelineSummary.executions;
+
   // 构建折叠面板项
-  const collapseItems = executions.map((execution) => {
+  const collapseItems = timelineExecutions.map((execution) => {
     const nodeLabel = nodeLabels[execution.nodeId] || execution.nodeId;
     const showNodeName = nodeLabels[execution.nodeId] && nodeLabels[execution.nodeId] !== execution.nodeId;
 
@@ -590,9 +822,12 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
             <Tag bordered={false}>{execution.nodeType}</Tag>
           </Space>
           <Space>
+            <Tag bordered={false} color="cyan">
+              Lane {execution.lane + 1}
+            </Tag>
             {execution.executionTime && (
               <Tag icon={<ClockCircleOutlined />} color="default">
-                {execution.executionTime}ms
+                {formatMs(execution.executionTime)}
               </Tag>
             )}
           </Space>
@@ -608,6 +843,8 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
             <Descriptions.Item label={t('taskHistory.executionDetail.completionTime')}>
               {execution.completedAt ? new Date(execution.completedAt).toLocaleString('zh-CN') : '-'}
             </Descriptions.Item>
+            <Descriptions.Item label="并发泳道">Lane {execution.lane + 1}</Descriptions.Item>
+            <Descriptions.Item label="墙钟耗时">{formatMs(execution.timelineEnd - execution.timelineStart)}</Descriptions.Item>
             <Descriptions.Item label={t('taskHistory.executionDetail.retryCount')}>{execution.retryCount}</Descriptions.Item>
           </Descriptions>
 
@@ -701,6 +938,50 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
           </div>
         )}
       </Card>
+
+      {timelineExecutions.length > 0 && (
+        <div className={styles.concurrentPanel}>
+          <div className={styles.concurrentStats}>
+            <Card size="small" bordered={false} className={styles.concurrentStatCard}>
+              <Text type="secondary">峰值并发</Text>
+              <div className={styles.concurrentStatValue}>{timelineSummary.peakConcurrency}</div>
+            </Card>
+            <Card size="small" bordered={false} className={styles.concurrentStatCard}>
+              <Text type="secondary">时间泳道</Text>
+              <div className={styles.concurrentStatValue}>{timelineSummary.laneCount}</div>
+            </Card>
+            <Card size="small" bordered={false} className={styles.concurrentStatCard}>
+              <Text type="secondary">墙钟耗时</Text>
+              <div className={styles.concurrentStatValue}>{formatMs(timelineSummary.totalDuration)}</div>
+            </Card>
+          </div>
+
+          <Card size="small" bordered={false} className={styles.concurrentTimelineCard} title="并发执行">
+            <div className={styles.concurrentTimeline}>
+              {timelineExecutions.map((execution) => (
+                <div key={`timeline-${execution.id}`} className={styles.concurrentRow}>
+                  <div className={styles.concurrentMeta}>
+                    <Text strong>{nodeLabels[execution.nodeId] || execution.nodeId}</Text>
+                    <Tag bordered={false}>Lane {execution.lane + 1}</Tag>
+                  </div>
+                  <div className={styles.concurrentTrack}>
+                    <div
+                      className={styles.concurrentBar}
+                      style={{
+                        left: `${execution.offsetPercent}%`,
+                        width: `${execution.widthPercent}%`,
+                      }}
+                    >
+                      <span>{execution.nodeType}</span>
+                    </div>
+                  </div>
+                  <div className={styles.concurrentDuration}>{formatMs(execution.timelineEnd - execution.timelineStart)}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
       <div className={styles.nodeListContainer}>
         <div className={styles.sectionTitle}>

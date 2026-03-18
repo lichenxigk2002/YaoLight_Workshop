@@ -21,6 +21,7 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import PageHero from '@/components/PageHero';
+import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
 import {
   getAdminUserDetail,
@@ -47,6 +48,7 @@ const { Paragraph, Text } = Typography;
 export default function UserManagementPage() {
   const [messageApi, contextHolder] = message.useMessage();
   const { t } = useI18n();
+  const { canEdit } = useAdminPermission('users');
   const [summary, setSummary] = useState<AdminUserSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [users, setUsers] = useState<AdminUserListItem[]>([]);
@@ -304,7 +306,7 @@ export default function UserManagementPage() {
               value={record.status}
               style={{ width: 118 }}
               loading={statusUpdatingId === record.id}
-              disabled={record.role === 'admin'}
+              disabled={!canEdit || record.role === 'admin'}
               onChange={(value) => void handleStatusChange(record.id, value)}
               options={[
                 { label: t('users.statusActive'), value: 'active' },
@@ -313,9 +315,11 @@ export default function UserManagementPage() {
               ]}
             />
           </Tooltip>
-          <Button icon={<LockOutlined />} onClick={() => openResetPasswordModal(record)}>
-            {t('users.actionResetPassword')}
-          </Button>
+          {canEdit ? (
+            <Button icon={<LockOutlined />} onClick={() => openResetPasswordModal(record)}>
+              {t('users.actionResetPassword')}
+            </Button>
+          ) : null}
         </div>
       ),
     },
@@ -435,6 +439,7 @@ export default function UserManagementPage() {
         onResetPassword={openResetPasswordModal}
         onStatusChange={(userId, status) => void handleStatusChange(userId, status)}
         statusUpdating={statusUpdatingId === detailUser?.id}
+        canEdit={canEdit}
       />
 
       <Modal
@@ -443,6 +448,7 @@ export default function UserManagementPage() {
         confirmLoading={passwordSubmitting}
         onCancel={() => setPasswordModalOpen(false)}
         onOk={() => void submitResetPassword()}
+        okButtonProps={{ disabled: !canEdit }}
         okText={t('users.actionConfirm')}
       >
         <Space direction="vertical" style={{ width: '100%' }} size={12}>

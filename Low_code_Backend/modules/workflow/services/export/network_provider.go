@@ -49,9 +49,9 @@ func (p *networkProvider) Export(input interface{}, _ map[string]interface{}) ([
 		if from == "" || to == "" {
 			continue
 		}
-		// Mermaid 对节点名较宽松，但含空格时建议加引号
-		fromQ := quoteMermaidNode(from)
-		toQ := quoteMermaidNode(to)
+		// 使用圆角节点 (…) 避免 Mermaid 11 对 -->|label| ["..."] 中 "[" 的解析错误（SQS）
+		fromQ := quoteMermaidNodeRound(from)
+		toQ := quoteMermaidNodeRound(to)
 		if lbl != "" {
 			b.WriteString(fmt.Sprintf("  %s -->|%s| %s\n", fromQ, escapeMermaidLabel(lbl), toQ))
 		} else {
@@ -71,9 +71,15 @@ func (p *networkProvider) Export(input interface{}, _ map[string]interface{}) ([
 	}, nil
 }
 
-func quoteMermaidNode(s string) string {
-	// 用 ["..."] 形式避免空格与特殊字符问题
-	return fmt.Sprintf(`["%s"]`, strings.ReplaceAll(s, `"`, `\"`))
+// quoteMermaidNodeRound 用圆角节点 (…) 包裹，避免 Mermaid 11 解析 flowchart -->|label| ["..."] 时报 SQS
+func quoteMermaidNodeRound(s string) string {
+	// 节点内括号会破坏语法，转成 HTML 实体
+	s = strings.ReplaceAll(s, "(", "&#40;")
+	s = strings.ReplaceAll(s, ")", "&#41;")
+	s = strings.ReplaceAll(s, "[", "&#91;")
+	s = strings.ReplaceAll(s, "]", "&#93;")
+	s = strings.ReplaceAll(s, "\"", "&#34;")
+	return "(" + s + ")"
 }
 
 func escapeMermaidLabel(s string) string {

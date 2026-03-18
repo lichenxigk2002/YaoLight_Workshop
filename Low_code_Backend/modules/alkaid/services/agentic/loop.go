@@ -118,6 +118,11 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		},
 	}
 	registry := tools.NewRegistry(runner)
+	forceCrawlerPreparation := shouldForceCrawlerPreparation(req.Message)
+	explicitSourceURLs := extractAbsoluteURLsFromText(req.Message)
+	var crawlerKnowledge interface{}
+	var crawlerNodeSpec interface{}
+	validatedExplicitCrawlerURLs := make([]string, 0)
 
 	// 解析请求上下文中的 currentWorkflow，用于最后 propose_patch 的 diff
 	var currentWorkflowForDiff *workflowSvc.SaveWorkflowNodesRequest
@@ -130,6 +135,89 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		}
 	}
 
+	if forceCrawlerPreparation {
+		_ = sw.WritePhaseChanged(alkaidModels.PhasePlanning)
+
+		knowledgeStepID := fmt.Sprintf("step-%d-crawler-knowledge-prefetch", time.Now().UnixNano())
+		_ = sw.WriteToolStepStarted(knowledgeStepID, "search_knowledge", alkaidModels.PhasePlanning)
+		knowledgeResult, resultSummary, toolErr := registry.ExecuteTool(
+			"search_knowledge",
+			`{"query":"crawler 节点 完整配置 可用性 校验","target":"crawler","maxResults":6,"includeGeneralFallback":true}`,
+			req.SessionID,
+		)
+		status := alkaidModels.ToolStepSuccess
+		errMsg := ""
+		if toolErr != nil {
+			status = alkaidModels.ToolStepError
+			errMsg = toolErr.Error()
+			resultSummary = errMsg
+		} else {
+			crawlerKnowledge = knowledgeResult
+		}
+		_ = sw.WriteToolStepFinished(knowledgeStepID, status, resultSummary, errMsg)
+
+		specStepID := fmt.Sprintf("step-%d-crawler-spec-prefetch", time.Now().UnixNano())
+		_ = sw.WriteToolStepStarted(specStepID, "get_node_spec", alkaidModels.PhasePlanning)
+		specResult, specSummary, specErr := registry.ExecuteTool("get_node_spec", `{"nodeType":"crawler"}`, req.SessionID)
+		specStatus := alkaidModels.ToolStepSuccess
+		specErrMsg := ""
+		if specErr != nil {
+			specStatus = alkaidModels.ToolStepError
+			specErrMsg = specErr.Error()
+			specSummary = specErrMsg
+		} else {
+			crawlerNodeSpec = specResult
+		}
+		_ = sw.WriteToolStepFinished(specStepID, specStatus, specSummary, specErrMsg)
+
+		for i, rawURL := range explicitSourceURLs {
+			urlStepID := fmt.Sprintf("step-%d-crawler-url-prefetch-%d", time.Now().UnixNano(), i+1)
+			_ = sw.WriteToolStepStarted(urlStepID, "check_url_accessibility", alkaidModels.PhasePlanning)
+			result, resultSummary, toolErr := registry.ExecuteTool(
+				"check_url_accessibility",
+				fmt.Sprintf(`{"url":%q}`, rawURL),
+				req.SessionID,
+			)
+			status := alkaidModels.ToolStepSuccess
+			errMsg := ""
+			if toolErr != nil {
+				status = alkaidModels.ToolStepError
+				errMsg = toolErr.Error()
+				resultSummary = errMsg
+			}
+			_ = sw.WriteToolStepFinished(urlStepID, status, resultSummary, errMsg)
+
+			if toolErr != nil {
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(fmt.Sprintf("Crawler source precheck failed: %s (%s)", rawURL, errMsg))
+				_ = sw.WriteDone()
+				return nil
+			}
+
+			report, ok := result.(map[string]interface{})
+			if !ok {
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(fmt.Sprintf("Crawler source precheck returned invalid result: %s", rawURL))
+				_ = sw.WriteDone()
+				return nil
+			}
+
+			if accessible, _ := report["ok"].(bool); accessible {
+				validatedExplicitCrawlerURLs = append(validatedExplicitCrawlerURLs, rawURL)
+				continue
+			}
+
+			reason, _ := report["reason"].(string)
+			if reason == "" {
+				reason = "URL is not suitable for crawler source"
+			}
+			_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+			_ = sw.WriteError(fmt.Sprintf("Crawler source URL did not pass accessibility validation: %s (%s)", rawURL, reason))
+			_ = sw.WriteDone()
+			return nil
+		}
+	}
+
 	alkaidSvc := alkaidServices.NewAlkaidService()
 	relevantKnowledge, _ := alkaidSvc.GetRelevantKnowledgeForAgentic(req.UserID, req.Message, 8)
 	// 系统提示词不再注入当前画布，由 LLM 按需调用 get_workflow
@@ -139,8 +227,27 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		return err
 	}
 	contentForLLM := req.Message
+	if forceCrawlerPreparation {
+		contentForLLM += "\n\n系统硬约束：如果这次任务需要 crawler，你必须生成一个完整、可运行、可校验的 crawler 节点。不要省略 method、extractMode、extractType；extractMode=custom 时必须提供 selector；extractType=attr 时必须提供 extractAttr。只有通过可抓取性校验的网站 URL 才能写入最终工作流；如果没有可验证的具体 URL，就不要交付最终工作流。"
+		if len(validatedExplicitCrawlerURLs) > 0 {
+			contentForLLM += "\n\n系统已预检通过的候选爬虫网址：\n- " + strings.Join(validatedExplicitCrawlerURLs, "\n- ")
+		}
+		if crawlerKnowledge != nil {
+			if b, marshalErr := json.Marshal(crawlerKnowledge); marshalErr == nil && len(b) < 12000 {
+				contentForLLM += "\n\nCrawler knowledge:\n" + string(b)
+			}
+		}
+		if crawlerNodeSpec != nil {
+			if b, marshalErr := json.Marshal(crawlerNodeSpec); marshalErr == nil && len(b) < 12000 {
+				contentForLLM += "\n\nCrawler node spec:\n" + string(b)
+			}
+		}
+	}
 	if historyStr, histErr := alkaidSvc.GetConversationHistoryForAgentic(req.SessionID, 20); histErr == nil && historyStr != "" && strings.Contains(historyStr, "助手：") {
-		contentForLLM = historyStr + "\n\n请根据以上对话历史，回复最后一条用户消息。\n\n**工具调用建议**（请根据实际需求智能选择）：\n1. 如需了解最佳实践、示例或技巧 → 优先调用 search_knowledge\n2. 如需了解技术规范（节点类型、JSON格式等）→ 调用 get_capabilities\n3. 如需查看或修改现有工作流 → 调用 get_workflow\n4. 如需生成全新工作流 → 无需调用 get_workflow，直接基于 get_capabilities 和 search_knowledge 生成"
+		contentForLLM = historyStr + "\n\n请根据以上对话历史，回复最后一条用户消息。\n\n**工具调用建议**（请根据实际需求智能选择）：\n1. 如需了解最佳实践、示例或技巧 → 优先调用 search_knowledge\n2. 如需了解技术规范（节点类型、JSON格式等）→ 调用 get_capabilities\n3. 如需查看或修改现有工作流 → 调用 get_workflow\n4. 如需生成全新工作流 → 无需调用 get_workflow，直接基于 get_capabilities 和 search_knowledge 生成\n5. 如果第一次 search_knowledge 的结果仍不够确定，必须继续发起更具体的二次检索，可以补充 target/category，或把 query 缩小到某个节点、错误类型、场景模板\n6. 如果工作流涉及外部网站抓取，在最终确定 crawler 节点前，应优先确认数据源类型，并在需要时调用 check_url_accessibility"
+	}
+	if forceCrawlerPreparation && strings.Contains(contentForLLM, "请根据以上对话历史") {
+		contentForLLM += "\n\n补充要求：如果这次任务需要 crawler，必须确保 crawler 节点配置完整、网站可抓取，并且在交付前通过可用性验证与试跑。未通过验证时不要交付最终工作流。"
 	}
 
 	aiConfig, err := buildAIConfig(req.UserID)
@@ -150,20 +257,166 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 	}
 	toolDefs := GetToolDefsForLLM()
 	aiProvider := deepseek.NewDeepSeekProvider()
+	streamer, canStreamWithTools := aiProvider.(toolStreamingProvider)
+
+	planSteps := generateAgentPlan(reqCtx, aiProvider, aiConfig, systemPrompt, contentForLLM, userMsg.ID, req.Message)
+	if len(planSteps) > 0 {
+		_ = sw.WritePlanCreated(planSteps)
+	}
+
+	activePlanStepID := ""
+	startPlanStep := func(step *alkaidModels.AgentPlanStep) {
+		if step == nil {
+			return
+		}
+		if activePlanStepID == step.PlanStepID && step.Status == alkaidModels.PlanStepRunning {
+			return
+		}
+		if activePlanStepID != "" && activePlanStepID != step.PlanStepID {
+			_ = sw.WritePlanStepFinished(activePlanStepID, alkaidModels.PlanStepSuccess, "已完成当前计划步骤", "")
+			for i := range planSteps {
+				if planSteps[i].PlanStepID == activePlanStepID {
+					planSteps[i].Status = alkaidModels.PlanStepSuccess
+					break
+				}
+			}
+		}
+		step.Status = alkaidModels.PlanStepRunning
+		activePlanStepID = step.PlanStepID
+		_ = sw.WritePlanStepStarted(*step)
+	}
+
+	finishPlanStep := func(planStepID, status, resultSummary, errorMessage string) {
+		if planStepID == "" {
+			return
+		}
+		_ = sw.WritePlanStepFinished(planStepID, status, resultSummary, errorMessage)
+		for i := range planSteps {
+			if planSteps[i].PlanStepID == planStepID {
+				planSteps[i].Status = status
+				planSteps[i].ResultSummary = resultSummary
+				planSteps[i].ErrorMessage = errorMessage
+				break
+			}
+		}
+		if activePlanStepID == planStepID {
+			activePlanStepID = ""
+		}
+	}
+
+	updatePlanStep := func(planStepID string, mutate func(step *alkaidModels.AgentPlanStep)) {
+		if planStepID == "" || mutate == nil {
+			return
+		}
+		for i := range planSteps {
+			if planSteps[i].PlanStepID != planStepID {
+				continue
+			}
+			mutate(&planSteps[i])
+			_ = sw.WritePlanStepUpdated(planSteps[i])
+			return
+		}
+	}
 
 	messages := []providers.ChatMessage{{Role: "user", Content: contentForLLM}}
 	const maxTurns = 15
 	var assistantContent string
 	assistantContentStreamed := false
-	toolsUsed := false
+	draftingStepID := ""
+
+	startDraftingStep := func() {
+		if draftingStepID != "" {
+			return
+		}
+		step := ensureSyntheticPlanStep(
+			&planSteps,
+			userMsg.ID,
+			req.Message,
+			"整理并生成工作流方案",
+			"已收集到足够上下文，开始整理并输出最终工作流方案。",
+			alkaidModels.PhaseGenerating,
+			nil,
+		)
+		startPlanStep(step)
+		draftingStepID = fmt.Sprintf("step-%d-draft_workflow", time.Now().UnixNano())
+		_ = sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
+		_ = sw.WriteToolStepStartedWithPlan(draftingStepID, "整理工作流方案", alkaidModels.PhaseGenerating, step.PlanStepID)
+	}
+
+	finishDraftingStep := func(summary string) {
+		if draftingStepID == "" {
+			return
+		}
+		_ = sw.WriteToolStepFinished(draftingStepID, alkaidModels.ToolStepSuccess, summary, "")
+		finishPlanStep(activePlanStepID, alkaidModels.PlanStepSuccess, summary, "")
+		draftingStepID = ""
+	}
 
 	for turn := 0; turn < maxTurns; turn++ {
 		if checkCancel() {
 			return nil
 		}
-		_ = sw.WritePhaseChanged(alkaidModels.PhasePlanning)
-		resp, err := aiProvider.ChatWithTools(reqCtx, aiConfig, systemPrompt, messages, toolDefs, map[string]interface{}{"thinking": false})
+		if turn > 0 {
+			startDraftingStep()
+			if false {
+				_ = sw.WriteContent("我已经完成前置检索，正在为你生成较大的工作流方案。这一步可能会更久一些，但我会继续整理并输出结果。\n\n")
+			}
+		}
+		if draftingStepID == "" {
+			_ = sw.WritePhaseChanged(alkaidModels.PhasePlanning)
+		}
+		var resp *providers.ChatResponseWithTools
+		var err error
+		if turn > 0 {
+			type chatWithToolsResult struct {
+				resp *providers.ChatResponseWithTools
+				err  error
+			}
+
+			resultCh := make(chan chatWithToolsResult, 1)
+			go func() {
+				chatResp, chatErr := aiProvider.ChatWithTools(reqCtx, aiConfig, systemPrompt, messages, toolDefs, map[string]interface{}{"thinking": false})
+				resultCh <- chatWithToolsResult{resp: chatResp, err: chatErr}
+			}()
+
+			heartbeatMessages := []string{
+				"我还在整合检索结果与节点能力，请稍候。\n",
+				"我正在压缩节点配置和连线结构，尽量让工作流完整输出。\n",
+				"方案比较大，所以这一步会更久一些，但我还在继续生成。\n",
+			}
+			heartbeatIndex := 0
+			ticker := time.NewTicker(8 * time.Second)
+			defer ticker.Stop()
+
+		waitForPlanning:
+			for {
+				select {
+				case <-reqCtx.Done():
+					_ = sw.WriteInterrupted()
+					return nil
+				case result := <-resultCh:
+					resp = result.resp
+					err = result.err
+					break waitForPlanning
+				case <-ticker.C:
+					startDraftingStep()
+					continue
+					messageIndex := heartbeatIndex
+					if messageIndex >= len(heartbeatMessages) {
+						messageIndex = len(heartbeatMessages) - 1
+					}
+					_ = sw.WriteContent(heartbeatMessages[messageIndex])
+					heartbeatIndex++
+				}
+			}
+		} else {
+			resp, err = aiProvider.ChatWithTools(reqCtx, aiConfig, systemPrompt, messages, toolDefs, map[string]interface{}{"thinking": false})
+		}
 		if err != nil {
+			if draftingStepID != "" {
+				_ = sw.WriteToolStepFinished(draftingStepID, alkaidModels.ToolStepError, "整理方案失败", err.Error())
+				draftingStepID = ""
+			}
 			_ = sw.WriteError(err.Error())
 			return err
 		}
@@ -173,33 +426,46 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 		}
 
 		if len(resp.ToolCalls) == 0 {
+			for i := range planSteps {
+				if planSteps[i].PlanStepID == activePlanStepID && planSteps[i].Phase == alkaidModels.PhasePlanning {
+					finishPlanStep(activePlanStepID, alkaidModels.PlanStepSuccess, "已完成上下文确认，进入方案生成", "")
+					break
+				}
+			}
 			assistantContent = resp.Content
-			if toolsUsed {
-				if streamer, ok := aiProvider.(toolStreamingProvider); ok {
-					var streamed strings.Builder
-					_ = sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
-					streamResp, streamErr := streamer.ChatWithToolsStream(reqCtx, aiConfig, systemPrompt, messages, nil, map[string]interface{}{"thinking": false}, func(content string, done bool, err error, usage *providers.TokenUsage) {
-						if err != nil || content == "" {
-							return
-						}
-						streamed.WriteString(content)
-						_ = sw.WriteContent(content)
-					})
-					if streamErr == nil && streamResp != nil {
-						if streamed.Len() > 0 {
-							assistantContent = streamed.String()
-							assistantContentStreamed = true
-						} else if streamResp.Content != "" {
-							assistantContent = streamResp.Content
-							assistantContentStreamed = true
-						}
+			if canStreamWithTools {
+				var streamed strings.Builder
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
+				streamResp, streamErr := streamer.ChatWithToolsStream(reqCtx, aiConfig, systemPrompt, messages, nil, map[string]interface{}{"thinking": false}, func(content string, done bool, err error, usage *providers.TokenUsage) {
+					if err != nil || content == "" {
+						return
+					}
+					finishDraftingStep("已开始输出工作流方案")
+					streamed.WriteString(content)
+					_ = sw.WriteContent(content)
+				})
+				if reqCtx.Err() != nil {
+					_ = sw.WriteInterrupted()
+					return nil
+				}
+				if streamErr == nil && streamResp != nil {
+					if streamed.Len() > 0 {
+						assistantContent = streamed.String()
+						assistantContentStreamed = true
+					} else if streamResp.Content != "" {
+						assistantContent = streamResp.Content
+						finishDraftingStep("已开始输出工作流方案")
+						_ = sw.WriteContent(streamResp.Content)
+						assistantContentStreamed = true
 					}
 				}
 			}
+			if draftingStepID != "" {
+				finishDraftingStep("已整理出工作流方案")
+			}
 			break
 		}
-		toolsUsed = true
-
+		finishDraftingStep("已整理下一步方案，继续补充上下文")
 		// 追加 assistant 消息（含 tool_calls）
 		messages = append(messages, providers.ChatMessage{
 			Role:      "assistant",
@@ -211,8 +477,21 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			if checkCancel() {
 				return nil
 			}
+			selectedPlanStep := selectPlanStepForTool(planSteps, tc.Function.Name)
+			if selectedPlanStep == nil {
+				selectedPlanStep = ensureSyntheticPlanStep(
+					&planSteps,
+					userMsg.ID,
+					req.Message,
+					fmt.Sprintf("执行 %s", tc.Function.Name),
+					"当前需要调用工具补充上下文或验证配置。",
+					alkaidModels.PhasePlanning,
+					[]string{tc.Function.Name},
+				)
+			}
+			startPlanStep(selectedPlanStep)
 			stepID := fmt.Sprintf("step-%d-%s", time.Now().UnixNano(), tc.Function.Name)
-			_ = sw.WriteToolStepStarted(stepID, tc.Function.Name, alkaidModels.PhasePlanning)
+			_ = sw.WriteToolStepStartedWithPlan(stepID, tc.Function.Name, alkaidModels.PhasePlanning, selectedPlanStep.PlanStepID)
 			args := tc.Function.Arguments
 			if args == "" {
 				args = "{}"
@@ -226,6 +505,14 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 				resultSummary = errMsg
 			}
 			_ = sw.WriteToolStepFinished(stepID, status, resultSummary, errMsg)
+			if status == alkaidModels.ToolStepSuccess {
+				updatePlanStep(selectedPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+					step.ResultSummary = resultSummary
+				})
+			}
+			if toolErr != nil {
+				finishPlanStep(selectedPlanStep.PlanStepID, alkaidModels.PlanStepError, resultSummary, errMsg)
+			}
 
 			toolContent := resultSummary
 			if result != nil {
@@ -314,6 +601,35 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 	}
 	// 从回复中抽取工作流 JSON，执行完整的"校验 → 优化 → 试跑 → 确认交付"流程
 	workflowJSON := extractWorkflowJSON(assistantContent)
+	if workflowJSON == "" && shouldAttemptWorkflowFallback(req.Message, assistantContent) {
+		_ = sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
+		_ = sw.WriteContent("\n\n主回复较长，我正在单独整理结构化工作流，请稍候。\n")
+
+		fallbackContent, fallbackErr := generateWorkflowJSONFallback(
+			reqCtx,
+			aiProvider,
+			streamer,
+			canStreamWithTools,
+			buildWorkflowFallbackConfig(aiConfig),
+			systemPrompt,
+			messages,
+			assistantContent,
+		)
+		if reqCtx.Err() != nil {
+			_ = sw.WriteInterrupted()
+			return nil
+		}
+		if fallbackErr != nil {
+			_ = sw.WriteContent("结构化工作流整理失败，本轮先保留文本方案。\n")
+		} else if fallbackContent != "" {
+			workflowJSON = extractWorkflowJSON(fallbackContent)
+			if workflowJSON != "" {
+				_ = sw.WriteContent("已整理出可应用的结构化工作流，正在继续校验。\n")
+			} else {
+				_ = sw.WriteContent("结构化工作流仍不完整，本轮先保留文本方案。\n")
+			}
+		}
+	}
 	if workflowJSON != "" {
 		// 先验证提取的 JSON 是否有效
 		var workflowMap map[string]interface{}
@@ -323,6 +639,23 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			_ = sw.WritePhaseChanged(alkaidModels.PhaseIdle)
 			_ = sw.WriteDone()
 			return nil
+		}
+
+		crawlerRequired := workflowHasNodeType(workflowMap, "crawler")
+		if crawlerRequired && ensureCrawlerNodeDefaults(workflowMap) {
+			if normalizedWorkflowJSON, marshalErr := json.Marshal(workflowMap); marshalErr == nil {
+				workflowJSON = string(normalizedWorkflowJSON)
+			}
+		}
+		if crawlerRequired {
+			crawlerConfigErrors := validateCrawlerNodeConfigs(workflowMap)
+			if len(crawlerConfigErrors) > 0 {
+				errMsg := "crawler 节点配置不完整，无法保证可用性: " + strings.Join(crawlerConfigErrors, "; ")
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(errMsg)
+				_ = sw.WriteDone()
+				return nil
+			}
 		}
 
 		// Hook: AfterGenerate - 生成后审计
@@ -338,7 +671,17 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 
 		// 阶段 1: 校验工作流结构
 		_ = sw.WritePhaseChanged(alkaidModels.PhaseValidating)
-		_ = sw.WriteToolStepStarted("step-validate", "validate_workflow", alkaidModels.PhaseValidating)
+		validatePlanStep := ensureSyntheticPlanStep(
+			&planSteps,
+			userMsg.ID,
+			req.Message,
+			"校验工作流结构",
+			"在交付前检查工作流 JSON 是否符合节点与连线规范。",
+			alkaidModels.PhaseValidating,
+			[]string{"validate_workflow"},
+		)
+		startPlanStep(validatePlanStep)
+		_ = sw.WriteToolStepStartedWithPlan("step-validate", "validate_workflow", alkaidModels.PhaseValidating, validatePlanStep.PlanStepID)
 		params := fmt.Sprintf(`{"workflow":%s}`, workflowJSON)
 		valResult, valSummary, valErr := registry.ExecuteTool("validate_workflow", params, req.SessionID)
 
@@ -355,139 +698,260 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 				errMsg = valErr.Error()
 			}
 			_ = sw.WriteToolStepFinished("step-validate", alkaidModels.ToolStepError, valSummary, errMsg)
+			finishPlanStep(validatePlanStep.PlanStepID, alkaidModels.PlanStepError, valSummary, errMsg)
 			_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
 			_ = sw.WriteError(fmt.Sprintf("工作流校验失败: %s", errMsg))
 			_ = sw.WriteDone()
 			return nil
 		}
 		_ = sw.WriteToolStepFinished("step-validate", alkaidModels.ToolStepSuccess, valSummary, "")
+		finishPlanStep(validatePlanStep.PlanStepID, alkaidModels.PlanStepSuccess, valSummary, "")
+
+		urlCandidates := collectWorkflowURLCandidates(workflowMap)
+		if crawlerRequired && len(urlCandidates) == 0 {
+			errMsg := "检测到工作流包含 crawler 节点，但没有找到可验证的具体网站 URL。请提供可直接访问的详情页或正文页链接后再生成工作流。"
+			_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+			_ = sw.WriteError(errMsg)
+			_ = sw.WriteDone()
+			return nil
+		}
+		if len(urlCandidates) > 0 {
+			urlPlanStep := ensureSyntheticPlanStep(
+				&planSteps,
+				userMsg.ID,
+				req.Message,
+				"验证候选数据源 URL",
+				"工作流包含外部页面抓取时，需要先确认候选链接是否可直接作为 crawler 数据源，避免使用搜索页、登录页或难以抓取的页面。",
+				alkaidModels.PhaseValidating,
+				[]string{"check_url_accessibility"},
+			)
+			startPlanStep(urlPlanStep)
+			updatePlanStep(urlPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+				step.ResultSummary = fmt.Sprintf("检测到 %d 个候选 URL，开始逐个校验可访问性", len(urlCandidates))
+			})
+
+			failures := make([]string, 0)
+			okCount := 0
+			for i, rawURL := range urlCandidates {
+				urlStepID := fmt.Sprintf("step-url-check-%d", i+1)
+				_ = sw.WriteToolStepStartedWithPlan(urlStepID, "check_url_accessibility", alkaidModels.PhaseValidating, urlPlanStep.PlanStepID)
+				result, resultSummary, toolErr := registry.ExecuteTool("check_url_accessibility", fmt.Sprintf(`{"url":%q}`, rawURL), req.SessionID)
+				status := alkaidModels.ToolStepSuccess
+				errMsg := ""
+				if toolErr != nil {
+					status = alkaidModels.ToolStepError
+					errMsg = toolErr.Error()
+					resultSummary = errMsg
+				}
+				_ = sw.WriteToolStepFinished(urlStepID, status, resultSummary, errMsg)
+
+				if toolErr != nil {
+					failures = append(failures, fmt.Sprintf("%s (%s)", rawURL, errMsg))
+					continue
+				}
+
+				report, ok := result.(map[string]interface{})
+				if !ok {
+					failures = append(failures, fmt.Sprintf("%s (invalid accessibility result)", rawURL))
+					continue
+				}
+
+				if accessible, _ := report["ok"].(bool); accessible {
+					okCount++
+					continue
+				}
+
+				reason, _ := report["reason"].(string)
+				if reason == "" {
+					reason = "not suitable for crawler source"
+				}
+				failures = append(failures, fmt.Sprintf("%s (%s)", rawURL, reason))
+			}
+
+			urlValidationSummary := fmt.Sprintf("已校验 %d 个候选 URL，其中 %d 个可直接抓取", len(urlCandidates), okCount)
+			if len(failures) > 0 {
+				errMsg := "以下候选 URL 当前不适合作为 crawler 数据源: " + strings.Join(failures, "; ")
+				updatePlanStep(urlPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+					step.ResultSummary = urlValidationSummary
+					step.ErrorMessage = errMsg
+				})
+				finishPlanStep(urlPlanStep.PlanStepID, alkaidModels.PlanStepError, urlValidationSummary, errMsg)
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+				_ = sw.WriteError(errMsg)
+				_ = sw.WriteDone()
+				return nil
+			}
+
+			if len(failures) == 0 {
+				updatePlanStep(urlPlanStep.PlanStepID, func(step *alkaidModels.AgentPlanStep) {
+					step.ResultSummary = urlValidationSummary
+				})
+				finishPlanStep(urlPlanStep.PlanStepID, alkaidModels.PlanStepSuccess, urlValidationSummary, "")
+			}
+		}
+
+		autoTrialAndRepairEnabled := crawlerRequired
 
 		// 阶段 2: 试跑工作流（预演执行，固定执行）
 		if checkCancel() {
 			return nil
 		}
-		_ = sw.WritePhaseChanged(alkaidModels.PhaseRunningTrial)
-		_ = sw.WriteToolStepStarted("step-trial", "run_workflow_trial", alkaidModels.PhaseRunningTrial)
-		trialResult, trialSummary, trialErr := registry.ExecuteTool("run_workflow_trial", params, req.SessionID)
+		if autoTrialAndRepairEnabled {
+			_ = sw.WritePhaseChanged(alkaidModels.PhaseRunningTrial)
+			trialPlanStep := ensureSyntheticPlanStep(
+				&planSteps,
+				userMsg.ID,
+				req.Message,
+				"试跑工作流",
+				"在正式交付前做一次快速试跑，尽早发现不可执行问题。",
+				alkaidModels.PhaseRunningTrial,
+				[]string{"run_workflow_trial"},
+			)
+			startPlanStep(trialPlanStep)
+			_ = sw.WriteToolStepStartedWithPlan("step-trial", "run_workflow_trial", alkaidModels.PhaseRunningTrial, trialPlanStep.PlanStepID)
+			trialResult, trialSummary, trialErr := registry.ExecuteTool("run_workflow_trial", params, req.SessionID)
 
-		var trialSuccess bool
-		var trialErrorMsg string
-		if m, ok := trialResult.(map[string]interface{}); ok {
-			trialSuccess, _ = m["success"].(bool)
-			if errField, hasErr := m["error"]; hasErr && errField != nil {
-				trialErrorMsg = fmt.Sprintf("%v", errField)
-			}
-		}
-
-		// 试跑失败时的处理
-		if trialErr != nil || !trialSuccess {
-			errMsg := trialSummary
-			if trialErr != nil {
-				errMsg = trialErr.Error()
-			} else if trialErrorMsg != "" {
-				errMsg = trialErrorMsg
-			}
-			_ = sw.WriteToolStepFinished("step-trial", alkaidModels.ToolStepError, trialSummary, errMsg)
-
-			// Hook: OnWorkflowRunFailed - 工作流运行失败时
-			workflowID := uint(0)
-			if session.WorkflowID != nil {
-				workflowID = *session.WorkflowID
-			}
-			executionError := map[string]interface{}{
-				"message": errMsg,
-				"summary": trialSummary,
-			}
-			if trialResult != nil {
-				if m, ok := trialResult.(map[string]interface{}); ok {
-					executionError["details"] = m
+			var trialSuccess bool
+			var trialErrorMsg string
+			if m, ok := trialResult.(map[string]interface{}); ok {
+				trialSuccess, _ = m["success"].(bool)
+				if errField, hasErr := m["error"]; hasErr && errField != nil {
+					trialErrorMsg = fmt.Sprintf("%v", errField)
 				}
 			}
-			// 调用 Hook（不阻塞流程，仅用于通知/审计）
-			_, _, _ = CallOnWorkflowRunFailed(req.SessionID, req.UserID, workflowID, executionError)
 
-			// 进入修复阶段：让 LLM 尝试修复问题
+			// 试跑失败时的处理
+			if trialErr != nil || !trialSuccess {
+				errMsg := trialSummary
+				if trialErr != nil {
+					errMsg = trialErr.Error()
+				} else if trialErrorMsg != "" {
+					errMsg = trialErrorMsg
+				}
+				_ = sw.WriteToolStepFinished("step-trial", alkaidModels.ToolStepError, trialSummary, errMsg)
+				finishPlanStep(trialPlanStep.PlanStepID, alkaidModels.PlanStepError, trialSummary, errMsg)
+
+				// Hook: OnWorkflowRunFailed - 工作流运行失败时
+				workflowID := uint(0)
+				if session.WorkflowID != nil {
+					workflowID = *session.WorkflowID
+				}
+				executionError := map[string]interface{}{
+					"message": errMsg,
+					"summary": trialSummary,
+				}
+				if trialResult != nil {
+					if m, ok := trialResult.(map[string]interface{}); ok {
+						executionError["details"] = m
+					}
+				}
+				// 调用 Hook（不阻塞流程，仅用于通知/审计）
+				_, _, _ = CallOnWorkflowRunFailed(req.SessionID, req.UserID, workflowID, executionError)
+
+				// 进入修复阶段：让 LLM 尝试修复问题
+				if checkCancel() {
+					return nil
+				}
+				_ = sw.WritePhaseChanged(alkaidModels.PhaseRepairing)
+				_ = sw.WriteContent("\n\n⚠️ 工作流试跑失败，正在尝试自动修复...\n")
+
+				// 构造修复提示，告知 LLM 错误信息
+				repairPrompt := fmt.Sprintf("工作流试跑失败，错误信息：%s\n\n请分析错误原因并生成修复后的工作流。", errMsg)
+				if len(validationErrors) > 0 {
+					errBytes, _ := json.Marshal(validationErrors)
+					repairPrompt = fmt.Sprintf("工作流试跑失败。校验错误：%s，执行错误：%s\n\n请修复这些问题并重新生成工作流。", string(errBytes), errMsg)
+				}
+
+				// 调用 LLM 进行修复（追加修复请求到消息历史）
+				messages = append(messages, providers.ChatMessage{
+					Role:    "user",
+					Content: repairPrompt,
+				})
+
+				repairResp, repairErr := aiProvider.ChatWithTools(reqCtx, aiConfig, systemPrompt, messages, toolDefs, map[string]interface{}{"thinking": false})
+				if repairErr != nil || reqCtx.Err() != nil {
+					_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+					_ = sw.WriteError("自动修复失败，请手动调整工作流")
+					_ = sw.WriteDone()
+					return nil
+				}
+
+				// 输出修复后的回复
+				_ = sw.WriteContent("\n修复建议：\n" + repairResp.Content)
+
+				// 尝试从修复回复中提取新的工作流
+				repairedWorkflowJSON := extractWorkflowJSON(repairResp.Content)
+				if repairedWorkflowJSON != "" {
+					// 先验证修复后的 JSON 是否有效
+					var repairedMap map[string]interface{}
+					if err := json.Unmarshal([]byte(repairedWorkflowJSON), &repairedMap); err != nil {
+						_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+						_ = sw.WriteError("修复后的工作流 JSON 格式仍然有误")
+						_ = sw.WriteDone()
+						return nil
+					}
+
+					// 重新校验修复后的工作流
+					repairValidatePlanStep := ensureSyntheticPlanStep(
+						&planSteps,
+						userMsg.ID,
+						req.Message,
+						"校验修复后的工作流",
+						"修复后再次确认工作流结构已经满足规范。",
+						alkaidModels.PhaseRepairing,
+						[]string{"validate_workflow"},
+					)
+					startPlanStep(repairValidatePlanStep)
+					_ = sw.WriteToolStepStartedWithPlan("step-validate-repair", "validate_workflow", alkaidModels.PhaseRepairing, repairValidatePlanStep.PlanStepID)
+					valResult2, valSummary2, valErr2 := registry.ExecuteTool("validate_workflow", fmt.Sprintf(`{"workflow":%s}`, repairedWorkflowJSON), req.SessionID)
+
+					var validRepair bool
+					if m, ok := valResult2.(map[string]interface{}); ok {
+						validRepair, _ = m["valid"].(bool)
+					}
+
+					if valErr2 != nil || !validRepair {
+						_ = sw.WriteToolStepFinished("step-validate-repair", alkaidModels.ToolStepError, valSummary2, "修复后仍存在问题")
+						_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+						_ = sw.WriteError("自动修复未能完全解决问题，建议手动调整")
+						_ = sw.WriteDone()
+						return nil
+					}
+					_ = sw.WriteToolStepFinished("step-validate-repair", alkaidModels.ToolStepSuccess, valSummary2, "")
+
+					// 使用修复后的工作流继续
+					workflowJSON = repairedWorkflowJSON
+					_ = sw.WriteContent("\n✅ 工作流已自动修复并通过校验\n")
+				} else {
+					// 无法提取修复后的工作流
+					_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
+					_ = sw.WriteError("无法从修复建议中提取有效工作流")
+					_ = sw.WriteDone()
+					return nil
+				}
+			} else {
+				// 试跑成功
+				_ = sw.WriteToolStepFinished("step-trial", alkaidModels.ToolStepSuccess, trialSummary, "")
+				finishPlanStep(trialPlanStep.PlanStepID, alkaidModels.PlanStepSuccess, trialSummary, "")
+			}
+
+			// 阶段 3: 确认与交付 - 提出工作流供用户确认
 			if checkCancel() {
 				return nil
 			}
-			_ = sw.WritePhaseChanged(alkaidModels.PhaseRepairing)
-			_ = sw.WriteContent("\n\n⚠️ 工作流试跑失败，正在尝试自动修复...\n")
-
-			// 构造修复提示，告知 LLM 错误信息
-			repairPrompt := fmt.Sprintf("工作流试跑失败，错误信息：%s\n\n请分析错误原因并生成修复后的工作流。", errMsg)
-			if len(validationErrors) > 0 {
-				errBytes, _ := json.Marshal(validationErrors)
-				repairPrompt = fmt.Sprintf("工作流试跑失败。校验错误：%s，执行错误：%s\n\n请修复这些问题并重新生成工作流。", string(errBytes), errMsg)
-			}
-
-			// 调用 LLM 进行修复（追加修复请求到消息历史）
-			messages = append(messages, providers.ChatMessage{
-				Role:    "user",
-				Content: repairPrompt,
-			})
-
-			repairResp, repairErr := aiProvider.ChatWithTools(reqCtx, aiConfig, systemPrompt, messages, toolDefs, map[string]interface{}{"thinking": false})
-			if repairErr != nil || reqCtx.Err() != nil {
-				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
-				_ = sw.WriteError("自动修复失败，请手动调整工作流")
-				_ = sw.WriteDone()
-				return nil
-			}
-
-			// 输出修复后的回复
-			_ = sw.WriteContent("\n修复建议：\n" + repairResp.Content)
-
-			// 尝试从修复回复中提取新的工作流
-			repairedWorkflowJSON := extractWorkflowJSON(repairResp.Content)
-			if repairedWorkflowJSON != "" {
-				// 先验证修复后的 JSON 是否有效
-				var repairedMap map[string]interface{}
-				if err := json.Unmarshal([]byte(repairedWorkflowJSON), &repairedMap); err != nil {
-					_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
-					_ = sw.WriteError("修复后的工作流 JSON 格式仍然有误")
-					_ = sw.WriteDone()
-					return nil
-				}
-
-				// 重新校验修复后的工作流
-				_ = sw.WriteToolStepStarted("step-validate-repair", "validate_workflow", alkaidModels.PhaseRepairing)
-				valResult2, valSummary2, valErr2 := registry.ExecuteTool("validate_workflow", fmt.Sprintf(`{"workflow":%s}`, repairedWorkflowJSON), req.SessionID)
-
-				var validRepair bool
-				if m, ok := valResult2.(map[string]interface{}); ok {
-					validRepair, _ = m["valid"].(bool)
-				}
-
-				if valErr2 != nil || !validRepair {
-					_ = sw.WriteToolStepFinished("step-validate-repair", alkaidModels.ToolStepError, valSummary2, "修复后仍存在问题")
-					_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
-					_ = sw.WriteError("自动修复未能完全解决问题，建议手动调整")
-					_ = sw.WriteDone()
-					return nil
-				}
-				_ = sw.WriteToolStepFinished("step-validate-repair", alkaidModels.ToolStepSuccess, valSummary2, "")
-
-				// 使用修复后的工作流继续
-				workflowJSON = repairedWorkflowJSON
-				_ = sw.WriteContent("\n✅ 工作流已自动修复并通过校验\n")
-			} else {
-				// 无法提取修复后的工作流
-				_ = sw.WritePhaseChanged(alkaidModels.PhaseError)
-				_ = sw.WriteError("无法从修复建议中提取有效工作流")
-				_ = sw.WriteDone()
-				return nil
-			}
-		} else {
-			// 试跑成功
-			_ = sw.WriteToolStepFinished("step-trial", alkaidModels.ToolStepSuccess, trialSummary, "")
-		}
-
-		// 阶段 3: 确认与交付 - 提出工作流供用户确认
-		if checkCancel() {
-			return nil
 		}
 		_ = sw.WritePhaseChanged(alkaidModels.PhaseWaitingApproval)
-		_ = sw.WriteToolStepStarted("step-propose", "propose_workflow", alkaidModels.PhaseWaitingApproval)
+		proposePlanStep := ensureSyntheticPlanStep(
+			&planSteps,
+			userMsg.ID,
+			req.Message,
+			"整理待确认结果",
+			"将最终工作流整理成可确认的交付结果，等待用户决定是否应用。",
+			alkaidModels.PhaseWaitingApproval,
+			[]string{"propose_workflow", "propose_patch"},
+		)
+		startPlanStep(proposePlanStep)
+		_ = sw.WriteToolStepStartedWithPlan("step-propose", "propose_workflow", alkaidModels.PhaseWaitingApproval, proposePlanStep.PlanStepID)
 		_, propSummary, _ := registry.ExecuteTool("propose_workflow", fmt.Sprintf(`{"workflow":%s}`, workflowJSON), req.SessionID)
 		_ = sw.WriteToolStepFinished("step-propose", alkaidModels.ToolStepSuccess, propSummary, "")
 
@@ -509,14 +973,18 @@ func RunStream(ctx *gin.Context, req RunStreamRequest) error {
 			patch, patchErr := ComputeWorkflowDiff(currentWorkflowForDiff, proposedNodes, proposedEdges)
 			if patchErr == nil && len(patch) > 0 {
 				patchJSON, _ := json.Marshal(map[string]interface{}{"patch": patch})
-				_ = sw.WriteToolStepStarted("step-patch", "propose_patch", alkaidModels.PhaseWaitingApproval)
+				_ = sw.WriteToolStepStartedWithPlan("step-patch", "propose_patch", alkaidModels.PhaseWaitingApproval, proposePlanStep.PlanStepID)
 				_, _, _ = registry.ExecuteTool("propose_patch", string(patchJSON), req.SessionID)
 				_ = sw.WriteToolStepFinished("step-patch", alkaidModels.ToolStepSuccess, fmt.Sprintf("已生成 %d 项补丁", len(patch)), "")
 				_ = sw.WritePendingPatch(len(patch))
 			}
 		}
+		finishPlanStep(proposePlanStep.PlanStepID, alkaidModels.PlanStepSuccess, "已生成待确认结果", "")
 	}
 
+	if activePlanStepID != "" {
+		finishPlanStep(activePlanStepID, alkaidModels.PlanStepSuccess, "已完成当前计划步骤", "")
+	}
 	_ = sw.WritePhaseChanged(alkaidModels.PhaseIdle)
 	_ = sw.WriteDone()
 	return nil
@@ -532,7 +1000,7 @@ func buildAIConfig(userID uint) (*providers.AIModelConfig, error) {
 		APIKey:      config.DeepSeekAPIKey,
 		BaseURL:     "https://api.deepseek.com",
 		Temperature: floatPtr(0.7),
-		MaxTokens:   intPtr(4000),
+		MaxTokens:   intPtr(8192),
 	}, nil
 }
 
@@ -611,6 +1079,435 @@ func extractWorkflowJSON(content string) string {
 }
 
 // isValidWorkflowJSON 检查是否是有效的工作流 JSON
+func shouldAttemptWorkflowFallback(userMessage, assistantContent string) bool {
+	if strings.TrimSpace(assistantContent) == "" {
+		return false
+	}
+
+	lowerUser := strings.ToLower(userMessage)
+	lowerAssistant := strings.ToLower(assistantContent)
+
+	intentMarkers := []string{
+		"工作流", "workflow", "节点", "node", "画布", "流程图",
+	}
+	hasWorkflowIntent := false
+	for _, marker := range intentMarkers {
+		if strings.Contains(lowerUser, marker) {
+			hasWorkflowIntent = true
+			break
+		}
+	}
+
+	structureMarkers := []string{
+		"<!-- workflow-json -->",
+		"```json",
+		"\"nodes\"",
+		"\"edges\"",
+		"\"type\": \"start\"",
+		"\"type\":\"start\"",
+		"\"type\": \"crawler\"",
+		"\"type\":\"crawler\"",
+	}
+	for _, marker := range structureMarkers {
+		if strings.Contains(lowerAssistant, marker) {
+			return true
+		}
+	}
+
+	if hasWorkflowIntent && len([]rune(assistantContent)) >= 1800 {
+		return true
+	}
+
+	return false
+}
+
+func buildWorkflowFallbackConfig(base *providers.AIModelConfig) *providers.AIModelConfig {
+	if base == nil {
+		return nil
+	}
+
+	cfg := *base
+	temperature := 0.2
+	maxTokens := 8192
+	cfg.Temperature = &temperature
+	cfg.MaxTokens = &maxTokens
+	return &cfg
+}
+
+func generateWorkflowJSONFallback(
+	ctx context.Context,
+	aiProvider providers.AIProvider,
+	streamer toolStreamingProvider,
+	canStreamWithTools bool,
+	config *providers.AIModelConfig,
+	systemPrompt string,
+	baseMessages []providers.ChatMessage,
+	assistantContent string,
+) (string, error) {
+	fallbackMessages := append([]providers.ChatMessage{}, baseMessages...)
+	if strings.TrimSpace(assistantContent) != "" {
+		fallbackMessages = append(fallbackMessages, providers.ChatMessage{
+			Role:    "assistant",
+			Content: assistantContent,
+		})
+	}
+
+	fallbackMessages = append(fallbackMessages, providers.ChatMessage{
+		Role: "user",
+		Content: "你上一条回复过长，结构化工作流没有完整输出。请基于已有需求、工具结果和你刚才的方案，重新输出一个完整的工作流 JSON。\n" +
+			"要求：\n" +
+			"1. 只输出 JSON 对象，不要 Markdown、代码块、解释、标题或前后缀。\n" +
+			"2. 必须包含 version、name、description、nodes、edges。\n" +
+			"3. 在保持逻辑完整的前提下，压缩 label、description、prompt 等长文案，优先缩短文字，不要删掉关键结构。\n" +
+			"4. 节点配置必须兼容当前工作流规范，不要输出省略号或不完整字段。\n" +
+			"5. 如果内容仍然偏长，优先保留关键节点、关键连线和可运行配置，保证 JSON 完整可解析。",
+	})
+
+	if canStreamWithTools && streamer != nil {
+		var streamed strings.Builder
+		resp, err := streamer.ChatWithToolsStream(ctx, config, systemPrompt, fallbackMessages, nil, map[string]interface{}{"thinking": false}, func(content string, done bool, err error, usage *providers.TokenUsage) {
+			if err != nil || content == "" {
+				return
+			}
+			streamed.WriteString(content)
+		})
+		if err != nil {
+			return "", err
+		}
+		if streamed.Len() > 0 {
+			return strings.TrimSpace(streamed.String()), nil
+		}
+		if resp != nil {
+			return strings.TrimSpace(resp.Content), nil
+		}
+		return "", nil
+	}
+
+	resp, err := aiProvider.ChatWithTools(ctx, config, systemPrompt, fallbackMessages, nil, map[string]interface{}{"thinking": false})
+	if err != nil {
+		return "", err
+	}
+	if resp == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(resp.Content), nil
+}
+
+var absoluteURLRe = regexp.MustCompile(`https?://[^\s"'<>]+`)
+
+func collectWorkflowURLCandidates(workflow map[string]interface{}) []string {
+	nodes, _ := workflow["nodes"].([]interface{})
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	urls := make([]string, 0, 8)
+	addURL := func(raw string) {
+		raw = strings.TrimSpace(raw)
+		raw = strings.TrimRight(raw, ".,);]")
+		if raw == "" || strings.Contains(raw, "{{") {
+			return
+		}
+		if _, exists := seen[raw]; exists {
+			return
+		}
+		seen[raw] = struct{}{}
+		urls = append(urls, raw)
+	}
+
+	var walk func(v interface{})
+	walk = func(v interface{}) {
+		switch value := v.(type) {
+		case map[string]interface{}:
+			for _, child := range value {
+				walk(child)
+			}
+		case []interface{}:
+			for _, child := range value {
+				walk(child)
+			}
+		case string:
+			text := strings.TrimSpace(value)
+			if text == "" || strings.Contains(text, "{{") {
+				return
+			}
+			if (strings.HasPrefix(text, "{") || strings.HasPrefix(text, "[")) && json.Valid([]byte(text)) {
+				var decoded interface{}
+				if err := json.Unmarshal([]byte(text), &decoded); err == nil {
+					walk(decoded)
+					return
+				}
+			}
+			for _, match := range absoluteURLRe.FindAllString(text, -1) {
+				addURL(match)
+			}
+		}
+	}
+
+	for _, rawNode := range nodes {
+		nodeMap, ok := rawNode.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		nodeType, _ := nodeMap["type"].(string)
+		if nodeType == "" {
+			if dataMap, ok := nodeMap["data"].(map[string]interface{}); ok {
+				nodeType, _ = dataMap["type"].(string)
+			}
+		}
+		if nodeType != "start" && nodeType != "crawler" {
+			continue
+		}
+
+		dataMap, ok := nodeMap["data"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		configMap, ok := dataMap["config"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		walk(configMap)
+	}
+
+	return urls
+}
+
+func validateWorkflowSourceURLs(registry *tools.Registry, urls []string, sessionID uint) (interface{}, string, error) {
+	results := make([]map[string]interface{}, 0, len(urls))
+	failureReasons := make([]string, 0)
+	okCount := 0
+
+	for _, rawURL := range urls {
+		result, _, err := registry.ExecuteTool("check_url_accessibility", fmt.Sprintf(`{"url":%q}`, rawURL), sessionID)
+		if err != nil {
+			return nil, "", err
+		}
+
+		resultMap, ok := result.(map[string]interface{})
+		if !ok {
+			return nil, "", fmt.Errorf("链接预检结果类型异常: %T", result)
+		}
+
+		checkOK, _ := resultMap["ok"].(bool)
+		if checkOK {
+			okCount++
+		} else {
+			reason, _ := resultMap["reason"].(string)
+			if reason == "" {
+				reason = "链接不可直接抓取"
+			}
+			failureReasons = append(failureReasons, fmt.Sprintf("%s (%s)", rawURL, reason))
+		}
+		results = append(results, resultMap)
+	}
+
+	failedCount := len(urls) - okCount
+	summary := fmt.Sprintf("已校验 %d 个数据源，%d 个可直接抓取", len(urls), okCount)
+	return map[string]interface{}{
+		"checked_count":   len(urls),
+		"ok_count":        okCount,
+		"failed_count":    failedCount,
+		"results":         results,
+		"failure_reasons": failureReasons,
+	}, summary, nil
+}
+
+func shouldForceCrawlerPreparation(message string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(message))
+	if normalized == "" {
+		return false
+	}
+
+	keywords := []string{
+		"crawler",
+		"scrape",
+		"scraper",
+		"crawl",
+		"spider",
+		"爬虫",
+		"抓取",
+		"采集",
+		"网页",
+		"网站",
+		"正文页",
+		"详情页",
+	}
+	for _, keyword := range keywords {
+		if strings.Contains(normalized, keyword) {
+			return true
+		}
+	}
+
+	return len(absoluteURLRe.FindAllString(normalized, -1)) > 0
+}
+
+func extractAbsoluteURLsFromText(text string) []string {
+	matches := absoluteURLRe.FindAllString(text, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(matches))
+	result := make([]string, 0, len(matches))
+	for _, match := range matches {
+		raw := strings.TrimSpace(match)
+		if raw == "" {
+			continue
+		}
+		if _, exists := seen[raw]; exists {
+			continue
+		}
+		seen[raw] = struct{}{}
+		result = append(result, raw)
+	}
+	return result
+}
+
+func workflowHasNodeType(workflow map[string]interface{}, nodeType string) bool {
+	nodes, _ := workflow["nodes"].([]interface{})
+	for _, rawNode := range nodes {
+		nodeMap, ok := rawNode.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		currentType, _ := nodeMap["type"].(string)
+		if currentType == "" {
+			if dataMap, ok := nodeMap["data"].(map[string]interface{}); ok {
+				currentType, _ = dataMap["type"].(string)
+			}
+		}
+		if currentType == nodeType {
+			return true
+		}
+	}
+	return false
+}
+
+func ensureCrawlerNodeDefaults(workflow map[string]interface{}) bool {
+	nodes, _ := workflow["nodes"].([]interface{})
+	changed := false
+
+	for _, rawNode := range nodes {
+		nodeMap, ok := rawNode.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		nodeType, _ := nodeMap["type"].(string)
+		if nodeType == "" {
+			if dataMap, ok := nodeMap["data"].(map[string]interface{}); ok {
+				nodeType, _ = dataMap["type"].(string)
+			}
+		}
+		if nodeType != "crawler" {
+			continue
+		}
+
+		dataMap, ok := nodeMap["data"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		configMap, ok := dataMap["config"].(map[string]interface{})
+		if !ok || configMap == nil {
+			configMap = map[string]interface{}{}
+			dataMap["config"] = configMap
+			changed = true
+		}
+
+		if stringFieldValue(configMap["method"]) == "" {
+			configMap["method"] = "GET"
+			changed = true
+		}
+		if stringFieldValue(configMap["extractMode"]) == "" {
+			configMap["extractMode"] = "smart"
+			changed = true
+		}
+		if stringFieldValue(configMap["extractType"]) == "" {
+			configMap["extractType"] = "text"
+			changed = true
+		}
+		if _, exists := configMap["timeout"]; !exists {
+			configMap["timeout"] = 30
+			changed = true
+		}
+		if _, exists := configMap["retryCount"]; !exists {
+			configMap["retryCount"] = 3
+			changed = true
+		}
+		if _, exists := configMap["useHeadless"]; !exists {
+			configMap["useHeadless"] = false
+			changed = true
+		}
+	}
+
+	return changed
+}
+
+func validateCrawlerNodeConfigs(workflow map[string]interface{}) []string {
+	nodes, _ := workflow["nodes"].([]interface{})
+	errors := make([]string, 0)
+
+	for _, rawNode := range nodes {
+		nodeMap, ok := rawNode.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		nodeID, _ := nodeMap["id"].(string)
+		nodeType, _ := nodeMap["type"].(string)
+		if nodeType == "" {
+			if dataMap, ok := nodeMap["data"].(map[string]interface{}); ok {
+				nodeType, _ = dataMap["type"].(string)
+			}
+		}
+		if nodeType != "crawler" {
+			continue
+		}
+
+		dataMap, _ := nodeMap["data"].(map[string]interface{})
+		configMap, _ := dataMap["config"].(map[string]interface{})
+		if configMap == nil {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 缺少 config", nodeID))
+			continue
+		}
+
+		urlValue := stringFieldValue(configMap["url"])
+		urlVariable := stringFieldValue(configMap["urlVariable"])
+		if urlValue == "" && urlVariable == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 必须配置 url 或 urlVariable", nodeID))
+		}
+
+		extractMode := stringFieldValue(configMap["extractMode"])
+		if extractMode == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 缺少 extractMode", nodeID))
+		}
+		extractType := stringFieldValue(configMap["extractType"])
+		if extractType == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 缺少 extractType", nodeID))
+		}
+		method := stringFieldValue(configMap["method"])
+		if method == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 缺少 method", nodeID))
+		}
+
+		if extractMode == "custom" && stringFieldValue(configMap["selector"]) == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 在 custom 模式下必须配置 selector", nodeID))
+		}
+		if extractType == "attr" && stringFieldValue(configMap["extractAttr"]) == "" {
+			errors = append(errors, fmt.Sprintf("crawler 节点 %s 在 attr 提取下必须配置 extractAttr", nodeID))
+		}
+	}
+
+	return errors
+}
+
+func stringFieldValue(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprintf("%v", value))
+}
+
 func isValidWorkflowJSON(jsonStr string) bool {
 	var obj map[string]interface{}
 	if err := json.Unmarshal([]byte(jsonStr), &obj); err != nil {

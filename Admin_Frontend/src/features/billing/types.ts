@@ -52,6 +52,17 @@ export interface QuotaSummary {
   user_count: number;
 }
 
+export interface BillingUserOption {
+  id: number;
+  user_no: number;
+  username: string;
+  email: string;
+  avatar_url?: string | null;
+  role: 'admin' | 'user';
+  status: 'active' | 'inactive' | 'suspended';
+  token_balance: number;
+}
+
 export interface AdminOrder {
   id: number;
   order_id: string;

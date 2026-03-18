@@ -2,27 +2,38 @@ package agentic
 
 import "yaolight-workshop/backend/modules/ai/services/providers"
 
-// GetToolDefsForLLM 返回供 LLM 使用的工具定义（OpenAI 兼容格式），瑶光星按需调用
-// 注意：propose_workflow 和 propose_patch 不在此列表中，它们由固定管道在最后阶段调用
+// GetToolDefsForLLM returns the tool list exposed to the model.
 func GetToolDefsForLLM() []providers.ToolDef {
 	return []providers.ToolDef{
 		{
 			Type: "function",
 			Function: &providers.ToolDefFunc{
 				Name:        "search_knowledge",
-				Description: "从知识库中检索相关信息：最佳实践、常见问题解答、示例工作流、节点使用技巧等。建议优先调用此工具了解背景知识和最佳实践，再决定是否需要生成工作流。参数 query 为查询内容。",
+				Description: "Search the Alkaid knowledge base for best practices, error fixes, scene templates, or node usage guides. You may call this tool multiple times. If the first search is still uncertain, narrow the search with a more specific query, target, or category and search again before finalizing the workflow.",
 				Parameters: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
 						"query": map[string]interface{}{
 							"type":        "string",
-							"description": "搜索关键词或问题，如：数据清洗最佳实践、如何使用 AI 节点、示例爬虫工作流",
+							"description": "Search keywords or question. Start broad, then refine if needed.",
 						},
 						"maxResults": map[string]interface{}{
 							"type":        "integer",
-							"description": "返回条数（可选，默认 5，最大 10）。建议按需取 3~8 条，避免上下文过长。",
+							"description": "Optional. Number of results to return. Default 5, max 10.",
 							"minimum":     1,
 							"maximum":     10,
+						},
+						"target": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional. Narrow the search to a target node or theme, such as crawler, ai, or dataclean.",
+						},
+						"category": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional. Narrow the search to node_usage, best_practice, error_repair, or scene_template.",
+						},
+						"includeGeneralFallback": map[string]interface{}{
+							"type":        "boolean",
+							"description": "Optional. Whether to append general best-practice/error-repair items if scoped results are not enough. Default true.",
 						},
 					},
 					"required": []string{"query"},
@@ -32,8 +43,31 @@ func GetToolDefsForLLM() []providers.ToolDef {
 		{
 			Type: "function",
 			Function: &providers.ToolDefFunc{
+				Name:        "check_url_accessibility",
+				Description: "Check whether a URL is suitable as a crawler data source. Use this before finalizing a crawler node when the workflow depends on external websites.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"url": map[string]interface{}{
+							"type":        "string",
+							"description": "The full http/https URL to inspect.",
+						},
+						"timeoutMs": map[string]interface{}{
+							"type":        "integer",
+							"description": "Optional timeout in milliseconds. Default 8000.",
+							"minimum":     1000,
+							"maximum":     15000,
+						},
+					},
+					"required": []string{"url"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
 				Name:        "get_capabilities",
-				Description: "获取工作流能力说明：支持的节点类型、工作流 JSON 格式规范、连接规则、变量引用语法等。在需要生成工作流前调用以了解技术规范。",
+				Description: "Get supported node types, workflow JSON rules, connection constraints, and variable syntax. Call this before generating a workflow when you need technical constraints.",
 				Parameters: map[string]interface{}{
 					"type":       "object",
 					"properties": map[string]interface{}{},
@@ -44,7 +78,7 @@ func GetToolDefsForLLM() []providers.ToolDef {
 			Type: "function",
 			Function: &providers.ToolDefFunc{
 				Name:        "get_workflow",
-				Description: "获取当前画布上的工作流（节点与边）。仅在以下场景调用：1) 用户明确要求查看当前工作流；2) 用户要求修改/优化**已有**工作流。如果是生成全新工作流，无需调用此工具。",
+				Description: "Get the current canvas workflow. Only call this when the user asks to inspect or modify an existing workflow. Do not call it for brand new workflows.",
 				Parameters: map[string]interface{}{
 					"type":       "object",
 					"properties": map[string]interface{}{},
@@ -55,13 +89,13 @@ func GetToolDefsForLLM() []providers.ToolDef {
 			Type: "function",
 			Function: &providers.ToolDefFunc{
 				Name:        "get_node_spec",
-				Description: "根据节点类型获取该类型的详细规格（输入输出变量、必填配置、枚举值等）。参数 nodeType 如：start, crawler, dataclean, ai, condition, transform, loop, merge, delay, output, end。",
+				Description: "Get the detailed specification of a node type, including required config and IO structure.",
 				Parameters: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
 						"nodeType": map[string]interface{}{
 							"type":        "string",
-							"description": "节点类型，如 crawler, ai, dataclean",
+							"description": "Node type, such as crawler, ai, dataclean, merge, delay, output, or condition.",
 						},
 					},
 					"required": []string{"nodeType"},
@@ -72,17 +106,17 @@ func GetToolDefsForLLM() []providers.ToolDef {
 			Type: "function",
 			Function: &providers.ToolDefFunc{
 				Name:        "list_workflows",
-				Description: "列出当前用户的工作流列表（摘要：id、name、description、status）。当用户说「用我之前的某个工作流」「在我已有的工作流里改」时调用，便于根据 id 或 name 选择后再用 get_workflow 获取详情。可选参数 page、pageSize 分页。",
+				Description: "List the user's workflows with summary fields. Use this when the user refers to a previously created workflow but does not specify the workflow ID.",
 				Parameters: map[string]interface{}{
 					"type": "object",
 					"properties": map[string]interface{}{
 						"page": map[string]interface{}{
 							"type":        "number",
-							"description": "页码，从 1 开始，默认 1",
+							"description": "Page number starting from 1. Default 1.",
 						},
 						"pageSize": map[string]interface{}{
 							"type":        "number",
-							"description": "每页条数，默认 20，最大 100",
+							"description": "Items per page. Default 20, max 100.",
 						},
 					},
 				},
@@ -92,7 +126,7 @@ func GetToolDefsForLLM() []providers.ToolDef {
 			Type: "function",
 			Function: &providers.ToolDefFunc{
 				Name:        "get_available_models",
-				Description: "获取当前系统可用的 AI 模型列表（provider 与 modelName）。在生成或修改 AI 节点时调用，用于填写正确的 provider 和 modelName，避免编造不存在的模型。",
+				Description: "Get the currently available AI models. Use this when configuring or repairing AI nodes so you do not invent a model name.",
 				Parameters: map[string]interface{}{
 					"type":       "object",
 					"properties": map[string]interface{}{},
@@ -103,15 +137,12 @@ func GetToolDefsForLLM() []providers.ToolDef {
 			Type: "function",
 			Function: &providers.ToolDefFunc{
 				Name:        "get_user_constraints",
-				Description: "获取生成工作流时的约束（如最大节点数、应避免的节点类型等）。在生成工作流前调用可确保输出符合规范。",
+				Description: "Get workflow generation preferences and constraints, such as keeping node count minimal when possible, avoiding certain node types, and whether there is any hard upper limit.",
 				Parameters: map[string]interface{}{
 					"type":       "object",
 					"properties": map[string]interface{}{},
 				},
 			},
 		},
-		// 注意：validate_workflow 工具已移除，因为它会在固定管道中自动执行
-		// 注意：run_workflow_trial 工具已移除，因为它会在固定管道中自动执行
-		// 注意：propose_workflow 和 propose_patch 已移除，它们只能由固定管道调用
 	}
 }

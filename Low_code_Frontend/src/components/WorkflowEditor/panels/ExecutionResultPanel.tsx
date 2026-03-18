@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
+import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
 import { ProviderIcon, MessageIcon, CollapseIcon } from '@/components/Icons';
 import { AIPreviewModal } from './components/AIPreviewModal';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
@@ -37,6 +38,13 @@ const canPreviewArtifact = (mimeType: string) => {
   );
 };
 
+/** 是否为 Mermaid 图制品（.mmd 或 kind=mermaid 或内容为纯 mermaid 源码） */
+const isMermaidArtifact = (a: { name?: string; kind?: string }, content: string) => {
+  const name = (a?.name || '').toLowerCase();
+  const kind = (a?.kind || '').toLowerCase();
+  return name.endsWith('.mmd') || kind === 'mermaid' || (!!content && looksLikeMermaid(content));
+};
+
 const getTokenForFetch = () => {
   try {
     const authStorage = localStorage.getItem('auth-storage');
@@ -56,9 +64,12 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
   const [content, setContent] = useState('');
   const [smartContent, setSmartContent] = useState<any>(null);
 
+  const [previewArtifactMeta, setPreviewArtifactMeta] = useState<{ name?: string; kind?: string } | null>(null);
+
   const previewArtifact = async (a: any) => {
     const downloadUrl = normalizeDownloadPathForHttp(a.downloadUrl || '');
     if (!downloadUrl) return;
+    setPreviewArtifactMeta({ name: a.name, kind: a.kind });
     const token = getTokenForFetch();
     try {
       const baseURL = import.meta.env.VITE_BASE_URL || '/api';
@@ -171,49 +182,51 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
           />
         </div>
       );
-    } else if (mime.toLowerCase().includes('markdown')) {
-      return <MarkdownRenderer content={content} />;
-    } else if (mime.toLowerCase().includes('application/json')) {
-      return <pre className={styles.jsonDisplay}>{content}</pre>;
-    } else {
-      return <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{content}</Paragraph>;
     }
+    if (mime.toLowerCase().includes('markdown')) {
+      return <MarkdownRenderer content={content} />;
+    }
+    // Mermaid 图：纯 .mmd 或 kind=mermaid，渲染图表并支持保存为 PNG
+    if (content && previewArtifactMeta && isMermaidArtifact(previewArtifactMeta, content)) {
+      return (
+        <MermaidRenderer
+          content={content}
+          showSavePng={true}
+          downloadName={title ? title.replace(/\.[^/.]+$/, '') : 'mermaid-diagram'}
+        />
+      );
+    }
+    if (mime.toLowerCase().includes('application/json')) {
+      return <pre className={styles.jsonDisplay}>{content}</pre>;
+    }
+    return <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{content}</Paragraph>;
   };
 
   return (
     <div className={styles.dataPreview}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-        <Tag color="orange">format: {data?.format || '-'}</Tag>
-        <Tag color="blue">destination: {data?.destination || '-'}</Tag>
-        {data?.taskId ? <Tag color="purple">taskId: {String(data.taskId)}</Tag> : null}
+      <div className={styles.artifactMetaRow}>
+        <Tag bordered={false} className={styles.semanticTag}>format: {data?.format || '-'}</Tag>
+        <Tag bordered={false} className={styles.semanticTag}>destination: {data?.destination || '-'}</Tag>
+        {data?.taskId ? <Tag bordered={false} className={styles.semanticTag}>taskId: {String(data.taskId)}</Tag> : null}
       </div>
 
       {artifacts.length === 0 ? (
         <Empty description="暂无导出制品（artifacts）" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className={styles.artifactList}>
           {artifacts.map((a: any) => (
             <div
               key={String(a.id || a.downloadUrl || a.name)}
-              style={{
-                border: '1px solid var(--border-secondary)',
-                borderRadius: 8,
-                padding: 10,
-                background: 'var(--bg-secondary)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: 12,
-                alignItems: 'center',
-              }}
+              className={styles.artifactCard}
             >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div className={styles.artifactCardMeta}>
+                <div className={styles.artifactCardTitle}>
                   {a.name || `artifact#${a.id}`}
                 </div>
-                <div style={{ marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {a.kind ? <Tag>{a.kind}</Tag> : null}
-                  {a.mimeType ? <Tag color="geekblue">{a.mimeType}</Tag> : null}
-                  {a.size != null ? <Tag color="default">{a.size} bytes</Tag> : null}
+                <div className={styles.artifactCardTags}>
+                  {a.kind ? <Tag bordered={false} className={styles.semanticTag}>{a.kind}</Tag> : null}
+                  {a.mimeType ? <Tag bordered={false} className={styles.semanticTag}>{a.mimeType}</Tag> : null}
+                  {a.size != null ? <Tag bordered={false} className={styles.semanticTag}>{a.size} bytes</Tag> : null}
                 </div>
               </div>
 
@@ -247,7 +260,7 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
       <Modal
         title={title}
         open={open}
-        onCancel={() => setOpen(false)}
+        onCancel={() => { setOpen(false); setPreviewArtifactMeta(null); }}
         footer={smartContent ? [
           <Button key="close" onClick={() => setOpen(false)}>关闭</Button>,
           <Button key="download-smart" type="primary" icon={<DownloadOutlined />} onClick={downloadSmartContent}>
@@ -509,8 +522,8 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
              return (
                <div className={styles.dataPreview}>
                  <OutputArtifactsView data={data} />
-                 <div style={{ marginTop: 16, borderTop: '1px solid var(--border-secondary)', paddingTop: 16 }}>
-                   <div style={{ marginBottom: 8, fontWeight: 500 }}>预览内容：</div>
+                 <div className={styles.previewSection}>
+                   <div className={styles.previewLabel}>预览内容：</div>
                    <MarkdownRenderer content={mdContent} />
                  </div>
                </div>
@@ -527,13 +540,13 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
         <div className={styles.dataPreview}>
           <div className={styles.dataStats}>
             {data.count !== undefined && (
-              <Tag color="blue">{t('node.execution.extractedItems')}: {data.count}</Tag>
+              <Tag bordered={false} className={styles.semanticTag}>{t('node.execution.extractedItems')}: {data.count}</Tag>
             )}
             {data.mode && (
-              <Tag color="green">{t('node.execution.mode')}: {data.mode}</Tag>
+              <Tag bordered={false} className={styles.semanticTag}>{t('node.execution.mode')}: {data.mode}</Tag>
             )}
             {data.selector_used && (
-              <Tag color="purple">{t('node.execution.selector')}: {data.selector_used}</Tag>
+              <Tag bordered={false} className={styles.semanticTag}>{t('node.execution.selector')}: {data.selector_used}</Tag>
             )}
           </div>
 
@@ -773,10 +786,10 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
           {(data.model || data.tokensUsed) && (
             <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {data.model && (
-                <Tag color="blue">模型: {data.model}</Tag>
+                <Tag bordered={false} className={styles.semanticTag}>模型: {data.model}</Tag>
               )}
               {data.tokensUsed && (
-                <Tag color="green">Token数: {data.tokensUsed}</Tag>
+                <Tag bordered={false} className={styles.semanticTag}>Token数: {data.tokensUsed}</Tag>
               )}
             </div>
           )}

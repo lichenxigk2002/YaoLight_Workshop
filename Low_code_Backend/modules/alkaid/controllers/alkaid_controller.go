@@ -628,11 +628,17 @@ func (c *AlkaidController) GetMessages(ctx *gin.Context) {
 		return
 	}
 
-	// 同时返回历史工具步（用于前端展示执行过程，不传给 AI）
+	// 同时返回历史工具步/计划步（用于前端展示执行过程，不传给 AI）
 	var toolSteps []interface{}
 	if session.ToolStepsJSON.Data != nil {
 		if stepsData, ok := session.ToolStepsJSON.Data.([]interface{}); ok {
 			toolSteps = stepsData
+		}
+	}
+	var planSteps []interface{}
+	if session.PlanStepsJSON.Data != nil {
+		if stepsData, ok := session.PlanStepsJSON.Data.([]interface{}); ok {
+			planSteps = stepsData
 		}
 	}
 
@@ -642,6 +648,7 @@ func (c *AlkaidController) GetMessages(ctx *gin.Context) {
 		"data": gin.H{
 			"messages":  messages,
 			"toolSteps": toolSteps, // 历史工具步，仅用于前端展示
+			"planSteps": planSteps, // 历史计划步，仅用于前端展示
 		},
 	})
 }

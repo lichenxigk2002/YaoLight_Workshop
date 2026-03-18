@@ -16,11 +16,21 @@ interface LoginUser {
   id: number;
   username: string;
   role: string;
+  permissions?: string[];
+  avatar_url?: string | null;
 }
 
 interface LoginResponse {
   token: string;
   user: LoginUser;
+}
+
+interface CurrentUserResponse {
+  id: number;
+  username: string;
+  role: string;
+  permissions?: string[];
+  avatar_url?: string | null;
 }
 
 export async function adminLogin(values: LoginFormValues): Promise<AdminSession> {
@@ -37,6 +47,25 @@ export async function adminLogin(values: LoginFormValues): Promise<AdminSession>
       id: payload.user.id,
       username: payload.user.username,
       role: 'admin',
+      permissions: payload.user.permissions ?? [],
+      avatar_url: payload.user.avatar_url ?? null,
     },
+  };
+}
+
+export async function getCurrentAdminUser() {
+  const response = await http.get<ApiEnvelope<CurrentUserResponse>>('/users/current');
+  const payload = response.data.data;
+
+  if (payload.role !== 'admin') {
+    throw new Error('ADMIN_ONLY');
+  }
+
+  return {
+    id: payload.id,
+    username: payload.username,
+    role: 'admin' as const,
+    permissions: payload.permissions ?? [],
+    avatar_url: payload.avatar_url ?? null,
   };
 }

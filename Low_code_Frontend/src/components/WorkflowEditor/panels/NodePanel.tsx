@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, List, Empty } from 'antd';
 import { Node } from 'reactflow';
+import styles from './NodePanel.module.scss';
 
 interface NodePanelProps {
   nodes: Node[];
@@ -12,8 +13,13 @@ interface NodePanelProps {
 const NodePanel: React.FC<NodePanelProps> = ({ nodes, onNodeSelect, style, className }) => {
   if (nodes.length === 0) {
     return (
-      <Card title="节点列表" size="small" style={{ display: 'flex', flexDirection: 'column', ...style }} className={className}>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100 }}>
+      <Card
+        title="节点列表"
+        size="small"
+        style={{ display: 'flex', flexDirection: 'column', ...style }}
+        className={`${styles.card} ${className || ''}`}
+      >
+        <div className={styles.empty}>
           <Empty description="暂无节点" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         </div>
       </Card>
@@ -21,19 +27,21 @@ const NodePanel: React.FC<NodePanelProps> = ({ nodes, onNodeSelect, style, class
   }
 
   return (
-    <Card title="节点列表" size="small" style={{ display: 'flex', flexDirection: 'column', ...style }} className={className}>
+    <Card
+      title="节点列表"
+      size="small"
+      style={{ display: 'flex', flexDirection: 'column', ...style }}
+      className={`${styles.card} ${className || ''}`}
+    >
       <List
         size="small"
         dataSource={nodes}
-        style={{ flex: 1, overflowY: 'auto' }}
+        className={styles.list}
         renderItem={(node) => (
-          <List.Item
-            style={{ cursor: 'pointer' }}
-            onClick={() => onNodeSelect(node.id)}
-          >
+          <List.Item className={styles.listItem} onClick={() => onNodeSelect(node.id)}>
             <List.Item.Meta
               title={node.data.label || node.id}
-              description={`类型: ${node.data.type || '未知'}`}
+              description={`类型: ${node.data.type || 'unknown'}`}
             />
           </List.Item>
         )}
@@ -43,4 +51,3 @@ const NodePanel: React.FC<NodePanelProps> = ({ nodes, onNodeSelect, style, class
 };
 
 export default NodePanel;
-
