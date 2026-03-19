@@ -1,8 +1,8 @@
 .header {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .icon {
@@ -10,17 +10,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.56);
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--settings-card-border, rgba(0, 0, 0, 0.06));
+  border-radius: 14px;
+  background: var(--settings-pill-bg, rgba(255, 255, 255, 0.56));
   color: var(--text-primary);
-
-  [data-theme='dark'] & {
-    border-color: rgba(255, 255, 255, 0.06);
-    background: rgba(255, 255, 255, 0.03);
-  }
 }
 
 .text {
@@ -31,15 +26,15 @@
 .title {
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(24px, 3vw, 30px);
+  font-size: clamp(21px, 2.6vw, 26px);
   font-weight: 500;
-  line-height: 1.24;
+  line-height: 1.2;
   letter-spacing: -0.03em;
 }
 
 .desc {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.75;
+  font-size: 13px;
+  line-height: 1.65;
 }

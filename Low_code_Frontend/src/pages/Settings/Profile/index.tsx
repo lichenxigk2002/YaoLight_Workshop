@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Form, Input, Button, Avatar, Modal, App, Dropdown, Collapse } from 'antd';
-import type { MenuProps } from 'antd';
+import { Form, Input, Button, Avatar, Modal, App, Collapse } from 'antd';
 import {
   UserOutlined,
   EditOutlined,
@@ -15,7 +14,6 @@ import {
   ClockCircleOutlined,
   CalendarOutlined,
   ExclamationCircleOutlined,
-  LinkOutlined,
   IdcardOutlined,
   LeftOutlined,
   LockOutlined,
@@ -27,11 +25,6 @@ import { userApi } from '@/api/user';
 import type { UserAvatarHistory } from '@/types/user';
 import SettingsPageTitle from '@/components/SettingsPageTitle';
 import styles from './index.module.scss';
-
-const getOAuthBaseUrl = () => {
-  const base = import.meta.env.VITE_BASE_URL || '/api';
-  return base.endsWith('/') ? base.slice(0, -1) : base;
-};
 
 const isUnboundEmail = (email?: string) => !email || email.startsWith('unbound_');
 
@@ -51,7 +44,6 @@ export default function ProfileInfo() {
 
   const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
   const [deactivateStep, setDeactivateStep] = useState(0);
-  const [deactivateCodeSent, setDeactivateCodeSent] = useState(false);
   const [deactivateCountdown, setDeactivateCountdown] = useState(0);
   const [emailChangeModalOpen, setEmailChangeModalOpen] = useState(false);
   const [emailChangeIsBind, setEmailChangeIsBind] = useState(false);
@@ -71,6 +63,8 @@ export default function ProfileInfo() {
   const [forgotPasswordCountdown, setForgotPasswordCountdown] = useState(0);
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [formForgotPassword] = Form.useForm();
+  const isZh = i18n.language === 'zh-CN';
+  const hasBoundEmail = !isUnboundEmail(user?.email);
 
   const refreshUserInfo = async () => {
     try {
@@ -262,7 +256,6 @@ export default function ProfileInfo() {
     try {
       await userApi.sendDeactivateCode();
       message.success(t('profile.sendCodeSuccess'));
-      setDeactivateCodeSent(true);
       setDeactivateStep(1);
       setDeactivateCountdown(60);
     } catch (e: any) {
@@ -277,7 +270,6 @@ export default function ProfileInfo() {
       message.success(t('profile.deactivateSuccess'));
       setDeactivateModalOpen(false);
       setDeactivateStep(0);
-      setDeactivateCodeSent(false);
       formDeactivate.resetFields();
       logout();
       navigate('/login', { replace: true });
@@ -453,11 +445,53 @@ export default function ProfileInfo() {
     },
   ];
 
+  const openUsernameModal = () => {
+    form.setFieldsValue({ username: user?.username });
+    setModalVisible(true);
+  };
+
+  const openPasswordModal = () => {
+    formPassword.resetFields();
+    setPasswordModalOpen(true);
+  };
+
+  const openForgotPasswordModal = () => {
+    setForgotPasswordStep(1);
+    formForgotPassword.resetFields();
+    setForgotPasswordModalOpen(true);
+  };
+
+  const openEmailBindModal = () => {
+    setEmailChangeModalOpen(true);
+    setEmailChangeCodeSent(false);
+    setEmailChangeIsBind(true);
+    formEmailChange.resetFields();
+  };
+
+  const openEmailChangeModal = () => {
+    setEmailChangeModalOpen(true);
+    setEmailChangeCodeSent(false);
+    setEmailChangeIsBind(false);
+    formEmailChange.resetFields();
+  };
+
+  const openEmailUnbindModal = () => {
+    setEmailUnbindModalOpen(true);
+    setEmailUnbindCodeSent(false);
+    formEmailUnbind.resetFields();
+  };
+
+  const openDeactivateModal = () => {
+    setDeactivateModalOpen(true);
+    setDeactivateStep(0);
+    formDeactivate.resetFields();
+  };
+
   return (
     <div className={styles.container}>
       <SettingsPageTitle title={t('settings.profile')} />
 
-      <div className={styles.avatarSection}>
+      <div className={styles.summaryCard}>
         <div className={styles.avatarWrapper}>
           <Avatar
             size={56}
@@ -487,25 +521,34 @@ export default function ProfileInfo() {
             onChange={handleFileSelect}
           />
         </div>
-        <div className={styles.userInfo}>
-          <span className={styles.userName}>{user?.username || t('profile.unknownUser')}</span>
-          <span className={styles.userEmail}>{displayEmail}</span>
+        <div className={styles.summaryInfo}>
+          <div className={styles.userInfo}>
+            <span className={styles.userName}>{user?.username || t('profile.unknownUser')}</span>
+            <span className={styles.userEmail}>{displayEmail}</span>
+          </div>
+          <div className={styles.summaryTags}>
+            <span className={styles.summaryTag}>
+              {user?.role === 'admin' ? t('profile.admin') : t('profile.normalUser')}
+            </span>
+            <span className={styles.summaryTag}>
+              {user?.status === 'active' ? t('profile.active') : t('profile.inactive')}
+            </span>
+          </div>
+        </div>
+        <div className={styles.summaryActions}>
           <Button
             type="default"
             size="small"
             icon={<EditOutlined />}
             className={styles.modifyBtn}
-            onClick={() => {
-              form.setFieldsValue({ username: user?.username });
-              setModalVisible(true);
-            }}
+            onClick={openUsernameModal}
           >
             {t('profile.modifyUsername')}
           </Button>
         </div>
       </div>
 
-      <div className={styles.avatarHistorySection}>
+      <div className={styles.surfaceCard}>
         <Collapse
           bordered={false}
           className={styles.avatarHistoryCollapse}
@@ -559,150 +602,238 @@ export default function ProfileInfo() {
         />
       </div>
 
-      <div className={styles.detailCard}>
-        {detailItems.map(({ key, label, value, icon }) => (
-          <div key={key} className={styles.detailRow}>
-            <span className={styles.detailLabel}>
-              <span className={styles.detailIcon}>{icon}</span>
-              {label}
-            </span>
-            <span className={styles.detailValue}>
-              {key === 'email' ? (
-                <Dropdown
-                  menu={{
-                    items: isUnboundEmail(user?.email)
-                      ? [
-                        {
-                          key: 'bind',
-                          label: t('profile.bindEmail'),
-                          onClick: () => { setEmailChangeModalOpen(true); setEmailChangeCodeSent(false); setEmailChangeIsBind(true); formEmailChange.resetFields(); },
-                        },
-                      ]
-                      : [
-                        {
-                          key: 'change',
-                          label: t('profile.changeEmail'),
-                          onClick: () => { setEmailChangeModalOpen(true); setEmailChangeCodeSent(false); setEmailChangeIsBind(false); formEmailChange.resetFields(); },
-                        },
-                        {
-                          key: 'unbind',
-                          label: t('profile.unbindEmail'),
-                          danger: true,
-                          onClick: () => { setEmailUnbindModalOpen(true); setEmailUnbindCodeSent(false); formEmailUnbind.resetFields(); },
-                        },
-                      ],
-                  } as { items: MenuProps['items'] }}
-                  trigger={['hover', 'click']}
-                  placement="bottomRight"
-                >
-                  <span className={styles.emailTrigger}>{value}</span>
-                </Dropdown>
-              ) : (
-                value
-              )}
-            </span>
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <h3>{t('settings.profile')}</h3>
+        </div>
+
+        <div className={styles.infoGrid}>
+          {detailItems.map(({ key, label, value, icon }) => (
+            <div key={key} className={styles.infoCard}>
+              <div className={styles.infoCardHeader}>
+                <span className={styles.iconWrapperSmall}>{icon}</span>
+                <span className={styles.infoLabel}>{label}</span>
+              </div>
+              <div className={styles.infoValue} title={value}>
+                  {value}
+              </div>
+              <div className={styles.infoMeta}>
+                {key === 'lastLogin' || key === 'registrationTime'
+                  ? (isZh ? '时间信息' : 'Timeline')
+                  : key === 'email'
+                    ? (hasBoundEmail ? (isZh ? '已绑定' : 'Bound') : (isZh ? '未绑定' : 'Not bound'))
+                    : (isZh ? '账号资料' : 'Account detail')}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <h3>{isZh ? '账号操作' : 'Account actions'}</h3>
+        </div>
+
+        <div className={styles.cardGrid}>
+          <div className={styles.actionCard}>
+            <div className={styles.cardMain}>
+              <div className={styles.providerInfo}>
+                <div className={styles.iconWrapper}>
+                  <EditOutlined />
+                </div>
+                <div className={styles.nameAndTags}>
+                  <div className={styles.nameRow}>
+                    <span className={styles.name}>{t('profile.modifyUsername')}</span>
+                  </div>
+                  <div className={styles.cardDescription}>
+                    {isZh ? `当前用户名：${user?.username || t('profile.unknownUser')}` : `Current username: ${user?.username || t('profile.unknownUser')}`}
+                  </div>
+                </div>
+              </div>
+              <div className={styles.statusAndActions}>
+                <div className={styles.status}>
+                  {isZh ? '可修改' : 'Editable'}
+                  <div className={`${styles.dot} ${styles.active}`} />
+                </div>
+                <Button size="small" onClick={openUsernameModal}>
+                  {t('profile.modifyUsername')}
+                </Button>
+              </div>
+            </div>
+            <div className={styles.cardFooter}>
+              <div className={styles.expandLink}>{isZh ? '公开展示名称' : 'Public display name'}</div>
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div className={styles.detailCard} style={{ marginTop: 16 }}>
-        <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>
-            <span className={styles.detailIcon}><LockOutlined /></span>
-            {t('profile.password', '登录密码')}
-          </span>
-          <span className={styles.detailValue}>
-            {user?.has_password
-              ? t('profile.passwordSet', '已设置')
-              : t('profile.passwordNotSet', '未设置（建议设置后可使用账号密码登录）')}
-            <Button
-              type="link"
-              size="small"
-              style={{ marginLeft: 8 }}
-              onClick={() => {
-                formPassword.resetFields();
-                setPasswordModalOpen(true);
-              }}
-            >
-              {user?.has_password ? t('profile.changePassword', '修改密码') : t('profile.setPassword', '设置密码')}
-            </Button>
-            {user?.has_password && (
-              <Button
-                type="link"
-                size="small"
-                style={{ marginLeft: 4 }}
-                onClick={() => {
-                  setForgotPasswordStep(1);
-                  formForgotPassword.resetFields();
-                  setForgotPasswordModalOpen(true);
-                }}
-              >
-                {t('profile.forgotPassword', '忘记密码？')}
-              </Button>
-            )}
-          </span>
-        </div>
-      </div>
+          <div className={styles.actionCard}>
+            <div className={styles.cardMain}>
+              <div className={styles.providerInfo}>
+                <div className={styles.iconWrapper}>
+                  <MailOutlined />
+                </div>
+                <div className={styles.nameAndTags}>
+                  <div className={styles.nameRow}>
+                    <span className={styles.name}>{t('profile.email')}</span>
+                  </div>
+                  <div className={styles.cardDescription}>{displayEmail}</div>
+                </div>
+              </div>
+              <div className={styles.statusAndActions}>
+                <div className={styles.status}>
+                  {hasBoundEmail ? (isZh ? '已绑定' : 'Bound') : (isZh ? '未绑定' : 'Not bound')}
+                  <div className={`${styles.dot} ${hasBoundEmail ? styles.active : styles.error}`} />
+                </div>
+                <Button size="small" onClick={hasBoundEmail ? openEmailChangeModal : openEmailBindModal}>
+                  {hasBoundEmail ? t('profile.changeEmail') : t('profile.bindEmail')}
+                </Button>
+              </div>
+            </div>
+            <div className={styles.cardFooter}>
+              <div className={styles.expandLink}>{hasBoundEmail ? (isZh ? '用于验证码与安全通知' : 'Used for verification and security notices') : (isZh ? '绑定后可用于找回密码' : 'Bind an email to recover your password')}</div>
+              {hasBoundEmail ? (
+                <div className={`${styles.addLink} ${styles.dangerLink}`} onClick={openEmailUnbindModal}>
+                  {t('profile.unbindEmail')}
+                </div>
+              ) : (
+                <div className={styles.addLink} onClick={openEmailBindModal}>
+                  {t('profile.bindEmail')}
+                </div>
+              )}
+            </div>
+          </div>
 
-      <div className={styles.detailCard} style={{ marginTop: 16 }}>
-        <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 6, marginBottom: 2 }}>
-          <span className={styles.detailLabel} style={{ fontWeight: 600 }}>
-            <span className={styles.detailIcon}><LinkOutlined /></span>
-            {t('profile.oauthBindings')}
-          </span>
-        </div>
-        <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>
-            <span className={styles.detailIcon}><GithubOutlined /></span>
-            {t('profile.github')}
-          </span>
-          <span className={styles.detailValue}>
-            {oauthBindings.github ? (
-              <Button type="link" size="small" danger onClick={() => handleUnbindOAuth('github')}>
-                {t('profile.unbind')}
-              </Button>
-            ) : (
-              <Button type="link" size="small" onClick={() => handleBindOAuth('github')}>
-                {t('profile.bind')}
-              </Button>
-            )}
-          </span>
-        </div>
-        <div className={styles.detailRow}>
-          <span className={styles.detailLabel}>
-            <span className={styles.detailIcon}><GoogleOutlined /></span>
-            {t('profile.google')}
-          </span>
-          <span className={styles.detailValue}>
-            {oauthBindings.google ? (
-              <Button type="link" size="small" danger onClick={() => handleUnbindOAuth('google')}>
-                {t('profile.unbind')}
-              </Button>
-            ) : (
-              <Button type="link" size="small" onClick={() => handleBindOAuth('google')}>
-                {t('profile.bind')}
-              </Button>
-            )}
-          </span>
-        </div>
-      </div>
+          <div className={styles.actionCard}>
+            <div className={styles.cardMain}>
+              <div className={styles.providerInfo}>
+                <div className={styles.iconWrapper}>
+                  <LockOutlined />
+                </div>
+                <div className={styles.nameAndTags}>
+                  <div className={styles.nameRow}>
+                    <span className={styles.name}>{t('profile.password', '登录密码')}</span>
+                  </div>
+                  <div className={styles.cardDescription}>
+                  {user?.has_password
+                    ? t('profile.passwordSet', '已设置')
+                    : t('profile.passwordNotSet', '未设置（建议设置后可使用账号密码登录）')}
+                  </div>
+                </div>
+              </div>
+              <div className={styles.statusAndActions}>
+                <div className={styles.status}>
+                  {user?.has_password ? (isZh ? '已设置' : 'Ready') : (isZh ? '待设置' : 'Pending')}
+                  <div className={`${styles.dot} ${user?.has_password ? styles.active : styles.error}`} />
+                </div>
+                <Button size="small" onClick={openPasswordModal}>
+                  {user?.has_password ? t('profile.changePassword', '修改密码') : t('profile.setPassword', '设置密码')}
+                </Button>
+              </div>
+            </div>
+            <div className={styles.cardFooter}>
+              <div className={styles.expandLink}>{isZh ? '用于账号登录与身份校验' : 'Used for account sign-in and identity checks'}</div>
+              {user?.has_password && (
+                <div className={styles.addLink} onClick={openForgotPasswordModal}>
+                  {t('profile.forgotPassword', '忘记密码？')}
+                </div>
+              )}
+            </div>
+          </div>
 
-      <div className={styles.detailCard} style={{ marginTop: 16 }}>
-        <div className={styles.detailRow} style={{ borderBottom: 'none', paddingBottom: 6, marginBottom: 2 }}>
-          <span className={styles.detailLabel} style={{ fontWeight: 600 }}>
-            <span className={styles.detailIcon}><ExclamationCircleOutlined /></span>
-            {t('profile.deactivateAccount')}
-          </span>
+          <div className={styles.actionCard}>
+            <div className={styles.cardMain}>
+              <div className={styles.providerInfo}>
+                <div className={styles.iconWrapper}>
+                  <GithubOutlined />
+                </div>
+                <div className={styles.nameAndTags}>
+                  <div className={styles.nameRow}>
+                    <span className={styles.name}>{t('profile.github')}</span>
+                  </div>
+                  <div className={styles.cardDescription}>
+                  {oauthBindings.github
+                    ? (isZh ? '已绑定 GitHub 账号' : 'GitHub account connected')
+                    : (isZh ? '还没有绑定 GitHub 账号' : 'GitHub account not connected yet')}
+                  </div>
+                </div>
+              </div>
+              <div className={styles.statusAndActions}>
+                <div className={styles.status}>
+                  {oauthBindings.github ? t('settings.authorized') : t('settings.unauthorized')}
+                  <div className={`${styles.dot} ${oauthBindings.github ? styles.active : styles.error}`} />
+                </div>
+                <Button size="small" onClick={() => (oauthBindings.github ? handleUnbindOAuth('github') : handleBindOAuth('github'))}>
+                  {oauthBindings.github ? t('profile.unbind') : t('profile.bind')}
+                </Button>
+              </div>
+            </div>
+            <div className={styles.cardFooter}>
+              <div className={styles.expandLink}>{isZh ? '第三方快捷登录' : 'Third-party quick sign-in'}</div>
+            </div>
+          </div>
+
+          <div className={styles.actionCard}>
+            <div className={styles.cardMain}>
+              <div className={styles.providerInfo}>
+                <div className={styles.iconWrapper}>
+                  <GoogleOutlined />
+                </div>
+                <div className={styles.nameAndTags}>
+                  <div className={styles.nameRow}>
+                    <span className={styles.name}>{t('profile.google')}</span>
+                  </div>
+                  <div className={styles.cardDescription}>
+                  {oauthBindings.google
+                    ? (isZh ? '已绑定 Google 账号' : 'Google account connected')
+                    : (isZh ? '还没有绑定 Google 账号' : 'Google account not connected yet')}
+                  </div>
+                </div>
+              </div>
+              <div className={styles.statusAndActions}>
+                <div className={styles.status}>
+                  {oauthBindings.google ? t('settings.authorized') : t('settings.unauthorized')}
+                  <div className={`${styles.dot} ${oauthBindings.google ? styles.active : styles.error}`} />
+                </div>
+                <Button size="small" onClick={() => (oauthBindings.google ? handleUnbindOAuth('google') : handleBindOAuth('google'))}>
+                  {oauthBindings.google ? t('profile.unbind') : t('profile.bind')}
+                </Button>
+              </div>
+            </div>
+            <div className={styles.cardFooter}>
+              <div className={styles.expandLink}>{isZh ? '第三方快捷登录' : 'Third-party quick sign-in'}</div>
+            </div>
+          </div>
+
+          <div className={`${styles.actionCard} ${styles.dangerCard}`}>
+            <div className={styles.cardMain}>
+              <div className={styles.providerInfo}>
+                <div className={styles.iconWrapper}>
+                  <ExclamationCircleOutlined />
+                </div>
+                <div className={styles.nameAndTags}>
+                  <div className={styles.nameRow}>
+                    <span className={styles.name}>{t('profile.deactivateAccount')}</span>
+                  </div>
+                  <div className={styles.cardDescription}>{t('profile.deactivateWarning')}</div>
+                </div>
+              </div>
+              <div className={styles.statusAndActions}>
+                <div className={`${styles.status} ${styles.statusDanger}`}>
+                  {isZh ? '高风险' : 'High risk'}
+                  <div className={`${styles.dot} ${styles.error}`} />
+                </div>
+                <Button type="primary" danger size="small" onClick={openDeactivateModal}>
+                  {t('profile.deactivateAccount')}
+                </Button>
+              </div>
+            </div>
+            <div className={styles.cardFooter}>
+              <div className={`${styles.expandLink} ${styles.dangerText}`}>
+                {isZh ? '停用后账号不可恢复，请谨慎操作' : 'Deactivation is irreversible, please proceed carefully'}
+              </div>
+            </div>
+          </div>
         </div>
-        <div className={styles.detailRow}>
-          <span className={styles.detailLabel} style={{ color: 'var(--color-text-secondary)' }}>{t('profile.deactivateWarning')}</span>
-          <span className={styles.detailValue}>
-            <Button type="primary" danger size="small" onClick={() => { setDeactivateModalOpen(true); setDeactivateStep(0); setDeactivateCodeSent(false); formDeactivate.resetFields(); }}>
-              {t('profile.deactivateAccount')}
-            </Button>
-          </span>
-        </div>
-      </div>
+      </section>
 
       <Modal
         title={user?.has_password ? t('profile.changePassword', '修改密码') : t('profile.setPassword', '设置密码')}
@@ -911,7 +1042,6 @@ export default function ProfileInfo() {
         onCancel={() => {
           setDeactivateModalOpen(false);
           setDeactivateStep(0);
-          setDeactivateCodeSent(false);
           formDeactivate.resetFields();
         }}
         footer={null}
@@ -953,7 +1083,6 @@ export default function ProfileInfo() {
                   size="small"
                   onClick={() => {
                     setDeactivateStep(0);
-                    setDeactivateCodeSent(false);
                     formDeactivate.resetFields();
                   }}
                 >

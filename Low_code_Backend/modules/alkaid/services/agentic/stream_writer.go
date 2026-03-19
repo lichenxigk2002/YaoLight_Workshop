@@ -71,6 +71,15 @@ func (w *SSEWriter) WritePhaseChanged(phase string) error {
 	})
 }
 
+func (w *SSEWriter) WriteInteractionMode(mode, reason string, showProgress bool) error {
+	return w.writeEvent("interaction_mode", alkaidModels.SSEInteractionMode{
+		Mode:         mode,
+		Reason:       reason,
+		ShowProgress: showProgress,
+		At:           time.Now().UTC().Format(time.RFC3339Nano),
+	})
+}
+
 func (w *SSEWriter) WritePlanCreated(steps []alkaidModels.AgentPlanStep) error {
 	w.planSteps = append([]alkaidModels.AgentPlanStep(nil), steps...)
 	return w.writeEvent("plan_created", alkaidModels.SSEPlanCreated{Steps: steps})

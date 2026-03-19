@@ -237,6 +237,7 @@
     "providerLevelTooltip": "Selecting 'All Models' will configure a unified API Key for all sub-models of this provider",
     "deleteModelWarning": "Are you sure you want to delete this model configuration? After deletion, workflow nodes using this configuration may not work correctly.",
     "inviteFriends": "Invite Friends",
+    "invitePageDescription": "Share your invite link, track invite stats, and review reward records in one compact place.",
     "inviteTitle": "Invite friends, get 200K stardust each",
     "inviteDesc": "Share your exclusive link. When friends register, you'll receive 200,000 stardust",
     "inviteGenerate": "Generate invite link",
@@ -249,6 +250,7 @@
     "invitedCount": "Invited count",
     "inviteRewardTotal": "Total stardust earned",
     "inviteRecords": "Invite records",
+    "inviteRecordsDescription": "Review invitees, contact details, and registration time in a table that matches the rest of settings.",
     "inviteeUsername": "Invitee",
     "inviteeEmail": "Email",
     "inviteTime": "Invite time",
@@ -448,6 +450,7 @@
   "projectDetail": {
     "workflowsTab": "Workflows",
     "assetsTab": "Assets",
+    "automationTab": "Automation",
     "openApi": "Workflow API"
   },
   "workflowEditor": {

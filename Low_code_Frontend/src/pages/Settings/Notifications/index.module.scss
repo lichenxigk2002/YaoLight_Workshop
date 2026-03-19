@@ -1,3 +1,5 @@
+@use '../theme' as settingsTheme;
+
 .wrap {
   max-width: 720px;
 }
@@ -7,18 +9,11 @@
 }
 
 .loading {
+  @include settingsTheme.panel(24px);
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 180px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.56);
-
-  [data-theme='dark'] & {
-    border-color: rgba(255, 255, 255, 0.06);
-    background: rgba(255, 255, 255, 0.03);
-  }
 }
 
 .list {
@@ -31,18 +26,12 @@
 }
 
 .item {
+  @include settingsTheme.panel(24px);
+  @include settingsTheme.hover-card();
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.56);
-
-  [data-theme='dark'] & {
-    border-color: rgba(255, 255, 255, 0.06);
-    background: rgba(255, 255, 255, 0.03);
-  }
 }
 
 .itemIcon {
@@ -53,13 +42,9 @@
   align-items: center;
   justify-content: center;
   border-radius: 16px;
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--settings-pill-bg);
   color: var(--text-primary);
   font-size: 16px;
-
-  [data-theme='dark'] & {
-    background: rgba(255, 255, 255, 0.05);
-  }
 }
 
 .itemContent {
@@ -90,26 +75,14 @@
   :global(.ant-switch) {
     min-width: 46px;
     height: 26px;
-    background: rgba(0, 0, 0, 0.14) !important;
-
-    [data-theme='dark'] & {
-      background: rgba(255, 255, 255, 0.16) !important;
-    }
+    background: var(--settings-pill-bg-hover) !important;
   }
 
   :global(.ant-switch.ant-switch-checked) {
-    background: #111 !important;
-
-    [data-theme='dark'] & {
-      background: #f2f2f2 !important;
-    }
+    background: var(--primary) !important;
   }
 
   :global(.ant-switch.ant-switch-checked .ant-switch-handle::before) {
-    background: #fff;
-  }
-
-  [data-theme='dark'] :global(.ant-switch.ant-switch-checked .ant-switch-handle::before) {
-    background: #111;
+    background: var(--settings-switch-handle);
   }
 }

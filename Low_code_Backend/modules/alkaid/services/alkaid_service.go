@@ -431,6 +431,11 @@ func (s *AlkaidService) BuildSystemPromptForAgentic(userID uint, userMessage str
 	return s.buildSystemPrompt(userID, userMessage)
 }
 
+// BuildGeneralChatPromptForAgentic 返回普通问答场景使用的轻量系统提示词。
+func (s *AlkaidService) BuildGeneralChatPromptForAgentic() string {
+	return s.buildGeneralChatPrompt()
+}
+
 // GetRelevantKnowledgeForAgentic 供 Agentic 流展示「检索知识库」步骤，返回检索到的知识库条目（可传入 nil 表示按需检索）
 func (s *AlkaidService) GetRelevantKnowledgeForAgentic(userID uint, userMessage string, maxResults int) ([]alkaidModels.AlkaidKnowledge, error) {
 	if maxResults <= 0 {

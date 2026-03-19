@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import ReactFlow, {
   Node,
   Edge,
@@ -100,6 +100,7 @@ const WorkflowEditor: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
   const { workflowId } = useParams<{ workflowId: string }>();
+  const [searchParams] = useSearchParams();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
@@ -144,6 +145,15 @@ const WorkflowEditor: React.FC = () => {
     const zoom = w <= 1920 ? 0.9 : w <= 2560 ? 0.95 : 1;
     return { x: 0, y: 0, zoom };
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('panel') !== 'automation') return;
+    setAutomationVisible(true);
+    setHistoryVisible(false);
+    setConfigPanelVisible(false);
+    setResultPanelVisible(false);
+    setSelectedNode(null);
+  }, [searchParams]);
 
   // 鑾峰彇鑺傜偣鏍囩锛堢敤浜庡伐鍏峰嚱鏁帮級
   const getNodeLabel = useCallback(

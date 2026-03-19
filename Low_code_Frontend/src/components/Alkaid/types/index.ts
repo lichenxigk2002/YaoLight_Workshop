@@ -1,10 +1,12 @@
 export type {
   Phase,
+  InteractionMode,
   ToolStepStatus,
   PlanStepStatus,
   AgentPlanStep,
   AgentToolStep,
   SSEPhaseChanged,
+  SSEInteractionMode,
   SSEPlanCreated,
   SSEPlanStepStarted,
   SSEPlanStepUpdated,
