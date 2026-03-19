@@ -71,6 +71,13 @@ type SSEPhaseChanged struct {
 	At    string `json:"at"`
 }
 
+type SSEInteractionMode struct {
+	Mode         string `json:"mode"`
+	Reason       string `json:"reason,omitempty"`
+	ShowProgress bool   `json:"showProgress"`
+	At           string `json:"at"`
+}
+
 type SSEPlanCreated struct {
 	Steps []AgentPlanStep `json:"steps"`
 }

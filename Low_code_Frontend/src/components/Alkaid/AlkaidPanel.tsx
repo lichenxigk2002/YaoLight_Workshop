@@ -5,10 +5,10 @@ import { useAuthStore } from '@/store/auth'
 import { alkaidApi } from '@/api'
 import { AlkaidIcon } from '@/components/Icons'
 import { MarkdownRenderer } from '@/components/WorkflowEditor/utils/MarkdownRenderer'
-import ProcessLoader, { ProcessStep } from './ProcessLoader'
-import { AlkaidPendingPatch, AlkaidPendingWorkflow, AlkaidProgress } from './components'
-import type { Phase, AgentPlanStep, AgentToolStep, PatchItem, PendingPatchSummary } from './types'
-import { extractWorkflowJSON, hasWorkflowJSONBlock, parseWorkflowJSON, stripWorkflowJSONFromText } from './utils'
+import ProcessLoader, { type ProcessStep } from './ProcessLoader'
+import { AlkaidPendingBar, AlkaidProgress, AlkaidProgressDock } from './components'
+import type { InteractionMode, Phase, AgentPlanStep, AgentToolStep, PatchItem, PendingPatchSummary } from './types'
+import { extractWorkflowJSON, hasWorkflowJSONBlock, parseWorkflowJSON, stripDSMLToolCallsFromText, stripWorkflowJSONFromText } from './utils'
 import { useAssistantUIStore } from '@/store/assistantUi'
 import {
   Check,
@@ -165,6 +165,7 @@ export default function AlkaidPanel({
   const isSendingMessage = useRef(false)
 
   const [agenticPhase, setAgenticPhase] = useState<Phase>('idle')
+  const [agenticMode, setAgenticMode] = useState<InteractionMode | null>(null)
   const [agenticPlanSteps, setAgenticPlanSteps] = useState<AgentPlanStep[]>([])
   const [agenticToolSteps, setAgenticToolSteps] = useState<AgentToolStep[]>([])
   const [agenticPendingSummary, setAgenticPendingSummary] = useState<{ nodeCount: number; edgeCount: number } | null>(null)
@@ -394,6 +395,7 @@ export default function AlkaidPanel({
       setLoading(false)
       setCurrentLoadingMessageId(null)
       setAgenticPhase('idle')
+      setAgenticMode(null)
       setAgenticPlanSteps([])
       setAgenticToolSteps([])
       setAgenticPendingSummary(null)
@@ -424,7 +426,8 @@ export default function AlkaidPanel({
       setAgenticPendingSummary(null)
       setAgenticPendingPatchCount(null)
       setAgenticPendingPatchSummary(null)
-      setAgenticPhase('planning')
+      setAgenticPhase('idle')
+      setAgenticMode(null)
     }
 
     try {
@@ -464,6 +467,7 @@ export default function AlkaidPanel({
                 ),
               )
             },
+            onInteractionMode: (data) => setAgenticMode(data.mode),
             onPhaseChanged: (phase) => setAgenticPhase(phase as Phase),
             onPlanCreated: (data: any) => {
               setAgenticPlanSteps(Array.isArray(data?.steps) ? data.steps : [])
@@ -693,9 +697,10 @@ export default function AlkaidPanel({
   }
 
   const parseMessageContent = (content: string, isGenerating: boolean) => {
-    const hasJSONBlock = hasWorkflowJSONBlock(content)
-    const workflowJSON = hasJSONBlock ? extractWorkflowJSON(content) : null
-    const textWithoutJson = hasJSONBlock ? stripWorkflowJSONFromText(content) : content
+    const sanitizedContent = stripDSMLToolCallsFromText(content)
+    const hasJSONBlock = hasWorkflowJSONBlock(sanitizedContent)
+    const workflowJSON = hasJSONBlock ? extractWorkflowJSON(sanitizedContent) : null
+    const textWithoutJson = hasJSONBlock ? stripWorkflowJSONFromText(sanitizedContent) : sanitizedContent
     if (hasJSONBlock || isGenerating) {
       return {
         hasWorkflow: true,
@@ -1089,7 +1094,17 @@ export default function AlkaidPanel({
   )
 
   const renderProgressDock = () => {
-    const showAgenticProgress = useAgentic && loading && currentLoadingMessageId
+    const actLikePhases: Phase[] = ['generating', 'validating', 'repairing', 'running_trial', 'waiting_approval', 'summarizing', 'error']
+    const hasActLikePhase = actLikePhases.includes(agenticPhase)
+    const hasActLikePlanStep = agenticPlanSteps.some((step) => actLikePhases.includes(step.phase))
+    const hasActLikeToolStep = agenticToolSteps.some((step) => actLikePhases.includes(step.phase))
+    const hasPendingAgenticOutput = !!agenticPendingSummary || agenticPendingPatchCount != null
+    const showAgenticProgress =
+      useAgentic &&
+      loading &&
+      !!currentLoadingMessageId &&
+      agenticMode === 'act' &&
+      (hasActLikePhase || hasActLikePlanStep || hasActLikeToolStep || hasPendingAgenticOutput)
     const showLegacySteps = !useAgentic && loading && processSteps.length > 0
 
     if (!showAgenticProgress && !showLegacySteps) {
@@ -1108,6 +1123,20 @@ export default function AlkaidPanel({
       error: t('workflowEditor.alkaid.failed', '执行异常'),
     }
 
+    const latestRunningPlanStep = [...agenticPlanSteps].reverse().find((step) => step.status === 'running')
+    const latestErrorPlanStep = [...agenticPlanSteps].reverse().find((step) => step.status === 'error')
+    const latestRunningToolStep = [...agenticToolSteps].reverse().find((step) => step.status === 'running')
+    const latestErrorToolStep = [...agenticToolSteps].reverse().find((step) => step.status === 'error')
+    const compactSummaryText = [
+      agenticPhaseLabelMap[agenticPhase] || t('workflowEditor.alkaid.running', '处理中'),
+      latestErrorPlanStep?.title
+        || latestRunningPlanStep?.title
+        || latestErrorToolStep?.toolName
+        || latestRunningToolStep?.toolName
+        || (agenticPendingPatchCount != null || agenticPendingSummary
+          ? t('workflowEditor.alkaid.progressFinishing', '等待确认')
+          : t('workflowEditor.alkaid.running', '处理中')),
+    ].filter(Boolean).join(' · ')
     const summaryText = showAgenticProgress
       ? `${agenticPhaseLabelMap[agenticPhase] || t('workflowEditor.alkaid.running', '进行中')} · ${t('workflowEditor.alkaid.executionStepsDesc', '可展开查看处理细节')}`
       : processSteps.find((step) => step.status === 'loading')?.label || t('workflowEditor.alkaid.running', '进行中')
@@ -1119,7 +1148,7 @@ export default function AlkaidPanel({
             <div className={styles.progressDockTitle}>
               {t('workflowEditor.alkaid.executionSteps', '执行过程')}
             </div>
-            <div className={styles.progressDockSummary}>{summaryText}</div>
+            <div className={styles.progressDockSummary}>{showAgenticProgress ? compactSummaryText : summaryText}</div>
           </div>
           <button
             type="button"
@@ -1134,7 +1163,7 @@ export default function AlkaidPanel({
 
         {!progressDockCollapsed && showAgenticProgress && (
           <div className={styles.progressDockInner}>
-            <AlkaidProgress phase={agenticPhase} planSteps={agenticPlanSteps} toolSteps={agenticToolSteps} maxSteps={10} />
+            <AlkaidProgress phase={agenticPhase} planSteps={agenticPlanSteps} toolSteps={agenticToolSteps} maxSteps={10} compact />
           </div>
         )}
         {!progressDockCollapsed && showLegacySteps && (
@@ -1145,6 +1174,8 @@ export default function AlkaidPanel({
       </div>
     )
   }
+
+  void renderProgressDock
 
   const renderMessageBubble = (msg: MessageItem) => {
     const isCurrentLoadingMessage = msg.role === 'assistant' && msg.id === currentLoadingMessageId && loading
@@ -1240,36 +1271,40 @@ export default function AlkaidPanel({
 
   const renderChatView = () => (
     <div className={styles.chatMain}>
-      {renderProgressDock()}
+      <AlkaidProgressDock
+        useAgentic={useAgentic}
+        loading={loading}
+        currentLoadingMessageId={currentLoadingMessageId}
+        agenticMode={agenticMode}
+        agenticPhase={agenticPhase}
+        agenticPlanSteps={agenticPlanSteps}
+        agenticToolSteps={agenticToolSteps}
+        agenticPendingSummary={agenticPendingSummary}
+        agenticPendingPatchCount={agenticPendingPatchCount}
+        processSteps={processSteps}
+        progressDockCollapsed={progressDockCollapsed}
+        onToggleCollapsed={() => setProgressDockCollapsed((value) => !value)}
+      />
       <div className={styles.messages}>
         {messages.length === 0 ? renderEmptyChat() : messages.map((m) => renderMessageBubble(m))}
         <div ref={messagesEndRef} />
       </div>
 
-      {useAgentic && (agenticPendingSummary || agenticPendingPatchCount != null) && (
-        <div className={styles.pendingBar}>
-          {agenticPendingSummary && (
-            <AlkaidPendingWorkflow
-              summary={agenticPendingSummary}
-              onApply={handleApplyWorkflow}
-              onDiscard={() => setAgenticPendingSummary(null)}
-              loading={applyLoading}
-            />
-          )}
-          {agenticPendingPatchCount != null && agenticPendingPatchCount > 0 && (
-            <AlkaidPendingPatch
-              patchCount={agenticPendingPatchCount}
-              summary={agenticPendingPatchSummary}
-              onApply={handleApplyPatch}
-              onDiscard={() => {
-                setAgenticPendingPatchCount(null)
-                setAgenticPendingPatchSummary(null)
-              }}
-              loading={applyPatchLoading}
-            />
-          )}
-        </div>
-      )}
+      <AlkaidPendingBar
+        visible={useAgentic}
+        pendingSummary={agenticPendingSummary}
+        pendingPatchCount={agenticPendingPatchCount}
+        pendingPatchSummary={agenticPendingPatchSummary}
+        applyLoading={applyLoading}
+        applyPatchLoading={applyPatchLoading}
+        onApplyWorkflow={handleApplyWorkflow}
+        onDiscardWorkflow={() => setAgenticPendingSummary(null)}
+        onApplyPatch={handleApplyPatch}
+        onDiscardPatch={() => {
+          setAgenticPendingPatchCount(null)
+          setAgenticPendingPatchSummary(null)
+        }}
+      />
 
       <div className={styles.composer}>
         <div className={styles.composerInner}>

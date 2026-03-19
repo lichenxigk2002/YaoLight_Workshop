@@ -192,6 +192,26 @@ export function stripWorkflowJSONFromText(content: string): string {
 }
 
 /**
+ * Remove leaked DSML tool-call markup from assistant-visible text.
+ * This is a display-layer safety net for streaming/tool-call protocol content.
+ */
+export function stripDSMLToolCallsFromText(content: string): string {
+  if (!content) return content;
+
+  let text = content;
+
+  text = text.replace(/<[^>\n]*function_calls[^>]*>[\s\S]*?<\/[^>\n]*function_calls[^>]*>/gi, '');
+  text = text.replace(/<[^>\n]*function_calls[^>]*>[\s\S]*$/gi, '');
+  text = text.replace(/<[^>\n]*invoke[^>]*>[\s\S]*?<\/[^>\n]*invoke[^>]*>/gi, '');
+  text = text.replace(/<[^>\n]*invoke[^>]*>[\s\S]*$/gi, '');
+  text = text.replace(/<[^>\n]*parameter[^>]*>[\s\S]*?<\/[^>\n]*parameter[^>]*>/gi, '');
+  text = text.replace(/<[^>\n]*parameter[^>]*>[\s\S]*$/gi, '');
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  return text.trim();
+}
+
+/**
  * 验证并解析工作流JSON
  */
 export function parseWorkflowJSON(jsonString: string): WorkflowExportData | null {

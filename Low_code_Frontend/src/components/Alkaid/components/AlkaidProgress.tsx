@@ -39,6 +39,7 @@ interface AlkaidProgressProps {
   toolSteps: AgentToolStep[];
   maxSteps?: number;
   collapsed?: boolean;
+  compact?: boolean;
 }
 
 type TimelineStatus = 'pending' | 'inProgress' | 'completed' | 'skipped' | 'error';
@@ -73,6 +74,9 @@ const PIPELINE_STEPS: PipelineStep[] = [
     icon: <RocketOutlined />,
   },
 ];
+
+const COMPACT_MAX_PLAN_STEPS = 4;
+const COMPACT_MAX_TOOL_STEPS = 3;
 
 function toolNameToI18nKey(toolName: string): string {
   const key = 'tool' + toolName.split('_').map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join('');
@@ -151,6 +155,7 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
   phase,
   planSteps = [],
   toolSteps,
+  compact = false,
 }) => {
   const { t } = useTranslation();
   const [collapsedSteps, setCollapsedSteps] = useState<Record<string, boolean>>({});
@@ -189,9 +194,11 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
     return currentRoundPlanSteps.map((step) => ({
       ...step,
       mergedPlanStepIds: [step.planStepId],
-      toolSteps: dedupeToolSteps(planTools[step.planStepId] || []),
+      toolSteps: compact
+        ? dedupeToolSteps(planTools[step.planStepId] || []).slice(-COMPACT_MAX_TOOL_STEPS)
+        : dedupeToolSteps(planTools[step.planStepId] || []),
     }));
-  }, [currentRoundPlanSteps, planTools]);
+  }, [compact, currentRoundPlanSteps, planTools]);
 
   const plannedDisplayPlanSteps = useMemo(
     () => displayPlanSteps.filter((step) => !isSyntheticPlanStep(step)),
@@ -272,7 +279,12 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
     [plannedDisplayPlanSteps, generatingPlanStep, showGeneratingTimelineStep],
   );
 
-  const planItemCount = renderedPlanSteps.length + (showGeneratingTimelineStep ? 1 : 0);
+  const compactRenderedPlanSteps = useMemo(
+    () => (compact ? renderedPlanSteps.slice(-COMPACT_MAX_PLAN_STEPS) : renderedPlanSteps),
+    [compact, renderedPlanSteps],
+  );
+
+  const planItemCount = compactRenderedPlanSteps.length + (showGeneratingTimelineStep ? 1 : 0);
   const shouldUsePlanView = planItemCount > 0;
 
   const toggleText = (id: string) => {
@@ -281,6 +293,12 @@ const AlkaidProgress: React.FC<AlkaidProgressProps> = ({
 
   const toggleStep = (id: string) => {
     setCollapsedSteps((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const isStepCollapsed = (id: string, status: TimelineStatus, hasDetails: boolean) => {
+    if (collapsedSteps[id] != null) return collapsedSteps[id];
+    if (!compact || !hasDetails) return false;
+    return status !== 'inProgress' && status !== 'error';
   };
 
   const renderTextBlock = (
@@ -338,7 +356,7 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
     return <span className={[styles.statusTag, styles[timelineStatus]].join(' ')}>{label}</span>;
   };
 
-  const renderingStepCollapsed = collapsedSteps.__content_generating__ ?? false;
+  const renderingStepCollapsed = collapsedSteps.__content_generating__ ?? compact;
   const renderingStepSummary =
     generatingPlanStep?.resultSummary
     || generatingPlanStep?.reason
@@ -347,7 +365,7 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
       '正在流式生成工作流方案，内容会持续更新，不依赖卡片自身的 loading 状态。',
     );
 
-  const executionSection = syntheticDisplayPlanSteps.length > 0 ? (
+  const executionSection = !compact && syntheticDisplayPlanSteps.length > 0 ? (
     <div className={styles.executionSection}>
       <div className={styles.sectionHeader}>
         <div className={styles.sectionTitle}>
@@ -437,11 +455,13 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
       <div className={styles.timeline}>
         {shouldUsePlanView ? (
           <>
-            {renderedPlanSteps.map((step, index) => {
+            {compactRenderedPlanSteps.map((step, index) => {
               const status = planStatusToTimelineStatus(step.status);
               const hasSubSteps = step.toolSteps.length > 0;
               const canCollapse = hasPlanStepDetails(step);
-              const isCollapsed = collapsedSteps[step.planStepId] ?? false;
+              const isCollapsed = isStepCollapsed(step.planStepId, status, canCollapse);
+              const showNarrative = !compact || status === 'inProgress' || status === 'error';
+              const showResultSummary = !compact || status === 'inProgress' || status === 'error';
 
               return (
                 <div key={step.planStepId} className={styles.timelineItem}>
@@ -487,9 +507,9 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
 
                       {!isCollapsed && (
                         <>
-                          {renderTextBlock(step.reason, `desc-${step.planStepId}`, 'desc')}
-                          {renderTextBlock(step.expectedOutput, `expected-${step.planStepId}`, 'meta')}
-                          {renderTextBlock(step.resultSummary, `summary-${step.planStepId}`, 'meta')}
+                          {showNarrative && renderTextBlock(step.reason, `desc-${step.planStepId}`, 'desc')}
+                          {!compact && renderTextBlock(step.expectedOutput, `expected-${step.planStepId}`, 'meta')}
+                          {showResultSummary && renderTextBlock(step.resultSummary, `summary-${step.planStepId}`, 'meta')}
                           {renderTextBlock(step.errorMessage, `error-${step.planStepId}`, 'error')}
                         </>
                       )}
