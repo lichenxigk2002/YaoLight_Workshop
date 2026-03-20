@@ -281,6 +281,7 @@ func AutoMigrate() error {
 		&aiModels.ModelPricingConfig{},
 		&aiModels.ModelCapabilityConfig{},
 		&aiModels.ManagedAIModel{},
+		&aiModels.AIModelProbeResult{},
 		&aiModels.ModelPricingRule{},
 		&projectModels.Project{},
 		&workflowModels.Workflow{},

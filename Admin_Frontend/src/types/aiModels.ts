@@ -2,6 +2,7 @@ export type PricingType = 'unified' | 'separate' | 'multi_type' | 'segmented' | 
 
 export type ProviderStatus = 'healthy' | 'degraded' | 'disabled';
 export type ModelStatus = 'active' | 'disabled' | 'testing';
+export type AIProbeStatus = 'unknown' | 'healthy' | 'failed' | 'not_configured' | 'unsupported';
 
 export interface UnifiedPricingData {
   price_per_million_tokens?: number;
@@ -139,6 +140,44 @@ export interface AIModelsOverview {
   models_count: number;
   active_rules_count: number;
   monthly_cost: number;
+}
+
+export interface AIMonitoringSettings {
+  auto_enabled: boolean;
+  probe_interval_minutes: number;
+}
+
+export interface AIMonitoringSummary {
+  total_models: number;
+  healthy_models: number;
+  failed_models: number;
+  unknown_models: number;
+  not_configured_models: number;
+  unsupported_models: number;
+}
+
+export interface AIMonitoringRecord {
+  managed_model_id: string;
+  provider: string;
+  model_name: string;
+  display_name: string;
+  status: string;
+  is_active: boolean;
+  probe_status: AIProbeStatus;
+  last_checked_at?: string | null;
+  last_success_at?: string | null;
+  last_latency_ms?: number | null;
+  last_error?: string | null;
+  last_response_preview?: string | null;
+  last_probe_mode?: string | null;
+  consecutive_failures: number;
+}
+
+export interface AIMonitoringSnapshot {
+  settings: AIMonitoringSettings;
+  summary: AIMonitoringSummary;
+  is_checking: boolean;
+  items: AIMonitoringRecord[];
 }
 
 export interface CreateAIModelInput {

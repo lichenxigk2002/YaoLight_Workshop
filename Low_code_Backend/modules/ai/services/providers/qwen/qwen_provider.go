@@ -21,7 +21,7 @@ type QwenProvider struct {
 // NewQwenProvider 创建通义千问提供商实例
 func NewQwenProvider() providers.AIProvider {
 	return &QwenProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 

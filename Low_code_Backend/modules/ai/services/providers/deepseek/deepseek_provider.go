@@ -28,7 +28,7 @@ var (
 // NewDeepSeekProvider 创建DeepSeek提供商实例
 func NewDeepSeekProvider() providers.AIProvider {
 	return &DeepSeekProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 

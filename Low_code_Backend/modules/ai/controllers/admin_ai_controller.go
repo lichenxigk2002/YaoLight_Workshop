@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"yaolight-workshop/backend/infrastructure/database"
 	aiModels "yaolight-workshop/backend/modules/ai/models"
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
@@ -13,10 +14,11 @@ import (
 )
 
 type AdminAIController struct {
-	service *aiServices.AdminAIService
+	service           *aiServices.AdminAIService
+	monitoringService *aiServices.AIModelMonitoringService
 }
 
-func NewAdminAIController() *AdminAIController {
+func NewAdminAIController(monitoringService *aiServices.AIModelMonitoringService) *AdminAIController {
 	managedModelRepo := aiRepos.NewManagedAIModelRepository(database.DB)
 	providerTplRepo := aiRepos.NewProviderTemplateRepository(database.DB)
 	capabilityRepo := aiRepos.NewCapabilityConfigRepository(database.DB)
@@ -32,6 +34,7 @@ func NewAdminAIController() *AdminAIController {
 			pricingRepo,
 			pricingRuleRepo,
 		),
+		monitoringService: monitoringService,
 	}
 }
 
@@ -302,6 +305,71 @@ func (c *AdminAIController) GetUsage(ctx *gin.Context) {
 		"list":  records,
 		"total": len(records),
 	})
+}
+
+func (c *AdminAIController) GetMonitoringSnapshot(ctx *gin.Context) {
+	snapshot, err := c.monitoringService.GetSnapshot()
+	if err != nil {
+		internalError(ctx, "failed to load monitoring snapshot", err)
+		return
+	}
+
+	ok(ctx, "ok", snapshot)
+}
+
+func (c *AdminAIController) UpdateMonitoringSettings(ctx *gin.Context) {
+	var req struct {
+		AutoEnabled bool `json:"auto_enabled"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		badRequest(ctx, "invalid request payload: "+err.Error())
+		return
+	}
+
+	settings, err := c.monitoringService.SetAutoEnabled(req.AutoEnabled)
+	if err != nil {
+		internalError(ctx, "failed to update monitoring settings", err)
+		return
+	}
+
+	ok(ctx, "updated", settings)
+}
+
+func (c *AdminAIController) RunMonitoringCheckAll(ctx *gin.Context) {
+	snapshot, err := c.monitoringService.RunFullProbe("manual")
+	if err != nil {
+		if errors.Is(err, aiServices.ErrMonitoringAlreadyRunning) {
+			conflict(ctx, "monitoring task is already running")
+			return
+		}
+		internalError(ctx, "failed to run full monitoring", err)
+		return
+	}
+
+	ok(ctx, "ok", snapshot)
+}
+
+func (c *AdminAIController) RunMonitoringCheckModel(ctx *gin.Context) {
+	id, okID := parseUintParam(ctx, "id")
+	if !okID {
+		return
+	}
+
+	item, err := c.monitoringService.RunModelProbe(id, "manual")
+	if err != nil {
+		if errors.Is(err, aiServices.ErrMonitoringAlreadyRunning) {
+			conflict(ctx, "monitoring task is already running")
+			return
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, aiServices.ErrManagedModelNotFound) {
+			notFound(ctx, "model not found")
+			return
+		}
+		internalError(ctx, "failed to run model monitoring", err)
+		return
+	}
+
+	ok(ctx, "ok", item)
 }
 
 func parseUintParam(ctx *gin.Context, name string) (uint, bool) {

@@ -20,7 +20,7 @@ type MoonshotProvider struct {
 // NewMoonshotProvider 创建Moonshot Provider实例
 func NewMoonshotProvider() providers.AIProvider {
 	return &MoonshotProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 

@@ -20,7 +20,7 @@ type ZhipuaiProvider struct {
 // NewZhipuaiProvider 创建智谱AI提供商实例
 func NewZhipuaiProvider() providers.AIProvider {
 	return &ZhipuaiProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 
