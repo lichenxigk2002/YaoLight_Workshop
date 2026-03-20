@@ -9,6 +9,8 @@ export type Phase =
   | 'waiting_approval'
   | 'error';
 
+export type InteractionMode = 'chat' | 'analyze' | 'act';
+
 export type ToolStepStatus = 'pending' | 'running' | 'success' | 'error';
 export type PlanStepStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped';
 export type PlanStepSource = 'planned' | 'synthetic';
@@ -47,6 +49,13 @@ export interface AgentToolStep {
 
 export interface SSEPhaseChanged {
   phase: Phase;
+  at: string;
+}
+
+export interface SSEInteractionMode {
+  mode: InteractionMode;
+  reason?: string;
+  showProgress: boolean;
   at: string;
 }
 

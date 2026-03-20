@@ -58,6 +58,16 @@ const router = createBrowserRouter([
     ),
   },
   {
+    path: '/projects/:projectId/automation',
+    element: (
+      <ProtectedRoute>
+        <Layout>
+          <ProjectDetail />
+        </Layout>
+      </ProtectedRoute>
+    ),
+  },
+  {
     path: '/projects/:projectId/workflows/:workflowId/edit',
     element: (
       <ProtectedRoute>

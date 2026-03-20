@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, App, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tag, Typography } from 'antd'
-import { BookOutlined, ClockCircleOutlined, CopyOutlined, EyeOutlined, GlobalOutlined, KeyOutlined, LinkOutlined, LockOutlined, ReloadOutlined } from '@ant-design/icons'
+import { BookOutlined, ClockCircleOutlined, CopyOutlined, EyeOutlined, GlobalOutlined, KeyOutlined, LinkOutlined, LockOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { workflowApi } from '@/api/workflow'
@@ -48,7 +48,7 @@ export default function WorkflowApiPage() {
 
   const numericWorkflowId = Number(workflowId)
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     if (!numericWorkflowId) return
     setLoading(true)
     try {
@@ -78,11 +78,11 @@ export default function WorkflowApiPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [form, message, numericWorkflowId, t])
 
   useEffect(() => {
     void loadAll()
-  }, [numericWorkflowId])
+  }, [loadAll])
 
   const handleSave = async (values: any) => {
     if (!numericWorkflowId) return
@@ -221,262 +221,316 @@ export default function WorkflowApiPage() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.hero}>
-        <div className={styles.heroGlow} />
-        <div className={styles.heroContent}>
-          <Text className={styles.badge}>{t('workflowApi.heroBadge')}</Text>
-          <div className={styles.heroHeader}>
-            <div className={styles.heroText}>
-              <div className={styles.titleRow}>
+      <div className={styles.pageInner}>
+        <section className={styles.hero}>
+          <div className={styles.heroGlow} />
+          <div className={styles.heroContent}>
+            <div className={styles.heroBadgeRow}>
+              <Text className={styles.badge}>{t('workflowApi.heroBadge')}</Text>
+              <Tag color={endpointStatusMeta.color}>{endpointStatusMeta.label}</Tag>
+            </div>
+
+            <div className={styles.heroHeader}>
+              <div className={styles.heroText}>
                 <Title level={2} className={styles.title}>
                   {workflow?.name || t('workflowApi.title')}
                 </Title>
-                <Tag color={endpointStatusMeta.color}>{endpointStatusMeta.label}</Tag>
+                <Paragraph className={styles.description}>
+                  {t('workflowApi.subtitle')}
+                </Paragraph>
               </div>
-              <Paragraph className={styles.description}>
-                {t('workflowApi.subtitle')}
-              </Paragraph>
-            </div>
-            <Space wrap className={styles.heroActions}>
-              <Button icon={<ReloadOutlined />} onClick={() => void loadAll()}>
-                {t('workflowApi.refresh')}
-              </Button>
-              {endpoint?.docsPath ? (
-                <Button
-                  type="primary"
-                  icon={<EyeOutlined />}
-                  disabled={endpoint.status !== 'published'}
-                  onClick={() => navigate(endpoint.docsPath)}
-                >
-                  {t('workflowApi.previewDocs')}
-                </Button>
-              ) : null}
-            </Space>
-          </div>
 
-          <div className={styles.metricGrid}>
-            {overviewMetrics.map((item) => (
-              <div key={item.label} className={styles.metricCard}>
-                <span className={styles.metricLabel}>{item.label}</span>
-                <span className={styles.metricValue}>{item.value}</span>
-                <span className={styles.metricHint}>{item.hint}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {latestKey ? (
-        <Alert
-          className={styles.latestKeyAlert}
-          type="success"
-          showIcon
-          message={t('workflowApi.latestKeyTitle')}
-          description={
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Text>{t('workflowApi.latestKeyDesc')}</Text>
-              <Text code>{latestKey.key}</Text>
-              <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(latestKey.key, t('workflowApi.apiKeyCopied'))}>
-                {t('workflowApi.copyApiKey')}
-              </Button>
-            </Space>
-          }
-        />
-      ) : null}
-
-      <Row gutter={[16, 16]}>
-        <Col xs={24} xl={15}>
-          <Card
-            className={styles.card}
-            title={(
-              <div className={styles.cardHeader}>
-                <span className={styles.cardTitle}>{t('workflowApi.settingsTitle')}</span>
-                <span className={styles.cardDesc}>{t('workflowApi.settingsDesc')}</span>
-              </div>
-            )}
-            loading={loading}
-          >
-            <Form form={form} layout="vertical" onFinish={handleSave}>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="name" label={t('workflowApi.apiName')} rules={[{ required: true, message: t('workflowApi.apiNameRequired') }]}>
-                    <Input placeholder={t('workflowApi.apiNamePlaceholder')} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="slug" label={t('workflowApi.slug')} rules={[{ required: true, message: t('workflowApi.slugRequired') }]}>
-                    <Input placeholder={t('workflowApi.slugPlaceholder')} />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Form.Item name="description" label={t('workflowApi.descriptionLabel')}>
-                <Input.TextArea rows={3} placeholder={t('workflowApi.descriptionPlaceholder')} />
-              </Form.Item>
-
-              <Row gutter={16}>
-                <Col span={8}>
-                  <Form.Item name="status" label={t('workflowApi.statusLabel')} rules={[{ required: true }]}>
-                    <Select options={statusOptions} />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="responseMode" label={t('workflowApi.responseModeLabel')} rules={[{ required: true }]}>
-                    <Select options={responseModeOptions} />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="resultMode" label={t('workflowApi.resultModeLabel')} rules={[{ required: true }]}>
-                    <Select options={resultModeOptions} />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Form.Item name="waitTimeoutSeconds" label={t('workflowApi.waitTimeoutLabel')}>
-                <InputNumber min={1} max={600} style={{ width: '100%' }} />
-              </Form.Item>
-
-              <Form.Item name="requestExample" label={t('workflowApi.requestExampleLabel')} extra={t('workflowApi.requestExampleHelp')}>
-                <Input.TextArea rows={8} className={styles.codeInput} />
-              </Form.Item>
-
-              <Form.Item name="responseExample" label={t('workflowApi.responseExampleLabel')} extra={t('workflowApi.responseExampleHelp')}>
-                <Input.TextArea rows={8} className={styles.codeInput} />
-              </Form.Item>
-
-              <div className={styles.formActions}>
-                <Button type="primary" htmlType="submit">
-                  {t('workflowApi.saveSettings')}
-                </Button>
-              </div>
-            </Form>
-          </Card>
-        </Col>
-
-        <Col xs={24} xl={9}>
-          <Card
-            className={styles.card}
-            title={(
-              <div className={styles.cardHeader}>
-                <span className={styles.cardTitle}>{t('workflowApi.accessTitle')}</span>
-                <span className={styles.cardDesc}>{t('workflowApi.accessDesc')}</span>
-              </div>
-            )}
-            loading={loading}
-          >
-            <div className={styles.infoGrid}>
-              <div className={styles.infoCard}>
-                <span className={styles.infoLabel}><LinkOutlined /> {t('workflowApi.invokePath')}</span>
-                <div className={styles.infoValueRow}>
-                  <span className={styles.infoValue}>{endpoint?.invokePath || t('workflowApi.noData')}</span>
-                  {endpoint?.invokePath ? (
-                    <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(endpoint.invokePath, t('workflowApi.copyInvokeUrl'))} />
-                  ) : null}
+              <div className={styles.heroAside}>
+                <div className={styles.heroAsideCard}>
+                  <span className={styles.heroAsideLabel}>{t('workflowApi.invokePath')}</span>
+                  <div className={styles.heroAsideValue}>{endpoint?.invokePath || t('workflowApi.noData')}</div>
                 </div>
-              </div>
-
-              <div className={styles.infoCard}>
-                <span className={styles.infoLabel}><BookOutlined /> {t('workflowApi.docsPath')}</span>
-                <div className={styles.infoValueRow}>
-                  <span className={styles.infoValue}>{endpoint?.docsPath || t('workflowApi.noData')}</span>
+                <Space wrap className={styles.heroActions}>
+                  <Button icon={<ReloadOutlined />} onClick={() => void loadAll()}>
+                    {t('workflowApi.refresh')}
+                  </Button>
                   {endpoint?.docsPath ? (
-                    <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(endpoint.docsPath, t('workflowApi.copyInvokeUrl'))} />
+                    <Button
+                      type="primary"
+                      icon={<EyeOutlined />}
+                      disabled={endpoint.status !== 'published'}
+                      onClick={() => navigate(endpoint.docsPath)}
+                    >
+                      {t('workflowApi.previewDocs')}
+                    </Button>
                   ) : null}
+                </Space>
+              </div>
+            </div>
+
+            <div className={styles.metricGrid}>
+              {overviewMetrics.map((item) => (
+                <div key={item.label} className={styles.metricCard}>
+                  <span className={styles.metricLabel}>{item.label}</span>
+                  <span className={styles.metricValue}>{item.value}</span>
+                  <span className={styles.metricHint}>{item.hint}</span>
                 </div>
-              </div>
+              ))}
+            </div>
 
-              <div className={styles.infoCard}>
-                <span className={styles.infoLabel}><LockOutlined /> {t('workflowApi.authHeader')}</span>
-                <span className={styles.infoMuted}>{t('workflowApi.authHeaderValue')}</span>
+            <div className={styles.heroRail}>
+              <div className={styles.heroRailCard}>
+                <span className={styles.heroRailLabel}>{t('workflowApi.responseModeLabel')}</span>
+                <span className={styles.heroRailValue}>
+                  {endpoint?.responseMode === 'async' ? t('workflowApi.responseModeAsync') : t('workflowApi.responseModeWait')}
+                </span>
               </div>
-
-              <div className={styles.infoCard}>
-                <span className={styles.infoLabel}><ClockCircleOutlined /> {t('workflowApi.publishedAt')}</span>
-                <span className={styles.infoMuted}>
-                  {formatDateTime(endpoint?.publishedAt, i18n.language, t('workflowApi.noData'))}
+              <div className={styles.heroRailCard}>
+                <span className={styles.heroRailLabel}>{t('workflowApi.resultModeLabel')}</span>
+                <span className={styles.heroRailValue}>
+                  {endpoint?.resultMode === 'artifact' ? t('workflowApi.resultModeArtifact') : t('workflowApi.resultModeJson')}
+                </span>
+              </div>
+              <div className={styles.heroRailCard}>
+                <span className={styles.heroRailLabel}>{t('workflowApi.waitTimeoutLabel')}</span>
+                <span className={styles.heroRailValue}>
+                  {endpoint?.waitTimeoutSeconds ? `${endpoint.waitTimeoutSeconds}s` : t('workflowApi.noData')}
                 </span>
               </div>
             </div>
-
-            <Button type="primary" icon={<KeyOutlined />} onClick={() => setCreateKeyOpen(true)} className={styles.fullButton}>
-              {t('workflowApi.createApiKey')}
-            </Button>
-
-            <div className={styles.securityNote}>
-              <GlobalOutlined className={styles.securityIcon} />
-              <div>
-                <div className={styles.securityTitle}>{t('workflowApi.securityHintTitle')}</div>
-                <div className={styles.securityDesc}>{t('workflowApi.securityHintDesc')}</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card
-            className={styles.card}
-            title={(
-              <div className={styles.cardHeader}>
-                <span className={styles.cardTitle}>{t('workflowApi.keysTitle')}</span>
-                <span className={styles.cardDesc}>{t('workflowApi.keysDesc')}</span>
-              </div>
-            )}
-            style={{ marginTop: 16 }}
-            loading={loading}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              {keys.map((item) => (
-                <div key={item.id} className={styles.keyRow}>
-                  <div className={styles.keyMeta}>
-                    <Text strong>{item.name}</Text>
-                    <Text type="secondary">{item.keyPrefix}...</Text>
-                    <Text type="secondary">
-                      {t('workflowApi.createdAt')}: {formatDateTime(item.createdAt, i18n.language, '-')}
-                    </Text>
-                    <Text type="secondary">
-                      {t('workflowApi.lastUsedAt')}: {formatDateTime(item.lastUsedAt, i18n.language, t('workflowApi.neverUsed'))}
-                    </Text>
-                  </div>
-                  <Tag color={item.status === 'active' ? 'green' : 'default'}>
-                    {item.status === 'active' ? t('workflowApi.statusActive') : t('workflowApi.statusInactive')}
-                  </Tag>
-                </div>
-              ))}
-              {!keys.length ? <Text type="secondary">{t('workflowApi.noKeys')}</Text> : null}
-            </Space>
-          </Card>
-        </Col>
-      </Row>
-
-      <Card
-        className={styles.card}
-        title={(
-          <div className={styles.cardHeader}>
-            <span className={styles.cardTitle}>{t('workflowApi.invocationsTitle')}</span>
-            <span className={styles.cardDesc}>{t('workflowApi.invocationsDesc')}</span>
           </div>
-        )}
-        style={{ marginTop: 16 }}
-        loading={loading}
-      >
-        <Table
-          rowKey="requestId"
-          pagination={false}
-          dataSource={invocations}
-          columns={invocationColumns}
-          scroll={{ x: 860 }}
-          locale={{ emptyText: t('workflowApi.noInvocations') }}
-        />
-      </Card>
+        </section>
 
-      <Modal title={t('workflowApi.createKeyTitle')} open={createKeyOpen} footer={null} onCancel={() => setCreateKeyOpen(false)}>
-        <Form layout="vertical" onFinish={handleCreateKey}>
-          <Form.Item name="name" label={t('workflowApi.keyNameLabel')} rules={[{ required: true, message: t('workflowApi.keyNameRequired') }]}>
-            <Input placeholder={t('workflowApi.keyNamePlaceholder')} />
-          </Form.Item>
-          <Button htmlType="submit" type="primary" block>
-            {t('workflowApi.create')}
-          </Button>
-        </Form>
-      </Modal>
+        {latestKey ? (
+          <Alert
+            className={styles.latestKeyAlert}
+            type="success"
+            showIcon
+            message={t('workflowApi.latestKeyTitle')}
+            description={
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Text>{t('workflowApi.latestKeyDesc')}</Text>
+                <Text code>{latestKey.key}</Text>
+                <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(latestKey.key, t('workflowApi.apiKeyCopied'))}>
+                  {t('workflowApi.copyApiKey')}
+                </Button>
+              </Space>
+            }
+          />
+        ) : null}
+
+        <Row gutter={[20, 20]} className={styles.mainGrid}>
+          <Col xs={24} xl={15}>
+            <div className={styles.contentStack}>
+              <Card
+                className={styles.card}
+                title={(
+                  <div className={styles.cardHeader}>
+                    <span className={styles.cardTitle}>{t('workflowApi.settingsTitle')}</span>
+                    <span className={styles.cardDesc}>{t('workflowApi.settingsDesc')}</span>
+                  </div>
+                )}
+                loading={loading}
+              >
+                <Form form={form} layout="vertical" onFinish={handleSave}>
+                  <Row gutter={16}>
+                    <Col span={12}>
+                      <Form.Item name="name" label={t('workflowApi.apiName')} rules={[{ required: true, message: t('workflowApi.apiNameRequired') }]}>
+                        <Input placeholder={t('workflowApi.apiNamePlaceholder')} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                      <Form.Item name="slug" label={t('workflowApi.slug')} rules={[{ required: true, message: t('workflowApi.slugRequired') }]}>
+                        <Input placeholder={t('workflowApi.slugPlaceholder')} />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+
+                  <Form.Item name="description" label={t('workflowApi.descriptionLabel')}>
+                    <Input.TextArea rows={3} placeholder={t('workflowApi.descriptionPlaceholder')} />
+                  </Form.Item>
+
+                  <Row gutter={16}>
+                    <Col span={8}>
+                      <Form.Item name="status" label={t('workflowApi.statusLabel')} rules={[{ required: true }]}>
+                        <Select options={statusOptions} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                      <Form.Item name="responseMode" label={t('workflowApi.responseModeLabel')} rules={[{ required: true }]}>
+                        <Select options={responseModeOptions} />
+                      </Form.Item>
+                    </Col>
+                    <Col span={8}>
+                      <Form.Item name="resultMode" label={t('workflowApi.resultModeLabel')} rules={[{ required: true }]}>
+                        <Select options={resultModeOptions} />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+
+                  <Form.Item name="waitTimeoutSeconds" label={t('workflowApi.waitTimeoutLabel')}>
+                    <InputNumber min={1} max={600} style={{ width: '100%' }} />
+                  </Form.Item>
+
+                  <div className={styles.editorSection}>
+                    <div className={styles.editorHeader}>
+                      <div>
+                        <div className={styles.editorTitle}>{t('workflowApi.requestExampleLabel')}</div>
+                        <div className={styles.editorHint}>{t('workflowApi.requestExampleHelp')}</div>
+                      </div>
+                      <span className={styles.editorPill}>{t('workflowApi.resultModeJson')}</span>
+                    </div>
+                    <Form.Item name="requestExample" noStyle>
+                      <Input.TextArea rows={10} className={styles.codeInput} />
+                    </Form.Item>
+                  </div>
+
+                  <div className={styles.editorSection}>
+                    <div className={styles.editorHeader}>
+                      <div>
+                        <div className={styles.editorTitle}>{t('workflowApi.responseExampleLabel')}</div>
+                        <div className={styles.editorHint}>{t('workflowApi.responseExampleHelp')}</div>
+                      </div>
+                      <span className={styles.editorPill}>
+                        <ThunderboltOutlined />
+                        {endpoint?.responseMode === 'async' ? t('workflowApi.responseModeAsync') : t('workflowApi.responseModeWait')}
+                      </span>
+                    </div>
+                    <Form.Item name="responseExample" noStyle>
+                      <Input.TextArea rows={10} className={styles.codeInput} />
+                    </Form.Item>
+                  </div>
+
+                  <div className={styles.formActions}>
+                    <Button type="primary" htmlType="submit">
+                      {t('workflowApi.saveSettings')}
+                    </Button>
+                  </div>
+                </Form>
+              </Card>
+
+              <Card
+                className={styles.card}
+                title={(
+                  <div className={styles.cardHeader}>
+                    <span className={styles.cardTitle}>{t('workflowApi.invocationsTitle')}</span>
+                    <span className={styles.cardDesc}>{t('workflowApi.invocationsDesc')}</span>
+                  </div>
+                )}
+                loading={loading}
+              >
+                <Table
+                  rowKey="requestId"
+                  pagination={false}
+                  dataSource={invocations}
+                  columns={invocationColumns}
+                  scroll={{ x: 860 }}
+                  locale={{ emptyText: t('workflowApi.noInvocations') }}
+                />
+              </Card>
+            </div>
+          </Col>
+
+          <Col xs={24} xl={9}>
+            <div className={styles.railStack}>
+              <Card
+                className={styles.card}
+                title={(
+                  <div className={styles.cardHeader}>
+                    <span className={styles.cardTitle}>{t('workflowApi.accessTitle')}</span>
+                    <span className={styles.cardDesc}>{t('workflowApi.accessDesc')}</span>
+                  </div>
+                )}
+                loading={loading}
+              >
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoCard}>
+                    <span className={styles.infoLabel}><LinkOutlined /> {t('workflowApi.invokePath')}</span>
+                    <div className={styles.infoValueRow}>
+                      <span className={styles.infoValue}>{endpoint?.invokePath || t('workflowApi.noData')}</span>
+                      {endpoint?.invokePath ? (
+                        <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(endpoint.invokePath, t('workflowApi.copyInvokeUrl'))} />
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className={styles.infoCard}>
+                    <span className={styles.infoLabel}><BookOutlined /> {t('workflowApi.docsPath')}</span>
+                    <div className={styles.infoValueRow}>
+                      <span className={styles.infoValue}>{endpoint?.docsPath || t('workflowApi.noData')}</span>
+                      {endpoint?.docsPath ? (
+                        <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(endpoint.docsPath, t('workflowApi.copyInvokeUrl'))} />
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className={styles.infoCard}>
+                    <span className={styles.infoLabel}><LockOutlined /> {t('workflowApi.authHeader')}</span>
+                    <span className={styles.infoMuted}>{t('workflowApi.authHeaderValue')}</span>
+                  </div>
+
+                  <div className={styles.infoCard}>
+                    <span className={styles.infoLabel}><ClockCircleOutlined /> {t('workflowApi.publishedAt')}</span>
+                    <span className={styles.infoMuted}>
+                      {formatDateTime(endpoint?.publishedAt, i18n.language, t('workflowApi.noData'))}
+                    </span>
+                  </div>
+                </div>
+
+                <Button type="primary" icon={<KeyOutlined />} onClick={() => setCreateKeyOpen(true)} className={styles.fullButton}>
+                  {t('workflowApi.createApiKey')}
+                </Button>
+
+                <div className={styles.securityNote}>
+                  <GlobalOutlined className={styles.securityIcon} />
+                  <div>
+                    <div className={styles.securityTitle}>{t('workflowApi.securityHintTitle')}</div>
+                    <div className={styles.securityDesc}>{t('workflowApi.securityHintDesc')}</div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card
+                className={styles.card}
+                title={(
+                  <div className={styles.cardHeader}>
+                    <span className={styles.cardTitle}>{t('workflowApi.keysTitle')}</span>
+                    <span className={styles.cardDesc}>{t('workflowApi.keysDesc')}</span>
+                  </div>
+                )}
+                loading={loading}
+              >
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  {keys.map((item) => (
+                    <div key={item.id} className={styles.keyRow}>
+                      <div className={styles.keyMeta}>
+                        <Text strong>{item.name}</Text>
+                        <Text type="secondary">{item.keyPrefix}...</Text>
+                        <Text type="secondary">
+                          {t('workflowApi.createdAt')}: {formatDateTime(item.createdAt, i18n.language, '-')}
+                        </Text>
+                        <Text type="secondary">
+                          {t('workflowApi.lastUsedAt')}: {formatDateTime(item.lastUsedAt, i18n.language, t('workflowApi.neverUsed'))}
+                        </Text>
+                      </div>
+                      <Tag color={item.status === 'active' ? 'green' : 'default'}>
+                        {item.status === 'active' ? t('workflowApi.statusActive') : t('workflowApi.statusInactive')}
+                      </Tag>
+                    </div>
+                  ))}
+                  {!keys.length ? <Text type="secondary">{t('workflowApi.noKeys')}</Text> : null}
+                </Space>
+              </Card>
+            </div>
+          </Col>
+        </Row>
+
+        <Modal title={t('workflowApi.createKeyTitle')} open={createKeyOpen} footer={null} onCancel={() => setCreateKeyOpen(false)}>
+          <Form layout="vertical" onFinish={handleCreateKey}>
+            <Form.Item name="name" label={t('workflowApi.keyNameLabel')} rules={[{ required: true, message: t('workflowApi.keyNameRequired') }]}>
+              <Input placeholder={t('workflowApi.keyNamePlaceholder')} />
+            </Form.Item>
+            <Button htmlType="submit" type="primary" block>
+              {t('workflowApi.create')}
+            </Button>
+          </Form>
+        </Modal>
+      </div>
     </div>
   )
 }

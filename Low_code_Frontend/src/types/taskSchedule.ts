@@ -10,6 +10,8 @@ export interface RetryPolicy {
 export interface TaskSchedule {
   id: number;
   workflowId: number;
+  workflowName?: string;
+  projectId?: number;
   userId: number;
   name: string;
   description?: string;

@@ -146,3 +146,21 @@ func GetToolDefsForLLM() []providers.ToolDef {
 		},
 	}
 }
+
+func FilterToolDefsByName(toolDefs []providers.ToolDef, allowed map[string]struct{}) []providers.ToolDef {
+	if len(toolDefs) == 0 || len(allowed) == 0 {
+		return nil
+	}
+
+	filtered := make([]providers.ToolDef, 0, len(toolDefs))
+	for _, toolDef := range toolDefs {
+		if toolDef.Function == nil {
+			continue
+		}
+		if _, ok := allowed[toolDef.Function.Name]; !ok {
+			continue
+		}
+		filtered = append(filtered, toolDef)
+	}
+	return filtered
+}

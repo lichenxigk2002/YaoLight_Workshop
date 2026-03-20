@@ -31,6 +31,15 @@ func (c *TaskScheduleController) ListSchedules(ctx *gin.Context) {
 		Page:        parseIntDefault(ctx.Query("page"), 1),
 		PageSize:    parseIntDefault(ctx.Query("pageSize"), 20),
 	}
+	if rawProjectID := strings.TrimSpace(ctx.Query("projectId")); rawProjectID != "" {
+		parsed, err := strconv.ParseUint(rawProjectID, 10, 32)
+		if err != nil {
+			badRequest(ctx, "invalid projectId")
+			return
+		}
+		projectID := uint(parsed)
+		query.ProjectID = &projectID
+	}
 	if rawWorkflowID := strings.TrimSpace(ctx.Query("workflowId")); rawWorkflowID != "" {
 		parsed, err := strconv.ParseUint(rawWorkflowID, 10, 32)
 		if err != nil {

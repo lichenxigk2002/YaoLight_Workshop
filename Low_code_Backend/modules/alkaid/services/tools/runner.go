@@ -24,6 +24,7 @@ type CapabilitiesProvider interface {
 
 // WorkflowServiceProvider 工作流服务提供者（仅暴露 alkaid 所需方法）
 type WorkflowServiceProvider interface {
+	GetWorkflowByID(workflowID uint) (interface{}, error)
 	GetWorkflowNodes(workflowID uint) (interface{}, error)
 	SaveWorkflowNodes(workflowID uint, req interface{}) error
 	// ListWorkflowsByUserID 按用户分页列出工作流摘要（id、name、description、status），供 list_workflows 工具使用

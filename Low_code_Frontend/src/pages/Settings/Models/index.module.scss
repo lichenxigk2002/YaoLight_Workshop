@@ -1,3 +1,5 @@
+@use '../theme' as settingsTheme;
+
 .container {
   max-width: 880px;
   margin: 0 auto;
@@ -13,14 +15,9 @@
     :global(.ant-input-affix-wrapper) {
       min-height: 38px;
       border-radius: 999px;
-      border-color: rgba(0, 0, 0, 0.08);
-      background: rgba(255, 255, 255, 0.64);
+      border-color: var(--settings-card-border);
+      background: var(--settings-input-bg);
       box-shadow: none;
-
-      [data-theme='dark'] & {
-        border-color: rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.03);
-      }
     }
 
     :global(.ant-input) {
@@ -62,20 +59,13 @@
   }
 
   .quotaCard {
+    @include settingsTheme.panel();
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 14px;
     padding: 18px 20px;
     margin-bottom: 20px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 22px;
-    background: rgba(255, 255, 255, 0.58);
-
-    [data-theme='dark'] & {
-      border-color: rgba(255, 255, 255, 0.06);
-      background: rgba(255, 255, 255, 0.03);
-    }
 
     .quotaInfo {
       .quotaLabel {
@@ -95,32 +85,11 @@
   }
 
   .providerCard {
+    @include settingsTheme.panel();
+    @include settingsTheme.hover-card();
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 22px;
-    background: rgba(255, 255, 255, 0.58);
-    transition:
-      transform 180ms ease,
-      border-color 180ms ease,
-      box-shadow 180ms ease;
-
-    [data-theme='dark'] & {
-      border-color: rgba(255, 255, 255, 0.06);
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    &:hover {
-      transform: translateY(-2px);
-      border-color: rgba(0, 0, 0, 0.12);
-      box-shadow: 0 14px 32px rgba(0, 0, 0, 0.04);
-    }
-
-    [data-theme='dark'] &:hover {
-      border-color: rgba(255, 255, 255, 0.12);
-      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.22);
-    }
 
     .cardMain {
       display: flex;
@@ -136,20 +105,13 @@
         min-width: 0;
 
         .iconWrapper {
+          @include settingsTheme.subcard(14px);
           width: 40px;
           height: 40px;
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          border: 1px solid rgba(0, 0, 0, 0.06);
-          border-radius: 14px;
-          background: rgba(255, 255, 255, 0.64);
-
-          [data-theme='dark'] & {
-            border-color: rgba(255, 255, 255, 0.06);
-            background: rgba(255, 255, 255, 0.04);
-          }
         }
 
         .nameAndTags {
@@ -177,18 +139,13 @@
 
             :global(.ant-tag) {
               margin: 0;
-              border: 1px solid rgba(0, 0, 0, 0.06);
+              border: 1px solid var(--settings-card-border);
               border-radius: 999px;
-              background: rgba(0, 0, 0, 0.04);
+              background: var(--settings-pill-bg);
               color: var(--text-secondary);
               font-size: 10px;
               line-height: 18px;
               padding-inline: 8px;
-
-              [data-theme='dark'] & {
-                border-color: rgba(255, 255, 255, 0.06);
-                background: rgba(255, 255, 255, 0.04);
-              }
             }
           }
         }
@@ -207,27 +164,23 @@
           min-height: 24px;
           padding: 0 10px;
           border-radius: 999px;
-          background: rgba(0, 0, 0, 0.04);
+          background: var(--settings-pill-bg);
           color: var(--text-secondary);
           font-size: 11px;
           font-weight: 500;
-
-          [data-theme='dark'] & {
-            background: rgba(255, 255, 255, 0.04);
-          }
 
           .dot {
             width: 6px;
             height: 6px;
             border-radius: 999px;
-            background: rgba(0, 0, 0, 0.16);
+            background: rgba(255, 255, 255, 0.2);
 
             &.active {
-              background: #1f5133;
+              background: var(--settings-success-text);
             }
 
             &.error {
-              background: #7f1d1d;
+              background: var(--settings-danger-text);
             }
           }
         }
@@ -247,11 +200,7 @@
       align-items: center;
       gap: 10px;
       padding: 12px 18px;
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-
-      [data-theme='dark'] & {
-        border-top-color: rgba(255, 255, 255, 0.06);
-      }
+      border-top: 1px solid var(--settings-card-border);
 
       .expandLink,
       .addLink {
@@ -285,12 +234,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 8px;
-    background: rgba(0, 0, 0, 0.06);
+    background: var(--settings-pill-bg);
     color: var(--text-primary);
-
-    [data-theme='dark'] & {
-      background: rgba(255, 255, 255, 0.06);
-    }
   }
 
   .modelsListContent {
@@ -307,16 +252,9 @@
       }
 
       .modelItem {
+        @include settingsTheme.subcard();
         padding: 12px 14px;
         margin-bottom: 8px;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.48);
-
-        [data-theme='dark'] & {
-          border-color: rgba(255, 255, 255, 0.06);
-          background: rgba(255, 255, 255, 0.03);
-        }
 
         .modelInfo {
           display: flex;
@@ -342,12 +280,15 @@
 
 .configModal {
   :global(.ant-modal-content) {
+    border: 1px solid var(--settings-card-border);
     border-radius: 24px;
     padding: 24px;
+    background: var(--settings-overlay-bg) !important;
   }
 
   :global(.ant-modal-header) {
     padding-right: 96px;
+    background: transparent !important;
   }
 
   :global(.ant-input),
@@ -355,6 +296,8 @@
   :global(.ant-select-selector) {
     min-height: 36px;
     border-radius: 16px !important;
+    border-color: var(--settings-card-border) !important;
+    background: var(--settings-input-bg) !important;
   }
 
   :global(.ant-form-item) {

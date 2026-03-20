@@ -1,0 +1,191 @@
+@use '../../theme' as settingsTheme;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filterSelect,
+.filterSelectWide {
+  min-width: 156px;
+}
+
+.filterSelectWide {
+  min-width: 188px;
+}
+
+.dateFilterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--settings-card-border);
+  border-radius: 999px;
+  background: var(--settings-pill-bg);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.modelCell,
+.inlineLabel,
+.descriptionLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.timeValue,
+.modelText,
+.descriptionText {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeValue {
+  font-size: 12px;
+}
+
+.inlineInfoIcon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.tokenPair,
+.costValue {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.amountPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.amountPositive {
+  background: var(--settings-success-bg);
+  color: var(--settings-success-text);
+}
+
+.amountNegative {
+  background: var(--settings-danger-bg);
+  color: var(--settings-danger-text);
+}
+
+.amountNeutral {
+  background: var(--settings-pill-bg);
+  color: var(--text-secondary);
+}
+
+.container {
+  :global(.ant-select-selector) {
+    min-height: 36px !important;
+    border-color: var(--settings-card-border) !important;
+    border-radius: 12px !important;
+    background: var(--settings-input-bg) !important;
+    box-shadow: none !important;
+  }
+
+  :global(.ant-select-selection-wrap) {
+    align-items: center;
+  }
+
+  :global(.ant-table) {
+    background: transparent !important;
+  }
+
+  :global(.ant-table-wrapper) {
+    overflow: hidden;
+    @include settingsTheme.table-shell();
+  }
+
+  :global(.ant-spin-nested-loading),
+  :global(.ant-table-container) {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  :global(.ant-table-content) {
+    overflow-x: auto !important;
+  }
+
+  :global(.ant-table-content table) {
+    min-width: 100%;
+  }
+
+  :global(.ant-table-thead > tr > th) {
+    background: var(--settings-table-head-bg) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--settings-card-border) !important;
+  }
+
+  :global(.ant-table-thead > tr > th:first-child) {
+    border-top-left-radius: 18px !important;
+  }
+
+  :global(.ant-table-thead > tr > th:last-child) {
+    border-top-right-radius: 18px !important;
+  }
+
+  :global(.ant-table-thead > tr > th),
+  :global(.ant-table-tbody > tr > td) {
+    padding: 12px 14px !important;
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    background: var(--settings-table-row-bg) !important;
+    border-bottom-color: var(--settings-card-border) !important;
+    color: var(--settings-row-ink) !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :global(.ant-table-tbody > tr:hover > td) {
+    background: var(--settings-table-row-hover) !important;
+  }
+
+  :global(.ant-pagination) {
+    padding: 0 12px 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .filterSelect,
+  .filterSelectWide {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dateFilterPill {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+}

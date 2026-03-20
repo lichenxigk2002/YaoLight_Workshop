@@ -5,6 +5,7 @@ import {
   AppstoreOutlined,
   ArrowRightOutlined,
   CalendarOutlined,
+  ClockCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   FolderOpenOutlined,
@@ -17,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { projectApi } from '@/api/project';
 import { workflowApi } from '@/api/workflow';
 import { ProjectAssetsContent } from '@/pages/ProjectAssets';
+import { ProjectAutomationContent } from '@/pages/ProjectAutomation';
 import type { PageRequest } from '@/types/api';
 import type { Project } from '@/types/project';
 import type { Workflow } from '@/types/workflow';
@@ -24,7 +26,7 @@ import styles from './index.module.scss';
 
 const { TextArea } = Input;
 
-type ProjectPrimaryTab = 'workflows' | 'assets';
+type ProjectPrimaryTab = 'workflows' | 'assets' | 'automation';
 
 export default function ProjectDetail() {
   const navigate = useNavigate();
@@ -49,7 +51,11 @@ export default function ProjectDetail() {
   const projectIdNumber = Number(projectId);
 
   const activeTab = useMemo<ProjectPrimaryTab>(
-    () => (location.pathname.includes('/assets') ? 'assets' : 'workflows'),
+    () => {
+      if (location.pathname.includes('/assets')) return 'assets';
+      if (location.pathname.includes('/automation')) return 'automation';
+      return 'workflows';
+    },
     [location.pathname],
   );
 
@@ -460,14 +466,20 @@ export default function ProjectDetail() {
             <Button className={styles.softButton} onClick={() => navigate('/')}>
               {isZh ? '返回项目列表' : 'All projects'}
             </Button>
-            <Button
-              type="primary"
-              className={styles.primaryButton}
-              icon={activeTab === 'workflows' ? <PlusOutlined /> : <AppstoreOutlined />}
-              onClick={() => (activeTab === 'workflows' ? handleCreate() : navigate(`/projects/${projectIdNumber}/workflows`))}
-            >
-              {activeTab === 'workflows' ? t('workflow.createWorkflow') : t('projectDetail.workflowsTab')}
-            </Button>
+              <Button
+                type="primary"
+                className={styles.primaryButton}
+                icon={activeTab === 'workflows' ? <PlusOutlined /> : <AppstoreOutlined />}
+                onClick={() =>
+                  activeTab === 'workflows'
+                    ? handleCreate()
+                    : navigate(`/projects/${projectIdNumber}/workflows`)
+                }
+              >
+                {activeTab === 'workflows'
+                  ? t('workflow.createWorkflow')
+                  : t('projectDetail.workflowsTab')}
+              </Button>
           </div>
         </div>
 
@@ -508,6 +520,16 @@ export default function ProjectDetail() {
                   ),
                   children: <ProjectAssetsContent embedded={true} projectId={projectIdNumber} project={project} />,
                 },
+                {
+                  key: 'automation',
+                  label: (
+                    <span className={styles.tabItem}>
+                      <ClockCircleOutlined />
+                      {t('projectDetail.automationTab', { defaultValue: isZh ? '自动化' : 'Automation' })}
+                    </span>
+                  ),
+                  children: <ProjectAutomationContent embedded={true} projectId={projectIdNumber} project={project} />,
+                },
               ]}
             />
           </div>
@@ -516,30 +538,54 @@ export default function ProjectDetail() {
         <aside className={styles.sideColumn}>
           <div className={styles.sideCard}>
             <div className={styles.sideEyebrow}>{isZh ? '从这里继续' : 'Continue from here'}</div>
-            <div className={styles.sideTitle}>{sideCardTitle}</div>
-            <div className={styles.sideText}>{sideCardText}</div>
+            <div className={styles.sideTitle}>
+              {activeTab === 'automation'
+                ? (isZh ? '在这里统一管理自动化任务' : 'Manage project automation here')
+                : sideCardTitle}
+            </div>
+            <div className={styles.sideText}>
+              {activeTab === 'automation'
+                ? (isZh
+                    ? '这里会汇总整个项目下的定时任务和 Webhook 触发器，方便统一查看、执行和停用。'
+                    : 'Review every schedule and webhook trigger across the project without opening each workflow one by one.')
+                : sideCardText}
+            </div>
             <div className={styles.sideActionStack}>
               <Button
                 type="primary"
                 className={styles.primaryButton}
-                icon={activeTab === 'workflows' ? <PlusOutlined /> : <FolderOpenOutlined />}
-                onClick={() => (activeTab === 'workflows' ? handleCreate() : navigate(`/projects/${projectIdNumber}/assets`))}
+                icon={activeTab === 'workflows' ? <PlusOutlined /> : <AppstoreOutlined />}
+                onClick={() =>
+                  activeTab === 'workflows'
+                    ? handleCreate()
+                    : navigate(`/projects/${projectIdNumber}/workflows`)
+                }
                 block
               >
                 {activeTab === 'workflows'
                   ? t('workflow.createWorkflow')
-                  : isZh
-                    ? '打开资产视图'
-                    : 'Open assets'}
+                  : t('projectDetail.workflowsTab')}
               </Button>
               <Button
                 className={styles.softButton}
                 onClick={() =>
-                  navigate(`/projects/${projectIdNumber}/${activeTab === 'workflows' ? 'assets' : 'workflows'}`)
+                  navigate(
+                    `/projects/${projectIdNumber}/${
+                      activeTab === 'workflows'
+                        ? 'automation'
+                        : activeTab === 'automation'
+                          ? 'assets'
+                          : 'workflows'
+                    }`,
+                  )
                 }
                 block
               >
-                {activeTab === 'workflows' ? t('projectDetail.assetsTab') : t('projectDetail.workflowsTab')}
+                {activeTab === 'workflows'
+                  ? t('projectDetail.automationTab', { defaultValue: isZh ? '自动化' : 'Automation' })
+                  : activeTab === 'automation'
+                    ? t('projectDetail.assetsTab')
+                    : t('projectDetail.workflowsTab')}
               </Button>
             </div>
           </div>

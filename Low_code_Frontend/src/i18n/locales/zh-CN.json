@@ -235,6 +235,7 @@
     "providerLevelTooltip": "选择“所有模型”将为此供应商的所有子模型配置统一的 API Key",
     "deleteModelWarning": "确定要删除此模型配置吗？删除后，使用该配置的工作流节点可能无法正常工作。",
     "inviteFriends": "邀请好友",
+    "invitePageDescription": "分享邀请链接、查看邀请统计，并在一个更紧凑的页面里管理邀请记录。",
     "inviteTitle": "邀请好友，各得 20 万星尘",
     "inviteDesc": "分享您的专属链接，好友注册成功后您将获得 20 万星尘奖励",
     "inviteGenerate": "生成邀请链接",
@@ -247,6 +248,7 @@
     "invitedCount": "已邀请人数",
     "inviteRewardTotal": "累计获得星尘",
     "inviteRecords": "邀请记录",
+    "inviteRecordsDescription": "用和其他设置页一致的表格样式查看被邀请人、联系方式和注册时间。",
     "inviteeUsername": "被邀请人",
     "inviteeEmail": "邮箱",
     "inviteTime": "邀请时间",
@@ -423,6 +425,7 @@
   "projectDetail": {
     "workflowsTab": "工作流",
     "assetsTab": "资产中心",
+    "automationTab": "自动化",
     "openApi": "工作流 API"
   },
   "workflowEditor": {

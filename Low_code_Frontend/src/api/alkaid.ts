@@ -6,7 +6,7 @@ import type {
   GetSessionsResponse,
   GetMessagesResponse,
 } from '@/types/alkaid';
-import type { AgentPlanStep, PendingPatchSummary } from '@/components/Alkaid/types';
+import type { AgentPlanStep, InteractionMode, PendingPatchSummary } from '@/components/Alkaid/types';
 import { createSSEReader } from '@/utils/sseUtils';
 
 /**
@@ -136,6 +136,7 @@ export const alkaidApi = {
     message: string,
     callbacks: {
       onContent?: (delta: string) => void;
+      onInteractionMode?: (data: { mode: InteractionMode; reason?: string; showProgress: boolean; at: string }) => void;
       onPhaseChanged?: (phase: string) => void;
       onPlanCreated?: (data: { steps: AgentPlanStep[] }) => void;
       onPlanStepStarted?: (data: any) => void;
@@ -190,6 +191,7 @@ export const alkaidApi = {
                 try {
                   const data = JSON.parse(line.slice(6));
                   if (eventType === 'content') callbacks.onContent?.(data.delta ?? '');
+                  else if (eventType === 'interaction_mode') callbacks.onInteractionMode?.(data);
                   else if (eventType === 'phase_changed') callbacks.onPhaseChanged?.(data.phase);
                   else if (eventType === 'plan_created') callbacks.onPlanCreated?.(data);
                   else if (eventType === 'plan_step_started') callbacks.onPlanStepStarted?.(data);
