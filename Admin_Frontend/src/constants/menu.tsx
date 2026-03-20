@@ -84,6 +84,7 @@ export const adminMenuItems: AdminMenuItem[] = [
         permissionKey: 'ai_models.pricing_rules',
       },
       { key: 'ai-models-usage', path: '/ai-models/usage', label: 'menu.aiModelsUsage', icon: <FundProjectionScreenOutlined />, permissionKey: 'ai_models.usage' },
+      { key: 'ai-models-monitoring', path: '/ai-models/monitoring', label: 'menu.aiModelsMonitoring', icon: <RadarChartOutlined />, permissionKey: 'ai_models.overview' },
     ],
   },
   {

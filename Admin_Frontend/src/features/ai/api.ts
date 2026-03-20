@@ -11,6 +11,10 @@ import type {
   AIModelCapability,
   AIModelPricingRule,
   AIModelRecord,
+  AIMonitoringItem,
+  AIMonitoringSettings,
+  AIMonitoringSnapshot,
+  AIMonitoringSummary,
   AIProviderInsight,
   AIProviderTemplate,
   AIUsageSnapshot,
@@ -80,6 +84,56 @@ function adaptProviderTemplate(raw: Record<string, unknown>): AIProviderTemplate
     defaultConfig: (raw.defaultConfig ?? raw.default_config ?? {}) as Record<string, unknown>,
     modelCapabilities: capabilityMap,
     isActive: Boolean(raw.isActive ?? raw.is_active ?? true),
+  };
+}
+
+function adaptMonitoringSettings(raw: Record<string, unknown>): AIMonitoringSettings {
+  return {
+    autoEnabled: Boolean(raw.auto_enabled ?? raw.autoEnabled ?? false),
+    probeIntervalMinutes: Number(raw.probe_interval_minutes ?? raw.probeIntervalMinutes ?? 15),
+  };
+}
+
+function adaptMonitoringSummary(raw: Record<string, unknown>): AIMonitoringSummary {
+  return {
+    totalModels: Number(raw.total_models ?? raw.totalModels ?? 0),
+    healthyModels: Number(raw.healthy_models ?? raw.healthyModels ?? 0),
+    failedModels: Number(raw.failed_models ?? raw.failedModels ?? 0),
+    unknownModels: Number(raw.unknown_models ?? raw.unknownModels ?? 0),
+    notConfiguredModels: Number(raw.not_configured_models ?? raw.notConfiguredModels ?? 0),
+  };
+}
+
+function adaptMonitoringItem(raw: Record<string, unknown>): AIMonitoringItem {
+  return {
+    managedModelId: Number(raw.managed_model_id ?? raw.managedModelId ?? 0),
+    provider: String(raw.provider ?? ''),
+    modelName: String(raw.model_name ?? raw.modelName ?? ''),
+    displayName: String(raw.display_name ?? raw.displayName ?? raw.model_name ?? raw.modelName ?? ''),
+    status: String(raw.status ?? 'active'),
+    isActive: Boolean(raw.is_active ?? raw.isActive ?? true),
+    probeStatus: String(raw.probe_status ?? raw.probeStatus ?? 'unknown') as AIMonitoringItem['probeStatus'],
+    lastCheckedAt: typeof raw.last_checked_at === 'string' ? raw.last_checked_at : typeof raw.lastCheckedAt === 'string' ? raw.lastCheckedAt : undefined,
+    lastSuccessAt: typeof raw.last_success_at === 'string' ? raw.last_success_at : typeof raw.lastSuccessAt === 'string' ? raw.lastSuccessAt : undefined,
+    lastLatencyMs: typeof raw.last_latency_ms === 'number' ? raw.last_latency_ms : typeof raw.lastLatencyMs === 'number' ? raw.lastLatencyMs : undefined,
+    lastError: typeof raw.last_error === 'string' ? raw.last_error : typeof raw.lastError === 'string' ? raw.lastError : undefined,
+    lastResponsePreview:
+      typeof raw.last_response_preview === 'string'
+        ? raw.last_response_preview
+        : typeof raw.lastResponsePreview === 'string'
+          ? raw.lastResponsePreview
+          : undefined,
+    lastProbeMode: typeof raw.last_probe_mode === 'string' ? raw.last_probe_mode : typeof raw.lastProbeMode === 'string' ? raw.lastProbeMode : undefined,
+    consecutiveFailures: Number(raw.consecutive_failures ?? raw.consecutiveFailures ?? 0),
+  };
+}
+
+function adaptMonitoringSnapshot(raw: Record<string, unknown>): AIMonitoringSnapshot {
+  return {
+    settings: adaptMonitoringSettings((raw.settings ?? {}) as Record<string, unknown>),
+    summary: adaptMonitoringSummary((raw.summary ?? {}) as Record<string, unknown>),
+    isChecking: Boolean(raw.is_checking ?? raw.isChecking ?? false),
+    items: toArray<Record<string, unknown>>(raw.items).map(adaptMonitoringItem),
   };
 }
 
@@ -251,5 +305,35 @@ export const aiAdminApi = {
   async getUsageOverview(): Promise<AIUsageSnapshot[]> {
     const { workspace } = await loadContext();
     return Object.values(workspace.usage).sort((left, right) => right.requestCount - left.requestCount);
+  },
+
+  async getMonitoringSnapshot(): Promise<AIMonitoringSnapshot> {
+    const response = await http.get<ApiEnvelope<Record<string, unknown>>>('/admin/ai-models/monitoring');
+    return adaptMonitoringSnapshot((response.data?.data ?? {}) as Record<string, unknown>);
+  },
+
+  async updateMonitoringSettings(autoEnabled: boolean): Promise<AIMonitoringSettings> {
+    const response = await http.put<ApiEnvelope<Record<string, unknown>>>('/admin/ai-models/monitoring/settings', {
+      auto_enabled: autoEnabled,
+    });
+    return adaptMonitoringSettings((response.data?.data ?? {}) as Record<string, unknown>);
+  },
+
+  async runMonitoringCheckAll(): Promise<AIMonitoringSnapshot> {
+    const response = await http.post<ApiEnvelope<Record<string, unknown>>>(
+      '/admin/ai-models/monitoring/check-all',
+      {},
+      { timeout: 180000 },
+    );
+    return adaptMonitoringSnapshot((response.data?.data ?? {}) as Record<string, unknown>);
+  },
+
+  async runMonitoringCheckModel(id: number): Promise<AIMonitoringItem> {
+    const response = await http.post<ApiEnvelope<Record<string, unknown>>>(
+      `/admin/ai-models/monitoring/models/${id}/check`,
+      {},
+      { timeout: 30000 },
+    );
+    return adaptMonitoringItem((response.data?.data ?? {}) as Record<string, unknown>);
   },
 };

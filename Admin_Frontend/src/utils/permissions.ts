@@ -15,6 +15,7 @@ const PATH_TO_RESOURCE: Array<[RegExp, string]> = [
   [/^\/ai-models\/models\/\d+(?:\/capability|\/pricing)?$/, 'ai_models.models'],
   [/^\/ai-models\/pricing-rules$/, 'ai_models.pricing_rules'],
   [/^\/ai-models\/usage$/, 'ai_models.usage'],
+  [/^\/ai-models\/monitoring$/, 'ai_models.overview'],
   [/^\/tasks$/, 'tasks.overview'],
   [/^\/tasks\/running$/, 'tasks.running'],
   [/^\/tasks\/failures$/, 'tasks.failures'],

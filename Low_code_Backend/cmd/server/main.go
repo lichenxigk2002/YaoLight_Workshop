@@ -14,6 +14,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/middleware"
 	"yaolight-workshop/backend/infrastructure/redis"
 	aiControllers "yaolight-workshop/backend/modules/ai/controllers"
+	aiServices "yaolight-workshop/backend/modules/ai/services"
 	alkaidControllers "yaolight-workshop/backend/modules/alkaid/controllers"
 	artifactControllers "yaolight-workshop/backend/modules/artifact/controllers"
 	billingControllers "yaolight-workshop/backend/modules/billing/controllers"
@@ -71,6 +72,8 @@ func main() {
 
 	// 4. 创建Gin路由
 	r := gin.Default()
+
+	aiMonitoringService := aiServices.NewAIModelMonitoringService(database.DB)
 
 	// 配置 CORS（允许跨域请求：本地开发 + 生产环境 FRONTEND_URL）
 	allowOrigins := []string{
@@ -303,7 +306,7 @@ func main() {
 			auth.POST("/ai/models", aiController.CreateModel)
 			auth.PUT("/ai/models/:id", aiController.UpdateModel)
 			auth.DELETE("/ai/models/:id", aiController.DeleteModel)
-			adminAIController := aiControllers.NewAdminAIController()
+			adminAIController := aiControllers.NewAdminAIController(aiMonitoringService)
 			adminAI := auth.Group("/admin/ai-models")
 			adminAI.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
 			adminAI.GET("", rbacMiddleware.RequirePermission("ai_models.overview:view"), adminAIController.GetModels)
@@ -320,6 +323,10 @@ func main() {
 			adminAI.PUT("/models/:id/pricing", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.UpdateModelPricing)
 			adminAI.GET("/pricing-rules", rbacMiddleware.RequirePermission("ai_models.pricing_rules:view"), adminAIController.GetPricingRules)
 			adminAI.GET("/usage", rbacMiddleware.RequirePermission("ai_models.usage:view"), adminAIController.GetUsage)
+			adminAI.GET("/monitoring", rbacMiddleware.RequirePermission("ai_models.overview:view"), adminAIController.GetMonitoringSnapshot)
+			adminAI.PUT("/monitoring/settings", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.UpdateMonitoringSettings)
+			adminAI.POST("/monitoring/check-all", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.RunMonitoringCheckAll)
+			adminAI.POST("/monitoring/models/:id/check", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.RunMonitoringCheckModel)
 
 			// 计费运营：补救配额、管理员赠送、配额流水、订单与 Token 流水
 			adminQuotaController := billingControllers.NewAdminQuotaController()
@@ -490,6 +497,7 @@ func main() {
 	log.Println("📐 Architecture: Domain-Driven Design (DDD)")
 
 	go taskScheduleService.StartScheduler(context.Background())
+	go aiMonitoringService.Start(context.Background())
 
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

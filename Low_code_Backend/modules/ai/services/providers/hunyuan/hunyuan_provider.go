@@ -18,7 +18,7 @@ type HunyuanProvider struct {
 
 func NewHunyuanProvider() providers.AIProvider {
 	return &HunyuanProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 
