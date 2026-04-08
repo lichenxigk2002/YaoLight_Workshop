@@ -9,6 +9,7 @@ import AIModelCapabilityPage from './pages/AIModelCapabilityPage';
 import AIModelPricingPage from './pages/AIModelPricingPage';
 import AIPricingRulesPage from './pages/AIPricingRulesPage';
 import AIUsagePage from './pages/AIUsagePage';
+import AIMonitoringPage from './pages/AIMonitoringPage';
 
 const aiAdminRoutes = {
   path: 'ai-models',
@@ -24,6 +25,7 @@ const aiAdminRoutes = {
     { path: 'models/:provider/:modelName/pricing', element: <AIModelPricingPage /> },
     { path: 'pricing-rules', element: <AIPricingRulesPage /> },
     { path: 'usage', element: <AIUsagePage /> },
+    { path: 'monitoring', element: <AIMonitoringPage /> },
   ],
 };
 

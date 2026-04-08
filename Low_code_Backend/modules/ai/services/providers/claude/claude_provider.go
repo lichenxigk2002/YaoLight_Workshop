@@ -21,7 +21,7 @@ type ClaudeProvider struct {
 // NewClaudeProvider 创建Claude提供商实例
 func NewClaudeProvider() providers.AIProvider {
 	return &ClaudeProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 

@@ -19,7 +19,7 @@ type SparkProvider struct {
 
 func NewSparkProvider() providers.AIProvider {
 	return &SparkProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 

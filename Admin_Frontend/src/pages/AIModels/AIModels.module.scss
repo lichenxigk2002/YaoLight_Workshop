@@ -206,6 +206,147 @@
   flex-wrap: wrap;
 }
 
+.monitoringActionBar {
+  justify-content: flex-end;
+}
+
+.monitoringToggleWrap {
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-line);
+  background: color-mix(in srgb, var(--admin-brand-soft) 52%, var(--admin-panel) 48%);
+}
+
+.monitoringAlert {
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--admin-brand) 14%, var(--admin-line));
+}
+
+.monitoringMetricCard {
+  border: 1px solid color-mix(in srgb, var(--admin-brand) 12%, var(--admin-line));
+  background: linear-gradient(180deg, var(--admin-panel-alt), var(--admin-panel));
+}
+
+.monitoringTable {
+  :global(.ant-table) {
+    background: var(--admin-panel);
+    border-radius: 16px;
+  }
+
+  :global(.ant-table-container) {
+    border: 1px solid color-mix(in srgb, var(--admin-brand) 10%, var(--admin-line));
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  :global(.ant-table-thead > tr > th) {
+    background: color-mix(in srgb, var(--admin-panel-alt) 72%, var(--admin-panel) 28%);
+    color: var(--admin-ink);
+    font-weight: 600;
+    border-bottom: 1px solid color-mix(in srgb, var(--admin-brand) 10%, var(--admin-line));
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    background: var(--admin-panel);
+    border-bottom: 1px solid color-mix(in srgb, var(--admin-line) 82%, transparent);
+    vertical-align: top;
+  }
+
+  :global(.ant-table-tbody > tr:hover > td) {
+    background: color-mix(in srgb, var(--admin-brand-soft) 18%, var(--admin-panel) 82%);
+  }
+}
+
+.monitoringCardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.monitoringMiniCard {
+  border: 1px solid color-mix(in srgb, var(--admin-brand) 12%, var(--admin-line));
+  background: linear-gradient(180deg, var(--admin-panel-alt), var(--admin-panel));
+}
+
+.monitoringMiniCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.monitoringMiniCardFooter {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--admin-line) 80%, transparent);
+}
+
+.monitoringBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--admin-line);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.monitoringBadgeActive {
+  background: color-mix(in srgb, #22c55e 10%, var(--admin-panel) 90%);
+  border-color: color-mix(in srgb, #22c55e 24%, var(--admin-line));
+  color: color-mix(in srgb, #166534 86%, var(--admin-ink));
+}
+
+.monitoringBadgeMuted {
+  background: color-mix(in srgb, var(--admin-panel-alt) 84%, white 16%);
+  color: var(--admin-ink-soft);
+}
+
+.monitoringStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-ink);
+  font-weight: 500;
+}
+
+.monitoringStatusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.monitoringStatusDotSuccess {
+  color: #16a34a;
+  background: #22c55e;
+}
+
+.monitoringStatusDotDanger {
+  color: #dc2626;
+  background: #ef4444;
+}
+
+.monitoringStatusDotWarning {
+  color: #d97706;
+  background: #f59e0b;
+}
+
+.monitoringStatusDotNeutral {
+  color: #64748b;
+  background: #94a3b8;
+}
+
+.monitoringErrorBlock {
+  display: grid;
+  gap: 6px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 @media (max-width: 1280px) {
   .metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -230,6 +371,10 @@
   }
 
   .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .monitoringCardGrid {
     grid-template-columns: 1fr;
   }
 }

@@ -21,7 +21,7 @@ type DoubaoProvider struct {
 // NewDoubaoProvider 创建豆包提供商实例
 func NewDoubaoProvider() providers.AIProvider {
 	return &DoubaoProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 

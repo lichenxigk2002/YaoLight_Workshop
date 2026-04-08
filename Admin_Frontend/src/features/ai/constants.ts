@@ -5,6 +5,7 @@ export const AI_MODULE_TABS = [
   { key: 'models', label: 'Models', path: '/ai-models/models' },
   { key: 'pricing', label: 'Pricing Rules', path: '/ai-models/pricing-rules' },
   { key: 'usage', label: 'Usage', path: '/ai-models/usage' },
+  { key: 'monitoring', label: 'Monitoring', path: '/ai-models/monitoring' },
 ];
 
 export const MODEL_DETAIL_TABS = [

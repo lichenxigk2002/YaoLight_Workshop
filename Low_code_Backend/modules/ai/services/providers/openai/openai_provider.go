@@ -18,7 +18,7 @@ type OpenAIProvider struct {
 // NewOpenAIProvider 创建OpenAI提供商实例
 func NewOpenAIProvider() providers.AIProvider {
 	return &OpenAIProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 

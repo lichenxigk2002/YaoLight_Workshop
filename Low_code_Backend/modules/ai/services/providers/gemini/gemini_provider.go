@@ -20,7 +20,7 @@ type GeminiProvider struct {
 // NewGeminiProvider 创建Gemini提供商实例
 func NewGeminiProvider() providers.AIProvider {
 	return &GeminiProvider{
-		client: &http.Client{},
+		client: providers.NewHTTPClient(),
 	}
 }
 

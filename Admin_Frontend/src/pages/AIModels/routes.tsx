@@ -6,6 +6,7 @@ import ModelCreatePage from './ModelCreatePage';
 import ModelDetailLayout from './ModelDetailLayout';
 import ModelOverviewPage from './ModelOverviewPage';
 import ModelPricingPage from './ModelPricingPage';
+import MonitoringPage from './MonitoringPage';
 import ModelsPage from './ModelsPage';
 import PricingRulesPage from './PricingRulesPage';
 import ProviderDetailPage from './ProviderDetailPage';
@@ -32,6 +33,7 @@ const aiAdminRoutes = {
     },
     { path: 'pricing-rules', element: <PricingRulesPage /> },
     { path: 'usage', element: <UsagePage /> },
+    { path: 'monitoring', element: <MonitoringPage /> },
     { path: '*', element: <Navigate to="/ai-models" replace /> },
   ],
 };

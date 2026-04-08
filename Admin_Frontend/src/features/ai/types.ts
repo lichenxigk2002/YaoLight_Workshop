@@ -101,6 +101,45 @@ export interface AIAdminWorkspace {
   usage: Record<string, AIUsageSnapshot>;
 }
 
+export type AIProbeStatus = 'unknown' | 'healthy' | 'failed' | 'not_configured';
+
+export interface AIMonitoringSettings {
+  autoEnabled: boolean;
+  probeIntervalMinutes: number;
+}
+
+export interface AIMonitoringSummary {
+  totalModels: number;
+  healthyModels: number;
+  failedModels: number;
+  unknownModels: number;
+  notConfiguredModels: number;
+}
+
+export interface AIMonitoringItem {
+  managedModelId: number;
+  provider: string;
+  modelName: string;
+  displayName: string;
+  status: string;
+  isActive: boolean;
+  probeStatus: AIProbeStatus;
+  lastCheckedAt?: string;
+  lastSuccessAt?: string;
+  lastLatencyMs?: number;
+  lastError?: string;
+  lastResponsePreview?: string;
+  lastProbeMode?: string;
+  consecutiveFailures: number;
+}
+
+export interface AIMonitoringSnapshot {
+  settings: AIMonitoringSettings;
+  summary: AIMonitoringSummary;
+  isChecking: boolean;
+  items: AIMonitoringItem[];
+}
+
 export interface CreateAIModelPayload {
   provider: string;
   modelName: string;

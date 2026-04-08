@@ -4,6 +4,10 @@ import { formatDateTime as formatLocalizedDateTime } from '@/i18n/runtime';
 import type {
   AIAdminModel,
   AIModelCapabilityConfig,
+  AIMonitoringRecord,
+  AIMonitoringSettings,
+  AIMonitoringSnapshot,
+  AIMonitoringSummary,
   AIModelPricingRule,
   AIModelsOverview,
   AIProviderDetail,
@@ -103,6 +107,44 @@ interface BackendUsageRecord {
   total_tokens: number;
   total_cost: number;
   last_used_at?: string | null;
+}
+
+interface BackendMonitoringSettings {
+  auto_enabled: boolean;
+  probe_interval_minutes: number;
+}
+
+interface BackendMonitoringSummary {
+  total_models: number;
+  healthy_models: number;
+  failed_models: number;
+  unknown_models: number;
+  not_configured_models: number;
+  unsupported_models: number;
+}
+
+interface BackendMonitoringRecord {
+  managed_model_id: number;
+  provider: string;
+  model_name: string;
+  display_name: string;
+  status: string;
+  is_active: boolean;
+  probe_status: 'unknown' | 'healthy' | 'failed' | 'not_configured';
+  last_checked_at?: string | null;
+  last_success_at?: string | null;
+  last_latency_ms?: number | null;
+  last_error?: string | null;
+  last_response_preview?: string | null;
+  last_probe_mode?: string | null;
+  consecutive_failures: number;
+}
+
+interface BackendMonitoringSnapshot {
+  settings: BackendMonitoringSettings;
+  summary: BackendMonitoringSummary;
+  is_checking: boolean;
+  items: BackendMonitoringRecord[];
 }
 
 const EMPTY_CAPABILITY: AIModelCapabilityConfig = {
@@ -242,6 +284,52 @@ function mapUsage(record: BackendUsageRecord): AIUsageRecord {
     avg_latency_ms: null,
     window_label: null,
     last_used_at: record.last_used_at ? formatDateTime(record.last_used_at) : null,
+  };
+}
+
+function mapMonitoringSettings(settings: BackendMonitoringSettings): AIMonitoringSettings {
+  return {
+    auto_enabled: settings.auto_enabled,
+    probe_interval_minutes: settings.probe_interval_minutes,
+  };
+}
+
+function mapMonitoringSummary(summary: BackendMonitoringSummary): AIMonitoringSummary {
+  return {
+    total_models: summary.total_models,
+    healthy_models: summary.healthy_models,
+    failed_models: summary.failed_models,
+    unknown_models: summary.unknown_models,
+    not_configured_models: summary.not_configured_models,
+    unsupported_models: summary.unsupported_models,
+  };
+}
+
+function mapMonitoringRecord(record: BackendMonitoringRecord): AIMonitoringRecord {
+  return {
+    managed_model_id: String(record.managed_model_id),
+    provider: record.provider,
+    model_name: record.model_name,
+    display_name: record.display_name,
+    status: record.status,
+    is_active: record.is_active,
+    probe_status: record.probe_status,
+    last_checked_at: record.last_checked_at ?? null,
+    last_success_at: record.last_success_at ?? null,
+    last_latency_ms: record.last_latency_ms ?? null,
+    last_error: record.last_error ?? null,
+    last_response_preview: record.last_response_preview ?? null,
+    last_probe_mode: record.last_probe_mode ?? null,
+    consecutive_failures: record.consecutive_failures ?? 0,
+  };
+}
+
+function mapMonitoringSnapshot(snapshot: BackendMonitoringSnapshot): AIMonitoringSnapshot {
+  return {
+    settings: mapMonitoringSettings(snapshot.settings),
+    summary: mapMonitoringSummary(snapshot.summary),
+    is_checking: snapshot.is_checking,
+    items: (snapshot.items ?? []).map(mapMonitoringRecord),
   };
 }
 
@@ -475,4 +563,42 @@ export async function getAIUsage(modelId?: string): Promise<AIUsageRecord[]> {
     }),
   );
   return payload.list.map(mapUsage);
+}
+
+export async function getAIMonitoringSnapshot(): Promise<AIMonitoringSnapshot> {
+  const payload = await unwrap(
+    http.get<ApiEnvelope<BackendMonitoringSnapshot>>('/admin/ai-models/monitoring'),
+  );
+  return mapMonitoringSnapshot(payload);
+}
+
+export async function updateAIMonitoringSettings(autoEnabled: boolean): Promise<AIMonitoringSettings> {
+  const payload = await unwrap(
+    http.put<ApiEnvelope<BackendMonitoringSettings>>('/admin/ai-models/monitoring/settings', {
+      auto_enabled: autoEnabled,
+    }),
+  );
+  return mapMonitoringSettings(payload);
+}
+
+export async function runAIMonitoringCheckAll(): Promise<AIMonitoringSnapshot> {
+  const payload = await unwrap(
+    http.post<ApiEnvelope<BackendMonitoringSnapshot>>(
+      '/admin/ai-models/monitoring/check-all',
+      {},
+      { timeout: 180000 },
+    ),
+  );
+  return mapMonitoringSnapshot(payload);
+}
+
+export async function runAIModelMonitoringCheck(id: string): Promise<AIMonitoringRecord> {
+  const payload = await unwrap(
+    http.post<ApiEnvelope<BackendMonitoringRecord>>(
+      `/admin/ai-models/monitoring/models/${id}/check`,
+      {},
+      { timeout: 30000 },
+    ),
+  );
+  return mapMonitoringRecord(payload);
 }
