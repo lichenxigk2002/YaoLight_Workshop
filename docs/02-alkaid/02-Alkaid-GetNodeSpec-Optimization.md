@@ -19,7 +19,7 @@
 ### 2.1 `get_node_spec` 参数校验与错误语义
 
 文件：
-- `Low_code_Backend/modules/alkaid/services/tools/get_node_spec.go`
+- `backend/modules/alkaid/services/tools/get_node_spec.go`
 
 修复内容：
 
@@ -38,7 +38,7 @@
 ### 2.2 DSML 工具调用兼容解析
 
 文件：
-- `Low_code_Backend/modules/ai/services/providers/deepseek/deepseek_provider.go`
+- `backend/modules/ai/services/providers/deepseek/deepseek_provider.go`
 
 修复内容：
 
@@ -55,8 +55,8 @@
 ### 2.3 带工具的流式输出收口
 
 文件：
-- `Low_code_Backend/modules/ai/services/providers/deepseek/deepseek_provider.go`
-- `Low_code_Backend/modules/alkaid/services/agentic/loop.go`
+- `backend/modules/ai/services/providers/deepseek/deepseek_provider.go`
+- `backend/modules/alkaid/services/agentic/loop.go`
 
 修复内容：
 
@@ -71,8 +71,8 @@
 ### 2.4 `Capabilities` 数据源稳定性和覆盖范围
 
 文件：
-- `Low_code_Backend/modules/alkaid/services/config_extractor.go`
-- `Low_code_Backend/modules/alkaid/services/capabilities_service.go`
+- `backend/modules/alkaid/services/config_extractor.go`
+- `backend/modules/alkaid/services/capabilities_service.go`
 
 修复内容：
 
@@ -93,11 +93,11 @@
 
 新增测试：
 
-- `Low_code_Backend/modules/ai/services/providers/deepseek/deepseek_provider_test.go`
+- `backend/modules/ai/services/providers/deepseek/deepseek_provider_test.go`
   - 校验 DSML 工具调用是否能被正确解析
   - 校验普通文本不会误判为工具调用
 
-- `Low_code_Backend/modules/alkaid/services/tools/get_node_spec_test.go`
+- `backend/modules/alkaid/services/tools/get_node_spec_test.go`
   - 校验 `nodeType` 标准化
   - 校验空参数报错
   - 校验别名输入可用

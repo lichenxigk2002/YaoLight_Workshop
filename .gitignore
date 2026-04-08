@@ -9,3 +9,5 @@ node_modules/
 /docs/thesis/参考文献_候选.md
 /docs/thesis/开题报告_草稿.md
 /.trae/
+/backend/.env
+/Low_code_Backend/.env

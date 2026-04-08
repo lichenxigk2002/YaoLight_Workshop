@@ -4,7 +4,7 @@
 |------|------|
 | 产品名称 | 瑶光管理后台 RBAC |
 | 文档版本 | 2.0 |
-| 适用范围 | `Admin_Frontend`、`Low_code_Backend` |
+| 适用范围 | `admin-frontend`、`backend` |
 | 更新时间 | 2026-03-13 |
 
 ---
@@ -98,7 +98,7 @@ resource_key:action
 
 ## 6. 资源与真实路由映射
 
-以下资源清单已按当前 `Admin_Frontend/src/routes/index.tsx`、各模块 `routes.tsx` 和 `Admin_Frontend/src/constants/menu.tsx` 对齐。
+以下资源清单已按当前 `admin-frontend/src/routes/index.tsx`、各模块 `routes.tsx` 和 `admin-frontend/src/constants/menu.tsx` 对齐。
 
 说明：
 
@@ -229,7 +229,7 @@ resource_key:action
 
 ### 9.3 当前真实接口与建议权限映射
 
-以下映射按当前 `Low_code_Backend/cmd/server/main.go` 的真实路由整理。
+以下映射按当前 `backend/cmd/server/main.go` 的真实路由整理。
 
 #### 用户管理
 

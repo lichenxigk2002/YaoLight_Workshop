@@ -29,7 +29,7 @@ services:
 
   migrate:
     build:
-      context: ./Low_code_Backend
+      context: ./backend
       dockerfile: Dockerfile
     command: ["migrate"]
     environment:
@@ -50,7 +50,7 @@ services:
 
   backend:
     build:
-      context: ./Low_code_Backend
+      context: ./backend
       dockerfile: Dockerfile
     environment:
       DB_HOST: postgres
@@ -78,7 +78,7 @@ services:
 
   frontend:
     build:
-      context: ./Low_code_Frontend
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "80:80"

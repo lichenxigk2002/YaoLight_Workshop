@@ -4,7 +4,7 @@
 |------|------|
 | 产品名称 | 瑶光工作流对外 API 发布 |
 | 文档版本 | 1.0 |
-| 适用范围 | `Low_code_Frontend`、`Low_code_Backend`、`Admin_Frontend` |
+| 适用范围 | `frontend`、`backend`、`admin-frontend` |
 | 更新时间 | 2026-03-16 |
 
 关联文档：

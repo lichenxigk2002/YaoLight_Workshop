@@ -66,7 +66,7 @@
 5. **模板「是否可用」的判定**  
    - 对外展示/使用模板时：若模板有 `parent_id`，可要求存在对应同意记录且 `status = agreed`，否则视为未授权，不可被使用或不可显示为已发布。
 
-### 3.3 前端（用户端 Low_code_Frontend）
+### 3.3 前端（用户端 frontend）
 
 1. **站内消息列表/详情**  
    - 对类型为 `workflow_template_consent_request` 的通知，展示友好文案（标题+正文），并展示两个操作按钮：「同意」「拒绝」。
@@ -75,7 +75,7 @@
    - 调用 `POST /api/notifications/:id/consent`，传 `action: "agree"` 或 `"reject"`；  
    - 成功后：可刷新通知列表、标记该条已读、并 toast 提示「已同意」或「已拒绝」。
 
-3. **（可选）管理端 Admin_Frontend**  
+3. **（可选）管理端 admin-frontend**  
    - 在模板列表/详情中，若模板存在源工作流且同意状态为 `pending`，可展示「等待源作者确认」；若为 `rejected`，可展示「源作者已拒绝」，并禁止发布或提示需更换源工作流。
 
 ### 3.4 数据与兼容

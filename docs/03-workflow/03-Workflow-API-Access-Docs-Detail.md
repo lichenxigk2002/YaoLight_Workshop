@@ -4,7 +4,7 @@
 |------|------|
 | 文档名称 | 工作流 API 接入文档页详细设计 |
 | 文档版本 | 1.0 |
-| 适用范围 | `Low_code_Frontend`、`Low_code_Backend` |
+| 适用范围 | `frontend`、`backend` |
 | 更新时间 | 2026-03-16 |
 
 ---

@@ -1,20 +1,20 @@
 # 工作流模板：用户端复用说明
 
-管理端做「拖拽设置节点」时，可以直接复用用户端（Low_code_Frontend）的编辑器与配套逻辑，避免重复造轮子。
+管理端做「拖拽设置节点」时，可以直接复用用户端（frontend）的编辑器与配套逻辑，避免重复造轮子。
 
 ## 一、用户端可复用内容概览
 
 | 类别 | 路径 | 说明 |
 |------|------|------|
-| **画布本体** | `Low_code_Frontend/src/components/WorkflowEditor/index.tsx` | ReactFlow 画布、节点/边状态、加载/保存、快捷键 |
+| **画布本体** | `frontend/src/components/WorkflowEditor/index.tsx` | ReactFlow 画布、节点/边状态、加载/保存、快捷键 |
 | **节点类型** | `WorkflowEditor/nodes/*` | start / crawler / dataclean / ai / condition / transform / loop / merge / delay / output / end / comment |
 | **左侧节点面板** | `WorkflowEditor/panels/NodePanel.tsx` | 从面板拖拽添加节点 |
 | **节点配置面板** | `WorkflowEditor/panels/NodeConfigPanel.tsx` | 选中节点后右侧配置（表单项、变量选择等） |
 | **Hooks** | `WorkflowEditor/hooks/useWorkflowNodes.ts` | 添加节点、注释卡、删除、更新配置 |
 | **Hooks** | `WorkflowEditor/hooks/useWorkflowSave.ts` | loadWorkflowNodes、saveWorkflowInternal（依赖 API） |
-| **数据转换** | `Low_code_Frontend/src/utils/workflowTransformers.ts` | 节点/边/注释卡与后端格式互转 |
-| **节点工具** | `Low_code_Frontend/src/utils/nodeUtils.ts` | getDefaultConfig、isCommentNode、generateRandomPosition、calculateMaxNodeId |
-| **导入导出** | `Low_code_Frontend/src/utils/workflowImportExport.ts` | WorkflowExportData、importWorkflow、exportWorkflow（客户端「从模板导入」可复用） |
+| **数据转换** | `frontend/src/utils/workflowTransformers.ts` | 节点/边/注释卡与后端格式互转 |
+| **节点工具** | `frontend/src/utils/nodeUtils.ts` | getDefaultConfig、isCommentNode、generateRandomPosition、calculateMaxNodeId |
+| **导入导出** | `frontend/src/utils/workflowImportExport.ts` | WorkflowExportData、importWorkflow、exportWorkflow（客户端「从模板导入」可复用） |
 
 用户端编辑器通过 `workflowApi.getWorkflowNodes(workflowId)` / `workflowApi.saveWorkflowNodes(workflowId, data)` 与后端通信。**模板在库里就是一条 `is_template=true` 的 workflow**，节点存同一张表，所以接口完全一致：管理端用「模板对应的 workflow id」调同一套 GET/PUT `/api/workflows/:id/nodes` 即可（需管理员登录后调用，且该模板的 owner 为该管理员）。
 
@@ -24,7 +24,7 @@
 
 ### 2.1 方案：路径别名 + 可选 workflowId
 
-- **同仓库**：Admin_Frontend 与 Low_code_Frontend 在同一 repo，可用 Vite 别名直接引用用户端源码。
+- **同仓库**：admin-frontend 与 frontend 在同一 repo，可用 Vite 别名直接引用用户端源码。
 - **依赖**：在 Admin 的 `package.json` 中增加用户端编辑器所需依赖（至少 `reactflow`；若直接复用完整 WorkflowEditor，还需 `react-i18next`、`i18next`、`zustand`，与用户端版本对齐）。
 - **API**：管理端当前请求走 `/api`（与用户端一致），管理员登录后调用 `GET/PUT /api/workflows/:id/nodes` 时传入模板的 workflow id，即可读写该模板的节点/边，无需新接口。
 
@@ -39,8 +39,8 @@
    - 安装：`reactflow`（必选）；若整组件复用再按需加 `react-i18next`、`i18next`、`zustand`。
 
 3. **Admin Vite 别名**  
-   - 在 `Admin_Frontend/vite.config.ts` 的 `resolve.alias` 中增加一项，例如：  
-     - `'@workflow': path.resolve(__dirname, '../Low_code_Frontend/src')`  
+   - 在 `admin-frontend/vite.config.ts` 的 `resolve.alias` 中增加一项，例如：  
+     - `'@workflow': path.resolve(__dirname, '../frontend/src')`  
    - 这样管理端可以：`import WorkflowEditor from '@workflow/components/WorkflowEditor';`，并同样通过 `@workflow/utils/workflowTransformers` 等引用工具。
 
 4. **Admin 路由与页面**  
