@@ -4,7 +4,7 @@
 |------|------|
 | 文档名称 | 工作流对外 API 发布技术实现文档 |
 | 文档版本 | 1.0 |
-| 适用范围 | `Low_code_Backend`、`Low_code_Frontend`、`Admin_Frontend` |
+| 适用范围 | `backend`、`frontend`、`admin-frontend` |
 | 更新时间 | 2026-03-16 |
 
 关联文档：
@@ -68,16 +68,16 @@ ExecuteWithTask(ctx, req, observer)
 当前已存在：
 
 - 工作流执行入口：
-  - `Low_code_Backend/modules/workflow/controllers/workflow_controller.go`
+  - `backend/modules/workflow/controllers/workflow_controller.go`
 - 执行器：
-  - `Low_code_Backend/modules/workflow/services/workflow_executor.go`
-  - `Low_code_Backend/modules/workflow/services/workflow_executor_stream.go`
+  - `backend/modules/workflow/services/workflow_executor.go`
+  - `backend/modules/workflow/services/workflow_executor_stream.go`
 - 输出节点：
-  - `Low_code_Backend/modules/workflow/services/output_node.go`
+  - `backend/modules/workflow/services/output_node.go`
 - artifact 查询与下载：
-  - `Low_code_Backend/modules/artifact/controllers/artifact_controller.go`
+  - `backend/modules/artifact/controllers/artifact_controller.go`
 - 路由注册：
-  - `Low_code_Backend/cmd/server/main.go`
+  - `backend/cmd/server/main.go`
 
 当前约束：
 
@@ -515,14 +515,14 @@ MVP 建议按：
 
 建议新增：
 
-- `Low_code_Backend/modules/workflow_api/models/`
-- `Low_code_Backend/modules/workflow_api/repositories/`
-- `Low_code_Backend/modules/workflow_api/services/`
-- `Low_code_Backend/modules/workflow_api/controllers/`
+- `backend/modules/workflow_api/models/`
+- `backend/modules/workflow_api/repositories/`
+- `backend/modules/workflow_api/services/`
+- `backend/modules/workflow_api/controllers/`
 
 ## 10.2 路由注册
 
-在 `Low_code_Backend/cmd/server/main.go` 中新增两组路由：
+在 `backend/cmd/server/main.go` 中新增两组路由：
 
 - JWT 管理路由
 - `open-api` 公共路由
@@ -549,7 +549,7 @@ MVP 建议按：
 
 ## 11.1 用户前端
 
-建议在 `Low_code_Frontend` 中新增 API 发布页或抽屉：
+建议在 `frontend` 中新增 API 发布页或抽屉：
 
 - 发布配置表单
 - Key 管理
@@ -603,7 +603,7 @@ MVP 建议按：
 
 ## 11.5 管理后台
 
-`Admin_Frontend` 本期可以不做完整发布功能，但建议预留：
+`admin-frontend` 本期可以不做完整发布功能，但建议预留：
 
 - API 发布总览
 - 异常调用查询

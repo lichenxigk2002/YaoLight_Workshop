@@ -25,9 +25,9 @@
 
 整个仓库由三部分组成：
 
-- `Low_code_Backend`：Go 后端，承载工作流执行、调度、AI 接入、Open API、RBAC、通知、账务等平台能力
-- `Low_code_Frontend`：用户前台，负责项目管理、工作流编辑、任务执行、结果查看、Alkaid 助手交互
-- `Admin_Frontend`：管理后台，负责模板、节点类型、AI 模型治理、任务监控、RBAC、通知与运营能力
+- `backend`：Go 后端，承载工作流执行、调度、AI 接入、Open API、RBAC、通知、账务等平台能力
+- `frontend`：用户前台，负责项目管理、工作流编辑、任务执行、结果查看、Alkaid 助手交互
+- `admin-frontend`：管理后台，负责模板、节点类型、AI 模型治理、任务监控、RBAC、通知与运营能力
 
 ## 核心能力
 
@@ -87,7 +87,7 @@
 ```text
 ┌──────────────────────────────────────────────────────────────┐
 │                        Frontend Layer                        │
-│  Low_code_Frontend (用户前台)   Admin_Frontend (管理后台)     │
+│  frontend (用户前台)   admin-frontend (管理后台)     │
 └──────────────────────────────┬───────────────────────────────┘
                                │ HTTP / SSE / WebSocket
 ┌──────────────────────────────▼───────────────────────────────┐
@@ -155,13 +155,13 @@ cd YaoLight_Workshop
 ### 2. 安装依赖
 
 ```bash
-cd Low_code_Frontend
+cd frontend
 npm install
 
-cd ../Admin_Frontend
+cd ../admin-frontend
 npm install
 
-cd ../Low_code_Backend
+cd ../backend
 go mod download
 ```
 
@@ -177,13 +177,13 @@ CREATE DATABASE workflow_db;
 
 后端环境变量示例位于：
 
-- `Low_code_Backend/.env.example`
-- `Low_code_Backend/env.example`
+- `backend/.env.example`
+- `backend/env.example`
 
 建议复制 `.env.example` 为 `.env`：
 
 ```bash
-cd Low_code_Backend
+cd backend
 cp .env.example .env
 ```
 
@@ -240,17 +240,17 @@ stop-services.bat
 #### 方式二：手动启动
 
 ```bash
-cd Low_code_Backend
+cd backend
 go run cmd/server/main.go
 ```
 
 ```bash
-cd Low_code_Frontend
+cd frontend
 npm run dev
 ```
 
 ```bash
-cd Admin_Frontend
+cd admin-frontend
 npm run dev
 ```
 
@@ -283,9 +283,9 @@ docker compose up -d --build
 
 ```text
 YaoLight_Workshop/
-├── Low_code_Backend/        # Go 后端
-├── Low_code_Frontend/       # 用户前台
-├── Admin_Frontend/          # 管理后台
+├── backend/        # Go 后端
+├── frontend/       # 用户前台
+├── admin-frontend/          # 管理后台
 ├── docs/                    # 产品、架构、前端、论文等文档
 ├── deploy/                  # 部署相关资源
 ├── docker-compose.yml
@@ -301,8 +301,8 @@ YaoLight_Workshop/
 你可以从下面这些文档继续深入：
 
 - [docs/00-index/01-Docs-Classification-Index.md](./docs/00-index/01-Docs-Classification-Index.md) - 文档总索引
-- [Low_code_Backend/README.md](./Low_code_Backend/README.md) - 后端模块与能力说明
-- [Low_code_Frontend/README.md](./Low_code_Frontend/README.md) - 用户前台说明
+- [backend/README.md](./backend/README.md) - 后端模块与能力说明
+- [frontend/README.md](./frontend/README.md) - 用户前台说明
 - [DEPLOY.md](./DEPLOY.md) - Docker 与服务器部署说明
 - [docs/08-thesis/90-论文写作_全量覆盖清单.md](./docs/08-thesis/90-%E8%AE%BA%E6%96%87%E5%86%99%E4%BD%9C_%E5%85%A8%E9%87%8F%E8%A6%86%E7%9B%96%E6%B8%85%E5%8D%95.md) - 论文覆盖清单
 - [docs/08-thesis/91-毕业论文_完整写作底稿.md](./docs/08-thesis/91-%E6%AF%95%E4%B8%9A%E8%AE%BA%E6%96%87_%E5%AE%8C%E6%95%B4%E5%86%99%E4%BD%9C%E5%BA%95%E7%A8%BF.md) - 论文底稿
@@ -313,7 +313,7 @@ YaoLight_Workshop/
 
 后端通常需要：
 
-- 在 `Low_code_Backend/modules/workflow/services/` 增加节点执行逻辑
+- 在 `backend/modules/workflow/services/` 增加节点执行逻辑
 - 补充节点规格、输入输出与上下文处理
 - 在执行器注册流程中接入
 

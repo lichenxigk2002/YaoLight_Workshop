@@ -4,7 +4,7 @@
 |------|------|
 | 产品名称 | 瑶光工坊 · 项目资产中心 |
 | 文档版本 | 1.0 |
-| 适用系统 | Low_code_Frontend、Low_code_Backend、Admin_Frontend |
+| 适用系统 | frontend、backend、admin-frontend |
 | 文档目标 | 统一定义面向用户的项目知识、网站源、生成物三类资产能力，并明确与 Alkaid、工作流、任务体系的衔接方式 |
 
 ---

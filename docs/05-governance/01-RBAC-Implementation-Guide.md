@@ -10,8 +10,8 @@
 
 当前管理端真实路由入口在：
 
-- [index.tsx](e:\Lichenxi\YaoLight_Workshop\Admin_Frontend\src\routes\index.tsx)
-- [menu.tsx](e:\Lichenxi\YaoLight_Workshop\Admin_Frontend\src\constants\menu.tsx)
+- [index.tsx](e:\Lichenxi\YaoLight_Workshop\admin-frontend\src\routes\index.tsx)
+- [menu.tsx](e:\Lichenxi\YaoLight_Workshop\admin-frontend\src\constants\menu.tsx)
 
 已经存在的后台页面包括：
 
@@ -57,7 +57,7 @@
 
 当前后台真实接口入口在：
 
-- [main.go](e:\Lichenxi\YaoLight_Workshop\Low_code_Backend\cmd\server\main.go)
+- [main.go](e:\Lichenxi\YaoLight_Workshop\backend\cmd\server\main.go)
 
 已经存在的 `/api/admin/*` 业务分组包括：
 
@@ -143,7 +143,7 @@ operation_logs
 建议目录：
 
 ```text
-Low_code_Backend/modules/rbac/
+backend/modules/rbac/
 ├── models/
 ├── repositories/
 ├── services/
@@ -251,7 +251,7 @@ type AdminUser = {
 
 当前菜单定义在：
 
-- [menu.tsx](e:\Lichenxi\YaoLight_Workshop\Admin_Frontend\src\constants\menu.tsx)
+- [menu.tsx](e:\Lichenxi\YaoLight_Workshop\admin-frontend\src\constants\menu.tsx)
 
 建议给每项加 `permissionKey`：
 

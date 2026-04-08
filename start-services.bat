@@ -14,7 +14,7 @@ if %errorlevel% == 0 (
     echo       Warning: port 8080 is already in use.
 ) else (
     echo [1/3] Starting backend on 8080...
-    start "Backend" cmd /k "cd /d %~dp0Low_code_Backend && go run cmd/server/main.go"
+    start "Backend" cmd /k "cd /d %~dp0backend && go run cmd/server/main.go"
     timeout /t 2 /nobreak >nul
     echo       Backend started.
 )
@@ -27,7 +27,7 @@ if %errorlevel% == 0 (
     echo       Warning: port 3000 is already in use.
 ) else (
     echo [2/3] Starting frontend on 3000...
-    start "Frontend" cmd /k "cd /d %~dp0Low_code_Frontend && npm run dev"
+    start "Frontend" cmd /k "cd /d %~dp0frontend && npm run dev"
     timeout /t 2 /nobreak >nul
     echo       Frontend started.
 )
@@ -40,7 +40,7 @@ if %errorlevel% == 0 (
     echo       Warning: port 3200 is already in use.
 ) else (
     echo [3/3] Starting admin on 3200...
-    start "Admin" cmd /k "cd /d %~dp0Admin_Frontend && npm run dev"
+    start "Admin" cmd /k "cd /d %~dp0admin-frontend && npm run dev"
     timeout /t 2 /nobreak >nul
     echo       Admin started.
 )
