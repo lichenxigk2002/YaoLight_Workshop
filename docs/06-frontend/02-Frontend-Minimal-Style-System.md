@@ -430,8 +430,8 @@ If uncertain between “AI feeling” and “timeless product feeling”, choose
 
 Current reference implementation:
 
-- Homepage dashboard: [Low_code_Frontend/src/pages/Dashboard/index.tsx](/e:/Lichenxi/YaoLight_Workshop/Low_code_Frontend/src/pages/Dashboard/index.tsx)
-- Homepage styles: [Low_code_Frontend/src/pages/Dashboard/index.module.scss](/e:/Lichenxi/YaoLight_Workshop/Low_code_Frontend/src/pages/Dashboard/index.module.scss)
-- Shared top bar styles: [Low_code_Frontend/src/components/Layout/index.module.scss](/e:/Lichenxi/YaoLight_Workshop/Low_code_Frontend/src/components/Layout/index.module.scss)
+- Homepage dashboard: [frontend/src/pages/Dashboard/index.tsx](/e:/Lichenxi/YaoLight_Workshop/frontend/src/pages/Dashboard/index.tsx)
+- Homepage styles: [frontend/src/pages/Dashboard/index.module.scss](/e:/Lichenxi/YaoLight_Workshop/frontend/src/pages/Dashboard/index.module.scss)
+- Shared top bar styles: [frontend/src/components/Layout/index.module.scss](/e:/Lichenxi/YaoLight_Workshop/frontend/src/components/Layout/index.module.scss)
 
 This document is the visual baseline for future client-side refactors.

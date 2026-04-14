@@ -4,7 +4,7 @@
 |------|------|
 | 产品名称 | 瑶光工坊 · 项目知识 / 助手上下文 |
 | 文档版本 | 1.0 |
-| 适用系统 | Low_code_Frontend、Low_code_Backend、Admin_Frontend |
+| 适用系统 | frontend、backend、admin-frontend |
 | 文档目标 | 明确一个轻量、可落地、服务于低代码工作流主线的“项目知识”能力 |
 
 ---

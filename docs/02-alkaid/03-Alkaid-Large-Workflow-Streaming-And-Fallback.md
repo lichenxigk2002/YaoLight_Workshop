@@ -10,7 +10,7 @@
 ## 本轮改动
 
 代码位置：
-- `Low_code_Backend/modules/alkaid/services/agentic/loop.go`
+- `backend/modules/alkaid/services/agentic/loop.go`
 
 新增能力：
 - 在工具检索完成、准备进入较长生成阶段时，先推送一条可见提示，减少“卡死感”。

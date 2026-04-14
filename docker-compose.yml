@@ -1,16 +1,22 @@
 services:
   postgres:
     image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-workflow_db}
+    env_file:
+      - ./backend/.env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export POSTGRES_USER="$$DB_USER"
+        export POSTGRES_PASSWORD="$$DB_PASSWORD"
+        export POSTGRES_DB="$$DB_NAME"
+        exec docker-entrypoint.sh postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-workflow_db}"]
+      test: ["CMD-SHELL", "pg_isready -U $$DB_USER -d $$DB_NAME"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,18 +35,15 @@ services:
 
   migrate:
     build:
-      context: ./Low_code_Backend
+      context: ./backend
       dockerfile: Dockerfile
     command: ["migrate"]
+    env_file:
+      - ./backend/.env
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      DB_NAME: ${DB_NAME:-workflow_db}
-      DB_SSLMODE: disable
       SERVER_MODE: release
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       UPLOAD_PATH: /app/uploads
     volumes:
       - backend_uploads:/app/uploads
@@ -50,22 +53,17 @@ services:
 
   backend:
     build:
-      context: ./Low_code_Backend
+      context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      DB_NAME: ${DB_NAME:-workflow_db}
-      DB_SSLMODE: disable
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       SERVER_PORT: 8080
       SERVER_MODE: release
-      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       UPLOAD_PATH: /app/uploads
     volumes:
       - backend_uploads:/app/uploads
@@ -78,7 +76,7 @@ services:
 
   frontend:
     build:
-      context: ./Low_code_Frontend
+      context: ./frontend
       dockerfile: Dockerfile
     ports:
       - "80:80"

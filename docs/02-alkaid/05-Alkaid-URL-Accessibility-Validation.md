@@ -15,9 +15,9 @@
 - `check_url_accessibility`
 
 代码位置：
-- `Low_code_Backend/modules/alkaid/services/tools/check_url_accessibility.go`
-- `Low_code_Backend/modules/alkaid/services/agentic/tool_defs.go`
-- `Low_code_Backend/modules/alkaid/services/tools/registry.go`
+- `backend/modules/alkaid/services/tools/check_url_accessibility.go`
+- `backend/modules/alkaid/services/agentic/tool_defs.go`
+- `backend/modules/alkaid/services/tools/registry.go`
 
 ## 工具返回字段
 
@@ -72,7 +72,7 @@
 ## 已验证
 
 已添加测试：
-- `Low_code_Backend/modules/alkaid/services/tools/check_url_accessibility_test.go`
+- `backend/modules/alkaid/services/tools/check_url_accessibility_test.go`
 
 已执行：
 
