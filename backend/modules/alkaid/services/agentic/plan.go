@@ -96,7 +96,7 @@ func requestAgentPlan(
       "title": "步骤标题",
       "reason": "为什么要做这一步",
       "expectedOutput": "这一步预期得到什么",
-      "toolHints": ["search_knowledge", "check_url_accessibility"],
+      "toolHints": ["search_knowledge", "list_project_website_sources", "check_url_accessibility"],
       "phase": "planning"
     }
   ]
@@ -105,7 +105,7 @@ func requestAgentPlan(
 4. 标题要短，reason 要具体。
 5. 如果任务涉及外部网站抓取，应优先规划数据源确认步骤。
 6. 如果第一次信息可能不足，允许规划同一步骤内继续检索知识库。
-7. toolHints 只能从这些工具中选择：search_knowledge, check_url_accessibility, get_capabilities, get_workflow, get_node_spec, list_workflows, get_available_models, get_user_constraints。
+7. toolHints 只能从这些工具中选择：search_knowledge, list_project_website_sources, check_url_accessibility, get_capabilities, get_workflow, get_node_spec, list_workflows, get_available_models, get_user_constraints。
 8. phase 只能填 planning、generating、validating、waiting_approval。`
 
 	resp, err := aiProvider.Chat(&planConfig, prompt, contentForLLM, map[string]interface{}{"thinking": false})
@@ -169,7 +169,7 @@ func normalizeToolHints(toolHints []string) []string {
 func inferPlanPhase(toolHints []string, index int) string {
 	for _, hint := range toolHints {
 		switch hint {
-		case "search_knowledge", "check_url_accessibility", "get_workflow", "list_workflows", "get_user_constraints":
+		case "search_knowledge", "list_project_website_sources", "check_url_accessibility", "get_workflow", "list_workflows", "get_user_constraints":
 			return alkaidModels.PhasePlanning
 		case "get_capabilities", "get_node_spec", "get_available_models":
 			return alkaidModels.PhasePlanning
@@ -193,7 +193,7 @@ func fallbackAgentPlan(userMessageID uint, userMessageContent string) []alkaidMo
 			Title:              "梳理任务与补充知识",
 			Reason:             "先确认需求、最佳实践与关键约束，避免直接猜测工作流结构。",
 			ExpectedOutput:     "得到更可靠的方案输入。",
-			ToolHints:          []string{"search_knowledge", "get_capabilities"},
+			ToolHints:          []string{"search_knowledge", "list_project_website_sources", "get_capabilities"},
 			Status:             alkaidModels.PlanStepPending,
 		},
 		{

@@ -32,7 +32,10 @@ const PATH_TO_RESOURCE: Array<[RegExp, string]> = [
   [/^\/notifications\/log$/, 'notifications.log'],
   [/^\/notifications\/analytics$/, 'notifications.analytics'],
   [/^\/notifications\/templates$/, 'notifications.templates'],
+  [/^\/app-logs$/, 'app_logs'],
   [/^\/operation-logs$/, 'operation_logs'],
+  [/^\/logs\/app$/, 'app_logs'],
+  [/^\/logs\/operation$/, 'operation_logs'],
 ];
 
 export function hasPermission(permissions: string[], permission: string) {

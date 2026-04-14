@@ -19,6 +19,7 @@ func NewRegistry(runner *Runner) *Registry {
 	r := &Registry{runner: runner, handlers: make(map[string]ToolHandler)}
 	if runner != nil {
 		r.Register("search_knowledge", r.runSearchKnowledge)
+		r.Register("list_project_website_sources", r.runListProjectWebsiteSources)
 		r.Register("check_url_accessibility", r.runCheckURLAccessibility)
 		r.Register("get_capabilities", r.runGetCapabilities)
 		r.Register("get_workflow", r.runGetWorkflow)
@@ -33,6 +34,7 @@ func NewRegistry(runner *Runner) *Registry {
 	} else {
 		// 无 runner 时使用占位
 		r.Register("search_knowledge", toolSearchKnowledge)
+		r.Register("list_project_website_sources", toolListProjectWebsiteSources)
 		r.Register("check_url_accessibility", toolCheckURLAccessibility)
 		r.Register("get_capabilities", toolGetCapabilities)
 		r.Register("get_workflow", toolGetWorkflow)

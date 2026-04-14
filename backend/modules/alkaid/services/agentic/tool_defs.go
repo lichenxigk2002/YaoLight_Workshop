@@ -43,6 +43,41 @@ func GetToolDefsForLLM() []providers.ToolDef {
 		{
 			Type: "function",
 			Function: &providers.ToolDefFunc{
+				Name:        "list_project_website_sources",
+				Description: "List the current project's website sources so you can reuse real project-specific site metadata when generating crawler workflows. Prefer this tool when the user mentions a known project site, source site, entry page, or asks to generate a crawler from existing website-source assets.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"projectId": map[string]interface{}{
+							"type":        "integer",
+							"description": "Optional. Project ID. If omitted, the tool tries to infer the current project from the session workflow.",
+						},
+						"keyword": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional. Filter website sources by name, base URL, entry URL, or crawl tips.",
+						},
+						"status": map[string]interface{}{
+							"type":        "string",
+							"description": "Optional. Filter by source status, such as active, paused, or invalid.",
+						},
+						"page": map[string]interface{}{
+							"type":        "integer",
+							"description": "Optional. Page number starting from 1. Default 1.",
+							"minimum":     1,
+						},
+						"pageSize": map[string]interface{}{
+							"type":        "integer",
+							"description": "Optional. Items per page. Default 20, max 50.",
+							"minimum":     1,
+							"maximum":     50,
+						},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
 				Name:        "check_url_accessibility",
 				Description: "Check whether a URL is suitable as a crawler data source. Use this before finalizing a crawler node when the workflow depends on external websites.",
 				Parameters: map[string]interface{}{

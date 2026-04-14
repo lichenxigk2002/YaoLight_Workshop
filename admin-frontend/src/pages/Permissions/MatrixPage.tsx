@@ -46,6 +46,7 @@ const PERMISSION_MODULE_LABEL_KEY_MAP: Record<string, string> = {
   node_types: 'menu.nodeTypes',
   knowledge_base: 'menu.knowledgeBase',
   crawler_rules: 'menu.crawlerRules',
+  app_logs: 'menu.appLogs',
   tasks: 'menu.tasks',
   billing: 'menu.billing',
   ai_models: 'menu.aiModels',

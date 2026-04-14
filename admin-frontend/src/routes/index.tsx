@@ -1,7 +1,8 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AdminGuard from '@/guards/AdminGuard';
 import AdminLayout from '@/layouts/AdminLayout';
 import billingRoutes from '@/pages/Billing/routes';
+import AppLogsPage from '@/pages/AppLogs';
 import CrawlerRulesPage from '@/pages/CrawlerRules';
 import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
@@ -43,7 +44,10 @@ const router = createBrowserRouter(
         billingRoutes,
         notificationsRoutes,
         { path: 'system-configs', element: <SystemConfigsPage /> },
-        { path: 'operation-logs', element: <OperationLogsPage /> },
+        { path: 'app-logs', element: <Navigate to="/logs/app" replace /> },
+        { path: 'operation-logs', element: <Navigate to="/logs/operation" replace /> },
+        { path: 'logs/app', element: <AppLogsPage /> },
+        { path: 'logs/operation', element: <OperationLogsPage /> },
       ],
     },
     {

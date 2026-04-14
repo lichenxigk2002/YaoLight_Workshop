@@ -259,6 +259,7 @@ npm run dev
 仓库根目录提供：
 
 - `docker-compose.yml`：本地构建启动
+- `docker-compose.dev.yml`：本地开发热重载
 - `docker-compose.prod.yml`：生产推荐，配合 CI 镜像部署
 
 快速启动：
@@ -267,10 +268,17 @@ npm run dev
 docker compose up -d --build
 ```
 
+开发态热重载：
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --build
+```
+
 说明：
 
 - 当前 `docker-compose.yml` 默认覆盖数据库、Redis、后端与用户前台
-- 生产部署细节请参考 [DEPLOY.md](./DEPLOY.md)
+- `docker-compose.dev.yml` 会挂载本地源码目录；后端使用 `air` 自动重启，用户前台和管理后台使用 Vite dev server 热更新
+- 本地部署说明请参考 [LOCAL_DEPLOY.md](./LOCAL_DEPLOY.md)
 
 ## 访问地址
 

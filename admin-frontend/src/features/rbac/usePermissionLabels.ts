@@ -9,6 +9,7 @@ const PERMISSION_RESOURCE_LABEL_KEY_MAP: Record<string, string> = {
   node_types: 'menu.nodeTypes',
   knowledge_base: 'menu.knowledgeBase',
   crawler_rules: 'menu.crawlerRules',
+  app_logs: 'menu.appLogs',
   system_configs: 'menu.systemConfigs',
   operation_logs: 'menu.operationLogs',
   'ai_models.overview': 'menu.aiModelsOverview',

@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
+const apiProxyTarget = process.env.VITE_PROXY_TARGET || 'http://localhost:8080';
+
 function adminRootRedirectPlugin() {
   const redirect = (req: { url?: string }, res: { statusCode?: number; setHeader: (name: string, value: string) => void; end: () => void }) => {
     if (req.url === '/' || req.url === '/index.html') {
@@ -48,11 +50,12 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0',
     port: 3200,
     open: '/admin/',
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: apiProxyTarget,
         changeOrigin: true,
         secure: false,
         ws: true,
@@ -63,4 +66,3 @@ export default defineConfig({
     open: '/admin/',
   },
 });
-

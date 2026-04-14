@@ -185,7 +185,7 @@ export default function DashboardPage() {
     { key: 'tasks', title: '任务排障中心', desc: '查看失败任务与节点执行。', path: '/tasks/failures', permission: 'tasks.failures' },
     { key: 'templates', title: '模板发布管理', desc: '统一处理草稿和高频模板。', path: '/workflow-templates', permission: 'workflow_templates' },
     { key: 'notifications', title: '通知投递分析', desc: '检查失败投递和阅读率。', path: '/notifications/analytics', permission: 'notifications.analytics' },
-    { key: 'logs', title: '后台操作审计', desc: '追踪关键管理动作与失败请求。', path: '/operation-logs', permission: 'operation_logs' },
+    { key: 'logs', title: '后台操作审计', desc: '追踪关键管理动作与失败请求。', path: '/logs/operation', permission: 'operation_logs' },
   ].filter((v) => canViewResource(permissions, v.permission)).slice(0, 4);
 
   return (
@@ -270,7 +270,7 @@ export default function DashboardPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={16}>
           <Card bordered={false} className={styles.panelCard}>
-            <div className={styles.panelHeader}><div><Title level={3} className={styles.panelTitle}>最近后台操作</Title><Paragraph className={styles.panelDescription}>展示最新管理动作，便于审计与复盘。</Paragraph></div>{access.logs ? <Link to="/operation-logs">查看全部</Link> : null}</div>
+            <div className={styles.panelHeader}><div><Title level={3} className={styles.panelTitle}>最近后台操作</Title><Paragraph className={styles.panelDescription}>展示最新管理动作，便于审计与复盘。</Paragraph></div>{access.logs ? <Link to="/logs/operation">查看全部</Link> : null}</div>
             {access.logs ? (
               <Table<AdminOperationLogListItem> className={styles.logTable} rowKey="id" dataSource={data.operationLogs} columns={logColumns} loading={loading && !data.operationLogs.length} pagination={false} locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无最近操作" /> }} />
             ) : (

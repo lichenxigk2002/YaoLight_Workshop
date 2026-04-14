@@ -1,6 +1,10 @@
 # 依赖、构建、IDE 等（按需补充）
 .idea/
 node_modules/
+.env
+.env.*
+!.env.example
+!.env.*.example
 
 # 根目录下除 README.md 外的所有 .md 文档（仅保留本地，不上传 GitHub）
 /*.md
@@ -10,4 +14,6 @@ node_modules/
 /docs/thesis/开题报告_草稿.md
 /.trae/
 /backend/.env
+/backend/.env.*
+!/backend/.env.example
 /Low_code_Backend/.env

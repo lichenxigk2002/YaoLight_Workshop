@@ -16,10 +16,11 @@ import (
 )
 
 var analyzeAllowedToolNames = map[string]struct{}{
-	"search_knowledge": {},
-	"get_capabilities": {},
-	"get_workflow":     {},
-	"get_node_spec":    {},
+	"search_knowledge":             {},
+	"list_project_website_sources": {},
+	"get_capabilities":             {},
+	"get_workflow":                 {},
+	"get_node_spec":                {},
 }
 
 func runAnalyzeMode(
@@ -178,5 +179,5 @@ func buildAnalyzeUserPrompt(message, conversationHistory string) string {
 		base = strings.TrimSpace(conversationHistory) + "\n\n用户：" + base
 	}
 
-	return base + "\n\n你当前处于 workflow analyze mode。你的职责是查看、解释、分析当前工作流，并给出修改建议。你可以按需调用 get_workflow、get_capabilities、get_node_spec、search_knowledge。不要交付待应用工作流，不要调用 validate_workflow、run_workflow_trial、propose_workflow、propose_patch，也不要假装已经修改画布。"
+	return base + "\n\n你当前处于 workflow analyze mode。你的职责是查看、解释、分析当前工作流，并给出修改建议。你可以按需调用 get_workflow、get_capabilities、get_node_spec、search_knowledge、list_project_website_sources。不要交付待应用工作流，不要调用 validate_workflow、run_workflow_trial、propose_workflow、propose_patch，也不要假装已经修改画布。"
 }

@@ -284,7 +284,7 @@ export default function AdminLayout() {
             <Link to="/notifications/send" className={styles.footerLink}>
               {t('menu.notifications')}
             </Link>
-            <Link to="/operation-logs" className={styles.footerLink}>
+            <Link to="/logs/operation" className={styles.footerLink}>
               {t('menu.operationLogs')}
             </Link>
           </div>

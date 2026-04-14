@@ -1,0 +1,98 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    env_file:
+      - ./backend/.env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export POSTGRES_USER="$$DB_USER"
+        export POSTGRES_PASSWORD="$$DB_PASSWORD"
+        export POSTGRES_DB="$$DB_NAME"
+        exec docker-entrypoint.sh postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$DB_USER -d $$DB_NAME"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SERVER_PORT: 8080
+      SERVER_MODE: debug
+      UPLOAD_PATH: /app/uploads
+    volumes:
+      - ./backend:/app
+      - backend_go_pkg:/go/pkg
+      - backend_uploads:/app/uploads
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      VITE_PROXY_TARGET: http://backend:8080
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  admin-frontend:
+    build:
+      context: ./admin-frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      VITE_PROXY_TARGET: http://backend:8080
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./admin-frontend:/app
+      - admin_frontend_node_modules:/app/node_modules
+    ports:
+      - "3200:3200"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:
+  backend_go_pkg:
+  frontend_node_modules:
+  admin_frontend_node_modules:

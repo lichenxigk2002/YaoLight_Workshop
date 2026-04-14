@@ -1,0 +1,91 @@
+.page {
+  display: grid;
+  gap: 20px;
+}
+
+.card {
+  border-radius: 24px;
+  box-shadow: var(--admin-shadow);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--admin-panel) 96%, white 4%), var(--admin-panel));
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchInput {
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+
+.compactInput,
+.compactSelect {
+  width: 180px;
+}
+
+.dateRange {
+  min-width: 260px;
+}
+
+.tableWrap {
+  overflow: hidden;
+}
+
+.table {
+  :global(.ant-table) {
+    table-layout: fixed;
+  }
+
+  :global(.ant-table-cell) {
+    vertical-align: top;
+    white-space: normal;
+    word-break: break-word;
+  }
+}
+
+.semanticTag {
+  width: fit-content;
+  border-radius: 999px;
+  padding-inline: 10px;
+  font-weight: 600;
+}
+
+.codeText,
+.pathText {
+  font-family: ui-monospace, SFMono-Regular, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace;
+}
+
+.messageText {
+  color: var(--admin-ink);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.drawerGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.detailDescriptions {
+  :global(.ant-descriptions-item-label) {
+    width: 138px;
+  }
+}
+
+.snapshotCard {
+  border-radius: 18px;
+}
+
+@media (max-width: 960px) {
+  .compactInput,
+  .compactSelect,
+  .dateRange {
+    width: 100%;
+  }
+}
