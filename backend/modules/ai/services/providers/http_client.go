@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const DefaultHTTPTimeout = 15 * time.Second
+const DefaultHTTPTimeout = 300 * time.Second
 
 func NewHTTPClient() *http.Client {
 	return &http.Client{Timeout: DefaultHTTPTimeout}

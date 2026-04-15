@@ -127,6 +127,98 @@ func tryResolveStructuredPayload(payload interface{}, format string) interface{}
 	return findStructuredPayloadDeep(payload, needKey, 0)
 }
 
+// isChartPayload 判断对象是否已是 chart 可消费的结构：
+// 1) 完整 chart 输入：{type,title,data}
+// 2) 直接的数据对象：categories+series / points / items / traits / xLabels+yLabels+values / values
+func isChartPayload(m map[string]interface{}) bool {
+	if m == nil {
+		return false
+	}
+	if typ, ok := m["type"].(string); ok && strings.TrimSpace(typ) != "" {
+		return true
+	}
+	if _, hasCats := m["categories"]; hasCats && m["series"] != nil {
+		return true
+	}
+	if _, ok := m["points"]; ok {
+		return true
+	}
+	if _, ok := m["items"]; ok {
+		return true
+	}
+	if _, ok := m["traits"]; ok {
+		return true
+	}
+	if _, ok := m["series"]; ok {
+		return true
+	}
+	if _, hasX := m["xLabels"]; hasX {
+		if _, hasY := m["yLabels"]; hasY && m["values"] != nil {
+			return true
+		}
+	}
+	if _, ok := m["values"]; ok {
+		return true
+	}
+	return false
+}
+
+// findChartPayloadDeep 在 payload 中递归查找第一个 chart 结构对象，兼容嵌套与 JSON 字符串
+func findChartPayloadDeep(payload interface{}, depth int) interface{} {
+	if depth > maxStructuredPayloadDepth {
+		return nil
+	}
+	if payload == nil {
+		return nil
+	}
+
+	switch v := payload.(type) {
+	case map[string]interface{}:
+		if isChartPayload(v) {
+			return v
+		}
+		for _, val := range v {
+			if found := findChartPayloadDeep(val, depth+1); found != nil {
+				return found
+			}
+		}
+		return nil
+	case []interface{}:
+		for _, item := range v {
+			if found := findChartPayloadDeep(item, depth+1); found != nil {
+				return found
+			}
+		}
+		return nil
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return nil
+		}
+		raw := s
+		if strings.HasPrefix(s, "```") {
+			raw = tryExtractJSONFromFencedCodeBlock(s)
+		} else if !strings.HasPrefix(s, "{") && !strings.HasPrefix(s, "[") {
+			return nil
+		}
+		var decoded interface{}
+		if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+			return nil
+		}
+		return findChartPayloadDeep(decoded, depth+1)
+	default:
+		return nil
+	}
+}
+
+// tryResolveChartPayload 从 payload 中解析出 chart 可消费的结构；优先顶层，否则深度查找
+func tryResolveChartPayload(payload interface{}) interface{} {
+	if m, ok := payload.(map[string]interface{}); ok && m != nil && isChartPayload(m) {
+		return m
+	}
+	return findChartPayloadDeep(payload, 0)
+}
+
 // executeOutputNode 执行输出节点
 func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow, variableContext *VariableContext, meta ExecutionMeta) NodeExecutionResult {
 	// 获取上游节点的输入数据
@@ -215,51 +307,19 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 		chartType := getString(node.Config, "chartType", "")
 		chartTitle := getString(node.Config, "chartTitle", "")
 		if chartType != "" {
-			// 1) 若上游已经是对象且包含 type，则认为已经是 chart 输入结构，不再二次包装
-			if pm, ok := payload.(map[string]interface{}); ok && pm != nil {
-				if _, hasType := pm["type"].(string); hasType {
-					// 已经是 chart 输入结构
-					exportInput = pm
-				} else if _, hasCats := pm["categories"]; hasCats || pm["series"] != nil || pm["traits"] != nil {
-					// 已经是 bar/line 等需要的 data（或 traits），直接作为 data
-					exportInput = map[string]interface{}{"type": chartType, "title": chartTitle, "data": pm}
-				} else if rs, ok := pm["result"].(string); ok && strings.TrimSpace(rs) != "" {
-					// AI 节点常见输出：{ content, result, tokensUsed... }，其中 result 为 JSON 字符串（可能 fenced）
-					raw := tryExtractJSONFromFencedCodeBlock(rs)
-					var mm map[string]interface{}
-					if err := json.Unmarshal([]byte(raw), &mm); err == nil && mm != nil {
-						if _, hasType := mm["type"].(string); hasType {
-							exportInput = mm
-						} else {
-							exportInput = map[string]interface{}{"type": chartType, "title": chartTitle, "data": mm}
-						}
-					} else {
-						// 解析失败：兜底把 result 当 data
-						exportInput = map[string]interface{}{"type": chartType, "title": chartTitle, "data": rs}
-					}
-				} else {
-					// 无法识别：兜底包装整个 payload
-					exportInput = map[string]interface{}{"type": chartType, "title": chartTitle, "data": payload}
-				}
-			} else if s, ok := payload.(string); ok && strings.TrimSpace(s) != "" {
-				// 2) 上游常见是 AI 节点输出 JSON 字符串：优先尝试解析
-				// 兼容：AI 可能输出 ```json ...``` 代码块
-				raw := tryExtractJSONFromFencedCodeBlock(s)
-				var mm map[string]interface{}
-				if err := json.Unmarshal([]byte(raw), &mm); err == nil && mm != nil {
+			// 1) 先尝试在整棵 payload 树中递归找 chart 结构，兼容 transformed/result/content/fenced-json
+			if resolved := tryResolveChartPayload(payload); resolved != nil {
+				if mm, ok := resolved.(map[string]interface{}); ok && mm != nil {
 					if _, hasType := mm["type"].(string); hasType {
-						// 已经是 {type,title,data} 结构：直接用解析后的对象
 						exportInput = mm
 					} else {
-						// 仅是 data：自动包装
 						exportInput = map[string]interface{}{"type": chartType, "title": chartTitle, "data": mm}
 					}
 				} else {
-					// 解析失败：兜底包装（data 为原始字符串）
-					exportInput = map[string]interface{}{"type": chartType, "title": chartTitle, "data": payload}
+					exportInput = map[string]interface{}{"type": chartType, "title": chartTitle, "data": resolved}
 				}
 			} else {
-				// 3) 其它类型：兜底包装
+				// 2) 找不到结构化 chart 数据时兜底包装
 				exportInput = map[string]interface{}{"type": chartType, "title": chartTitle, "data": payload}
 			}
 		}
