@@ -94,6 +94,7 @@ func InitDatabase() error {
 		{name: "model capability configs", fn: SeedModelCapabilityConfigs},
 		{name: "managed ai models", fn: SeedManagedAIModels},
 		{name: "pricing rules", fn: SeedPricingRulesFromConfigs},
+		{name: "crawler rules", fn: SeedCrawlerRules},
 	}
 
 	for _, seeder := range seeders {
