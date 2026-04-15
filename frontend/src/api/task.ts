@@ -3,6 +3,7 @@ import type {
   Task,
   TaskListResponse,
   TaskNodeExecutionListResponse,
+  TaskNodeExecutionDetailResponse,
   TaskLogListResponse,
   RunningTasksResponse,
   GetTaskListParams,
@@ -42,6 +43,9 @@ export const taskApi = {
   getTaskNodeExecutions: (taskId: number) =>
     http.get<TaskNodeExecutionListResponse>(`/tasks/${taskId}/node-executions`),
 
+  getTaskNodeExecutionDetail: (taskId: number, executionId: number) =>
+    http.get<TaskNodeExecutionDetailResponse>(`/tasks/${taskId}/node-executions/${executionId}`),
+
   /**
    * 获取任务日志
    * @param taskId 任务ID
@@ -65,4 +69,3 @@ export const taskApi = {
   ) =>
     http.post(`/tasks/${taskId}/artifacts/send-email`, payload),
 };
-

@@ -151,6 +151,25 @@ func (c *AdminTaskController) GetTaskNodeExecutions(ctx *gin.Context) {
 	ok(ctx, "ok", result)
 }
 
+func (c *AdminTaskController) GetTaskNodeExecutionDetail(ctx *gin.Context) {
+	id, okID := parseUintParam(ctx, "id")
+	if !okID {
+		return
+	}
+	executionID, okExecutionID := parseUintParam(ctx, "executionId")
+	if !okExecutionID {
+		return
+	}
+
+	result, err := c.service.GetTaskNodeExecutionDetail(id, executionID)
+	if err != nil {
+		internalError(ctx, "failed to load task node execution detail", err)
+		return
+	}
+
+	ok(ctx, "ok", result)
+}
+
 func (c *AdminTaskController) GetTaskLogs(ctx *gin.Context) {
 	id, okID := parseUintParam(ctx, "id")
 	if !okID {

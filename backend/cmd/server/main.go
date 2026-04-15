@@ -270,7 +270,8 @@ func main() {
 			auth.GET("/workflows/:id/running-tasks", taskController.GetRunningTasks)     // 获取正在运行的任务
 			auth.GET("/tasks/:id", taskController.GetTaskDetail)                         // 获取任务详情
 			auth.GET("/tasks/:id/node-executions", taskController.GetTaskNodeExecutions) // 获取任务的节点执行记录
-			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs)                      // 获取任务日志
+			auth.GET("/tasks/:id/node-executions/:executionId", taskController.GetTaskNodeExecutionDetail)
+			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs) // 获取任务日志
 			auth.GET("/task-schedules", taskScheduleController.ListSchedules)
 			auth.POST("/task-schedules", taskScheduleController.CreateSchedule)
 			auth.PATCH("/task-schedules/:id", taskScheduleController.UpdateSchedule)
@@ -291,6 +292,7 @@ func main() {
 			adminTasks.GET("/:id", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskDetail)
 			adminTasks.GET("/:id/artifacts", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.ListTaskArtifacts)
 			adminTasks.GET("/:id/node-executions", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskNodeExecutions)
+			adminTasks.GET("/:id/node-executions/:executionId", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskNodeExecutionDetail)
 			adminTasks.GET("/:id/logs", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskLogs)
 			adminTasks.GET("/artifacts/:artifactId/download", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.DownloadArtifact)
 
