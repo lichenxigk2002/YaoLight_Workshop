@@ -1,0 +1,130 @@
+{
+  "version": "1.0.0",
+  "name": "超重型模板 - 情报作战室",
+  "description": "45 节点。8 路并发抓取与清洗，8 个一线 AI 分析，4 个主题综合，再生成总报告、时间线、关系网络和风险热力图。",
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "nodes": [
+    { "id": "start-1", "type": "start", "position": { "x": 40, "y": 700 }, "data": { "label": "开始", "type": "start", "config": { "inputDataType": "json", "inputData": "{\n  \"project\": \"情报作战室\",\n  \"window\": \"最近180天\",\n  \"target\": \"重点行业竞争格局\"\n}" }, "connectionDirection": "vertical" } },
+
+    { "id": "crawler-news", "type": "crawler", "position": { "x": 220, "y": 80 }, "data": { "label": "行业新闻", "type": "crawler", "config": { "url": "https://www.rfc-editor.org/rfc/rfc9110.html", "extractMode": "smart", "timeout": 30 }, "connectionDirection": "vertical" } },
+    { "id": "crawler-company", "type": "crawler", "position": { "x": 220, "y": 240 }, "data": { "label": "企业官网", "type": "crawler", "config": { "url": "https://docs.python.org/3/tutorial/index.html", "extractMode": "smart", "timeout": 30 }, "connectionDirection": "vertical" } },
+    { "id": "crawler-policy", "type": "crawler", "position": { "x": 220, "y": 400 }, "data": { "label": "政策法规", "type": "crawler", "config": { "url": "https://www.nist.gov/artificial-intelligence", "extractMode": "smart", "timeout": 30 }, "connectionDirection": "vertical" } },
+    { "id": "crawler-social", "type": "crawler", "position": { "x": 220, "y": 560 }, "data": { "label": "社区讨论", "type": "crawler", "config": { "url": "https://docs.python.org/3/tutorial/index.html", "extractMode": "smart", "timeout": 30 }, "connectionDirection": "vertical" } },
+    { "id": "crawler-review", "type": "crawler", "position": { "x": 220, "y": 720 }, "data": { "label": "用户评测", "type": "crawler", "config": { "url": "https://www.rfc-editor.org/rfc/rfc9110.html", "extractMode": "smart", "timeout": 30 }, "connectionDirection": "vertical" } },
+    { "id": "crawler-invest", "type": "crawler", "position": { "x": 220, "y": 880 }, "data": { "label": "融资合作", "type": "crawler", "config": { "url": "https://www.nist.gov/applied-ai", "extractMode": "smart", "timeout": 30 }, "connectionDirection": "vertical" } },
+    { "id": "crawler-hiring", "type": "crawler", "position": { "x": 220, "y": 1040 }, "data": { "label": "招聘信息", "type": "crawler", "config": { "url": "https://docs.python.org/3/tutorial/index.html", "extractMode": "smart", "timeout": 30 }, "connectionDirection": "vertical" } },
+    { "id": "crawler-github", "type": "crawler", "position": { "x": 220, "y": 1200 }, "data": { "label": "技术仓库", "type": "crawler", "config": { "url": "https://docs.python.org/3/tutorial/index.html", "extractMode": "smart", "timeout": 30 }, "connectionDirection": "vertical" } },
+
+    { "id": "clean-news", "type": "dataclean", "position": { "x": 430, "y": 80 }, "data": { "label": "清洗新闻", "type": "dataclean", "config": { "dataVariable": "{{crawler-news.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" } },
+    { "id": "clean-company", "type": "dataclean", "position": { "x": 430, "y": 240 }, "data": { "label": "清洗官网", "type": "dataclean", "config": { "dataVariable": "{{crawler-company.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" } },
+    { "id": "clean-policy", "type": "dataclean", "position": { "x": 430, "y": 400 }, "data": { "label": "清洗政策", "type": "dataclean", "config": { "dataVariable": "{{crawler-policy.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" } },
+    { "id": "clean-social", "type": "dataclean", "position": { "x": 430, "y": 560 }, "data": { "label": "清洗社区", "type": "dataclean", "config": { "dataVariable": "{{crawler-social.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" } },
+    { "id": "clean-review", "type": "dataclean", "position": { "x": 430, "y": 720 }, "data": { "label": "清洗评测", "type": "dataclean", "config": { "dataVariable": "{{crawler-review.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" } },
+    { "id": "clean-invest", "type": "dataclean", "position": { "x": 430, "y": 880 }, "data": { "label": "清洗融资", "type": "dataclean", "config": { "dataVariable": "{{crawler-invest.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" } },
+    { "id": "clean-hiring", "type": "dataclean", "position": { "x": 430, "y": 1040 }, "data": { "label": "清洗招聘", "type": "dataclean", "config": { "dataVariable": "{{crawler-hiring.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" } },
+    { "id": "clean-github", "type": "dataclean", "position": { "x": 430, "y": 1200 }, "data": { "label": "清洗仓库", "type": "dataclean", "config": { "dataVariable": "{{crawler-github.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" } },
+
+    { "id": "ai-news", "type": "ai", "position": { "x": 660, "y": 80 }, "data": { "label": "新闻脉络", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "提炼关键事件、日期、主体和影响，输出 Markdown。", "contentVariable": "{{clean-news.cleaned}}", "temperature": 0.3, "maxTokens": 2200 }, "connectionDirection": "vertical" } },
+    { "id": "ai-company", "type": "ai", "position": { "x": 660, "y": 240 }, "data": { "label": "官网能力", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "提炼产品线、能力、市场定位和商业化，输出 Markdown。", "contentVariable": "{{clean-company.cleaned}}", "temperature": 0.3, "maxTokens": 2200 }, "connectionDirection": "vertical" } },
+    { "id": "ai-policy", "type": "ai", "position": { "x": 660, "y": 400 }, "data": { "label": "政策机会", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "提炼政策方向、影响面、受益方和限制，输出 Markdown。", "contentVariable": "{{clean-policy.cleaned}}", "temperature": 0.3, "maxTokens": 2200 }, "connectionDirection": "vertical" } },
+    { "id": "ai-social", "type": "ai", "position": { "x": 660, "y": 560 }, "data": { "label": "社区情绪", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "提炼讨论热点、抱怨、好评和情绪倾向，输出 Markdown。", "contentVariable": "{{clean-social.cleaned}}", "temperature": 0.4, "maxTokens": 2200 }, "connectionDirection": "vertical" } },
+    { "id": "ai-review", "type": "ai", "position": { "x": 660, "y": 720 }, "data": { "label": "评测优劣", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "提炼真实优点、缺点、稳定性和推荐意见，输出 Markdown。", "contentVariable": "{{clean-review.cleaned}}", "temperature": 0.3, "maxTokens": 2200 }, "connectionDirection": "vertical" } },
+    { "id": "ai-invest", "type": "ai", "position": { "x": 660, "y": 880 }, "data": { "label": "资本合作", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "提炼融资、合作、伙伴和资本信号，输出 Markdown。", "contentVariable": "{{clean-invest.cleaned}}", "temperature": 0.3, "maxTokens": 2200 }, "connectionDirection": "vertical" } },
+    { "id": "ai-hiring", "type": "ai", "position": { "x": 660, "y": 1040 }, "data": { "label": "招聘信号", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "提炼岗位方向、组织扩张意图和技术路线信号，输出 Markdown。", "contentVariable": "{{clean-hiring.cleaned}}", "temperature": 0.3, "maxTokens": 2200 }, "connectionDirection": "vertical" } },
+    { "id": "ai-github", "type": "ai", "position": { "x": 660, "y": 1200 }, "data": { "label": "技术路线", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "提炼仓库活跃度、技术栈、模块划分和开源信号，输出 Markdown。", "contentVariable": "{{clean-github.cleaned}}", "temperature": 0.3, "maxTokens": 2200 }, "connectionDirection": "vertical" } },
+
+    { "id": "merge-market", "type": "merge", "position": { "x": 920, "y": 180 }, "data": { "label": "市场主题合并", "type": "merge", "config": { "mergeType": "concat", "inputCount": 2 }, "connectionDirection": "vertical" } },
+    { "id": "merge-product", "type": "merge", "position": { "x": 920, "y": 500 }, "data": { "label": "产品主题合并", "type": "merge", "config": { "mergeType": "concat", "inputCount": 2 }, "connectionDirection": "vertical" } },
+    { "id": "merge-risk", "type": "merge", "position": { "x": 920, "y": 820 }, "data": { "label": "风险主题合并", "type": "merge", "config": { "mergeType": "concat", "inputCount": 2 }, "connectionDirection": "vertical" } },
+    { "id": "merge-tech", "type": "merge", "position": { "x": 920, "y": 1120 }, "data": { "label": "技术主题合并", "type": "merge", "config": { "mergeType": "concat", "inputCount": 2 }, "connectionDirection": "vertical" } },
+
+    { "id": "ai-market", "type": "ai", "position": { "x": 1170, "y": 180 }, "data": { "label": "市场综合", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "综合新闻与政策，形成市场驱动、机会窗口和趋势判断，输出 Markdown。", "contentVariable": "{{merge-market.merged}}", "temperature": 0.4, "maxTokens": 2600 }, "connectionDirection": "vertical" } },
+    { "id": "ai-product", "type": "ai", "position": { "x": 1170, "y": 500 }, "data": { "label": "产品综合", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "综合官网与评测，形成产品格局、用户价值和竞争判断，输出 Markdown。", "contentVariable": "{{merge-product.merged}}", "temperature": 0.4, "maxTokens": 2600 }, "connectionDirection": "vertical" } },
+    { "id": "ai-risk", "type": "ai", "position": { "x": 1170, "y": 820 }, "data": { "label": "风险综合", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "综合社区和资本材料，形成舆情、执行、商业和资本风险判断，输出 Markdown。", "contentVariable": "{{merge-risk.merged}}", "temperature": 0.4, "maxTokens": 2600 }, "connectionDirection": "vertical" } },
+    { "id": "ai-tech", "type": "ai", "position": { "x": 1170, "y": 1120 }, "data": { "label": "技术综合", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "综合招聘与技术仓库材料，形成研发方向、组织建设和技术路线判断，输出 Markdown。", "contentVariable": "{{merge-tech.merged}}", "temperature": 0.4, "maxTokens": 2600 }, "connectionDirection": "vertical" } },
+
+    { "id": "merge-all", "type": "merge", "position": { "x": 1450, "y": 650 }, "data": { "label": "全部主题合并", "type": "merge", "config": { "mergeType": "concat", "inputCount": 4 }, "connectionDirection": "vertical" } },
+    { "id": "delay-1", "type": "delay", "position": { "x": 1660, "y": 650 }, "data": { "label": "汇总缓冲", "type": "delay", "config": { "seconds": 1 }, "connectionDirection": "vertical" } },
+
+    { "id": "ai-report", "type": "ai", "position": { "x": 1880, "y": 360 }, "data": { "label": "总报告", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "基于全部材料输出完整研究报告：摘要、市场、产品、技术、风险、建议。输出 Markdown。", "contentVariable": "{{delay-1.data}}", "temperature": 0.4, "maxTokens": 4200 }, "connectionDirection": "vertical" } },
+    { "id": "ai-timeline", "type": "ai", "position": { "x": 1880, "y": 560 }, "data": { "label": "时间线 JSON", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "输出严格 JSON：{\"title\":\"情报时间线\",\"events\":[{\"date\":\"2026-01-01\",\"label\":\"事件\",\"group\":\"新闻/政策/资本\"}]}", "contentVariable": "{{delay-1.data}}", "temperature": 0.1, "maxTokens": 1800 }, "connectionDirection": "vertical" } },
+    { "id": "ai-network", "type": "ai", "position": { "x": 1880, "y": 760 }, "data": { "label": "关系网络 JSON", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "输出严格 JSON：{\"direction\":\"LR\",\"edges\":[{\"from\":\"主体A\",\"to\":\"主体B\",\"label\":\"关系\"}]}", "contentVariable": "{{delay-1.data}}", "temperature": 0.1, "maxTokens": 1800 }, "connectionDirection": "vertical" } },
+    { "id": "ai-heatmap", "type": "ai", "position": { "x": 1880, "y": 960 }, "data": { "label": "风险热力图 JSON", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "输出严格 JSON：{\"xLabels\":[\"低\",\"中\",\"高\"],\"yLabels\":[\"市场\",\"产品\",\"技术\",\"风险\"],\"values\":[[0.2,0.5,0.3],[0.1,0.3,0.6],[0.3,0.4,0.3],[0.2,0.2,0.6]]}", "contentVariable": "{{delay-1.data}}", "temperature": 0.1, "maxTokens": 1800 }, "connectionDirection": "vertical" } },
+
+    { "id": "transform-network", "type": "transform", "position": { "x": 2120, "y": 760 }, "data": { "label": "网络透传", "type": "transform", "config": { "transformType": "map", "script": "" }, "connectionDirection": "vertical" } },
+    { "id": "transform-heatmap", "type": "transform", "position": { "x": 2120, "y": 960 }, "data": { "label": "热力图透传", "type": "transform", "config": { "transformType": "map", "script": "" }, "connectionDirection": "vertical" } },
+
+    { "id": "output-report", "type": "output", "position": { "x": 2360, "y": 360 }, "data": { "label": "导出报告", "type": "output", "config": { "format": "markdown", "destination": "file", "fileName": "mega_war_room_report.md" }, "connectionDirection": "vertical" } },
+    { "id": "output-timeline", "type": "output", "position": { "x": 2360, "y": 560 }, "data": { "label": "导出时间线", "type": "output", "config": { "format": "timeline", "destination": "file", "fileName": "mega_war_room_timeline" }, "connectionDirection": "vertical" } },
+    { "id": "output-network", "type": "output", "position": { "x": 2360, "y": 760 }, "data": { "label": "导出网络", "type": "output", "config": { "format": "network", "destination": "file", "fileName": "mega_war_room_network" }, "connectionDirection": "vertical" } },
+    { "id": "output-heatmap", "type": "output", "position": { "x": 2360, "y": 960 }, "data": { "label": "导出热力图", "type": "output", "config": { "format": "chart", "destination": "file", "chartType": "heatmap", "chartTitle": "风险热力图", "fileName": "mega_war_room_heatmap.svg" }, "connectionDirection": "vertical" } },
+
+    { "id": "end-1", "type": "end", "position": { "x": 2600, "y": 700 }, "data": { "label": "结束", "type": "end", "config": {}, "connectionDirection": "vertical" } }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-news" },
+    { "id": "e2", "source": "start-1", "target": "crawler-company" },
+    { "id": "e3", "source": "start-1", "target": "crawler-policy" },
+    { "id": "e4", "source": "start-1", "target": "crawler-social" },
+    { "id": "e5", "source": "start-1", "target": "crawler-review" },
+    { "id": "e6", "source": "start-1", "target": "crawler-invest" },
+    { "id": "e7", "source": "start-1", "target": "crawler-hiring" },
+    { "id": "e8", "source": "start-1", "target": "crawler-github" },
+
+    { "id": "e9", "source": "crawler-news", "target": "clean-news" },
+    { "id": "e10", "source": "crawler-company", "target": "clean-company" },
+    { "id": "e11", "source": "crawler-policy", "target": "clean-policy" },
+    { "id": "e12", "source": "crawler-social", "target": "clean-social" },
+    { "id": "e13", "source": "crawler-review", "target": "clean-review" },
+    { "id": "e14", "source": "crawler-invest", "target": "clean-invest" },
+    { "id": "e15", "source": "crawler-hiring", "target": "clean-hiring" },
+    { "id": "e16", "source": "crawler-github", "target": "clean-github" },
+
+    { "id": "e17", "source": "clean-news", "target": "ai-news" },
+    { "id": "e18", "source": "clean-company", "target": "ai-company" },
+    { "id": "e19", "source": "clean-policy", "target": "ai-policy" },
+    { "id": "e20", "source": "clean-social", "target": "ai-social" },
+    { "id": "e21", "source": "clean-review", "target": "ai-review" },
+    { "id": "e22", "source": "clean-invest", "target": "ai-invest" },
+    { "id": "e23", "source": "clean-hiring", "target": "ai-hiring" },
+    { "id": "e24", "source": "clean-github", "target": "ai-github" },
+
+    { "id": "e25", "source": "ai-news", "target": "merge-market", "targetHandle": "input-0" },
+    { "id": "e26", "source": "ai-policy", "target": "merge-market", "targetHandle": "input-1" },
+    { "id": "e27", "source": "ai-company", "target": "merge-product", "targetHandle": "input-0" },
+    { "id": "e28", "source": "ai-review", "target": "merge-product", "targetHandle": "input-1" },
+    { "id": "e29", "source": "ai-social", "target": "merge-risk", "targetHandle": "input-0" },
+    { "id": "e30", "source": "ai-invest", "target": "merge-risk", "targetHandle": "input-1" },
+    { "id": "e31", "source": "ai-hiring", "target": "merge-tech", "targetHandle": "input-0" },
+    { "id": "e32", "source": "ai-github", "target": "merge-tech", "targetHandle": "input-1" },
+
+    { "id": "e33", "source": "merge-market", "target": "ai-market" },
+    { "id": "e34", "source": "merge-product", "target": "ai-product" },
+    { "id": "e35", "source": "merge-risk", "target": "ai-risk" },
+    { "id": "e36", "source": "merge-tech", "target": "ai-tech" },
+
+    { "id": "e37", "source": "ai-market", "target": "merge-all", "targetHandle": "input-0" },
+    { "id": "e38", "source": "ai-product", "target": "merge-all", "targetHandle": "input-1" },
+    { "id": "e39", "source": "ai-risk", "target": "merge-all", "targetHandle": "input-2" },
+    { "id": "e40", "source": "ai-tech", "target": "merge-all", "targetHandle": "input-3" },
+
+    { "id": "e41", "source": "merge-all", "target": "delay-1" },
+    { "id": "e42", "source": "delay-1", "target": "ai-report" },
+    { "id": "e43", "source": "delay-1", "target": "ai-timeline" },
+    { "id": "e44", "source": "delay-1", "target": "ai-network" },
+    { "id": "e45", "source": "delay-1", "target": "ai-heatmap" },
+
+    { "id": "e46", "source": "ai-report", "target": "output-report" },
+    { "id": "e47", "source": "ai-timeline", "target": "output-timeline" },
+    { "id": "e48", "source": "ai-network", "target": "transform-network" },
+    { "id": "e49", "source": "ai-heatmap", "target": "transform-heatmap" },
+    { "id": "e50", "source": "transform-network", "target": "output-network" },
+    { "id": "e51", "source": "transform-heatmap", "target": "output-heatmap" },
+
+    { "id": "e52", "source": "output-report", "target": "end-1" },
+    { "id": "e53", "source": "output-timeline", "target": "end-1" },
+    { "id": "e54", "source": "output-network", "target": "end-1" },
+    { "id": "e55", "source": "output-heatmap", "target": "end-1" }
+  ],
+  "commentCards": []
+}
