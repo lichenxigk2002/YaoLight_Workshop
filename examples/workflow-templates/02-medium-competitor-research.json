@@ -1,0 +1,215 @@
+{
+  "version": "1.0.0",
+  "name": "中型模板 - 竞品双分支研究",
+  "description": "双来源并发抓取，分别抽取要点与风险，再汇总成一份竞品研究报告。",
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 60, "y": 240 },
+      "data": {
+        "label": "开始",
+        "type": "start",
+        "config": {
+          "inputDataType": "json",
+          "inputData": "{\n  \"topic\": \"竞品研究\",\n  \"focus\": [\"定位\", \"功能\", \"定价\"]\n}"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-a",
+      "type": "crawler",
+      "position": { "x": 280, "y": 120 },
+      "data": {
+        "label": "抓取竞品官网",
+        "type": "crawler",
+        "config": {
+          "url": "https://docs.python.org/3/tutorial/index.html",
+          "extractMode": "smart",
+          "timeout": 30
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-b",
+      "type": "crawler",
+      "position": { "x": 280, "y": 360 },
+      "data": {
+        "label": "抓取媒体评测",
+        "type": "crawler",
+        "config": {
+          "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+          "extractMode": "smart",
+          "timeout": 30
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-a",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 120 },
+      "data": {
+        "label": "清洗官网正文",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-a.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-b",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 360 },
+      "data": {
+        "label": "清洗评测正文",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-b.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-a",
+      "type": "ai",
+      "position": { "x": 770, "y": 120 },
+      "data": {
+        "label": "提炼官网卖点",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请从输入内容中提炼：1. 产品定位 2. 核心功能 3. 目标用户 4. 价格或套餐信息。输出为 Markdown 列表。",
+          "contentVariable": "{{clean-a.cleaned}}",
+          "temperature": 0.2,
+          "maxTokens": 1400,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-b",
+      "type": "ai",
+      "position": { "x": 770, "y": 360 },
+      "data": {
+        "label": "提炼评测风险",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请从输入内容中提炼该产品的优点、缺点、使用门槛、常见抱怨，并输出一份 Markdown 风险清单。",
+          "contentVariable": "{{clean-b.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1400,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-1",
+      "type": "merge",
+      "position": { "x": 1020, "y": 240 },
+      "data": {
+        "label": "合并研究材料",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 2
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-final",
+      "type": "ai",
+      "position": { "x": 1260, "y": 240 },
+      "data": {
+        "label": "生成竞品报告",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请基于合并后的研究材料，输出一份中文竞品分析报告，包含：概览、核心价值、功能亮点、风险与不足、适用客户、建议结论。输出 Markdown。",
+          "contentVariable": "{{merge-1.merged}}",
+          "temperature": 0.4,
+          "maxTokens": 2600,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-md",
+      "type": "output",
+      "position": { "x": 1520, "y": 160 },
+      "data": {
+        "label": "导出报告",
+        "type": "output",
+        "config": {
+          "format": "markdown",
+          "destination": "file",
+          "fileName": "competitor_research_report.md"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-json",
+      "type": "output",
+      "position": { "x": 1520, "y": 320 },
+      "data": {
+        "label": "导出结构化数据",
+        "type": "output",
+        "config": {
+          "format": "json",
+          "destination": "file",
+          "fileName": "competitor_research_payload.json"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 1780, "y": 240 },
+      "data": {
+        "label": "结束",
+        "type": "end",
+        "config": {},
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-a" },
+    { "id": "e2", "source": "start-1", "target": "crawler-b" },
+    { "id": "e3", "source": "crawler-a", "target": "clean-a" },
+    { "id": "e4", "source": "crawler-b", "target": "clean-b" },
+    { "id": "e5", "source": "clean-a", "target": "ai-a" },
+    { "id": "e6", "source": "clean-b", "target": "ai-b" },
+    { "id": "e7", "source": "ai-a", "target": "merge-1", "targetHandle": "input-0" },
+    { "id": "e8", "source": "ai-b", "target": "merge-1", "targetHandle": "input-1" },
+    { "id": "e9", "source": "merge-1", "target": "ai-final" },
+    { "id": "e10", "source": "ai-final", "target": "output-md" },
+    { "id": "e11", "source": "ai-final", "target": "output-json" },
+    { "id": "e12", "source": "output-md", "target": "end-1" },
+    { "id": "e13", "source": "output-json", "target": "end-1" }
+  ],
+  "commentCards": []
+}

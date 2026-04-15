@@ -170,6 +170,23 @@ const formatMs = (value?: number | null) => {
   return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}s`;
 };
 
+const getTimelineBarClassName = (status: NodeExecutionStatus) => {
+  switch (status) {
+    case 'completed':
+      return styles.concurrentBarSuccess;
+    case 'failed':
+    case 'timeout':
+      return styles.concurrentBarError;
+    case 'running':
+      return styles.concurrentBarRunning;
+    case 'skipped':
+    case 'cancelled':
+      return styles.concurrentBarMuted;
+    default:
+      return styles.concurrentBarNeutral;
+  }
+};
+
 /**
  * 数据展示组件
  */
@@ -957,6 +974,35 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
           </div>
 
           <Card size="small" bordered={false} className={styles.concurrentTimelineCard} title="并发执行">
+            <div className={styles.miniMapSection}>
+              <div className={styles.miniMapHeader}>
+                <div>
+                  <Text strong>全量缩略总览</Text>
+                  <div className={styles.miniMapHint}>
+                    纵轴仍然是节点，横轴仍然是时间，只保留更细的执行条带用于整体观察。
+                  </div>
+                </div>
+                <Tag bordered={false} className={styles.semanticTag}>
+                  {timelineExecutions.length} 节点
+                </Tag>
+              </div>
+              <div className={styles.miniMap}>
+                {timelineExecutions.map((execution) => (
+                  <div key={`overview-${execution.id}`} className={styles.miniMapRow}>
+                    <div className={styles.miniMapTrack}>
+                      <div
+                        className={`${styles.miniMapBar} ${getTimelineBarClassName(execution.status)}`}
+                        style={{
+                          left: `${execution.offsetPercent}%`,
+                          width: `${execution.widthPercent}%`,
+                        }}
+                        title={`${nodeLabels[execution.nodeId] || execution.nodeId} · ${execution.nodeType} · ${formatMs(execution.timelineEnd - execution.timelineStart)}`}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className={styles.concurrentTimeline}>
               {timelineExecutions.map((execution) => (
                 <div key={`timeline-${execution.id}`} className={styles.concurrentRow}>
@@ -966,7 +1012,7 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
                   </div>
                   <div className={styles.concurrentTrack}>
                     <div
-                      className={styles.concurrentBar}
+                      className={`${styles.concurrentBar} ${getTimelineBarClassName(execution.status)}`}
                       style={{
                         left: `${execution.offsetPercent}%`,
                         width: `${execution.widthPercent}%`,

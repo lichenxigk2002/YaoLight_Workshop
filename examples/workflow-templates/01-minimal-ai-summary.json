@@ -1,0 +1,109 @@
+{
+  "version": "1.0.0",
+  "name": "极简模板 - 网页摘要生成",
+  "description": "最小可用链路：开始 -> 爬虫 -> 清洗 -> AI 摘要 -> 输出 -> 结束",
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 80, "y": 120 },
+      "data": {
+        "label": "开始",
+        "type": "start",
+        "config": {
+          "inputDataType": "json",
+          "inputData": "{\n  \"topic\": \"AI 产品观察\"\n}"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-1",
+      "type": "crawler",
+      "position": { "x": 300, "y": 120 },
+      "data": {
+        "label": "抓取目标页面",
+        "type": "crawler",
+        "config": {
+          "url": "https://docs.python.org/3/tutorial/index.html",
+          "extractMode": "smart",
+          "useHeadless": false,
+          "timeout": 30
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-1",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 120 },
+      "data": {
+        "label": "清洗正文",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-1.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true,
+          "removeSpaces": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-1",
+      "type": "ai",
+      "position": { "x": 760, "y": 120 },
+      "data": {
+        "label": "AI 摘要",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请基于输入内容输出一份 5 条要点的中文摘要，并补充 3 条行动建议。输出纯 Markdown。",
+          "contentVariable": "{{clean-1.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1200,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "output",
+      "position": { "x": 1020, "y": 120 },
+      "data": {
+        "label": "导出 Markdown",
+        "type": "output",
+        "config": {
+          "format": "markdown",
+          "destination": "file",
+          "fileName": "minimal_summary.md"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 1240, "y": 120 },
+      "data": {
+        "label": "结束",
+        "type": "end",
+        "config": {},
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-1" },
+    { "id": "e2", "source": "crawler-1", "target": "clean-1" },
+    { "id": "e3", "source": "clean-1", "target": "ai-1" },
+    { "id": "e4", "source": "ai-1", "target": "output-1" },
+    { "id": "e5", "source": "output-1", "target": "end-1" }
+  ],
+  "commentCards": []
+}
