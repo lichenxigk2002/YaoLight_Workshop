@@ -3,7 +3,7 @@ import AdminGuard from '@/guards/AdminGuard';
 import AdminLayout from '@/layouts/AdminLayout';
 import billingRoutes from '@/pages/Billing/routes';
 import AppLogsPage from '@/pages/AppLogs';
-import CrawlerRulesPage from '@/pages/CrawlerRules';
+import crawlerRulesRoutes from '@/pages/CrawlerRules/routes';
 import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
 import KnowledgeBasePage from '@/pages/KnowledgeBase';
@@ -38,7 +38,7 @@ const router = createBrowserRouter(
         workflowTemplateRoutes,
         { path: 'node-types', element: <NodeTypesPage /> },
         { path: 'knowledge-base', element: <KnowledgeBasePage /> },
-        { path: 'crawler-rules', element: <CrawlerRulesPage /> },
+        crawlerRulesRoutes,
         aiAdminRoutes,
         tasksRoutes,
         billingRoutes,

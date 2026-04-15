@@ -67,6 +67,43 @@ func (c *AdminCrawlerRuleController) ListRules(ctx *gin.Context) {
 	ok(ctx, "ok", result)
 }
 
+func (c *AdminCrawlerRuleController) ListActiveRuleOptions(ctx *gin.Context) {
+	page := 1
+	pageSize := 100
+	items := make([]crawlerServices.CrawlerRuleListItem, 0, pageSize)
+	var total int64
+
+	for {
+		result, err := c.service.ListRules(crawlerRepos.ListCrawlerRulesQuery{
+			IsActive:  boolPtr(true),
+			Page:      page,
+			PageSize:  pageSize,
+			SortBy:    "name",
+			SortOrder: "ASC",
+		})
+		if err != nil {
+			internalError(ctx, "failed to list active crawler rules", err)
+			return
+		}
+
+		items = append(items, result.List...)
+		total = result.Total
+
+		if len(items) >= int(total) || len(result.List) == 0 {
+			break
+		}
+
+		page++
+	}
+
+	ok(ctx, "ok", gin.H{
+		"list":      items,
+		"total":     total,
+		"page":      1,
+		"page_size": len(items),
+	})
+}
+
 func (c *AdminCrawlerRuleController) GetRule(ctx *gin.Context) {
 	id, okID := parseUintParam(ctx, "id")
 	if !okID {
@@ -247,4 +284,8 @@ func currentUserID(ctx *gin.Context) (uint, error) {
 	default:
 		return 0, errors.New("invalid user context")
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
