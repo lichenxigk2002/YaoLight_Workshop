@@ -1,0 +1,47 @@
+.rulePanel {
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.rulePanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.rulePanelTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ruleMeta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin-top: 12px;
+}
+
+.ruleMetaItem {
+  min-width: 0;
+}
+
+.ruleMetaLabel {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ruleMetaValue {
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.ruleHint {
+  margin-top: 12px;
+}

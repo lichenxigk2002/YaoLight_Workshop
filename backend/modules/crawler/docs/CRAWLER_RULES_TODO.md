@@ -773,25 +773,25 @@ modules/crawler/
 
 ### 必做
 
-- [ ] 新建 `repositories/crawler_rule_repository.go`
-- [ ] 新建 `services/admin_crawler_rule_service.go`
-- [ ] 新建 `services/crawler_rule_mapper.go`
-- [ ] 新建 `services/crawler_rule_test_service.go`
-- [ ] 新建 `controllers/admin_crawler_rule_controller.go`
-- [ ] 在 `cmd/server/main.go` 中接入 `/api/admin/crawler-rules`
-- [ ] 实现规则 CRUD
-- [ ] 实现规则启用/禁用
-- [ ] 实现规则测试接口
-- [ ] 修改 `workflow/services/crawler_node.go` 支持 `ruleId`
-- [ ] 实现规则配置与节点配置合并
-- [ ] 实现 `usage_count` / `success_rate` 基础更新
+- [x] 新建 `repositories/crawler_rule_repository.go`
+- [x] 新建 `services/admin_crawler_rule_service.go`
+- [x] 新建 `services/crawler_rule_mapper.go`
+- [x] 新建 `services/crawler_rule_test_service.go`
+- [x] 新建 `controllers/admin_crawler_rule_controller.go`
+- [x] 在 `cmd/server/main.go` 中接入 `/api/admin/crawler-rules`
+- [x] 实现规则 CRUD
+- [x] 实现规则启用/禁用
+- [x] 实现规则测试接口
+- [x] 修改 `workflow/services/crawler_node.go` 支持 `ruleId`
+- [x] 实现规则配置与节点配置合并
+- [x] 实现 `usage_count` / `success_rate` 基础更新
 
 ### 建议做
 
-- [ ] 实现规则复制
-- [ ] 实现引用关系查询
+- [x] 实现规则复制
+- [x] 实现引用关系查询
 - [ ] 增加请求校验与错误码
-- [ ] 增加单元测试
+- [x] 增加单元测试
 - [ ] 增加集成测试
 
 ### 二期做

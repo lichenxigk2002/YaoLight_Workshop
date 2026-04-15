@@ -8,7 +8,7 @@ const PATH_TO_RESOURCE: Array<[RegExp, string]> = [
   [/^\/workflow-templates\/\d+\/canvas$/, 'workflow_templates.canvas'],
   [/^\/node-types$/, 'node_types'],
   [/^\/knowledge-base$/, 'knowledge_base'],
-  [/^\/crawler-rules$/, 'crawler_rules'],
+  [/^\/crawler-rules(?:\/\d+(?:\/test|\/usages)?)?$/, 'crawler_rules'],
   [/^\/ai-models$/, 'ai_models.overview'],
   [/^\/ai-models\/providers(?:\/[^/]+)?$/, 'ai_models.providers'],
   [/^\/ai-models\/models(?:\/new)?$/, 'ai_models.models'],
