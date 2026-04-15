@@ -83,6 +83,10 @@ export interface TaskNodeExecution {
   nodeId: string;
   nodeType: string;
   status: NodeExecutionStatus;
+  hasInputData?: boolean;
+  hasOutputData?: boolean;
+  hasErrorStack?: boolean;
+  hasResourceUsage?: boolean;
   inputData?: Record<string, any>;
   outputData?: Record<string, any>;
   errorMessage?: string;
@@ -127,6 +131,10 @@ export interface TaskNodeExecutionListResponse {
   total: number;
 }
 
+export interface TaskNodeExecutionDetailResponse {
+  execution: TaskNodeExecution;
+}
+
 /**
  * 任务日志列表响应
  */
@@ -162,4 +170,3 @@ export interface GetTaskLogsParams {
   page?: number;
   limit?: number;
 }
-

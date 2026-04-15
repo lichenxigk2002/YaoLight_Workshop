@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { App, Card, Empty, Statistic, Table, Tag, Typography } from 'antd';
+import { App, Card, Empty, Spin, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useOutletContext } from 'react-router-dom';
-import { getAdminTaskNodeExecutions } from '@/api/tasks';
+import { getAdminTaskNodeExecutionDetail, getAdminTaskNodeExecutions } from '@/api/tasks';
 import CodeViewer from '@/components/CodeViewer';
 import { useI18n } from '@/i18n';
 import type { AdminTaskNodeExecution } from '@/types/tasks';
@@ -147,6 +147,9 @@ export default function TaskNodesPage() {
   const { detail } = useOutletContext<TaskDetailOutletContext>();
   const [executions, setExecutions] = useState<AdminTaskNodeExecution[]>([]);
   const [loading, setLoading] = useState(false);
+  const [executionDetails, setExecutionDetails] = useState<Record<number, AdminTaskNodeExecution>>({});
+  const [expandedRowKeys, setExpandedRowKeys] = useState<Array<string | number>>([]);
+  const [detailLoadingIds, setDetailLoadingIds] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     setLoading(true);
@@ -160,6 +163,25 @@ export default function TaskNodesPage() {
 
   const timelineSummary = buildConcurrentTimeline(executions);
   const timelineRows = timelineSummary.timeline;
+
+  const loadExecutionDetail = async (execution: AdminTaskNodeExecution) => {
+    if (executionDetails[execution.id] || detailLoadingIds[execution.id]) {
+      return;
+    }
+    setDetailLoadingIds((current) => ({ ...current, [execution.id]: true }));
+    try {
+      const payload = await getAdminTaskNodeExecutionDetail(detail.task.id, execution.id);
+      setExecutionDetails((current) => ({ ...current, [execution.id]: payload.execution }));
+    } catch (error: unknown) {
+      message.error(error instanceof Error ? error.message : '加载节点执行详情失败');
+    } finally {
+      setDetailLoadingIds((current) => {
+        const next = { ...current };
+        delete next[execution.id];
+        return next;
+      });
+    }
+  };
 
   const columns: ColumnsType<TimelineNodeExecution> = [
     { title: '节点 ID', dataIndex: 'nodeId', width: 180 },
@@ -308,16 +330,37 @@ export default function TaskNodesPage() {
           columns={columns}
           scroll={{ x: 1420 }}
           expandable={{
-            expandedRowRender: (record) => (
+            expandedRowKeys,
+            onExpand: (expanded, record) => {
+              setExpandedRowKeys((current) =>
+                expanded ? [...current, record.id] : current.filter((key) => key !== record.id),
+              );
+              if (expanded) {
+                void loadExecutionDetail(record);
+              }
+            },
+            expandedRowRender: (record) => {
+              const detailedRecord = executionDetails[record.id] || record;
+              const isLoadingDetail = !!detailLoadingIds[record.id];
+              return (
               <div className={styles.analysisGrid}>
                 <Card size="small" title="输入数据">
-                  <CodeViewer value={record.inputData?.Data ?? record.inputData ?? null} maxHeight={320} />
+                  {isLoadingDetail && !detailedRecord.inputData ? (
+                    <Spin />
+                  ) : (
+                    <CodeViewer value={detailedRecord.inputData?.Data ?? detailedRecord.inputData ?? null} maxHeight={320} />
+                  )}
                 </Card>
                 <Card size="small" title="输出数据">
-                  <CodeViewer value={record.outputData?.Data ?? record.outputData ?? null} maxHeight={320} />
+                  {isLoadingDetail && !detailedRecord.outputData ? (
+                    <Spin />
+                  ) : (
+                    <CodeViewer value={detailedRecord.outputData?.Data ?? detailedRecord.outputData ?? null} maxHeight={320} />
+                  )}
                 </Card>
               </div>
-            ),
+            );
+            },
           }}
           pagination={false}
         />

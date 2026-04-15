@@ -11,7 +11,7 @@ import (
 type TaskWithMetadata struct {
 	models.Task
 	SequenceNumber int    `json:"sequenceNumber"` // 工作流内序号
-	Provider       string `json:"provider"`      // AI供应商（如果有AI节点）
+	Provider       string `json:"provider"`       // AI供应商（如果有AI节点）
 	ModelName      string `json:"modelName"`      // AI模型名称（如果有AI节点）
 }
 
@@ -209,8 +209,30 @@ func (s *TaskService) GetTaskDetail(taskID uint) (*models.Task, error) {
 
 // TaskNodeExecutionListResponse 节点执行列表响应
 type TaskNodeExecutionListResponse struct {
-	Executions []models.TaskNodeExecution `json:"executions"`
+	Executions []TaskNodeExecutionSummary `json:"executions"`
 	Total      int                        `json:"total"`
+}
+
+type TaskNodeExecutionSummary struct {
+	ID               uint        `json:"id"`
+	TaskID           uint        `json:"taskId"`
+	NodeID           string      `json:"nodeId"`
+	NodeType         string      `json:"nodeType"`
+	Status           string      `json:"status"`
+	ErrorMessage     *string     `json:"errorMessage"`
+	ExecutionTime    *int        `json:"executionTime"`
+	RetryCount       int         `json:"retryCount"`
+	StartedAt        interface{} `json:"startedAt"`
+	CompletedAt      interface{} `json:"completedAt"`
+	CreatedAt        interface{} `json:"createdAt"`
+	HasInputData     bool        `json:"hasInputData"`
+	HasOutputData    bool        `json:"hasOutputData"`
+	HasErrorStack    bool        `json:"hasErrorStack"`
+	HasResourceUsage bool        `json:"hasResourceUsage"`
+}
+
+type TaskNodeExecutionDetailResponse struct {
+	Execution *models.TaskNodeExecution `json:"execution"`
 }
 
 // GetTaskNodeExecutions 获取任务的节点执行记录
@@ -220,9 +242,41 @@ func (s *TaskService) GetTaskNodeExecutions(taskID uint) (*TaskNodeExecutionList
 		return nil, fmt.Errorf("获取节点执行记录失败: %w", err)
 	}
 
+	summaries := make([]TaskNodeExecutionSummary, 0, len(executions))
+	for _, execution := range executions {
+		summaries = append(summaries, TaskNodeExecutionSummary{
+			ID:               execution.ID,
+			TaskID:           execution.TaskID,
+			NodeID:           execution.NodeID,
+			NodeType:         execution.NodeType,
+			Status:           execution.Status,
+			ErrorMessage:     execution.ErrorMessage,
+			ExecutionTime:    execution.ExecutionTime,
+			RetryCount:       execution.RetryCount,
+			StartedAt:        execution.StartedAt,
+			CompletedAt:      execution.CompletedAt,
+			CreatedAt:        execution.CreatedAt,
+			HasInputData:     execution.InputData != nil,
+			HasOutputData:    execution.OutputData != nil,
+			HasErrorStack:    execution.ErrorStack != nil && *execution.ErrorStack != "",
+			HasResourceUsage: execution.ResourceUsage != nil,
+		})
+	}
+
 	return &TaskNodeExecutionListResponse{
-		Executions: executions,
-		Total:      len(executions),
+		Executions: summaries,
+		Total:      len(summaries),
+	}, nil
+}
+
+func (s *TaskService) GetTaskNodeExecutionDetail(taskID uint, executionID uint) (*TaskNodeExecutionDetailResponse, error) {
+	execution, err := s.nodeExecutionRepo.GetByID(taskID, executionID)
+	if err != nil {
+		return nil, fmt.Errorf("获取节点执行详情失败: %w", err)
+	}
+
+	return &TaskNodeExecutionDetailResponse{
+		Execution: execution,
 	}, nil
 }
 
