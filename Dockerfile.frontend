@@ -4,18 +4,18 @@
 # ---------- 用户端 ----------
 FROM node:20-alpine AS user-builder
 WORKDIR /app
-COPY Low_code_Frontend/package.json Low_code_Frontend/package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
-COPY Low_code_Frontend .
+COPY frontend .
 ENV VITE_BASE_URL=/api
 RUN npm run build
 
 # ---------- 管理端（base /admin/） ----------
 FROM node:20-alpine AS admin-builder
 WORKDIR /app
-COPY Admin_Frontend/package.json Admin_Frontend/package-lock.json ./
+COPY admin-frontend/package.json admin-frontend/package-lock.json ./
 RUN npm ci
-COPY Admin_Frontend .
+COPY admin-frontend .
 RUN npm run build
 
 # ---------- 合并到 Nginx ----------

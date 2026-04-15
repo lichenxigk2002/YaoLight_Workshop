@@ -1,0 +1,629 @@
+package services
+
+import (
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+	"yaolight-workshop/backend/modules/workflow/services"
+)
+
+// CapabilitiesService 瑶光星能力说明服务
+// 负责聚合所有节点规格、I/O定义、配置规则等信息，供AI生成工作流时使用
+type CapabilitiesService struct{}
+
+var capabilitiesCache = struct {
+	sync.RWMutex
+	value     *WorkflowCapabilities
+	expiresAt time.Time
+}{}
+
+const capabilitiesCacheTTL = 15 * time.Second
+
+// NodeCapability 节点能力定义
+type NodeCapability struct {
+	Type        string                  `json:"type"`        // 节点类型: start, crawler, dataclean, ai, output, end等
+	Label       string                  `json:"label"`       // 节点显示名称
+	Description string                  `json:"description"` // 节点描述
+	Stability   string                  `json:"stability"`   // 稳定性: stable, experimental, stub
+	Inputs      []services.NodeVariable `json:"inputs"`      // 输入变量定义
+	Outputs     []services.NodeVariable `json:"outputs"`     // 输出变量定义
+	Config      map[string]interface{}  `json:"config"`      // 默认配置
+	ConfigRules ConfigRules             `json:"configRules"` // 配置规则
+	Examples    []NodeExample           `json:"examples"`    // 示例配置
+}
+
+// ConfigRules 配置规则
+type ConfigRules struct {
+	Required    []string               `json:"required"`    // 必填字段
+	Enums       map[string][]string    `json:"enums"`       // 枚举字段及可选值
+	AllowVars   []string               `json:"allowVars"`   // 允许使用模板变量的字段
+	Defaults    map[string]interface{} `json:"defaults"`    // 默认值
+	Constraints map[string]string      `json:"constraints"` // 约束说明
+}
+
+// NodeExample 节点配置示例
+type NodeExample struct {
+	Description string                 `json:"description"`
+	Config      map[string]interface{} `json:"config"`
+}
+
+// WorkflowCapabilities 工作流能力说明
+type WorkflowCapabilities struct {
+	Version        string           `json:"version"`        // 能力版本
+	WorkflowSchema WorkflowSchema   `json:"workflowSchema"` // 工作流格式定义
+	NodeTypes      []NodeCapability `json:"nodeTypes"`      // 节点类型列表
+	Template       Template         `json:"template"`       // 推荐模板
+	Rules          WorkflowRules    `json:"rules"`          // 工作流规则
+}
+
+// WorkflowSchema 工作流格式定义
+type WorkflowSchema struct {
+	Version    string                 `json:"version"`    // WorkflowExportData 版本
+	Required   []string               `json:"required"`   // 必填顶层字段
+	Fields     map[string]interface{} `json:"fields"`     // 字段说明
+	NodeFormat NodeFormat             `json:"nodeFormat"` // 节点格式
+	EdgeFormat EdgeFormat             `json:"edgeFormat"` // 边格式
+}
+
+// NodeFormat 节点格式定义
+type NodeFormat struct {
+	Required   []string               `json:"required"`   // 必填字段: id, type
+	Optional   []string               `json:"optional"`   // 可选字段: position, data
+	DataFormat map[string]interface{} `json:"dataFormat"` // data字段格式
+}
+
+// EdgeFormat 边格式定义
+type EdgeFormat struct {
+	Required []string `json:"required"` // 必填字段: source, target
+	Optional []string `json:"optional"` // 可选字段: id, sourceHandle, targetHandle
+}
+
+// Template 推荐模板
+type Template struct {
+	MinimalFlow []string `json:"minimalFlow"` // 最小可运行模板: ["start", "crawler", "dataclean", "ai", "output", "end"]
+	Description string   `json:"description"` // 模板说明
+}
+
+// WorkflowRules 工作流规则
+type WorkflowRules struct {
+	VariableSyntax  string   `json:"variableSyntax"`  // 变量引用语法: {{nodeId.variableName}}
+	MaxNodes        int      `json:"maxNodes"`        // 最大节点数
+	AvoidNodeTypes  []string `json:"avoidNodeTypes"`  // 第一阶段应避免的节点类型
+	ConnectionRules []string `json:"connectionRules"` // 连接规则说明
+}
+
+// NewCapabilitiesService 创建能力说明服务
+func NewCapabilitiesService() *CapabilitiesService {
+	return &CapabilitiesService{}
+}
+
+// GetCapabilities 获取完整的能力说明文档
+// 现在会自动从源代码提取配置，无需手动维护
+func (s *CapabilitiesService) GetCapabilities() (*WorkflowCapabilities, error) {
+	now := time.Now()
+	capabilitiesCache.RLock()
+	if capabilitiesCache.value != nil && now.Before(capabilitiesCache.expiresAt) {
+		cached, err := cloneWorkflowCapabilities(capabilitiesCache.value)
+		capabilitiesCache.RUnlock()
+		return cached, err
+	}
+	capabilitiesCache.RUnlock()
+	// 1. 构建节点能力列表（基础定义）
+	nodeTypes := s.buildNodeCapabilities()
+
+	// 2. **自动从源代码提取配置并更新**
+	// 这会扫描实际的节点执行代码，提取所有配置字段
+	capabilities := &WorkflowCapabilities{
+		NodeTypes: nodeTypes,
+	}
+	if err := UpdateCapabilitiesFromSource(capabilities); err != nil {
+		// 如果自动提取失败，记录警告但继续使用基础定义
+		fmt.Printf("警告: 自动提取配置失败，使用基础定义: %v\n", err)
+		// 不返回错误，继续使用基础定义
+	} else {
+		// 更新成功，使用更新后的节点类型
+		nodeTypes = capabilities.NodeTypes
+	}
+
+	// 3. 构建工作流格式定义
+	workflowSchema := WorkflowSchema{
+		Version:  "1.0.0",
+		Required: []string{"version", "exportedAt", "nodes", "edges"},
+		Fields: map[string]interface{}{
+			"version":      "工作流版本，必须为 '1.0.0'",
+			"exportedAt":   "ISO8601格式的时间戳",
+			"name":         "工作流名称（可选）",
+			"description":  "工作流描述（可选）",
+			"nodes":        "节点数组",
+			"edges":        "边数组",
+			"commentCards": "注释卡片数组（可选）",
+		},
+		NodeFormat: NodeFormat{
+			Required: []string{"id", "type"},
+			Optional: []string{"position", "data"},
+			DataFormat: map[string]interface{}{
+				"label":               "节点显示名称（建议）",
+				"type":                "节点类型（必须与顶层type一致）",
+				"config":              "节点配置对象",
+				"connectionDirection": "连接方向，建议使用 'vertical'",
+			},
+		},
+		EdgeFormat: EdgeFormat{
+			Required: []string{"source", "target"},
+			Optional: []string{"id", "sourceHandle", "targetHandle"},
+		},
+	}
+
+	// 4. 构建推荐模板
+	template := Template{
+		MinimalFlow: []string{"start", "crawler", "dataclean", "ai", "output", "end"},
+		Description: "最小可运行模板，适用于大多数场景：开始 → 爬虫 → 数据清洗 → AI处理 → 输出 → 结束",
+	}
+
+	// 5. 构建工作流规则
+	rules := WorkflowRules{
+		VariableSyntax: "{{nodeId.variableName}} 或 {{nodeId.variableName.field}}",
+		MaxNodes:       -1,         // -1 表示无限制，根据用户需求灵活决定
+		AvoidNodeTypes: []string{}, // 已支持 condition/transform/loop/merge 等节点
+		ConnectionRules: []string{
+			"start 节点只能作为入口，不能有入边",
+			"end 节点只能作为出口，不能有出边",
+			"condition 节点的出边需要使用 sourceHandle: 'true' 或 'false'",
+			"merge 节点的入边需要使用 targetHandle: 'input-0' 到 'input-4'，并与节点配置中的 inputCount 保持一致",
+		},
+	}
+
+	result := &WorkflowCapabilities{
+		Version:        "1.0.0",
+		WorkflowSchema: workflowSchema,
+		NodeTypes:      nodeTypes,
+		Template:       template,
+		Rules:          rules,
+	}
+
+	cloned, err := cloneWorkflowCapabilities(result)
+	if err != nil {
+		return nil, err
+	}
+	capabilitiesCache.Lock()
+	capabilitiesCache.value = cloned
+	capabilitiesCache.expiresAt = now.Add(capabilitiesCacheTTL)
+	capabilitiesCache.Unlock()
+
+	return result, nil
+}
+
+// buildNodeCapabilities 构建节点能力列表
+func (s *CapabilitiesService) buildNodeCapabilities() []NodeCapability {
+	// 获取节点I/O定义
+	ioDefs := s.getNodeIODefinitions()
+
+	capabilities := []NodeCapability{}
+
+	// 定义每个节点的详细能力
+	nodeSpecs := []struct {
+		Type        string
+		Label       string
+		Description string
+		Stability   string
+		Config      map[string]interface{}
+		ConfigRules ConfigRules
+	}{
+		{
+			Type:        "condition",
+			Label:       "条件判断节点",
+			Description: "根据输入数据字段进行条件判断，用于分支控制",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"field":     "data.status",
+				"operator":  "==",
+				"value":     "ok",
+				"missingAs": "false",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"field", "operator"},
+				Enums: map[string][]string{
+					"operator":  {"==", "!=", ">", "<", ">=", "<=", "contains", "startsWith", "endsWith", "regex", "in", "notIn", "empty", "notEmpty"},
+					"missingAs": {"false", "true", "error"},
+				},
+				AllowVars: []string{"fieldVariable", "valueVariable", "value"},
+				Defaults: map[string]interface{}{
+					"operator":  "==",
+					"missingAs": "false",
+				},
+			},
+		},
+		{
+			Type:        "transform",
+			Label:       "数据转换节点",
+			Description: "对输入数据进行映射/过滤/排序/分组等转换",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"transformType": "map",
+				"script":        "{\"title\":\"data.title\",\"url\":\"data.url\"}",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"transformType"},
+				Enums: map[string][]string{
+					"transformType": {"map", "filter", "sort", "group"},
+				},
+				AllowVars: []string{"script"},
+				Defaults: map[string]interface{}{
+					"transformType": "map",
+					"script":        "",
+				},
+			},
+		},
+		{
+			Type:        "loop",
+			Label:       "循环节点",
+			Description: "遍历数组输入并输出 results 数组（当前版本支持 foreach）",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"loopType": "foreach",
+				"items":    "data.items",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"loopType"},
+				Enums: map[string][]string{
+					"loopType": {"foreach"},
+				},
+				AllowVars: []string{"items"},
+				Defaults: map[string]interface{}{
+					"loopType": "foreach",
+				},
+			},
+		},
+		{
+			Type:        "merge",
+			Label:       "合并节点",
+			Description: "将多个上游输入按 targetHandle 顺序合并为一个结果",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"mergeType":  "concat",
+				"inputCount": 3,
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"mergeType"},
+				Enums: map[string][]string{
+					"mergeType":  {"concat", "union", "intersect"},
+					"inputCount": {"1", "2", "3", "4", "5"},
+				},
+				AllowVars: []string{},
+				Defaults: map[string]interface{}{
+					"mergeType":  "concat",
+					"inputCount": 3,
+				},
+				Constraints: map[string]string{
+					"inputCount": "取值范围 1-5；merge 节点只会处理 0 到 inputCount-1 对应的 targetHandle",
+				},
+			},
+		},
+		{
+			Type:        "delay",
+			Label:       "延迟节点",
+			Description: "延迟指定秒数后继续执行（透传上游数据）",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"seconds": 1,
+			},
+			ConfigRules: ConfigRules{
+				Required:  []string{"seconds"},
+				AllowVars: []string{},
+				Defaults: map[string]interface{}{
+					"seconds": 1,
+				},
+			},
+		},
+		{
+			Type:        "start",
+			Label:       "开始节点",
+			Description: "工作流的起始节点，定义初始输入数据",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"trigger":       "manual",
+				"inputDataType": "json",
+				"inputData":     "{\"url\": \"https://example.com\"}",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"trigger", "inputDataType"},
+				Enums: map[string][]string{
+					"trigger":       {"manual", "schedule", "webhook"},
+					"inputDataType": {"json", "text", "form"},
+				},
+				AllowVars: []string{},
+			},
+		},
+		{
+			Type:        "crawler",
+			Label:       "爬虫节点",
+			Description: "抓取网页内容，支持URL变量引用",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"urlVariable": "{{node-1.data.url}}",
+				"method":      "GET",
+				"extractMode": "smart",
+				"extractType": "text",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"urlVariable"}, // url 或 urlVariable 至少一个
+				Enums: map[string][]string{
+					"method":      {"GET", "POST"},
+					"extractMode": {"smart", "regex", "custom"},
+					"extractType": {"text", "html", "link", "image", "attr"},
+				},
+				AllowVars: []string{"urlVariable", "headers", "body"},
+				Defaults: map[string]interface{}{
+					"method":      "GET",
+					"extractMode": "smart",
+					"extractType": "text",
+				},
+			},
+		},
+		{
+			Type:        "dataclean",
+			Label:       "数据清洗节点",
+			Description: "清洗文本数据，去除HTML、空格等",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"dataVariable": "{{node-2.text}}",
+				"cleanType":    "text",
+				"trim":         true,
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"dataVariable"},
+				Enums: map[string][]string{
+					"cleanType": {"html", "text", "email", "url", "phone", "number", "date", "custom"},
+				},
+				AllowVars: []string{"dataVariable"},
+				Defaults: map[string]interface{}{
+					"cleanType":  "text",
+					"trim":       true,
+					"removeHTML": true,
+				},
+			},
+		},
+		{
+			Type:        "ai",
+			Label:       "AI处理节点",
+			Description: "使用AI模型处理文本内容",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"modelMode":       "system",
+				"provider":        "deepseek",
+				"modelName":       "deepseek-chat",
+				"contentVariable": "{{node-3.cleaned}}",
+				"prompt":          "请总结以下内容",
+				"temperature":     0.2,
+				"maxTokens":       2000,
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"prompt", "contentVariable"},
+				Enums: map[string][]string{
+					"modelMode": {"system", "custom"},
+					"provider":  {"deepseek", "qwen", "openai", "doubao", "spark", "grok"},
+				},
+				AllowVars: []string{"contentVariable", "prompt"},
+				Defaults: map[string]interface{}{
+					"modelMode":   "system",
+					"provider":    "deepseek",
+					"modelName":   "deepseek-chat",
+					"temperature": 0.2,
+					"maxTokens":   2000,
+				},
+			},
+		},
+		{
+			Type:        "output",
+			Label:       "输出节点",
+			Description: "导出处理结果为文件/图表，并生成 artifacts（制品）供站内下载/预览或对外导出 API 获取",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"format":      "json",
+				"destination": "file",
+				"fileName":    "",
+				// chartType/chartTitle 仅当 format=chart 时使用（前端可配置）
+				"chartType":  "scatter",
+				"chartTitle": "",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{"format"},
+				Enums: map[string][]string{
+					// 与后端 export.DefaultFactory 对齐
+					"format": {
+						"json",
+						"markdown", "md",
+						"text", "txt",
+						"pdf",
+						"docx", "word",
+						"mermaid",
+						"timeline",
+						"sankey",
+						"network",
+						"chart", "chart_svg",
+					},
+					// 当前版本 destination=api 会要求存在 taskId（用于 /tasks/:id/artifacts）
+					"destination": {"file", "api"},
+					// chartType 仅当 format=chart 时生效
+					"chartType": {"line", "bar", "scatter", "histogram", "heatmap", "pie"},
+				},
+				AllowVars: []string{"fileName"},
+				Defaults: map[string]interface{}{
+					"format":      "json",
+					"destination": "file",
+					"chartType":   "scatter",
+				},
+				Constraints: map[string]string{
+					"destination=api": "需要 TaskID；执行完成后可通过 GET /api/tasks/:id/artifacts 查询并下载 /api/artifacts/:id/download",
+					"format=chart":    "上游建议输出严格 JSON；若仅输出 data，后端会按 chartType 自动包装为 {type,title,data}",
+				},
+			},
+		},
+		{
+			Type:        "end",
+			Label:       "结束节点",
+			Description: "工作流的结束节点",
+			Stability:   "stable",
+			Config: map[string]interface{}{
+				"action": "none",
+			},
+			ConfigRules: ConfigRules{
+				Required: []string{},
+				Enums: map[string][]string{
+					"action": {"none", "notify", "callback"},
+				},
+				AllowVars: []string{},
+				Defaults: map[string]interface{}{
+					"action": "none",
+				},
+			},
+		},
+	}
+
+	// 构建完整的节点能力
+	for _, spec := range nodeSpecs {
+		ioDef, exists := ioDefs[spec.Type]
+		if !exists {
+			continue
+		}
+
+		capability := NodeCapability{
+			Type:        spec.Type,
+			Label:       spec.Label,
+			Description: spec.Description,
+			Stability:   spec.Stability,
+			Inputs:      ioDef.Inputs,
+			Outputs:     ioDef.Outputs,
+			Config:      spec.Config,
+			ConfigRules: spec.ConfigRules,
+			Examples:    s.buildNodeExamples(spec.Type),
+		}
+		capabilities = append(capabilities, capability)
+	}
+
+	return capabilities
+}
+
+// buildNodeExamples 构建节点配置示例
+func (s *CapabilitiesService) buildNodeExamples(nodeType string) []NodeExample {
+	examples := []NodeExample{}
+
+	switch nodeType {
+	case "condition":
+		examples = append(examples, NodeExample{
+			Description: "判断字段是否包含关键字，用于分支控制",
+			Config: map[string]interface{}{
+				"field":    "text",
+				"operator": "contains",
+				"value":    "招聘",
+			},
+		})
+	case "transform":
+		examples = append(examples, NodeExample{
+			Description: "映射：从输入中提取并重命名字段",
+			Config: map[string]interface{}{
+				"transformType": "map",
+				"script":        "{\"title\":\"data.title\",\"url\":\"data.url\"}",
+			},
+		})
+	case "loop":
+		examples = append(examples, NodeExample{
+			Description: "遍历数组：输出 results 数组供下游使用",
+			Config: map[string]interface{}{
+				"loopType": "foreach",
+				"items":    "data.items",
+			},
+		})
+	case "merge":
+		examples = append(examples, NodeExample{
+			Description: "合并多个输入：concat/union/intersect",
+			Config: map[string]interface{}{
+				"mergeType":  "concat",
+				"inputCount": 5,
+			},
+		})
+	case "crawler":
+		examples = append(examples, NodeExample{
+			Description: "使用URL变量引用start节点的数据",
+			Config: map[string]interface{}{
+				"urlVariable": "{{node-1.data.url}}",
+				"method":      "GET",
+				"extractMode": "smart",
+				"extractType": "text",
+			},
+		})
+	case "dataclean":
+		examples = append(examples, NodeExample{
+			Description: "清洗crawler节点输出的文本",
+			Config: map[string]interface{}{
+				"dataVariable": "{{node-2.text}}",
+				"cleanType":    "text",
+				"trim":         true,
+			},
+		})
+	case "ai":
+		examples = append(examples, NodeExample{
+			Description: "使用dataclean的清洗结果进行AI处理",
+			Config: map[string]interface{}{
+				"contentVariable": "{{node-3.cleaned}}",
+				"prompt":          "请总结以下内容",
+				"provider":        "deepseek",
+				"modelName":       "deepseek-chat",
+				"temperature":     0.2,
+			},
+		})
+	case "output":
+		examples = append(examples, NodeExample{
+			Description: "将 AI 输出导出为 SVG 柱状图（artifact）",
+			Config: map[string]interface{}{
+				"format":      "chart",
+				"destination": "file",
+				"chartType":   "bar",
+				"chartTitle":  "示例图表",
+				"fileName":    "report.svg",
+			},
+		})
+	}
+
+	return examples
+}
+
+// getNodeIODefinitions 获取节点I/O定义（内部使用）
+func (s *CapabilitiesService) getNodeIODefinitions() map[string]services.NodeIODefinition {
+	return services.GetNodeIODefinitions()
+}
+
+// BuildPromptContext 构建用于AI Prompt的上下文
+func (s *CapabilitiesService) BuildPromptContext() (string, error) {
+	capabilities, err := s.GetCapabilities()
+	if err != nil {
+		return "", err
+	}
+
+	// 转换为JSON格式，便于AI理解
+	jsonData, err := json.MarshalIndent(capabilities, "", "  ")
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonData), nil
+}
+
+func cloneWorkflowCapabilities(capabilities *WorkflowCapabilities) (*WorkflowCapabilities, error) {
+	if capabilities == nil {
+		return nil, nil
+	}
+
+	data, err := json.Marshal(capabilities)
+	if err != nil {
+		return nil, err
+	}
+
+	var cloned WorkflowCapabilities
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		return nil, err
+	}
+
+	return &cloned, nil
+}

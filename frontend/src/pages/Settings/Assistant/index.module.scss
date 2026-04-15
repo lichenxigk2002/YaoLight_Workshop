@@ -1,0 +1,75 @@
+@use '../theme' as settingsTheme;
+
+.container {
+  max-width: 860px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  @include settingsTheme.panel(24px);
+  @include settingsTheme.hover-card();
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+
+  :global(.ant-segmented) {
+    padding: 4px;
+    border-radius: 999px;
+    background: var(--settings-pill-bg);
+  }
+
+  :global(.ant-segmented-item) {
+    min-height: 38px;
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  :global(.ant-segmented-item-selected) {
+    background: var(--settings-pill-bg-strong) !important;
+    color: var(--text-primary) !important;
+    box-shadow: none !important;
+  }
+}
+
+.label {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.desc {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.resetButton {
+  height: 40px !important;
+  padding: 0 18px !important;
+  border-radius: 999px !important;
+  border-color: var(--settings-danger-bg) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--settings-danger-text) !important;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

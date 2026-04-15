@@ -1,0 +1,283 @@
+@use '../theme' as settingsTheme;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.heroSection,
+.surfaceCard,
+.listSection {
+  @include settingsTheme.panel();
+  position: relative;
+  overflow: hidden;
+  padding: 16px 18px;
+}
+
+.heroHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.summaryGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: min(360px, 100%);
+}
+
+.summaryChip {
+  @include settingsTheme.subcard();
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 60px;
+  padding: 12px 14px;
+}
+
+.summaryIcon {
+  color: var(--text-primary);
+  font-size: 18px;
+}
+
+.summaryLabel {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.summaryValue {
+  margin-top: 4px;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.sectionIntro,
+.listHeader {
+  margin-bottom: 10px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--settings-card-border);
+  background: var(--settings-pill-bg);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionTitle {
+  margin: 8px 0 0;
+  color: var(--text-primary);
+  font-size: clamp(18px, 2.2vw, 22px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.sectionDesc {
+  max-width: 520px;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.primaryButton,
+.secondaryButton {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+  font-weight: 600;
+}
+
+.primaryButton {
+  border-color: var(--primary) !important;
+  background: var(--primary) !important;
+  color: var(--settings-primary-contrast) !important;
+
+  &:hover,
+  &:focus {
+    border-color: var(--primary-hover) !important;
+    background: var(--primary-hover) !important;
+    color: var(--settings-primary-contrast) !important;
+  }
+}
+
+.secondaryButton {
+  border-color: var(--settings-card-border) !important;
+  background: var(--settings-pill-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+.inviteUrlBox {
+  @include settingsTheme.subcard();
+  margin-top: 12px;
+  padding: 12px 14px;
+}
+
+.inviteUrlLabel {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.inviteUrl {
+  display: block;
+  margin-top: 6px;
+  width: 100%;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.invitePlaceholder {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.statCard {
+  @include settingsTheme.subcard();
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.statLabel {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.statValue {
+  margin-top: 6px;
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.tableShell {
+  overflow: hidden;
+  @include settingsTheme.table-shell();
+}
+
+.page {
+  :global(.ant-table) {
+    background: transparent !important;
+  }
+
+  :global(.ant-table-wrapper),
+  :global(.ant-spin-nested-loading),
+  :global(.ant-table-container) {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  :global(.ant-table-content) {
+    overflow-x: auto !important;
+  }
+
+  :global(.ant-table-thead > tr > th) {
+    background: var(--settings-table-head-bg) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--settings-card-border) !important;
+    padding: 11px 12px !important;
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    background: var(--settings-table-row-bg) !important;
+    border-bottom-color: var(--settings-card-border) !important;
+    padding: 11px 12px !important;
+    color: var(--settings-row-ink) !important;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :global(.ant-table-tbody > tr:hover > td) {
+    background: var(--settings-table-row-hover) !important;
+  }
+
+  :global(.ant-pagination) {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 10px 12px 12px;
+    row-gap: 8px;
+  }
+
+  :global(.ant-pagination .ant-pagination-item),
+  :global(.ant-pagination .ant-pagination-prev),
+  :global(.ant-pagination .ant-pagination-next),
+  :global(.ant-pagination .ant-select-selector) {
+    border-color: var(--settings-card-border) !important;
+    background: var(--settings-pill-bg) !important;
+    box-shadow: none !important;
+    color: var(--settings-row-ink) !important;
+  }
+
+  :global(.ant-pagination .ant-pagination-item-active) {
+    border-color: var(--settings-card-border-strong) !important;
+    background: var(--settings-pill-bg-strong) !important;
+  }
+
+  :global(.ant-pagination .ant-pagination-item-active a) {
+    color: var(--text-primary) !important;
+  }
+
+  :global(.ant-empty-description) {
+    color: var(--text-secondary) !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .summaryGroup,
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .heroSection,
+  .surfaceCard,
+  .listSection {
+    padding: 14px;
+  }
+
+  .page {
+    :global(.ant-pagination) {
+      justify-content: flex-start;
+    }
+  }
+}

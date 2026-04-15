@@ -1,0 +1,83 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metricCard,
+.card,
+.infoCard {
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.toolbarTitle {
+  margin-bottom: 4px !important;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.muted {
+  margin-bottom: 0 !important;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metaHint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.codeArea {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+@media (max-width: 1200px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar {
+    flex-direction: column;
+  }
+
+  .filterBar {
+    justify-content: flex-start;
+  }
+}
