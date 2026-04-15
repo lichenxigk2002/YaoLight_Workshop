@@ -262,6 +262,7 @@ func main() {
 			auth.GET("/workflows/:id/api/invocations", workflowAPIController.ListInvocations)
 			auth.POST("/workflows/execute", workflowController.ExecuteWorkflow)
 			auth.POST("/workflows/execute/stream", workflowController.ExecuteWorkflowStream)
+			auth.GET("/crawler-rules/options", crawlerControllers.NewAdminCrawlerRuleController().ListActiveRuleOptions)
 
 			// 任务相关路由
 			taskController := taskControllers.NewTaskController()
