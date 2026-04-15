@@ -782,6 +782,8 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
   const { t } = useTranslation();
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
   const [nodeLabels, setNodeLabels] = useState<Record<string, string>>({});
+  const [executionDetails, setExecutionDetails] = useState<Record<number, TaskNodeExecution>>({});
+  const [loadingExecutionIds, setLoadingExecutionIds] = useState<Record<number, boolean>>({});
 
   // 获取工作流节点信息，建立 nodeId -> label 的映射
   useEffect(() => {
@@ -812,18 +814,51 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
     fetchNodeLabels();
   }, [task?.workflowId, visible]);
 
+  useEffect(() => {
+    if (!visible) {
+      setExecutionDetails({});
+      setLoadingExecutionIds({});
+      setActiveKeys([]);
+    }
+  }, [visible]);
+
   if (!task) return null;
 
   const timelineSummary = buildExecutionTimeline(executions);
   const timelineExecutions = timelineSummary.executions;
 
+  const fetchExecutionDetail = async (execution: TaskNodeExecution) => {
+    if (!task || executionDetails[execution.id] || loadingExecutionIds[execution.id]) {
+      return;
+    }
+
+    setLoadingExecutionIds((current) => ({ ...current, [execution.id]: true }));
+    try {
+      const response = await taskApi.getTaskNodeExecutionDetail(task.id, execution.id);
+      setExecutionDetails((current) => ({
+        ...current,
+        [execution.id]: response.execution,
+      }));
+    } catch (error) {
+      console.error('获取节点执行详情失败:', error);
+    } finally {
+      setLoadingExecutionIds((current) => {
+        const next = { ...current };
+        delete next[execution.id];
+        return next;
+      });
+    }
+  };
+
   // 构建折叠面板项
   const collapseItems = timelineExecutions.map((execution) => {
+    const detailedExecution = executionDetails[execution.id] || execution;
+    const isExecutionLoading = !!loadingExecutionIds[execution.id];
     const nodeLabel = nodeLabels[execution.nodeId] || execution.nodeId;
     const showNodeName = nodeLabels[execution.nodeId] && nodeLabels[execution.nodeId] !== execution.nodeId;
 
     return {
-      key: execution.nodeId,
+      key: String(execution.id),
       label: (
         <div className={styles.collapseHeader}>
           <Space>
@@ -886,27 +921,36 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
 
           {/* 输入输出数据 */}
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            {execution.inputData && (
+            {isExecutionLoading && !detailedExecution.inputData && !detailedExecution.outputData && (
+              <Card size="small" bordered={false}>
+                <Space>
+                  <ClockCircleOutlined spin />
+                  <Text type="secondary">正在加载节点详情...</Text>
+                </Space>
+              </Card>
+            )}
+
+            {detailedExecution.inputData && (
               <DataViewer
                 title={t('taskHistory.executionDetail.inputData')}
-                data={execution.inputData}
+                data={detailedExecution.inputData}
               />
             )}
 
-            {execution.outputData && (
+            {detailedExecution.outputData && (
               <DataViewer
                 title={t('taskHistory.executionDetail.outputData')}
-                data={execution.outputData}
+                data={detailedExecution.outputData}
                 filename={`${execution.nodeId}_output.json`}
                 nodeType={execution.nodeType}
                 taskId={task.id}
               />
             )}
 
-            {execution.resourceUsage && (
+            {detailedExecution.resourceUsage && (
               <DataViewer
                 title={t('taskHistory.executionDetail.resourceUsage')}
-                data={execution.resourceUsage}
+                data={detailedExecution.resourceUsage}
               />
             )}
           </Space>
@@ -1039,7 +1083,16 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
         ) : (
           <Collapse
             activeKey={activeKeys}
-            onChange={(keys) => setActiveKeys(keys as string[])}
+            onChange={(keys) => {
+              const nextKeys = keys as string[];
+              setActiveKeys(nextKeys);
+              nextKeys.forEach((key) => {
+                const match = timelineExecutions.find((item) => String(item.id) === key);
+                if (match) {
+                  void fetchExecutionDetail(match);
+                }
+              });
+            }}
             items={collapseItems}
             expandIcon={({ isActive }) => <RightOutlined rotate={isActive ? 90 : 0} />}
             className={styles.nodeCollapse}

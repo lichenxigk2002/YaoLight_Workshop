@@ -125,3 +125,11 @@ func (s *AdminTaskService) GetTaskNodeExecutions(taskID uint) (*TaskNodeExecutio
 	}
 	return result, nil
 }
+
+func (s *AdminTaskService) GetTaskNodeExecutionDetail(taskID uint, executionID uint) (*TaskNodeExecutionDetailResponse, error) {
+	result, err := s.taskService.GetTaskNodeExecutionDetail(taskID, executionID)
+	if err != nil {
+		return nil, fmt.Errorf("get admin task node execution detail failed: %w", err)
+	}
+	return result, nil
+}

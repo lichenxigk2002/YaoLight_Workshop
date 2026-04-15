@@ -28,7 +28,7 @@ class HttpClient {
     // 创建 axios 实例
     this.instance = axios.create({
       baseURL: this.baseURL,
-      timeout: 10000, // 10秒超时
+      timeout: 30000, // 30秒超时
       timeoutErrorMessage: '请求超时，请刷新页面重新尝试',
       withCredentials: true, // 允许携带cookie
       headers: {

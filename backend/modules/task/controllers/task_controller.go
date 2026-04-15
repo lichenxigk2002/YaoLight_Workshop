@@ -129,6 +129,35 @@ func (c *TaskController) GetTaskNodeExecutions(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result)
 }
 
+// GetTaskNodeExecutionDetail 获取任务单条节点执行详情
+func (c *TaskController) GetTaskNodeExecutionDetail(ctx *gin.Context) {
+	taskID, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的任务ID",
+		})
+		return
+	}
+
+	executionID, err := strconv.ParseUint(ctx.Param("executionId"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的执行记录ID",
+		})
+		return
+	}
+
+	result, err := c.taskService.GetTaskNodeExecutionDetail(uint(taskID), uint(executionID))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
+}
+
 // GetTaskLogs 获取任务日志
 // @Summary 获取任务日志
 // @Description 获取指定任务的日志记录，支持按日志级别过滤

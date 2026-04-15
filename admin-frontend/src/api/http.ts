@@ -3,7 +3,7 @@ import { getAdminSession } from '@/utils/storage';
 
 const http = axios.create({
   baseURL: '/api',
-  timeout: 15000,
+  timeout: 30000,
 });
 
 http.interceptors.request.use((config) => {
@@ -15,4 +15,3 @@ http.interceptors.request.use((config) => {
 });
 
 export default http;
-

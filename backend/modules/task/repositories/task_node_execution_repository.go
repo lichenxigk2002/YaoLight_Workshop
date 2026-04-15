@@ -10,6 +10,9 @@ type TaskNodeExecutionRepository interface {
 	// GetByTaskID 获取任务的所有节点执行记录
 	GetByTaskID(taskID uint) ([]models.TaskNodeExecution, error)
 
+	// GetByID 获取任务下指定执行记录
+	GetByID(taskID uint, executionID uint) (*models.TaskNodeExecution, error)
+
 	// GetByTaskIDAndNodeID 获取特定节点的执行记录
 	GetByTaskIDAndNodeID(taskID uint, nodeID string) (*models.TaskNodeExecution, error)
 
@@ -43,6 +46,19 @@ func (r *taskNodeExecutionRepository) GetByTaskID(taskID uint) ([]models.TaskNod
 	}
 
 	return executions, nil
+}
+
+// GetByID 获取任务下指定执行记录
+func (r *taskNodeExecutionRepository) GetByID(taskID uint, executionID uint) (*models.TaskNodeExecution, error) {
+	var execution models.TaskNodeExecution
+
+	err := r.db.Where("task_id = ? AND id = ?", taskID, executionID).
+		First(&execution).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &execution, nil
 }
 
 // GetByTaskIDAndNodeID 获取特定节点的执行记录
