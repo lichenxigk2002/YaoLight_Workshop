@@ -37,6 +37,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ./backend/.env
     environment:
@@ -47,6 +49,12 @@ services:
       SERVER_PORT: 8080
       SERVER_MODE: debug
       UPLOAD_PATH: /app/uploads
+      AI_HTTP_PROXY_URL: ${AI_HTTP_PROXY_URL:-}
+      OPENROUTER_PROXY_URL: ${OPENROUTER_PROXY_URL:-}
+      GPT_PROXY_URL: ${GPT_PROXY_URL:-}
+      CLAUDE_PROXY_URL: ${CLAUDE_PROXY_URL:-}
+      GEMINI_PROXY_URL: ${GEMINI_PROXY_URL:-}
+      GROK_PROXY_URL: ${GROK_PROXY_URL:-}
     volumes:
       - ./backend:/app
       - backend_go_pkg:/go/pkg
