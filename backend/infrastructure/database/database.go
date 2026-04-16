@@ -666,6 +666,12 @@ func SeedManagedAIModels() error {
 	}
 
 	for _, seed := range seeds {
+		if _, err := managedRepo.FindByProviderAndModel(seed.provider, seed.modelName); err == nil {
+			continue
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
 		model := &aiModels.ManagedAIModel{
 			Provider:    seed.provider,
 			ModelName:   seed.modelName,
@@ -674,7 +680,7 @@ func SeedManagedAIModels() error {
 			Status:      "active",
 			IsActive:    true,
 		}
-		if err := managedRepo.CreateOrUpdate(model); err != nil {
+		if err := managedRepo.Create(model); err != nil {
 			return err
 		}
 	}
