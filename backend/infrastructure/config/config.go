@@ -51,6 +51,8 @@ var (
 	ClaudeProxyURL          string // Claude provider 专用代理
 	GeminiProxyURL          string // Gemini provider 专用代理
 	GrokProxyURL            string // Grok provider 专用代理
+	GeminiBaseURL           string // Gemini provider 默认 Base URL
+	OpenAIBaseURL           string // GPT/OpenAI provider 默认 Base URL
 
 	// 文件上传配置
 	UploadPath string // 文件上传路径
@@ -179,6 +181,8 @@ func LoadConfig() error {
 	ClaudeProxyURL = strings.TrimSpace(getEnv("CLAUDE_PROXY_URL", ""))
 	GeminiProxyURL = strings.TrimSpace(getEnv("GEMINI_PROXY_URL", ""))
 	GrokProxyURL = strings.TrimSpace(getEnv("GROK_PROXY_URL", ""))
+	GeminiBaseURL = strings.TrimSpace(getEnv("GEMINI_BASE_URL", ""))
+	OpenAIBaseURL = strings.TrimSpace(getEnv("OPENAI_BASE_URL", ""))
 
 	// 文件上传配置
 	UploadPath = getEnv("UPLOAD_PATH", "./uploads")

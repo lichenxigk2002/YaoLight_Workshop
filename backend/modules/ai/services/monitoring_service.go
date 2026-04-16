@@ -584,7 +584,19 @@ func resolveSystemProviderCredentials(providerName string) (string, string) {
 		return config.SparkAPIKey, "https://spark-api-open.xf-yun.com/v2"
 	case "hunyuan":
 		return config.HunyuanAPIKey, "https://api.hunyuan.cloud.tencent.com/v1"
-	case "claude", "gemini", "gpt", "grok":
+	case "gemini":
+		baseURL := config.GeminiBaseURL
+		if baseURL == "" {
+			baseURL = "https://openrouter.ai/api/v1"
+		}
+		return config.GeminiAPIKey, baseURL
+	case "gpt":
+		baseURL := config.OpenAIBaseURL
+		if baseURL == "" {
+			baseURL = "https://openrouter.ai/api/v1"
+		}
+		return config.GeminiAPIKey, baseURL
+	case "claude", "grok":
 		return config.GeminiAPIKey, "https://openrouter.ai/api/v1"
 	case "openai":
 		return "", "https://api.openai.com/v1"
