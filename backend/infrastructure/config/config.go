@@ -45,6 +45,12 @@ var (
 	SparkAPIKey             string // 讯飞星火预设API Key
 	HunyuanAPIKey           string // 腾讯混元预设API Key
 	AIRequestTimeoutSeconds int    // AI 请求超时时间（秒）
+	AIHTTPProxyURL          string // AI 请求通用代理
+	OpenRouterProxyURL      string // OpenRouter 通用代理
+	GPTProxyURL             string // GPT provider 专用代理
+	ClaudeProxyURL          string // Claude provider 专用代理
+	GeminiProxyURL          string // Gemini provider 专用代理
+	GrokProxyURL            string // Grok provider 专用代理
 
 	// 文件上传配置
 	UploadPath string // 文件上传路径
@@ -167,6 +173,12 @@ func LoadConfig() error {
 	SparkAPIKey = getEnv("SPARK_API_PASSWORD", "")
 	HunyuanAPIKey = getEnv("HUNYUAN_API_KEY", "")
 	AIRequestTimeoutSeconds = getEnvInt("AI_REQUEST_TIMEOUT_SECONDS", 90)
+	AIHTTPProxyURL = strings.TrimSpace(getEnv("AI_HTTP_PROXY_URL", ""))
+	OpenRouterProxyURL = strings.TrimSpace(getEnv("OPENROUTER_PROXY_URL", ""))
+	GPTProxyURL = strings.TrimSpace(getEnv("GPT_PROXY_URL", ""))
+	ClaudeProxyURL = strings.TrimSpace(getEnv("CLAUDE_PROXY_URL", ""))
+	GeminiProxyURL = strings.TrimSpace(getEnv("GEMINI_PROXY_URL", ""))
+	GrokProxyURL = strings.TrimSpace(getEnv("GROK_PROXY_URL", ""))
 
 	// 文件上传配置
 	UploadPath = getEnv("UPLOAD_PATH", "./uploads")

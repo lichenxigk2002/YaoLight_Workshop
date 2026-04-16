@@ -19,7 +19,7 @@ type GPTProvider struct {
 
 func NewGPTProvider() providers.AIProvider {
 	return &GPTProvider{
-		client: providers.NewHTTPClient(),
+		client: providers.NewHTTPClientForProvider("gpt"),
 	}
 }
 
