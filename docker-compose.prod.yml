@@ -34,6 +34,8 @@ services:
   migrate:
     image: ghcr.io/${GITHUB_OWNER}/yaolight-backend:${IMAGE_TAG:-latest}
     command: ["migrate"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
@@ -44,6 +46,12 @@ services:
       SERVER_MODE: ${SERVER_MODE:-release}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       UPLOAD_PATH: /app/uploads
+      AI_HTTP_PROXY_URL: ${AI_HTTP_PROXY_URL:-}
+      OPENROUTER_PROXY_URL: ${OPENROUTER_PROXY_URL:-}
+      GPT_PROXY_URL: ${GPT_PROXY_URL:-}
+      CLAUDE_PROXY_URL: ${CLAUDE_PROXY_URL:-}
+      GEMINI_PROXY_URL: ${GEMINI_PROXY_URL:-}
+      GROK_PROXY_URL: ${GROK_PROXY_URL:-}
     volumes:
       - backend_uploads:/app/uploads
     depends_on:
@@ -52,6 +60,8 @@ services:
 
   backend:
     image: ghcr.io/${GITHUB_OWNER}/yaolight-backend:${IMAGE_TAG:-latest}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       # 数据库（生产用 compose 内服务名）
       DB_HOST: postgres
@@ -93,6 +103,12 @@ services:
       ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
       HUNYUAN_API_KEY: ${HUNYUAN_API_KEY:-}
       SPARK_API_PASSWORD: ${SPARK_API_PASSWORD:-}
+      AI_HTTP_PROXY_URL: ${AI_HTTP_PROXY_URL:-}
+      OPENROUTER_PROXY_URL: ${OPENROUTER_PROXY_URL:-}
+      GPT_PROXY_URL: ${GPT_PROXY_URL:-}
+      CLAUDE_PROXY_URL: ${CLAUDE_PROXY_URL:-}
+      GEMINI_PROXY_URL: ${GEMINI_PROXY_URL:-}
+      GROK_PROXY_URL: ${GROK_PROXY_URL:-}
       # 支付宝
       ALIPAY_APP_ID: ${ALIPAY_APP_ID:-}
       ALIPAY_PID: ${ALIPAY_PID:-}
