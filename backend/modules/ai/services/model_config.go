@@ -233,7 +233,17 @@ func getDefaultBaseURL(provider string) string {
 		return "https://open.bigmodel.cn/api/paas/v4"
 	case "hunyuan":
 		return "https://api.hunyuan.cloud.tencent.com/v1"
-	case "claude", "gemini", "gpt", "grok":
+	case "gemini":
+		if config.GeminiBaseURL != "" {
+			return config.GeminiBaseURL
+		}
+		return "https://openrouter.ai/api/v1"
+	case "gpt":
+		if config.OpenAIBaseURL != "" {
+			return config.OpenAIBaseURL
+		}
+		return "https://openrouter.ai/api/v1"
+	case "claude", "grok":
 		return "https://openrouter.ai/api/v1"
 	default:
 		return ""
