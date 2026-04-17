@@ -395,7 +395,7 @@ func (s *AdminAIService) ImportModels(req *AdminModelImportRequest) (*AdminModel
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		for _, item := range req.Items {
 			var model aiModels.ManagedAIModel
-			findErr := tx.Where("provider = ? AND model_name = ?", item.Provider, item.ModelName).First(&model).Error
+			findErr := tx.Unscoped().Where("provider = ? AND model_name = ?", item.Provider, item.ModelName).First(&model).Error
 			if errors.Is(findErr, gorm.ErrRecordNotFound) {
 				model = aiModels.ManagedAIModel{
 					Provider:    item.Provider,
@@ -413,7 +413,8 @@ func (s *AdminAIService) ImportModels(req *AdminModelImportRequest) (*AdminModel
 			} else if findErr != nil {
 				return findErr
 			} else {
-				if strategy == "skip" {
+				wasDeleted := model.DeletedAt.Valid
+				if strategy == "skip" && !wasDeleted {
 					result.Skipped++
 					continue
 				}
@@ -422,10 +423,27 @@ func (s *AdminAIService) ImportModels(req *AdminModelImportRequest) (*AdminModel
 				model.Status = normalizeImportStatus(item.Status)
 				model.IsActive = item.IsActive
 				model.SortOrder = item.SortOrder
-				if err := tx.Save(&model).Error; err != nil {
+				if wasDeleted {
+					model.DeletedAt = gorm.DeletedAt{}
+					if err := tx.Unscoped().
+						Model(&aiModels.ManagedAIModel{}).
+						Where("id = ?", model.ID).
+						Updates(map[string]interface{}{
+							"display_name": model.DisplayName,
+							"description":  model.Description,
+							"status":       model.Status,
+							"is_active":    model.IsActive,
+							"sort_order":   model.SortOrder,
+							"deleted_at":   nil,
+						}).Error; err != nil {
+						return err
+					}
+					result.Updated++
+				} else if err := tx.Save(&model).Error; err != nil {
 					return err
+				} else {
+					result.Updated++
 				}
-				result.Updated++
 			}
 
 			capability := item.Capability
