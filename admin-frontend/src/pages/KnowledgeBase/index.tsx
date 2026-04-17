@@ -409,10 +409,10 @@ export default function KnowledgeBasePage() {
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="RAG / Knowledge Base"
+        eyebrow="知识库"
         title="知识库管理"
-        description="集中维护 Alkaid 的软知识条目，包括节点用法、错误修复、最佳实践和场景模板，并支持直接验证检索效果。"
-        tags={['公共知识', '用户私有知识', 'RAG 检索', '运营维护']}
+        description="集中维护平台知识内容，包括节点用法、问题处理、最佳实践和场景模板，并支持直接验证检索效果。"
+        tags={['公共知识', '用户私有知识', '检索验证', '运营维护']}
         action={
           <Space>
             <Button onClick={() => void reloadAll(page)}>刷新</Button>

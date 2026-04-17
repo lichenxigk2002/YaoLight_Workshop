@@ -214,7 +214,7 @@ DEEPSEEK_API_KEY=your_deepseek_api_key
 DOUBAO_API_KEY=your_doubao_api_key
 QWEN_API_KEY=your_qwen_api_key
 SPARK_API_PASSWORD=your_spark_api_password
-HUNYUAN_API_KEY=your_hunyuan_api_key
+TOKENHUB_API_KEY=your_tokenhub_api_key
 ZHIPUAI_API_KEY=your_zhipuai_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
 

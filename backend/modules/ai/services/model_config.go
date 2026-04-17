@@ -62,7 +62,7 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 	case "hunyuan":
 		apiKey = config.HunyuanAPIKey
 		if apiKey == "" {
-			return nil, fmt.Errorf("系统未配置腾讯混元 API Key，请在.env中配置HUNYUAN_API_KEY")
+			return nil, fmt.Errorf("系统未配置腾讯混元 TokenHub API Key，请在.env中配置 TOKENHUB_API_KEY")
 		}
 	case "zhipuai":
 		apiKey = config.ZhipuaiAPIKey
@@ -232,7 +232,7 @@ func getDefaultBaseURL(provider string) string {
 	case "zhipuai":
 		return "https://open.bigmodel.cn/api/paas/v4"
 	case "hunyuan":
-		return "https://api.hunyuan.cloud.tencent.com/v1"
+		return "https://tokenhub.tencentmaas.com/v1"
 	case "gemini":
 		if config.GeminiBaseURL != "" {
 			return config.GeminiBaseURL

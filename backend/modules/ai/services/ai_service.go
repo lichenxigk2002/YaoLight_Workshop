@@ -7,6 +7,7 @@ import (
 	"yaolight-workshop/backend/domain/entity"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/config"
+	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/shared"
 	"yaolight-workshop/backend/modules/ai/models"
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
@@ -180,7 +181,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.DeepSeekAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_deepseek",
-			"name":        "DeepSeek",
+			"name":        s.resolveSystemPresetDisplayName("deepseek", "deepseek-chat", "DeepSeek"),
 			"provider":    "deepseek",
 			"modelName":   "deepseek-chat",
 			"baseUrl":     "https://api.deepseek.com",
@@ -193,7 +194,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.DoubaoAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_doubao",
-			"name":        "豆包",
+			"name":        s.resolveSystemPresetDisplayName("doubao", "doubao-seed-1-6-251015", "豆包"),
 			"provider":    "doubao",
 			"modelName":   "doubao-seed-1-6-251015",
 			"baseUrl":     "https://ark.cn-beijing.volces.com/api/v3",
@@ -206,7 +207,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.QwenAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_qwen",
-			"name":        "通义千问",
+			"name":        s.resolveSystemPresetDisplayName("qwen", "qwen-plus", "通义千问"),
 			"provider":    "qwen",
 			"modelName":   "qwen-plus",
 			"baseUrl":     "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -219,7 +220,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.ZhipuaiAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_zhipuai",
-			"name":        "智谱AI GLM",
+			"name":        s.resolveSystemPresetDisplayName("zhipuai", "glm-4.7", "智谱AI GLM"),
 			"provider":    "zhipuai",
 			"modelName":   "glm-4.7",
 			"baseUrl":     "https://open.bigmodel.cn/api/paas/v4",
@@ -232,7 +233,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.SparkAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_spark",
-			"name":        "讯飞星火",
+			"name":        s.resolveSystemPresetDisplayName("spark", "spark-x", "讯飞星火"),
 			"provider":    "spark",
 			"modelName":   "spark-x",
 			"baseUrl":     "https://spark-api-open.xf-yun.com/v2",
@@ -245,12 +246,12 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.HunyuanAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_hunyuan",
-			"name":        "腾讯混元",
+			"name":        s.resolveSystemPresetDisplayName("hunyuan", "hunyuan-2.0-thinking-20251109", "腾讯混元"),
 			"provider":    "hunyuan",
-			"modelName":   "hunyuan-turbos-latest",
-			"baseUrl":     "https://api.hunyuan.cloud.tencent.com/v1",
+			"modelName":   "hunyuan-2.0-thinking-20251109",
+			"baseUrl":     "https://tokenhub.tencentmaas.com/v1",
 			"isSystem":    true,
-			"description": "系统预设的腾讯混元模型，所有用户可用",
+			"description": "系统预设的腾讯混元 TokenHub 模型，所有用户可用",
 		})
 	}
 
@@ -258,7 +259,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	if config.GeminiAPIKey != "" {
 		models = append(models, map[string]interface{}{
 			"id":          "system_claude",
-			"name":        "Claude",
+			"name":        s.resolveSystemPresetDisplayName("claude", "anthropic/claude-sonnet-4.5", "Claude"),
 			"provider":    "claude",
 			"modelName":   "anthropic/claude-sonnet-4.5",
 			"baseUrl":     "https://openrouter.ai/api/v1",
@@ -268,7 +269,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 
 		models = append(models, map[string]interface{}{
 			"id":          "system_gemini",
-			"name":        "Google Gemini",
+			"name":        s.resolveSystemPresetDisplayName("gemini", "google/gemini-3-pro-preview", "Google Gemini"),
 			"provider":    "gemini",
 			"modelName":   "google/gemini-3-pro-preview",
 			"baseUrl":     "https://openrouter.ai/api/v1",
@@ -278,7 +279,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 
 		models = append(models, map[string]interface{}{
 			"id":          "system_gpt",
-			"name":        "GPT",
+			"name":        s.resolveSystemPresetDisplayName("gpt", "openai/gpt-oss-20b", "GPT"),
 			"provider":    "gpt",
 			"modelName":   "openai/gpt-oss-20b",
 			"baseUrl":     "https://openrouter.ai/api/v1",
@@ -289,7 +290,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 		// 既然有了OpenRouter Key，顺便也加上Grok作为系统预设
 		models = append(models, map[string]interface{}{
 			"id":          "system_grok",
-			"name":        "Grok",
+			"name":        s.resolveSystemPresetDisplayName("grok", "x-ai/grok-4.1-fast", "Grok"),
 			"provider":    "grok",
 			"modelName":   "x-ai/grok-4.1-fast",
 			"baseUrl":     "https://openrouter.ai/api/v1",
@@ -299,6 +300,22 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	}
 
 	return models
+}
+
+func (s *AIService) resolveSystemPresetDisplayName(provider, modelName, fallback string) string {
+	if provider == "" || modelName == "" {
+		return fallback
+	}
+
+	var model models.ManagedAIModel
+	if err := database.DB.
+		Where("provider = ? AND model_name = ?", provider, modelName).
+		Select("display_name").
+		First(&model).Error; err == nil && strings.TrimSpace(model.DisplayName) != "" {
+		return model.DisplayName
+	}
+
+	return fallback
 }
 
 // GetModelsByUserID 获取用户的模型列表
@@ -410,7 +427,7 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 			case "spark":
 				defaultURL = "https://spark-api-open.xf-yun.com/v2"
 			case "hunyuan":
-				defaultURL = "https://api.hunyuan.cloud.tencent.com/v1"
+				defaultURL = "https://tokenhub.tencentmaas.com/v1"
 			case "zhipuai":
 				defaultURL = "https://open.bigmodel.cn/api/paas/v4"
 			case "claude", "gemini", "gpt", "grok", "openai":

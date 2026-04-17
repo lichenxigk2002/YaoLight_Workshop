@@ -97,6 +97,15 @@ export default function ModelProviders() {
   const currentModelName = watchedModelName || '__provider_default__';
   const { user, setUser } = useAuthStore();
 
+  const getDisplayModelLabel = (provider?: string | null, modelName?: string | null) => {
+    if (!modelName) return '';
+    return (
+      systemModels.find(item => item.provider === provider && item.modelName === modelName)?.name ||
+      models.find(item => item.provider === provider && item.modelName === modelName)?.name ||
+      modelName
+    );
+  };
+
   // 刷新用户信息以获取最新 Token 余额
   useEffect(() => {
     const fetchUser = async () => {
@@ -450,7 +459,7 @@ export default function ModelProviders() {
             >
               <Select.Option value="__provider_default__">{t('settings.allModels')}</Select.Option>
               {editingProvider && templates.find(t => t.provider === editingProvider)?.supportedModels?.map(model => (
-                <Select.Option key={model} value={model}>{model}</Select.Option>
+                <Select.Option key={model} value={model}>{getDisplayModelLabel(editingProvider, model)}</Select.Option>
               ))}
             </Select>
           </Form.Item>
@@ -541,7 +550,7 @@ export default function ModelProviders() {
                 return (
                   <List.Item className={styles.modelItem}>
                     <div className={styles.modelInfo}>
-                      <span className={styles.modelName}>{model}</span>
+                      <span className={styles.modelName}>{getDisplayModelLabel(viewingProvider?.provider, model)}</span>
                       <div className={styles.tags}>
                         <Tag size="small" color="blue" bordered={false}>Chat</Tag>
                         {systemModel && (
@@ -589,7 +598,7 @@ export default function ModelProviders() {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span className={styles.modelName}>{model.name}</span>
                   <Text type="secondary" style={{ fontSize: '12px' }}>
-                    {model.provider} / {model.modelName}
+                    {model.provider}
                   </Text>
                   {model.description && (
                     <Text type="secondary" style={{ fontSize: '11px', marginTop: '4px' }}>

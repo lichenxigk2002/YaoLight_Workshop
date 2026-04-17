@@ -163,7 +163,7 @@ const resourceMetaByLocale: Record<SupportedLocale, Record<string, { label: stri
   'zh-CN': {
     users: { label: '用户', color: 'blue' },
     workflow_templates: { label: '工作流模板', color: 'purple' },
-    crawler_rules: { label: '爬虫规则', color: 'cyan' },
+    crawler_rules: { label: '采集规则', color: 'cyan' },
     ai_models: { label: 'AI 模型', color: 'geekblue' },
     billing: { label: '计费运营', color: 'gold' },
     notifications: { label: '通知中心', color: 'magenta' },
@@ -174,7 +174,7 @@ const resourceMetaByLocale: Record<SupportedLocale, Record<string, { label: stri
   'en-US': {
     users: { label: 'Users', color: 'blue' },
     workflow_templates: { label: 'Workflow Templates', color: 'purple' },
-    crawler_rules: { label: 'Crawler Rules', color: 'cyan' },
+    crawler_rules: { label: 'Collection Rules', color: 'cyan' },
     ai_models: { label: 'AI Models', color: 'geekblue' },
     billing: { label: 'Billing', color: 'gold' },
     notifications: { label: 'Notifications', color: 'magenta' },
