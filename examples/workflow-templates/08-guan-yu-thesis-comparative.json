@@ -1,0 +1,256 @@
+{
+  "version": "1.0.0",
+  "name": "论文模板 - 关羽形象比较研究",
+  "description": "正史与《三国演义》并行抓取，比较关羽形象从史传人物到忠义符号的转变。",
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 60, "y": 260 },
+      "data": {
+        "label": "开始",
+        "type": "start",
+        "config": {
+          "inputDataType": "json",
+          "inputData": "{\n  \"thesisTitle\": \"忠义符号的建构与解构——关羽形象在历代文人叙事中的重塑与异化\",\n  \"chapters\": [\"正史原型\", \"演义强化\", \"忠义异化\"],\n  \"writingGoal\": \"产出一篇可直接扩写为毕业论文章节的比较研究稿\"\n}"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-history",
+      "type": "crawler",
+      "position": { "x": 280, "y": 80 },
+      "data": {
+        "label": "抓取正史《关羽传》",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/text.pl?if=gb&node=603534&remap=gb",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-romance-1",
+      "type": "crawler",
+      "position": { "x": 280, "y": 260 },
+      "data": {
+        "label": "抓取《三国演义》约三事",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch25/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-romance-2",
+      "type": "crawler",
+      "position": { "x": 280, "y": 440 },
+      "data": {
+        "label": "抓取《三国演义》千里走单骑",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch27/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-history",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 80 },
+      "data": {
+        "label": "清洗正史",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-history.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-romance-1",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 260 },
+      "data": {
+        "label": "清洗演义场景一",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-romance-1.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-romance-2",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 440 },
+      "data": {
+        "label": "清洗演义场景二",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-romance-2.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-history",
+      "type": "ai",
+      "position": { "x": 760, "y": 80 },
+      "data": {
+        "label": "分析史传原型",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请从正史文本中提炼关羽形象的原型特征，重点分析：人物性格、政治忠诚、军事功绩、史家评价、尚未神化的痕迹。输出 Markdown 学术笔记。",
+          "contentVariable": "{{clean-history.cleaned}}",
+          "temperature": 0.2,
+          "maxTokens": 1600,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-romance-1",
+      "type": "ai",
+      "position": { "x": 760, "y": 260 },
+      "data": {
+        "label": "分析忠义契约叙事",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析这段《三国演义》文本如何通过“约三事”“义不改主”等叙事动作建构关羽的忠义符号。输出 Markdown，强调叙事策略、情感组织和道德教化意味。",
+          "contentVariable": "{{clean-romance-1.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1700,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-romance-2",
+      "type": "ai",
+      "position": { "x": 760, "y": 440 },
+      "data": {
+        "label": "分析传奇化强化",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析这段《三国演义》如何将关羽塑造成带有传奇光环的忠义英雄，重点讨论“千里走单骑”“五关斩六将”这类情节对人物神化、道德绝对化、历史复杂性压缩的作用。输出 Markdown。",
+          "contentVariable": "{{clean-romance-2.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1700,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-1",
+      "type": "merge",
+      "position": { "x": 1020, "y": 260 },
+      "data": {
+        "label": "合并比较材料",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 3
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-final",
+      "type": "ai",
+      "position": { "x": 1270, "y": 260 },
+      "data": {
+        "label": "生成比较研究稿",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请基于合并材料，写一篇中文论文式比较研究文章，题目围绕“忠义符号的建构与解构——关羽形象在历代文人叙事中的重塑与异化”。要求：1. 用 Markdown；2. 至少包含“问题提出”“正史中的关羽原型”“演义对忠义形象的强化”“忠义形象的异化机制”“结论”五部分；3. 论述中明确比较史传与小说的叙事差异；4. 文章风格贴近人文学科毕业论文。",
+          "contentVariable": "{{merge-1.merged}}",
+          "temperature": 0.4,
+          "maxTokens": 3200,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "output",
+      "position": { "x": 1530, "y": 260 },
+      "data": {
+        "label": "导出比较研究稿",
+        "type": "output",
+        "config": {
+          "format": "markdown",
+          "destination": "file",
+          "fileName": "guan_yu_comparative_thesis.md"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 1760, "y": 260 },
+      "data": {
+        "label": "结束",
+        "type": "end",
+        "config": {},
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-history" },
+    { "id": "e2", "source": "start-1", "target": "crawler-romance-1" },
+    { "id": "e3", "source": "start-1", "target": "crawler-romance-2" },
+    { "id": "e4", "source": "crawler-history", "target": "clean-history" },
+    { "id": "e5", "source": "crawler-romance-1", "target": "clean-romance-1" },
+    { "id": "e6", "source": "crawler-romance-2", "target": "clean-romance-2" },
+    { "id": "e7", "source": "clean-history", "target": "ai-history" },
+    { "id": "e8", "source": "clean-romance-1", "target": "ai-romance-1" },
+    { "id": "e9", "source": "clean-romance-2", "target": "ai-romance-2" },
+    { "id": "e10", "source": "ai-history", "target": "merge-1", "targetHandle": "input-0" },
+    { "id": "e11", "source": "ai-romance-1", "target": "merge-1", "targetHandle": "input-1" },
+    { "id": "e12", "source": "ai-romance-2", "target": "merge-1", "targetHandle": "input-2" },
+    { "id": "e13", "source": "merge-1", "target": "ai-final" },
+    { "id": "e14", "source": "ai-final", "target": "output-1" },
+    { "id": "e15", "source": "output-1", "target": "end-1" }
+  ],
+  "commentCards": []
+}

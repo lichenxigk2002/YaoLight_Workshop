@@ -53,6 +53,7 @@ interface AIModelConfigPopupProps {
   onChange?: (value: string) => void;
   options: ProviderPickerOption[]; // Provider options
   supportedModels: string[]; // Models for current provider
+  getModelLabel?: (model: string) => string;
   currentModelName?: string;
   onModelChange: (model: string) => void;
   trigger?: React.ReactNode;
@@ -66,6 +67,7 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
   onChange: onProviderChange,
   options,
   supportedModels,
+  getModelLabel,
   currentModelName,
   onModelChange,
   trigger,
@@ -201,6 +203,7 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
             <div className={styles.modelGrid}>
               {supportedModels.map((model) => {
                 const isSelected = currentModelName === model;
+                const modelLabel = getModelLabel?.(model) || model;
                 return (
                   <div
                     key={model}
@@ -211,8 +214,9 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
                       }
                     }}
                     data-selected={isSelected}
+                    title={model}
                   >
-                    {model}
+                    {modelLabel}
                   </div>
                 );
               })}

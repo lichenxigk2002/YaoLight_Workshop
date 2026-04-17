@@ -320,6 +320,8 @@ func main() {
 			adminAI.GET("/providers", rbacMiddleware.RequirePermission("ai_models.providers:view"), adminAIController.GetProviders)
 			adminAI.GET("/providers/:provider", rbacMiddleware.RequirePermission("ai_models.providers:view"), adminAIController.GetProvider)
 			adminAI.GET("/models", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.GetModels)
+			adminAI.GET("/models/export", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.ExportModels)
+			adminAI.POST("/models/import", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.ImportModels)
 			adminAI.POST("/models", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.CreateModel)
 			adminAI.GET("/models/:id", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.GetModel)
 			adminAI.PUT("/models/:id", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.UpdateModel)

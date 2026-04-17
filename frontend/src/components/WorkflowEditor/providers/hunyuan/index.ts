@@ -10,10 +10,16 @@ providerRegistry.register({
     { type: 'topP', props: { defaultValue: 1.0 } },
     { type: 'stream', props: { defaultValue: false } },
     { 
-      type: 'switch', 
-      field: 'enableEnhancement', 
+      type: 'switch',
+      field: 'enableEnhancement',
       label: 'node.config.ai.enableEnhancement',
-      props: { defaultValue: true, tooltip: 'enable_enhancement' } 
+      props: { defaultValue: true, tooltip: 'enable_enhancement' }
+    },
+    {
+      type: 'switch',
+      field: 'enableThinking',
+      label: 'node.config.ai.thinking',
+      props: { defaultValue: true, tooltip: 'enable_thinking' }
     },
     { type: 'frequencyPenalty', props: { defaultValue: 0 } },
     { type: 'presencePenalty', props: { defaultValue: 0 } },
@@ -31,7 +37,8 @@ providerRegistry.register({
     maxTokens: 2000,
     stream: false,
     enableEnhancement: true,
-    modelName: 'hunyuan-turbos-latest',
-    baseUrl: 'https://api.hunyuan.cloud.tencent.com/v1',
+    enableThinking: true,
+    modelName: 'hunyuan-2.0-thinking-20251109',
+    baseUrl: 'https://tokenhub.tencentmaas.com/v1',
   },
 });

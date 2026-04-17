@@ -243,10 +243,10 @@ export default function RulesListPage() {
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="Crawler Rules"
-        title="爬虫规则中心"
-        description="集中管理可复用的抓取规则模板，并把详情、测试、引用关系拆成独立页面，便于治理和权限扩展。"
-        tags={['规则资产化', '测试验证', '工作流复用', 'RBAC 可扩展']}
+        eyebrow="采集规则"
+        title="采集规则中心"
+        description="集中管理可复用的采集规则模板，并提供详情、测试和引用关系查看，便于统一维护和复用。"
+        tags={['规则模板', '测试验证', '工作流复用', '统一维护']}
         action={
           <Space>
             <Button onClick={() => void reloadRules(page)}>刷新</Button>

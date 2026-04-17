@@ -1,0 +1,474 @@
+{
+  "version": "1.0.0",
+  "name": "论文模板 - 关羽形象怪物级精炼工厂",
+  "description": "极重型论文工作流，采用多轮材料分解、主题交叉综合、总稿重写和终稿润色，目标是压出一篇更成熟的总结文档。",
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 60, "y": 600 },
+      "data": {
+        "label": "开始",
+        "type": "start",
+        "config": {
+          "inputDataType": "json",
+          "inputData": "{\n  \"thesisTitle\": \"忠义符号的建构与解构——关羽形象在历代文人叙事中的重塑与异化\",\n  \"goal\": \"用极重型多轮综合链路尽量逼近一篇高质量论文式总结稿\",\n  \"keywords\": [\"关羽\", \"忠义\", \"建构\", \"重塑\", \"异化\", \"史传\", \"演义\", \"神化\"]\n}"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-1",
+      "type": "crawler",
+      "position": { "x": 240, "y": 60 },
+      "data": {
+        "label": "抓取正史关羽传",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/text.pl?if=gb&node=603534&remap=gb",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-2",
+      "type": "crawler",
+      "position": { "x": 240, "y": 140 },
+      "data": {
+        "label": "抓取关羽条目",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/datawiki.pl?if=gb&res=330476",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-3",
+      "type": "crawler",
+      "position": { "x": 240, "y": 220 },
+      "data": {
+        "label": "抓取忠经",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/zhong-jing",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-4",
+      "type": "crawler",
+      "position": { "x": 240, "y": 300 },
+      "data": {
+        "label": "抓取演义约三事",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch25/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-5",
+      "type": "crawler",
+      "position": { "x": 240, "y": 380 },
+      "data": {
+        "label": "抓取演义走单骑",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch27/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-6",
+      "type": "crawler",
+      "position": { "x": 240, "y": 460 },
+      "data": {
+        "label": "抓取演义华容道",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch50/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-7",
+      "type": "crawler",
+      "position": { "x": 240, "y": 540 },
+      "data": {
+        "label": "抓取演义单刀赴会",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch66/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-8",
+      "type": "crawler",
+      "position": { "x": 240, "y": 620 },
+      "data": {
+        "label": "抓取演义麦城",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch75/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-9",
+      "type": "crawler",
+      "position": { "x": 240, "y": 700 },
+      "data": {
+        "label": "抓取演义桃园起义",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch1/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-10",
+      "type": "crawler",
+      "position": { "x": 240, "y": 780 },
+      "data": {
+        "label": "抓取演义温酒斩华雄",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch5/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-1",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 60 },
+      "data": { "label": "清洗1", "type": "dataclean", "config": { "dataVariable": "{{crawler-1.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-2",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 140 },
+      "data": { "label": "清洗2", "type": "dataclean", "config": { "dataVariable": "{{crawler-2.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-3",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 220 },
+      "data": { "label": "清洗3", "type": "dataclean", "config": { "dataVariable": "{{crawler-3.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-4",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 300 },
+      "data": { "label": "清洗4", "type": "dataclean", "config": { "dataVariable": "{{crawler-4.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-5",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 380 },
+      "data": { "label": "清洗5", "type": "dataclean", "config": { "dataVariable": "{{crawler-5.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-6",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 460 },
+      "data": { "label": "清洗6", "type": "dataclean", "config": { "dataVariable": "{{crawler-6.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-7",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 540 },
+      "data": { "label": "清洗7", "type": "dataclean", "config": { "dataVariable": "{{crawler-7.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-8",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 620 },
+      "data": { "label": "清洗8", "type": "dataclean", "config": { "dataVariable": "{{crawler-8.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-9",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 700 },
+      "data": { "label": "清洗9", "type": "dataclean", "config": { "dataVariable": "{{crawler-9.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "clean-10",
+      "type": "dataclean",
+      "position": { "x": 450, "y": 780 },
+      "data": { "label": "清洗10", "type": "dataclean", "config": { "dataVariable": "{{crawler-10.text}}", "cleanType": "custom", "removeHTML": true, "trim": true }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-1",
+      "type": "ai",
+      "position": { "x": 660, "y": 60 },
+      "data": { "label": "史传原型", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请提炼关羽在正史中的原型、优点、局限、史家语气，输出 Markdown。", "contentVariable": "{{clean-1.cleaned}}", "temperature": 0.2, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-2",
+      "type": "ai",
+      "position": { "x": 660, "y": 140 },
+      "data": { "label": "接受史路径", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请提炼关羽如何被后世不断重写、崇祀、神化，输出 Markdown。", "contentVariable": "{{clean-2.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-3",
+      "type": "ai",
+      "position": { "x": 660, "y": 220 },
+      "data": { "label": "忠义话语", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请提炼《忠经》的忠观念，并联系关羽忠义书写，输出 Markdown。", "contentVariable": "{{clean-3.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-4",
+      "type": "ai",
+      "position": { "x": 660, "y": 300 },
+      "data": { "label": "约三事分析", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "分析约三事情节如何建构关羽忠义形象，输出 Markdown。", "contentVariable": "{{clean-4.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-5",
+      "type": "ai",
+      "position": { "x": 660, "y": 380 },
+      "data": { "label": "走单骑分析", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "分析走单骑情节如何传奇化关羽，输出 Markdown。", "contentVariable": "{{clean-5.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-6",
+      "type": "ai",
+      "position": { "x": 660, "y": 460 },
+      "data": { "label": "华容道分析", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "分析华容道如何展示义与政治忠诚的张力，输出 Markdown。", "contentVariable": "{{clean-6.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-7",
+      "type": "ai",
+      "position": { "x": 660, "y": 540 },
+      "data": { "label": "单刀赴会分析", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "分析单刀赴会如何强化威仪与神勇，输出 Markdown。", "contentVariable": "{{clean-7.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-8",
+      "type": "ai",
+      "position": { "x": 660, "y": 620 },
+      "data": { "label": "麦城悲剧分析", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "分析麦城与刮骨疗毒的悲剧化、神圣化效果，输出 Markdown。", "contentVariable": "{{clean-8.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-9",
+      "type": "ai",
+      "position": { "x": 660, "y": 700 },
+      "data": { "label": "桃园结义分析", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "分析桃园结义如何提供关羽忠义人格的起点叙事，输出 Markdown。", "contentVariable": "{{clean-9.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-10",
+      "type": "ai",
+      "position": { "x": 660, "y": 780 },
+      "data": { "label": "早期神勇分析", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "分析温酒斩华雄如何为关羽后续神勇形象奠基，输出 Markdown。", "contentVariable": "{{clean-10.cleaned}}", "temperature": 0.3, "maxTokens": 1300, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "merge-a",
+      "type": "merge",
+      "position": { "x": 900, "y": 100 },
+      "data": { "label": "合并史传基础", "type": "merge", "config": { "mergeType": "concat", "inputCount": 3 }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "merge-b",
+      "type": "merge",
+      "position": { "x": 900, "y": 340 },
+      "data": { "label": "合并忠义建构", "type": "merge", "config": { "mergeType": "concat", "inputCount": 3 }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "merge-c",
+      "type": "merge",
+      "position": { "x": 900, "y": 580 },
+      "data": { "label": "合并传奇强化", "type": "merge", "config": { "mergeType": "concat", "inputCount": 2 }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "merge-d",
+      "type": "merge",
+      "position": { "x": 900, "y": 760 },
+      "data": { "label": "合并悲剧异化", "type": "merge", "config": { "mergeType": "concat", "inputCount": 2 }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-mid-1",
+      "type": "ai",
+      "position": { "x": 1140, "y": 100 },
+      "data": { "label": "中层综合1", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请综合材料，写“史传原型与接受史开端”中层综述，输出 Markdown。", "contentVariable": "{{merge-a.merged}}", "temperature": 0.3, "maxTokens": 1700, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-mid-2",
+      "type": "ai",
+      "position": { "x": 1140, "y": 340 },
+      "data": { "label": "中层综合2", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请综合材料，写“忠义观念与小说建构机制”中层综述，输出 Markdown。", "contentVariable": "{{merge-b.merged}}", "temperature": 0.3, "maxTokens": 1700, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-mid-3",
+      "type": "ai",
+      "position": { "x": 1140, "y": 580 },
+      "data": { "label": "中层综合3", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请综合材料，写“传奇强化与英雄定型”中层综述，输出 Markdown。", "contentVariable": "{{merge-c.merged}}", "temperature": 0.3, "maxTokens": 1700, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-mid-4",
+      "type": "ai",
+      "position": { "x": 1140, "y": 760 },
+      "data": { "label": "中层综合4", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请综合材料，写“悲剧化、神圣化与异化后果”中层综述，输出 Markdown。", "contentVariable": "{{merge-d.merged}}", "temperature": 0.3, "maxTokens": 1700, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "merge-top-1",
+      "type": "merge",
+      "position": { "x": 1390, "y": 220 },
+      "data": { "label": "合并建构上卷", "type": "merge", "config": { "mergeType": "concat", "inputCount": 2 }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "merge-top-2",
+      "type": "merge",
+      "position": { "x": 1390, "y": 670 },
+      "data": { "label": "合并异化下卷", "type": "merge", "config": { "mergeType": "concat", "inputCount": 2 }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-top-1",
+      "type": "ai",
+      "position": { "x": 1640, "y": 220 },
+      "data": { "label": "总述建构链", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请把材料浓缩成“建构与重塑”总述，作为论文前半部分主线，输出 Markdown。", "contentVariable": "{{merge-top-1.merged}}", "temperature": 0.3, "maxTokens": 1900, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-top-2",
+      "type": "ai",
+      "position": { "x": 1640, "y": 670 },
+      "data": { "label": "总述异化链", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请把材料浓缩成“神化与异化”总述，作为论文后半部分主线，输出 Markdown。", "contentVariable": "{{merge-top-2.merged}}", "temperature": 0.3, "maxTokens": 1900, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "merge-draft",
+      "type": "merge",
+      "position": { "x": 1900, "y": 450 },
+      "data": { "label": "合并初稿材料", "type": "merge", "config": { "mergeType": "concat", "inputCount": 6 }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-draft",
+      "type": "ai",
+      "position": { "x": 2150, "y": 450 },
+      "data": { "label": "生成论文初稿", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请根据所有材料生成一篇完整论文初稿，要求结构严整，突出“建构、重塑、异化”三层逻辑，只输出 Markdown。", "contentVariable": "{{merge-draft.merged}}", "temperature": 0.4, "maxTokens": 4200, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-rewrite",
+      "type": "ai",
+      "position": { "x": 2400, "y": 360 },
+      "data": { "label": "重写论证链", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请对输入的论文初稿进行重写，重点增强论证连贯性、段落过渡和比较意识，使其更像人文学科毕业论文正文。输出 Markdown。", "contentVariable": "{{ai-draft.result}}", "temperature": 0.35, "maxTokens": 4200, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "ai-polish",
+      "type": "ai",
+      "position": { "x": 2400, "y": 540 },
+      "data": { "label": "终稿润色", "type": "ai", "config": { "modelMode": "system", "provider": "deepseek", "modelName": "deepseek-chat", "prompt": "请对输入论文稿做最后一轮学术化润色，保证语言更稳、标题更清楚、结论更有收束感，只输出 Markdown 成稿。", "contentVariable": "{{ai-rewrite.result}}", "temperature": 0.25, "maxTokens": 4200, "stream": false }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "output-1",
+      "type": "output",
+      "position": { "x": 2660, "y": 540 },
+      "data": { "label": "导出怪物终稿", "type": "output", "config": { "format": "markdown", "destination": "file", "fileName": "guan_yu_thesis_monster_factory.md" }, "connectionDirection": "vertical" }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 2890, "y": 540 },
+      "data": { "label": "结束", "type": "end", "config": {}, "connectionDirection": "vertical" }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-1" },
+    { "id": "e2", "source": "start-1", "target": "crawler-2" },
+    { "id": "e3", "source": "start-1", "target": "crawler-3" },
+    { "id": "e4", "source": "start-1", "target": "crawler-4" },
+    { "id": "e5", "source": "start-1", "target": "crawler-5" },
+    { "id": "e6", "source": "start-1", "target": "crawler-6" },
+    { "id": "e7", "source": "start-1", "target": "crawler-7" },
+    { "id": "e8", "source": "start-1", "target": "crawler-8" },
+    { "id": "e9", "source": "start-1", "target": "crawler-9" },
+    { "id": "e10", "source": "start-1", "target": "crawler-10" },
+    { "id": "e11", "source": "crawler-1", "target": "clean-1" },
+    { "id": "e12", "source": "crawler-2", "target": "clean-2" },
+    { "id": "e13", "source": "crawler-3", "target": "clean-3" },
+    { "id": "e14", "source": "crawler-4", "target": "clean-4" },
+    { "id": "e15", "source": "crawler-5", "target": "clean-5" },
+    { "id": "e16", "source": "crawler-6", "target": "clean-6" },
+    { "id": "e17", "source": "crawler-7", "target": "clean-7" },
+    { "id": "e18", "source": "crawler-8", "target": "clean-8" },
+    { "id": "e19", "source": "crawler-9", "target": "clean-9" },
+    { "id": "e20", "source": "crawler-10", "target": "clean-10" },
+    { "id": "e21", "source": "clean-1", "target": "ai-1" },
+    { "id": "e22", "source": "clean-2", "target": "ai-2" },
+    { "id": "e23", "source": "clean-3", "target": "ai-3" },
+    { "id": "e24", "source": "clean-4", "target": "ai-4" },
+    { "id": "e25", "source": "clean-5", "target": "ai-5" },
+    { "id": "e26", "source": "clean-6", "target": "ai-6" },
+    { "id": "e27", "source": "clean-7", "target": "ai-7" },
+    { "id": "e28", "source": "clean-8", "target": "ai-8" },
+    { "id": "e29", "source": "clean-9", "target": "ai-9" },
+    { "id": "e30", "source": "clean-10", "target": "ai-10" },
+    { "id": "e31", "source": "ai-1", "target": "merge-a", "targetHandle": "input-0" },
+    { "id": "e32", "source": "ai-2", "target": "merge-a", "targetHandle": "input-1" },
+    { "id": "e33", "source": "ai-9", "target": "merge-a", "targetHandle": "input-2" },
+    { "id": "e34", "source": "ai-3", "target": "merge-b", "targetHandle": "input-0" },
+    { "id": "e35", "source": "ai-4", "target": "merge-b", "targetHandle": "input-1" },
+    { "id": "e36", "source": "ai-10", "target": "merge-b", "targetHandle": "input-2" },
+    { "id": "e37", "source": "ai-5", "target": "merge-c", "targetHandle": "input-0" },
+    { "id": "e38", "source": "ai-7", "target": "merge-c", "targetHandle": "input-1" },
+    { "id": "e39", "source": "ai-6", "target": "merge-d", "targetHandle": "input-0" },
+    { "id": "e40", "source": "ai-8", "target": "merge-d", "targetHandle": "input-1" },
+    { "id": "e41", "source": "merge-a", "target": "ai-mid-1" },
+    { "id": "e42", "source": "merge-b", "target": "ai-mid-2" },
+    { "id": "e43", "source": "merge-c", "target": "ai-mid-3" },
+    { "id": "e44", "source": "merge-d", "target": "ai-mid-4" },
+    { "id": "e45", "source": "ai-mid-1", "target": "merge-top-1", "targetHandle": "input-0" },
+    { "id": "e46", "source": "ai-mid-2", "target": "merge-top-1", "targetHandle": "input-1" },
+    { "id": "e47", "source": "ai-mid-3", "target": "merge-top-2", "targetHandle": "input-0" },
+    { "id": "e48", "source": "ai-mid-4", "target": "merge-top-2", "targetHandle": "input-1" },
+    { "id": "e49", "source": "merge-top-1", "target": "ai-top-1" },
+    { "id": "e50", "source": "merge-top-2", "target": "ai-top-2" },
+    { "id": "e51", "source": "ai-mid-1", "target": "merge-draft", "targetHandle": "input-0" },
+    { "id": "e52", "source": "ai-mid-2", "target": "merge-draft", "targetHandle": "input-1" },
+    { "id": "e53", "source": "ai-mid-3", "target": "merge-draft", "targetHandle": "input-2" },
+    { "id": "e54", "source": "ai-mid-4", "target": "merge-draft", "targetHandle": "input-3" },
+    { "id": "e55", "source": "ai-top-1", "target": "merge-draft", "targetHandle": "input-4" },
+    { "id": "e56", "source": "ai-top-2", "target": "merge-draft", "targetHandle": "input-5" },
+    { "id": "e57", "source": "merge-draft", "target": "ai-draft" },
+    { "id": "e58", "source": "ai-draft", "target": "ai-rewrite" },
+    { "id": "e59", "source": "ai-rewrite", "target": "ai-polish" },
+    { "id": "e60", "source": "ai-polish", "target": "output-1" },
+    { "id": "e61", "source": "output-1", "target": "end-1" }
+  ],
+  "commentCards": []
+}

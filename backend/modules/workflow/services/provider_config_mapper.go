@@ -165,6 +165,40 @@ func (m *ProviderConfigMapper) MapProviderConfig(
 			result["thinkingLevel"] = "medium" // 默认值
 		}
 
+	case "hunyuan":
+		if v, ok := nodeConfig["enableEnhancement"].(bool); ok {
+			result["enableEnhancement"] = v
+		} else if _, exists := result["enableEnhancement"]; !exists {
+			result["enableEnhancement"] = true
+		}
+		if v, ok := nodeConfig["enable_enhancement"].(bool); ok {
+			result["enable_enhancement"] = v
+		}
+
+		if v, ok := nodeConfig["enableThinking"].(bool); ok {
+			result["enableThinking"] = v
+			result["enable_thinking"] = v
+		} else if v, ok := nodeConfig["enable_thinking"].(bool); ok {
+			result["enableThinking"] = v
+			result["enable_thinking"] = v
+		} else if v, ok := nodeConfig["thinking"].(bool); ok {
+			result["enableThinking"] = v
+			result["enable_thinking"] = v
+		} else if v, ok := nodeConfig["reasoning"].(bool); ok {
+			result["enableThinking"] = v
+			result["enable_thinking"] = v
+		}
+
+		if seed, ok := nodeConfig["seed"].(float64); ok {
+			result["seed"] = int(seed)
+		}
+		if citation, ok := nodeConfig["citation"].(bool); ok {
+			result["citation"] = citation
+		}
+		if toolChoice, ok := nodeConfig["tool_choice"]; ok {
+			result["tool_choice"] = toolChoice
+		}
+
 	default:
 		// 未知provider，尝试通用映射
 		if thinking, ok := nodeConfig["thinking"].(bool); ok {

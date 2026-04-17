@@ -339,7 +339,7 @@ func SeedProviderTemplates() error {
 		"qwen":     {name: "Qwen", description: "Qwen model provider", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
 		"zhipuai":  {name: "ZhipuAI", description: "GLM model provider", baseURL: "https://open.bigmodel.cn/api/paas/v4", defaultCfg: map[string]interface{}{"temperature": 1.0, "maxTokens": 2048}},
 		"spark":    {name: "Spark", description: "Spark model provider", baseURL: "https://spark-api-open.xf-yun.com/v2", defaultCfg: map[string]interface{}{"temperature": 1.0, "maxTokens": 8192}},
-		"hunyuan":  {name: "Hunyuan", description: "Tencent Hunyuan provider", baseURL: "https://api.hunyuan.cloud.tencent.com/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"hunyuan":  {name: "Hunyuan", description: "Tencent Hunyuan TokenHub provider", baseURL: "https://tokenhub.tencentmaas.com/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
 		"gpt":      {name: "GPT", description: "OpenAI-compatible GPT provider", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},
 		"claude":   {name: "Claude", description: "Anthropic Claude provider", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},
 		"gemini":   {name: "Gemini", description: "Google Gemini provider", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},

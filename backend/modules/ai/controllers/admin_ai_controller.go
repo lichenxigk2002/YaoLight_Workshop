@@ -76,6 +76,39 @@ func (c *AdminAIController) GetModels(ctx *gin.Context) {
 	})
 }
 
+func (c *AdminAIController) ExportModels(ctx *gin.Context) {
+	payload, err := c.service.ExportModels()
+	if err != nil {
+		internalError(ctx, "failed to export models", err)
+		return
+	}
+
+	ok(ctx, "ok", payload)
+}
+
+func (c *AdminAIController) ImportModels(ctx *gin.Context) {
+	var req aiServices.AdminModelImportRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		badRequest(ctx, "invalid request payload: "+err.Error())
+		return
+	}
+
+	result, err := c.service.ImportModels(&req)
+	if err != nil {
+		switch {
+		case errors.Is(err, aiServices.ErrInvalidManagedModel):
+			badRequest(ctx, err.Error())
+		case errors.Is(err, aiServices.ErrProviderTemplateNotFound):
+			badRequest(ctx, "provider not found")
+		default:
+			internalError(ctx, "failed to import models", err)
+		}
+		return
+	}
+
+	ok(ctx, "imported", result)
+}
+
 func (c *AdminAIController) CreateModel(ctx *gin.Context) {
 	var req aiServices.CreateManagedAIModelRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
