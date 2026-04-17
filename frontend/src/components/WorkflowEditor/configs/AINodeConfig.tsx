@@ -158,6 +158,15 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
   // 高级配置面板的展开状态
   const [advancedPanelActive, setAdvancedPanelActive] = useState<string[]>([]);
 
+  const getDisplayModelLabel = React.useCallback((provider?: string | null, modelName?: string | null) => {
+    if (!modelName) return '';
+    return (
+      systemModels.find((item) => item.provider === provider && item.modelName === modelName)?.name ||
+      userModels.find((item) => item.provider === provider && item.modelName === modelName)?.name ||
+      modelName
+    );
+  }, [systemModels, userModels]);
+
   // 从节点配置中获取模型配置存储对象
   const getModelConfigs = React.useCallback((): Record<string, any> => {
     const config = node?.data?.config || {};
@@ -495,6 +504,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                     }}
                                     options={providerPickerOptionsSystem}
                                     supportedModels={supportedModels}
+                                    getModelLabel={(model) => getDisplayModelLabel(selectedProvider, model)}
                                     currentModelName={currentModelName}
                                     onModelChange={(val) => form.setFieldValue('modelName', val)}
                                     onOpen={() => restoreModelConfig()}
@@ -508,7 +518,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                             {selectedSystemModel?.name || providerTemplate?.name || selectedProvider}
                                           </div>
                                           <div className={styles.triggerCardDesc}>
-                                            {currentModelName || defaultModelName || '请选择模型'}
+                                            {getDisplayModelLabel(selectedProvider, currentModelName || defaultModelName) || '请选择模型'}
                                           </div>
                                         </div>
                                         <div className={styles.triggerCardAction}>
@@ -538,11 +548,11 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                     {supportedModels.length > 0 ? (
                                       supportedModels.map((modelName) => (
                                         <Option key={modelName} value={modelName}>
-                                          {modelName}
+                                          {getDisplayModelLabel(selectedProvider, modelName)}
                                         </Option>
                                       ))
                                     ) : (
-                                      defaultModelName && <Option value={defaultModelName}>{defaultModelName}</Option>
+                                      defaultModelName && <Option value={defaultModelName}>{getDisplayModelLabel(selectedProvider, defaultModelName)}</Option>
                                     )}
                                   </Select>
                                 </Form.Item>
@@ -625,7 +635,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                   {model.name}
                                 </Tag>
                                 <span className={styles.optionText} title={`${model.provider} / ${model.modelName}`}>
-                                  {model.provider} / {model.modelName}
+                                  {model.provider} / {model.name || getDisplayModelLabel(model.provider, model.modelName)}
                                 </span>
                                 {model.status === 'active' && (
                                   <Tag color="success" style={{ flexShrink: 0 }}>
@@ -678,6 +688,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                       icon: <ProviderIcon provider={selectedModel.provider} size={18} />
                                     }]}
                                     supportedModels={isProviderDefault ? supportedModels : []}
+                                    getModelLabel={(model) => getDisplayModelLabel(selectedModel.provider, model)}
                                     currentModelName={currentModelName || selectedModel.modelName}
                                     onModelChange={(val) => {
                                       form.setFieldValue('modelName', val);
@@ -705,8 +716,8 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                           </div>
                                           <div className={styles.triggerCardDesc}>
                                             {isProviderDefault
-                                              ? (currentModelName || '请选择模型版本')
-                                              : (selectedModel.modelName || '请选择模型')}
+                                              ? (getDisplayModelLabel(selectedModel.provider, currentModelName) || '请选择模型版本')
+                                              : (getDisplayModelLabel(selectedModel.provider, selectedModel.modelName) || '请选择模型')}
                                           </div>
                                         </div>
                                         <div className={styles.triggerCardAction}>
@@ -742,7 +753,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                       >
                                         {supportedModels.map((modelName) => (
                                           <Option key={modelName} value={modelName}>
-                                            {modelName}
+                                            {getDisplayModelLabel(selectedModel.provider, modelName)}
                                           </Option>
                                         ))}
                                       </Select>
@@ -831,6 +842,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                     }}
                                     options={providerPickerOptionsCustom}
                                     supportedModels={supportedModels}
+                                    getModelLabel={(model) => getDisplayModelLabel(selectedProvider, model)}
                                     currentModelName={currentModelName}
                                     onModelChange={(val) => form.setFieldValue('modelName', val)}
                                     onOpen={() => restoreModelConfig()}
@@ -844,7 +856,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                             {providerTemplate?.name || selectedProvider}
                                           </div>
                                           <div className={styles.triggerCardDesc}>
-                                            {currentModelName || defaultModelName || '请选择模型'}
+                                            {getDisplayModelLabel(selectedProvider, currentModelName || defaultModelName) || '请选择模型'}
                                           </div>
                                         </div>
                                         <div className={styles.triggerCardAction}>
@@ -871,7 +883,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                       <Select className={styles.modelSelect}>
                                         {supportedModels.map((modelName) => (
                                           <Option key={modelName} value={modelName}>
-                                            {modelName}
+                                            {getDisplayModelLabel(selectedProvider, modelName)}
                                           </Option>
                                         ))}
                                       </Select>

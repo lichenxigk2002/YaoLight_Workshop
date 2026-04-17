@@ -3,6 +3,8 @@ import http from '@/api/http';
 import { formatDateTime as formatLocalizedDateTime } from '@/i18n/runtime';
 import type {
   AIAdminModel,
+  AIModelConfigExportPayload,
+  AIModelConfigImportResult,
   AIModelCapabilityConfig,
   AIMonitoringRecord,
   AIMonitoringSettings,
@@ -145,6 +147,42 @@ interface BackendMonitoringSnapshot {
   summary: BackendMonitoringSummary;
   is_checking: boolean;
   items: BackendMonitoringRecord[];
+}
+
+interface BackendModelConfigExportPricing {
+  pricing_type: PricingType;
+  currency: string;
+  is_active: boolean;
+  effective_at?: string | null;
+  expired_at?: string | null;
+  description?: string | null;
+  pricing_data: PricingData;
+}
+
+interface BackendModelConfigExportItem {
+  provider: string;
+  model_name: string;
+  display_name: string;
+  description?: string | null;
+  status: 'active' | 'disabled' | 'testing';
+  is_active: boolean;
+  sort_order: number;
+  capability?: BackendCapabilityConfig | null;
+  pricing?: BackendModelConfigExportPricing | null;
+}
+
+interface BackendModelConfigExportPayload {
+  version: number;
+  exported_at: string;
+  items: BackendModelConfigExportItem[];
+}
+
+interface BackendModelConfigImportResult {
+  strategy: 'skip' | 'overwrite' | string;
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
 }
 
 const EMPTY_CAPABILITY: AIModelCapabilityConfig = {
@@ -333,6 +371,44 @@ function mapMonitoringSnapshot(snapshot: BackendMonitoringSnapshot): AIMonitorin
   };
 }
 
+function mapModelConfigExportPayload(payload: BackendModelConfigExportPayload): AIModelConfigExportPayload {
+  return {
+    version: payload.version,
+    exported_at: payload.exported_at,
+    items: (payload.items ?? []).map((item) => ({
+      provider: item.provider,
+      model_name: item.model_name,
+      display_name: item.display_name,
+      description: item.description ?? undefined,
+      status: item.status,
+      is_active: item.is_active,
+      sort_order: item.sort_order,
+      capability: item.capability ? mapCapability(item.capability) : null,
+      pricing: item.pricing
+        ? {
+            pricing_type: item.pricing.pricing_type,
+            currency: item.pricing.currency,
+            is_active: item.pricing.is_active,
+            effective_at: item.pricing.effective_at ?? null,
+            expired_at: item.pricing.expired_at ?? null,
+            description: item.pricing.description ?? undefined,
+            pricing_data: item.pricing.pricing_data,
+          }
+        : null,
+    })),
+  };
+}
+
+function mapModelConfigImportResult(result: BackendModelConfigImportResult): AIModelConfigImportResult {
+  return {
+    strategy: result.strategy,
+    total: result.total,
+    created: result.created,
+    updated: result.updated,
+    skipped: result.skipped,
+  };
+}
+
 function formatDateTime(value: string): string {
   return formatLocalizedDateTime(value, undefined, value);
 }
@@ -501,6 +577,22 @@ export async function createAIModel(input: CreateAIModelInput): Promise<AIAdminM
 
 export async function deleteAIModel(id: string): Promise<void> {
   await unwrap(http.delete<ApiEnvelope<{ id: number }>>(`/admin/ai-models/models/${id}`));
+}
+
+export async function exportAIModelsConfig(): Promise<AIModelConfigExportPayload> {
+  const payload = await unwrap(
+    http.get<ApiEnvelope<BackendModelConfigExportPayload>>('/admin/ai-models/models/export'),
+  );
+  return mapModelConfigExportPayload(payload);
+}
+
+export async function importAIModelsConfig(
+  payload: AIModelConfigExportPayload & { strategy: 'skip' | 'overwrite' },
+): Promise<AIModelConfigImportResult> {
+  const result = await unwrap(
+    http.post<ApiEnvelope<BackendModelConfigImportResult>>('/admin/ai-models/models/import', payload),
+  );
+  return mapModelConfigImportResult(result);
 }
 
 export async function getAIModelCapability(id: string): Promise<AIModelCapabilityConfig | null> {

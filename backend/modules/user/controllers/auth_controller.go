@@ -438,23 +438,26 @@ func (c *AuthController) GetTokenTransactions(ctx *gin.Context) {
 		pageSize = 100
 	}
 
-	db := database.DB.Model(&userModels.TokenTransaction{}).Where("user_id = ?", userID.(uint))
+	db := database.DB.Table("token_transactions AS t").
+		Select("t.*, COALESCE(m.display_name, t.model_name) AS display_name").
+		Joins("LEFT JOIN managed_ai_models m ON m.provider = t.provider AND m.model_name = t.model_name").
+		Where("t.user_id = ?", userID.(uint))
 	if startDate := ctx.Query("start_date"); startDate != "" {
 		if t, err := time.Parse("2006-01-02", startDate); err == nil {
-			db = db.Where("created_at >= ?", t)
+			db = db.Where("t.created_at >= ?", t)
 		}
 	}
 	if endDate := ctx.Query("end_date"); endDate != "" {
 		if t, err := time.Parse("2006-01-02", endDate); err == nil {
 			endOfDay := t.Add(24*time.Hour - time.Nanosecond)
-			db = db.Where("created_at <= ?", endOfDay)
+			db = db.Where("t.created_at <= ?", endOfDay)
 		}
 	}
 	if provider := ctx.Query("provider"); provider != "" {
-		db = db.Where("provider = ?", provider)
+		db = db.Where("t.provider = ?", provider)
 	}
 	if model := ctx.Query("model"); model != "" {
-		db = db.Where("model_name = ?", model)
+		db = db.Where("t.model_name = ?", model)
 	}
 
 	var total int64
@@ -469,7 +472,7 @@ func (c *AuthController) GetTokenTransactions(ctx *gin.Context) {
 
 	var list []userModels.TokenTransaction
 	offset := (page - 1) * pageSize
-	if err := db.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error; err != nil {
+	if err := db.Order("t.created_at DESC").Offset(offset).Limit(pageSize).Scan(&list).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": "获取流水失败",

@@ -12,6 +12,11 @@ import (
 	"yaolight-workshop/backend/modules/ai/services/providers"
 )
 
+const (
+	defaultHunyuanBaseURL = "https://tokenhub.tencentmaas.com/v1"
+	legacyHunyuanBaseURL  = "https://api.hunyuan.cloud.tencent.com/v1"
+)
+
 type HunyuanProvider struct {
 	client *http.Client
 }
@@ -25,6 +30,9 @@ func NewHunyuanProvider() providers.AIProvider {
 func normalizeBaseURL(baseURL string) string {
 	baseURL = strings.TrimSpace(baseURL)
 	baseURL = strings.TrimRight(baseURL, "/")
+	if baseURL == legacyHunyuanBaseURL {
+		return defaultHunyuanBaseURL
+	}
 	return baseURL
 }
 
@@ -64,10 +72,81 @@ func applyEnableEnhancement(requestBody map[string]interface{}, providerConfig m
 	}
 }
 
+func applyOptionalField(requestBody map[string]interface{}, providerConfig map[string]interface{}, fromKeys ...string) {
+	if providerConfig == nil {
+		return
+	}
+	for _, key := range fromKeys {
+		if v, ok := providerConfig[key]; ok && v != nil {
+			requestBody[fromKeys[0]] = v
+			return
+		}
+	}
+}
+
+func buildHunyuanMessages(config *providers.AIModelConfig, systemPrompt string, messages []providers.ChatMessage) []map[string]interface{} {
+	apiMessages := make([]map[string]interface{}, 0, 1+len(messages))
+	if systemPrompt != "" {
+		apiMessages = append(apiMessages, map[string]interface{}{
+			"role":    "system",
+			"content": systemPrompt,
+		})
+	}
+	for _, m := range messages {
+		msg := map[string]interface{}{"role": m.Role}
+		if m.Content != "" {
+			msg["content"] = m.Content
+		}
+		if m.Role == "tool" && m.ToolCallID != "" {
+			msg["tool_call_id"] = m.ToolCallID
+		}
+		if len(m.ToolCalls) > 0 {
+			tcList := make([]map[string]interface{}, 0, len(m.ToolCalls))
+			for _, tc := range m.ToolCalls {
+				tcList = append(tcList, map[string]interface{}{
+					"id":   tc.ID,
+					"type": "function",
+					"function": map[string]interface{}{
+						"name":      tc.Function.Name,
+						"arguments": tc.Function.Arguments,
+					},
+				})
+			}
+			msg["tool_calls"] = tcList
+		}
+		apiMessages = append(apiMessages, msg)
+	}
+	return apiMessages
+}
+
+func buildHunyuanTools(tools []providers.ToolDef) []map[string]interface{} {
+	toolsPayload := make([]map[string]interface{}, 0, len(tools))
+	for _, t := range tools {
+		item := map[string]interface{}{"type": "function"}
+		if t.Function != nil {
+			item["function"] = map[string]interface{}{
+				"name":        t.Function.Name,
+				"description": t.Function.Description,
+				"parameters":  t.Function.Parameters,
+			}
+		}
+		toolsPayload = append(toolsPayload, item)
+	}
+	return toolsPayload
+}
+
+func applyHunyuanProviderConfig(requestBody map[string]interface{}, providerConfig map[string]interface{}) {
+	applyEnableEnhancement(requestBody, providerConfig)
+	applyOptionalField(requestBody, providerConfig, "enable_thinking", "enableThinking", "thinking", "reasoning")
+	applyOptionalField(requestBody, providerConfig, "citation")
+	applyOptionalField(requestBody, providerConfig, "seed")
+	applyOptionalField(requestBody, providerConfig, "tool_choice")
+}
+
 func (p *HunyuanProvider) Chat(config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}) (*providers.ChatResponse, error) {
 	baseURL := config.BaseURL
 	if baseURL == "" {
-		baseURL = "https://api.hunyuan.cloud.tencent.com/v1"
+		baseURL = defaultHunyuanBaseURL
 	}
 	baseURL = normalizeBaseURL(baseURL)
 	url := fmt.Sprintf("%s/chat/completions", baseURL)
@@ -97,7 +176,7 @@ func (p *HunyuanProvider) Chat(config *providers.AIModelConfig, prompt string, c
 		requestBody["stop"] = config.StopSequences
 	}
 
-	applyEnableEnhancement(requestBody, providerConfig)
+	applyHunyuanProviderConfig(requestBody, providerConfig)
 
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
@@ -155,6 +234,7 @@ func (p *HunyuanProvider) Chat(config *providers.AIModelConfig, prompt string, c
 	return &providers.ChatResponse{
 		Content:          response.Choices[0].Message.Content,
 		TokensUsed:       response.Usage.TotalTokens,
+		Usage:            &providers.TokenUsage{TotalTokens: response.Usage.TotalTokens},
 		Model:            config.ModelName,
 		ReasoningDetails: reasoning,
 	}, nil
@@ -221,13 +301,118 @@ func fetchHunyuanUsageFromNonStreamRequest(ctx context.Context, client *http.Cli
 }
 
 func (p *HunyuanProvider) ChatWithTools(ctx context.Context, config *providers.AIModelConfig, systemPrompt string, messages []providers.ChatMessage, tools []providers.ToolDef, providerConfig map[string]interface{}) (*providers.ChatResponseWithTools, error) {
-	return nil, fmt.Errorf("tool calling not implemented for Hunyuan provider")
+	baseURL := config.BaseURL
+	if baseURL == "" {
+		baseURL = defaultHunyuanBaseURL
+	}
+	baseURL = normalizeBaseURL(baseURL)
+	url := fmt.Sprintf("%s/chat/completions", baseURL)
+
+	requestBody := map[string]interface{}{
+		"model":    config.ModelName,
+		"messages": buildHunyuanMessages(config, systemPrompt, messages),
+		"stream":   false,
+	}
+	if payload := buildHunyuanTools(tools); len(payload) > 0 {
+		requestBody["tools"] = payload
+	}
+	if config.Temperature != nil {
+		requestBody["temperature"] = *config.Temperature
+	}
+	if config.MaxTokens != nil {
+		requestBody["max_tokens"] = *config.MaxTokens
+	}
+	if config.TopP != nil {
+		requestBody["top_p"] = *config.TopP
+	}
+	if config.FrequencyPenalty != nil {
+		requestBody["frequency_penalty"] = *config.FrequencyPenalty
+	}
+	if config.PresencePenalty != nil {
+		requestBody["presence_penalty"] = *config.PresencePenalty
+	}
+	if len(config.StopSequences) > 0 {
+		requestBody["stop"] = config.StopSequences
+	}
+	applyHunyuanProviderConfig(requestBody, providerConfig)
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.APIKey))
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var response struct {
+		Choices []struct {
+			Message struct {
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Type     string `json:"type"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	if len(response.Choices) == 0 {
+		return nil, fmt.Errorf("no choices in response")
+	}
+
+	var toolCalls []*providers.ToolCall
+	for _, tc := range response.Choices[0].Message.ToolCalls {
+		call := &providers.ToolCall{ID: tc.ID, Type: tc.Type}
+		call.Function.Name = tc.Function.Name
+		call.Function.Arguments = tc.Function.Arguments
+		toolCalls = append(toolCalls, call)
+	}
+
+	return &providers.ChatResponseWithTools{
+		Content:    response.Choices[0].Message.Content,
+		ToolCalls:  toolCalls,
+		TokensUsed: response.Usage.TotalTokens,
+		Usage: &providers.TokenUsage{
+			PromptTokens:     response.Usage.PromptTokens,
+			CompletionTokens: response.Usage.CompletionTokens,
+			TotalTokens:      response.Usage.TotalTokens,
+		},
+		Model: config.ModelName,
+	}, nil
 }
 
 func (p *HunyuanProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {
 	baseURL := config.BaseURL
 	if baseURL == "" {
-		baseURL = "https://api.hunyuan.cloud.tencent.com/v1"
+		baseURL = defaultHunyuanBaseURL
 	}
 	baseURL = normalizeBaseURL(baseURL)
 	url := fmt.Sprintf("%s/chat/completions", baseURL)
@@ -260,7 +445,7 @@ func (p *HunyuanProvider) ChatStream(ctx context.Context, config *providers.AIMo
 		requestBody["stop"] = config.StopSequences
 	}
 
-	applyEnableEnhancement(requestBody, providerConfig)
+	applyHunyuanProviderConfig(requestBody, providerConfig)
 
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
@@ -423,7 +608,7 @@ func (p *HunyuanProvider) Complete(config *providers.AIModelConfig, prompt strin
 func (p *HunyuanProvider) Embed(config *providers.AIModelConfig, text string) (*providers.EmbedResponse, error) {
 	baseURL := config.BaseURL
 	if baseURL == "" {
-		baseURL = "https://api.hunyuan.cloud.tencent.com/v1"
+		baseURL = defaultHunyuanBaseURL
 	}
 	baseURL = normalizeBaseURL(baseURL)
 	url := fmt.Sprintf("%s/embeddings", baseURL)

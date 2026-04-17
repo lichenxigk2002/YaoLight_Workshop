@@ -123,7 +123,7 @@ export default function OrdersAndTokenPage() {
       render: (v: number) => (v >= 0 ? `+${v}` : v),
     },
     { title: '类型', dataIndex: 'type', key: 'type', width: 110 },
-    { title: 'Provider', dataIndex: 'provider', key: 'provider', width: 100 },
+    { title: '模型服务商', dataIndex: 'provider', key: 'provider', width: 100 },
     { title: '模型', dataIndex: 'model_name', key: 'model_name', width: 160 },
     { title: 'Token 数', dataIndex: 'total_tokens', key: 'total_tokens', width: 120 },
     {
@@ -201,7 +201,7 @@ export default function OrdersAndTokenPage() {
           },
           {
             key: 'token',
-            label: 'Token 流水',
+            label: '模型调用记录',
             children: (
               <Card className={styles.card}>
                 <Tabs
@@ -267,4 +267,3 @@ export default function OrdersAndTokenPage() {
     </div>
   );
 }
-

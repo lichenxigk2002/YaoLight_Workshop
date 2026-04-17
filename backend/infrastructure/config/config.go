@@ -43,7 +43,7 @@ var (
 	ZhipuaiAPIKey           string // 智谱AI预设API Key
 	GeminiAPIKey            string // Gemini预设API Key
 	SparkAPIKey             string // 讯飞星火预设API Key
-	HunyuanAPIKey           string // 腾讯混元预设API Key
+	HunyuanAPIKey           string // 腾讯混元 TokenHub 预设API Key
 	AIRequestTimeoutSeconds int    // AI 请求超时时间（秒）
 	AIHTTPProxyURL          string // AI 请求通用代理
 	OpenRouterProxyURL      string // OpenRouter 通用代理
@@ -173,7 +173,7 @@ func LoadConfig() error {
 	ZhipuaiAPIKey = getEnv("ZHIPUAI_API_KEY", "")
 	GeminiAPIKey = getEnv("OPENROUTER_API_KEY", "")
 	SparkAPIKey = getEnv("SPARK_API_PASSWORD", "")
-	HunyuanAPIKey = getEnv("HUNYUAN_API_KEY", "")
+	HunyuanAPIKey = strings.TrimSpace(getEnv("TOKENHUB_API_KEY", ""))
 	AIRequestTimeoutSeconds = getEnvInt("AI_REQUEST_TIMEOUT_SECONDS", 90)
 	AIHTTPProxyURL = strings.TrimSpace(getEnv("AI_HTTP_PROXY_URL", ""))
 	OpenRouterProxyURL = strings.TrimSpace(getEnv("OPENROUTER_PROXY_URL", ""))

@@ -392,6 +392,22 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 		} else if _, exists := providerConfig["enableEnhancement"]; !exists {
 			providerConfig["enableEnhancement"] = true
 		}
+		if v, ok := node.Config["enableThinking"].(bool); ok {
+			providerConfig["enableThinking"] = v
+			providerConfig["enable_thinking"] = v
+		} else if v, ok := node.Config["enable_thinking"].(bool); ok {
+			providerConfig["enableThinking"] = v
+			providerConfig["enable_thinking"] = v
+		}
+		if v, ok := node.Config["citation"].(bool); ok {
+			providerConfig["citation"] = v
+		}
+		if v, ok := node.Config["seed"].(float64); ok {
+			providerConfig["seed"] = int(v)
+		}
+		if v, ok := node.Config["tool_choice"]; ok {
+			providerConfig["tool_choice"] = v
+		}
 
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s

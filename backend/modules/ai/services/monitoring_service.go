@@ -583,7 +583,7 @@ func resolveSystemProviderCredentials(providerName string) (string, string) {
 	case "spark":
 		return config.SparkAPIKey, "https://spark-api-open.xf-yun.com/v2"
 	case "hunyuan":
-		return config.HunyuanAPIKey, "https://api.hunyuan.cloud.tencent.com/v1"
+		return config.HunyuanAPIKey, "https://tokenhub.tencentmaas.com/v1"
 	case "gemini":
 		baseURL := config.GeminiBaseURL
 		if baseURL == "" {

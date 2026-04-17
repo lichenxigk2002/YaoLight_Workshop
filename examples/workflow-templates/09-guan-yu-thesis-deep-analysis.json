@@ -1,0 +1,533 @@
+{
+  "version": "1.0.0",
+  "name": "论文模板 - 关羽形象深度分析工坊",
+  "description": "多来源并行抓取与分层分析，最终输出一篇完整的人文论文式总结文章。",
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 60, "y": 360 },
+      "data": {
+        "label": "开始",
+        "type": "start",
+        "config": {
+          "inputDataType": "json",
+          "inputData": "{\n  \"thesisTitle\": \"忠义符号的建构与解构——关羽形象在历代文人叙事中的重塑与异化\",\n  \"keywords\": [\"关羽\", \"忠义\", \"正史\", \"演义\", \"神化\", \"异化\"],\n  \"expectedSections\": [\"史传基础\", \"演义强化\", \"忠义话语\", \"神化机制\", \"异化与反思\"]\n}"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-history",
+      "type": "crawler",
+      "position": { "x": 280, "y": 60 },
+      "data": {
+        "label": "抓取《三国志·关羽传》",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/text.pl?if=gb&node=603534&remap=gb",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-datawiki",
+      "type": "crawler",
+      "position": { "x": 280, "y": 180 },
+      "data": {
+        "label": "抓取关羽条目",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/datawiki.pl?if=gb&res=330476",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-zhongjing",
+      "type": "crawler",
+      "position": { "x": 280, "y": 300 },
+      "data": {
+        "label": "抓取《忠经》",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/zhong-jing",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-romance-1",
+      "type": "crawler",
+      "position": { "x": 280, "y": 420 },
+      "data": {
+        "label": "抓取《三国演义》约三事",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch25/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-romance-2",
+      "type": "crawler",
+      "position": { "x": 280, "y": 540 },
+      "data": {
+        "label": "抓取《三国演义》千里走单骑",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch27/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-romance-3",
+      "type": "crawler",
+      "position": { "x": 280, "y": 660 },
+      "data": {
+        "label": "抓取《三国演义》刮骨疗毒与败走麦城",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch75/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-history",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 60 },
+      "data": {
+        "label": "清洗正史",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-history.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-datawiki",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 180 },
+      "data": {
+        "label": "清洗关羽条目",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-datawiki.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-zhongjing",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 300 },
+      "data": {
+        "label": "清洗忠经",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-zhongjing.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-romance-1",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 420 },
+      "data": {
+        "label": "清洗演义一",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-romance-1.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-romance-2",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 540 },
+      "data": {
+        "label": "清洗演义二",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-romance-2.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-romance-3",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 660 },
+      "data": {
+        "label": "清洗演义三",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-romance-3.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-history",
+      "type": "ai",
+      "position": { "x": 760, "y": 60 },
+      "data": {
+        "label": "提炼史传原型",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请提炼《三国志·关羽传》中关羽的历史原型，重点归纳人物品格、政治立场、军事形象、史家褒贬与复杂性，输出 Markdown 学术摘要。",
+          "contentVariable": "{{clean-history.cleaned}}",
+          "temperature": 0.2,
+          "maxTokens": 1500,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-datawiki",
+      "type": "ai",
+      "position": { "x": 760, "y": 180 },
+      "data": {
+        "label": "提炼后世接受史",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请从关羽条目中提炼关羽被后世重塑、神化、信仰化的关键信息，整理成“接受史线索表述”，输出 Markdown，强调由人物到符号的变化。",
+          "contentVariable": "{{clean-datawiki.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1500,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-zhongjing",
+      "type": "ai",
+      "position": { "x": 760, "y": 300 },
+      "data": {
+        "label": "提炼忠义话语背景",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请从《忠经》中提炼古代“忠”观念的核心话语，并说明这些观念如何为后世塑造关羽忠义形象提供理论背景。输出 Markdown，强调概念史和伦理框架。",
+          "contentVariable": "{{clean-zhongjing.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1500,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-romance-1",
+      "type": "ai",
+      "position": { "x": 760, "y": 420 },
+      "data": {
+        "label": "分析约三事叙事",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析《三国演义》“屯土山关公约三事”如何通过戏剧化结构将关羽塑造成忠义典范。输出 Markdown，讨论叙事动作、道德选择、人物象征化。",
+          "contentVariable": "{{clean-romance-1.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1500,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-romance-2",
+      "type": "ai",
+      "position": { "x": 760, "y": 540 },
+      "data": {
+        "label": "分析传奇化机制",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析《三国演义》“千里走单骑”“五关斩六将”中的传奇化机制，说明其如何强化关羽形象的超常性、纯化其忠义人格，并压缩历史复杂性。输出 Markdown。",
+          "contentVariable": "{{clean-romance-2.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1500,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-romance-3",
+      "type": "ai",
+      "position": { "x": 760, "y": 660 },
+      "data": {
+        "label": "分析神圣化与悲剧化",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析“刮骨疗毒”“败走麦城”等情节如何同时推动关羽的神圣化与悲剧化，并指出这种书写如何为后世文人不断重写关羽提供情感模板。输出 Markdown。",
+          "contentVariable": "{{clean-romance-3.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1500,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-foundation",
+      "type": "merge",
+      "position": { "x": 1020, "y": 160 },
+      "data": {
+        "label": "合并史传与接受史",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 2
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-discourse",
+      "type": "merge",
+      "position": { "x": 1020, "y": 360 },
+      "data": {
+        "label": "合并忠义话语",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 2
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-romance",
+      "type": "merge",
+      "position": { "x": 1020, "y": 600 },
+      "data": {
+        "label": "合并演义强化材料",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 3
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-foundation",
+      "type": "ai",
+      "position": { "x": 1260, "y": 160 },
+      "data": {
+        "label": "生成史传基础章节",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请基于合并材料，写出一节论文式正文，主题为“关羽忠义形象的史传基础与接受史起点”。输出 Markdown，小标题明确。",
+          "contentVariable": "{{merge-foundation.merged}}",
+          "temperature": 0.3,
+          "maxTokens": 1800,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-discourse",
+      "type": "ai",
+      "position": { "x": 1260, "y": 360 },
+      "data": {
+        "label": "生成忠义话语章节",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请基于合并材料，写出一节论文式正文，主题为“忠义话语如何进入关羽叙事并成为核心诠释框架”。输出 Markdown，小标题明确。",
+          "contentVariable": "{{merge-discourse.merged}}",
+          "temperature": 0.3,
+          "maxTokens": 1800,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-romance-final",
+      "type": "ai",
+      "position": { "x": 1260, "y": 600 },
+      "data": {
+        "label": "生成演义异化章节",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请基于合并材料，写出一节论文式正文，主题为“《三国演义》对关羽形象的重塑、神化与异化”。输出 Markdown，小标题明确，并指出文学叙事对历史人物复杂性的改写。",
+          "contentVariable": "{{merge-romance.merged}}",
+          "temperature": 0.3,
+          "maxTokens": 2200,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-all",
+      "type": "merge",
+      "position": { "x": 1510, "y": 360 },
+      "data": {
+        "label": "合并全部章节材料",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 3
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-final",
+      "type": "ai",
+      "position": { "x": 1760, "y": 360 },
+      "data": {
+        "label": "生成最终论文总结",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请将合并后的章节材料整合为一篇完整、连贯的人文学科毕业论文式总结文章，题目为“忠义符号的建构与解构——关羽形象在历代文人叙事中的重塑与异化”。要求：1. Markdown 输出；2. 包含摘要式导语、至少 5 个正文部分、结论；3. 强调“建构”“重塑”“异化”三个关键词；4. 不输出图表，不输出 JSON，只输出可以直接作为论文基础稿的连续文本。",
+          "contentVariable": "{{merge-all.merged}}",
+          "temperature": 0.4,
+          "maxTokens": 4200,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "output",
+      "position": { "x": 2020, "y": 360 },
+      "data": {
+        "label": "导出论文稿",
+        "type": "output",
+        "config": {
+          "format": "markdown",
+          "destination": "file",
+          "fileName": "guan_yu_thesis_deep_analysis.md"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 2250, "y": 360 },
+      "data": {
+        "label": "结束",
+        "type": "end",
+        "config": {},
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-history" },
+    { "id": "e2", "source": "start-1", "target": "crawler-datawiki" },
+    { "id": "e3", "source": "start-1", "target": "crawler-zhongjing" },
+    { "id": "e4", "source": "start-1", "target": "crawler-romance-1" },
+    { "id": "e5", "source": "start-1", "target": "crawler-romance-2" },
+    { "id": "e6", "source": "start-1", "target": "crawler-romance-3" },
+    { "id": "e7", "source": "crawler-history", "target": "clean-history" },
+    { "id": "e8", "source": "crawler-datawiki", "target": "clean-datawiki" },
+    { "id": "e9", "source": "crawler-zhongjing", "target": "clean-zhongjing" },
+    { "id": "e10", "source": "crawler-romance-1", "target": "clean-romance-1" },
+    { "id": "e11", "source": "crawler-romance-2", "target": "clean-romance-2" },
+    { "id": "e12", "source": "crawler-romance-3", "target": "clean-romance-3" },
+    { "id": "e13", "source": "clean-history", "target": "ai-history" },
+    { "id": "e14", "source": "clean-datawiki", "target": "ai-datawiki" },
+    { "id": "e15", "source": "clean-zhongjing", "target": "ai-zhongjing" },
+    { "id": "e16", "source": "clean-romance-1", "target": "ai-romance-1" },
+    { "id": "e17", "source": "clean-romance-2", "target": "ai-romance-2" },
+    { "id": "e18", "source": "clean-romance-3", "target": "ai-romance-3" },
+    { "id": "e19", "source": "ai-history", "target": "merge-foundation", "targetHandle": "input-0" },
+    { "id": "e20", "source": "ai-datawiki", "target": "merge-foundation", "targetHandle": "input-1" },
+    { "id": "e21", "source": "ai-zhongjing", "target": "merge-discourse", "targetHandle": "input-0" },
+    { "id": "e22", "source": "ai-romance-1", "target": "merge-discourse", "targetHandle": "input-1" },
+    { "id": "e23", "source": "ai-romance-1", "target": "merge-romance", "targetHandle": "input-0" },
+    { "id": "e24", "source": "ai-romance-2", "target": "merge-romance", "targetHandle": "input-1" },
+    { "id": "e25", "source": "ai-romance-3", "target": "merge-romance", "targetHandle": "input-2" },
+    { "id": "e26", "source": "merge-foundation", "target": "ai-foundation" },
+    { "id": "e27", "source": "merge-discourse", "target": "ai-discourse" },
+    { "id": "e28", "source": "merge-romance", "target": "ai-romance-final" },
+    { "id": "e29", "source": "ai-foundation", "target": "merge-all", "targetHandle": "input-0" },
+    { "id": "e30", "source": "ai-discourse", "target": "merge-all", "targetHandle": "input-1" },
+    { "id": "e31", "source": "ai-romance-final", "target": "merge-all", "targetHandle": "input-2" },
+    { "id": "e32", "source": "merge-all", "target": "ai-final" },
+    { "id": "e33", "source": "ai-final", "target": "output-1" },
+    { "id": "e34", "source": "output-1", "target": "end-1" }
+  ],
+  "commentCards": []
+}

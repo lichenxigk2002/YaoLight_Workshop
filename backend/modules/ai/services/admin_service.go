@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -92,6 +93,49 @@ type UpsertPricingRuleRequest struct {
 	ExpiredAt   *time.Time             `json:"expired_at"`
 	Description *string                `json:"description"`
 	PricingData map[string]interface{} `json:"pricing_data"`
+}
+
+type AdminModelExportPricing struct {
+	PricingType string                 `json:"pricing_type"`
+	Currency    string                 `json:"currency"`
+	IsActive    bool                   `json:"is_active"`
+	EffectiveAt *time.Time             `json:"effective_at,omitempty"`
+	ExpiredAt   *time.Time             `json:"expired_at,omitempty"`
+	Description *string                `json:"description,omitempty"`
+	PricingData map[string]interface{} `json:"pricing_data"`
+}
+
+type AdminModelExportItem struct {
+	Provider    string                          `json:"provider"`
+	ModelName   string                          `json:"model_name"`
+	DisplayName string                          `json:"display_name"`
+	Description *string                         `json:"description,omitempty"`
+	Status      string                          `json:"status"`
+	IsActive    bool                            `json:"is_active"`
+	SortOrder   int                             `json:"sort_order"`
+	Capability  *aiModels.ModelCapabilityConfig `json:"capability,omitempty"`
+	Pricing     *AdminModelExportPricing        `json:"pricing,omitempty"`
+}
+
+type AdminModelExportPayload struct {
+	Version    int                    `json:"version"`
+	ExportedAt time.Time              `json:"exported_at"`
+	Items      []AdminModelExportItem `json:"items"`
+}
+
+type AdminModelImportRequest struct {
+	Version    int                    `json:"version"`
+	ExportedAt *time.Time             `json:"exported_at,omitempty"`
+	Strategy   string                 `json:"strategy"`
+	Items      []AdminModelExportItem `json:"items"`
+}
+
+type AdminModelImportResult struct {
+	Strategy string `json:"strategy"`
+	Total    int    `json:"total"`
+	Created  int    `json:"created"`
+	Updated  int    `json:"updated"`
+	Skipped  int    `json:"skipped"`
 }
 
 type AdminUsageRecord struct {
@@ -261,6 +305,159 @@ func (s *AdminAIService) ListModels() ([]AdminModelResponse, error) {
 		return nil, err
 	}
 	return s.enrichModels(models)
+}
+
+func (s *AdminAIService) ExportModels() (*AdminModelExportPayload, error) {
+	models, err := s.managedModelRepo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]AdminModelExportItem, 0, len(models))
+	for _, model := range models {
+		item := AdminModelExportItem{
+			Provider:    model.Provider,
+			ModelName:   model.ModelName,
+			DisplayName: model.DisplayName,
+			Description: model.Description,
+			Status:      model.Status,
+			IsActive:    model.IsActive,
+			SortOrder:   model.SortOrder,
+		}
+
+		capability, capErr := s.capabilityRepo.FindByProviderAndModel(model.Provider, model.ModelName)
+		if capErr == nil {
+			sanitized := *capability
+			sanitized.ID = 0
+			item.Capability = &sanitized
+		} else if !errors.Is(capErr, gorm.ErrRecordNotFound) {
+			return nil, capErr
+		}
+
+		pricing, pricingErr := s.pricingRuleRepo.FindActiveByModelID(model.ID)
+		if pricingErr == nil {
+			pricingData := map[string]interface{}{}
+			if data, ok := pricing.PricingData.Data.(map[string]interface{}); ok && data != nil {
+				pricingData = data
+			}
+			item.Pricing = &AdminModelExportPricing{
+				PricingType: pricing.PricingType,
+				Currency:    pricing.Currency,
+				IsActive:    pricing.IsActive,
+				EffectiveAt: &pricing.EffectiveAt,
+				ExpiredAt:   pricing.ExpiredAt,
+				Description: pricing.Description,
+				PricingData: pricingData,
+			}
+		} else if !errors.Is(pricingErr, gorm.ErrRecordNotFound) {
+			return nil, pricingErr
+		}
+
+		items = append(items, item)
+	}
+
+	return &AdminModelExportPayload{
+		Version:    1,
+		ExportedAt: time.Now(),
+		Items:      items,
+	}, nil
+}
+
+func (s *AdminAIService) ImportModels(req *AdminModelImportRequest) (*AdminModelImportResult, error) {
+	strategy := strings.TrimSpace(req.Strategy)
+	if strategy == "" {
+		strategy = "skip"
+	}
+	if strategy != "skip" && strategy != "overwrite" {
+		return nil, ErrInvalidManagedModel
+	}
+
+	result := &AdminModelImportResult{
+		Strategy: strategy,
+		Total:    len(req.Items),
+	}
+	if len(req.Items) == 0 {
+		return result, nil
+	}
+
+	for _, item := range req.Items {
+		if err := validateImportItem(&item); err != nil {
+			return nil, err
+		}
+		if _, err := s.providerTplRepo.FindByProvider(item.Provider); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, fmt.Errorf("provider not found for import item %s/%s", item.Provider, item.ModelName)
+			}
+			return nil, err
+		}
+	}
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		for _, item := range req.Items {
+			var model aiModels.ManagedAIModel
+			findErr := tx.Where("provider = ? AND model_name = ?", item.Provider, item.ModelName).First(&model).Error
+			if errors.Is(findErr, gorm.ErrRecordNotFound) {
+				model = aiModels.ManagedAIModel{
+					Provider:    item.Provider,
+					ModelName:   item.ModelName,
+					DisplayName: normalizeImportDisplayName(item.DisplayName, item.ModelName),
+					Description: normalizeOptionalString(item.Description),
+					Status:      normalizeImportStatus(item.Status),
+					IsActive:    item.IsActive,
+					SortOrder:   item.SortOrder,
+				}
+				if err := tx.Create(&model).Error; err != nil {
+					return err
+				}
+				result.Created++
+			} else if findErr != nil {
+				return findErr
+			} else {
+				if strategy == "skip" {
+					result.Skipped++
+					continue
+				}
+				model.DisplayName = normalizeImportDisplayName(item.DisplayName, item.ModelName)
+				model.Description = normalizeOptionalString(item.Description)
+				model.Status = normalizeImportStatus(item.Status)
+				model.IsActive = item.IsActive
+				model.SortOrder = item.SortOrder
+				if err := tx.Save(&model).Error; err != nil {
+					return err
+				}
+				result.Updated++
+			}
+
+			capability := item.Capability
+			if capability == nil {
+				capability = defaultAdminCapability(&model)
+			}
+			capabilityCopy := *capability
+			capabilityCopy.ID = 0
+			capabilityCopy.Provider = model.Provider
+			capabilityCopy.ModelName = model.ModelName
+			capabilityCopy.DisplayName = model.DisplayName
+			capabilityCopy.IsActive = model.IsActive
+			if capabilityCopy.CapabilityOptions == nil {
+				capabilityCopy.CapabilityOptions = &shared.JSONB{Data: map[string]interface{}{}}
+			}
+			if err := createOrUpdateCapabilityTx(tx, &capabilityCopy); err != nil {
+				return err
+			}
+
+			if item.Pricing != nil {
+				if err := upsertImportedPricingTx(tx, &model, item.Pricing); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
 func (s *AdminAIService) CreateModel(req *CreateManagedAIModelRequest) (*AdminModelResponse, error) {
@@ -749,4 +946,123 @@ func normalizeOptionalString(value *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func validateImportItem(item *AdminModelExportItem) error {
+	if strings.TrimSpace(item.Provider) == "" || strings.TrimSpace(item.ModelName) == "" {
+		return ErrInvalidManagedModel
+	}
+	status := normalizeImportStatus(item.Status)
+	if status != "active" && status != "testing" && status != "disabled" {
+		return ErrInvalidManagedModel
+	}
+	return nil
+}
+
+func normalizeImportStatus(status string) string {
+	normalized := strings.TrimSpace(status)
+	if normalized == "" {
+		return "active"
+	}
+	return normalized
+}
+
+func normalizeImportDisplayName(displayName string, modelName string) string {
+	trimmed := strings.TrimSpace(displayName)
+	if trimmed == "" {
+		return modelName
+	}
+	return trimmed
+}
+
+func createOrUpdateCapabilityTx(tx *gorm.DB, config *aiModels.ModelCapabilityConfig) error {
+	var existing aiModels.ModelCapabilityConfig
+	err := tx.Where("provider = ? AND model_name = ?", config.Provider, config.ModelName).First(&existing).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return tx.Create(config).Error
+	}
+	if err != nil {
+		return err
+	}
+	config.ID = existing.ID
+	return tx.Model(&existing).Updates(config).Error
+}
+
+func upsertImportedPricingTx(tx *gorm.DB, model *aiModels.ManagedAIModel, pricing *AdminModelExportPricing) error {
+	if strings.TrimSpace(pricing.PricingType) == "" || strings.TrimSpace(pricing.Currency) == "" {
+		return ErrInvalidManagedModel
+	}
+
+	var latest aiModels.ModelPricingRule
+	nextVersion := 1
+	err := tx.Where("managed_model_id = ?", model.ID).Order("version DESC").First(&latest).Error
+	if err == nil {
+		nextVersion = latest.Version + 1
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	effectiveAt := time.Now()
+	if pricing.EffectiveAt != nil && !pricing.EffectiveAt.IsZero() {
+		effectiveAt = *pricing.EffectiveAt
+	}
+
+	rule := &aiModels.ModelPricingRule{
+		ManagedModelID: model.ID,
+		Provider:       model.Provider,
+		ModelName:      model.ModelName,
+		PricingType:    pricing.PricingType,
+		Currency:       pricing.Currency,
+		IsActive:       pricing.IsActive,
+		Version:        nextVersion,
+		EffectiveAt:    effectiveAt,
+		ExpiredAt:      pricing.ExpiredAt,
+		Description:    normalizeOptionalString(pricing.Description),
+		PricingData:    shared.JSONB{Data: pricing.PricingData},
+	}
+
+	if pricing.IsActive {
+		if err := tx.Model(&aiModels.ModelPricingRule{}).
+			Where("managed_model_id = ? AND is_active = ?", model.ID, true).
+			Updates(map[string]interface{}{
+				"is_active":  false,
+				"expired_at": effectiveAt,
+			}).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Create(rule).Error; err != nil {
+		return err
+	}
+
+	if !pricing.IsActive {
+		return nil
+	}
+
+	var currentConfig aiModels.ModelPricingConfig
+	findErr := tx.Where("provider = ? AND model_name = ?", model.Provider, model.ModelName).First(&currentConfig).Error
+	if errors.Is(findErr, gorm.ErrRecordNotFound) {
+		currentConfig = aiModels.ModelPricingConfig{
+			Provider:    model.Provider,
+			ModelName:   model.ModelName,
+			PricingType: rule.PricingType,
+			Currency:    rule.Currency,
+			IsActive:    true,
+			Description: rule.Description,
+			PricingData: rule.PricingData,
+		}
+		return tx.Create(&currentConfig).Error
+	}
+	if findErr != nil {
+		return findErr
+	}
+
+	return tx.Model(&currentConfig).Updates(map[string]interface{}{
+		"pricing_type": rule.PricingType,
+		"currency":     rule.Currency,
+		"is_active":    true,
+		"description":  rule.Description,
+		"pricing_data": rule.PricingData,
+	}).Error
 }

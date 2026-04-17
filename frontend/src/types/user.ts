@@ -41,6 +41,7 @@ export interface TokenTransaction {
   description?: string | null;
   provider?: string | null;
   model_name?: string | null;
+  display_name?: string | null;
   model_mode?: string | null;
   model_id?: number | null;
   prompt_tokens?: number;
@@ -84,6 +85,7 @@ export interface TokenUsageStats {
 export interface ModelTokenStats {
   provider: string;
   model_name: string;
+  display_name?: string | null;
   today: TokenUsageStats;
   total: TokenUsageStats;
 }
@@ -147,4 +149,3 @@ export interface UpdateUserRequest {
   phone?: string;
   avatar?: string;
 }
-

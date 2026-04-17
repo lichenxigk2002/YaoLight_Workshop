@@ -127,7 +127,7 @@ export default function RuleDetailPage() {
             { key: 'cookies', label: 'Cookies', children: <pre className={styles.resultCode}>{prettyJson(rule.cookies, '{}')}</pre> },
           ]}
         />
-        <Text type="secondary">详情页保留规则全量配置视图，便于后续继续拆 RBAC 资源键时直接按页面控制。</Text>
+        <Text type="secondary">详情页保留规则的完整配置视图，便于后续按页面和操作范围继续细化管理权限。</Text>
       </Card>
 
       <RuleEditorDrawer
