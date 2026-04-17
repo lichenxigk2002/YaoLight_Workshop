@@ -269,6 +269,7 @@ func main() {
 			auth.GET("/workflows/:id/tasks", taskController.GetWorkflowTasks)            // 获取工作流的任务历史列表
 			auth.GET("/workflows/:id/running-tasks", taskController.GetRunningTasks)     // 获取正在运行的任务
 			auth.GET("/tasks/:id", taskController.GetTaskDetail)                         // 获取任务详情
+			auth.POST("/tasks/:id/cancel", taskController.CancelTask)                    // 取消任务
 			auth.GET("/tasks/:id/node-executions", taskController.GetTaskNodeExecutions) // 获取任务的节点执行记录
 			auth.GET("/tasks/:id/node-executions/:executionId", taskController.GetTaskNodeExecutionDetail)
 			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs) // 获取任务日志

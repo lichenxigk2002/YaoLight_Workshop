@@ -7,7 +7,7 @@ import (
 	"yaolight-workshop/backend/infrastructure/config"
 )
 
-const DefaultHTTPTimeout = 300 * time.Second
+const DefaultHTTPTimeout = 12 * time.Minute
 
 func NewHTTPClient() *http.Client {
 	return &http.Client{Timeout: DefaultHTTPTimeout}

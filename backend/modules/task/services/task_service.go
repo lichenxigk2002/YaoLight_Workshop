@@ -1,11 +1,24 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"yaolight-workshop/backend/modules/task/models"
 	"yaolight-workshop/backend/modules/task/repositories"
 )
+
+var (
+	ErrTaskNotOwned       = errors.New("task does not belong to current user")
+	ErrTaskActionNotAllow = errors.New("task action not allowed for current status")
+)
+
+type TaskActionResponse struct {
+	TaskID  uint   `json:"task_id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
 
 // TaskWithMetadata 带元数据的任务（包含序号和AI信息）
 type TaskWithMetadata struct {
@@ -205,6 +218,55 @@ func (s *TaskService) GetTaskDetail(taskID uint) (*models.Task, error) {
 		return nil, fmt.Errorf("获取任务详情失败: %w", err)
 	}
 	return task, nil
+}
+
+func (s *TaskService) CancelTask(taskID, userID uint) (*TaskActionResponse, error) {
+	task, err := s.taskRepo.GetTaskByID(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("获取任务详情失败: %w", err)
+	}
+	if task.UserID != userID {
+		return nil, ErrTaskNotOwned
+	}
+
+	switch task.Status {
+	case "pending", "queued", "running", "paused":
+	default:
+		return nil, ErrTaskActionNotAllow
+	}
+
+	now := time.Now()
+	task.Status = "cancelled"
+	task.CancelledAt = &now
+	task.CancelledBy = &userID
+	task.UpdatedAt = now
+	if task.StartedAt != nil {
+		duration := int(now.Sub(*task.StartedAt).Milliseconds())
+		task.ActualDuration = &duration
+	}
+
+	if err := s.taskRepo.UpdateTask(task); err != nil {
+		return nil, fmt.Errorf("更新任务状态失败: %w", err)
+	}
+
+	executions, err := s.nodeExecutionRepo.GetByTaskID(taskID)
+	if err == nil {
+		for i := range executions {
+			if executions[i].Status == "pending" || executions[i].Status == "running" {
+				executions[i].Status = "cancelled"
+				executions[i].CompletedAt = &now
+				if updateErr := s.nodeExecutionRepo.Update(&executions[i]); updateErr != nil {
+					return nil, fmt.Errorf("更新节点执行状态失败: %w", updateErr)
+				}
+			}
+		}
+	}
+
+	return &TaskActionResponse{
+		TaskID:  task.ID,
+		Status:  task.Status,
+		Message: "task cancelled",
+	}, nil
 }
 
 // TaskNodeExecutionListResponse 节点执行列表响应
