@@ -82,26 +82,72 @@
 
   :global(.ant-list-item-meta-title) {
     margin-bottom: 10px !important;
+    min-width: 0;
   }
 
   :global(.ant-list-item-meta-description) {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
   }
 
-  :global(.ant-list-item-action) {
-    margin-inline-start: 14px;
+  :global(.ant-list-item-meta) {
+    min-width: 0;
   }
 
-  :global(.ant-list-item-action > li) {
-    padding: 0;
+  :global(.ant-list-item-meta-content) {
+    min-width: 0;
+    width: 100%;
   }
+}
+
+.taskTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.taskTitleText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.currentSessionTag {
+  margin-inline-end: 0 !important;
+}
+
+.taskDescription {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.taskActionsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.taskMetricsRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .taskRowText {
   color: var(--editor-text-secondary, var(--text-secondary)) !important;
   font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 .taskError {
@@ -149,6 +195,9 @@
 .linkButton {
   border-radius: 999px !important;
   color: var(--editor-text, var(--text-primary)) !important;
+  min-height: 28px !important;
+  padding-inline: 8px !important;
+  font-size: 12px !important;
 
   &:hover {
     background: rgba(17, 17, 17, 0.05) !important;
@@ -159,4 +208,23 @@
   margin-top: 18px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .taskItem {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .taskMetricsRow {
+    gap: 10px;
+  }
+
+  .taskActionsRow {
+    gap: 4px;
+  }
+
+  .taskRowText {
+    white-space: normal;
+  }
 }

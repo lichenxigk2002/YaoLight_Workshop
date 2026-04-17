@@ -35,14 +35,24 @@ interface TaskHistoryPanelProps {
   visible: boolean;
   onClose: () => void;
   workflowId: number;
+  activeTaskId?: number;
+  cancellingTaskIds?: number[];
   onViewExecutionDetail?: (executions: TaskNodeExecution[], task: Task) => void;
+  onOpenExecutionResult?: (task: Task) => void;
+  onResumeExecution?: (task: Task) => void;
+  onCancelTask?: (task: Task) => void;
 }
 
 const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
   visible,
   onClose,
   workflowId,
+  activeTaskId,
+  cancellingTaskIds = [],
   onViewExecutionDetail,
+  onOpenExecutionResult,
+  onResumeExecution,
+  onCancelTask,
 }) => {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -53,8 +63,7 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
   const [limit] = useState(20);
   const [loading, setLoading] = useState(false);
   const [hasRunningTasks, setHasRunningTasks] = useState(false);
-
-  const pollingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isPollingRef = useRef(false);
 
   const fetchTasks = async () => {
@@ -131,6 +140,17 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
       onViewExecutionDetail?.(response.executions, task);
     } catch (error: any) {
       message.error(error.message || t('taskHistory.getDetailFailed'));
+    }
+  };
+
+  const handleCancelTask = async (task: Task) => {
+    if (!onCancelTask) return;
+    try {
+      await onCancelTask(task);
+      await fetchTasks();
+      await checkRunningTasks();
+    } catch (error: any) {
+      message.error(error.message || '中止任务失败');
     }
   };
 
@@ -212,40 +232,32 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
                   <List.Item
                     key={task.id}
                     className={styles.taskItem}
-                    actions={[
-                      <Button
-                        key="view"
-                        type="link"
-                        icon={<EyeOutlined />}
-                        onClick={() => void handleViewDetail(task)}
-                        className={styles.linkButton}
-                      >
-                        {t('taskHistory.viewDetail')}
-                      </Button>,
-                    ]}
                   >
                     <List.Item.Meta
                       title={
-                        <Space>
+                        <div className={styles.taskTitleRow}>
                           <TaskStatusTag status={task.status} task={task} />
-                          <Text strong>
+                          <Text strong className={styles.taskTitleText}>
                             {task.name ||
                               (task.sequenceNumber !== undefined
                                 ? t('taskHistory.task', { id: task.sequenceNumber })
                                 : t('taskHistory.task', { id: task.id }))}
                           </Text>
+                          {activeTaskId === task.id ? (
+                            <Tag bordered={false} color="processing" className={styles.currentSessionTag}>
+                              当前会话
+                            </Tag>
+                          ) : null}
                           {task.provider ? <ProviderIcon provider={task.provider} size={16} /> : null}
-                        </Space>
+                        </div>
                       }
                       description={
-                        <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                          <Space size="large">
-                            <Text type="secondary" className={styles.taskRowText}>
-                              <ClockCircleOutlined /> {t('taskHistory.startTime')}：
-                              {task.startedAt ? new Date(task.startedAt).toLocaleString('zh-CN') : '-'}
-                            </Text>
-                          </Space>
-                          <Space size="large">
+                        <div className={styles.taskDescription}>
+                          <Text type="secondary" className={styles.taskRowText}>
+                            <ClockCircleOutlined /> {t('taskHistory.startTime')}：
+                            {task.startedAt ? new Date(task.startedAt).toLocaleString('zh-CN') : '-'}
+                          </Text>
+                          <div className={styles.taskMetricsRow}>
                             <Text type="secondary" className={styles.taskRowText}>
                               {t('taskHistory.duration')}：{formatDuration(task.actualDuration)}
                             </Text>
@@ -255,13 +267,53 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
                             <Text type="secondary" className={styles.taskRowText}>
                               {t('taskHistory.priority')}：{task.priority}
                             </Text>
-                          </Space>
+                          </div>
                           {task.errorMessage ? (
                             <Text type="danger" ellipsis className={styles.taskError}>
                               {t('taskHistory.error')}：{task.errorMessage}
                             </Text>
                           ) : null}
-                        </Space>
+                          <div className={styles.taskActionsRow}>
+                            <Button
+                              type="link"
+                              size="small"
+                              icon={<EyeOutlined />}
+                              onClick={() => {
+                                if (isTaskRunning(task.status)) {
+                                  onResumeExecution?.(task);
+                                  return;
+                                }
+                                onOpenExecutionResult?.(task);
+                              }}
+                              className={styles.linkButton}
+                            >
+                              {isTaskRunning(task.status) ? '恢复执行' : '打开结果'}
+                            </Button>
+                            <Button
+                              type="link"
+                              size="small"
+                              icon={<EyeOutlined />}
+                              onClick={() => void handleViewDetail(task)}
+                              className={styles.linkButton}
+                            >
+                              {t('taskHistory.viewDetail')}
+                            </Button>
+                            {isTaskRunning(task.status) ? (
+                              <Button
+                                type="link"
+                                size="small"
+                                danger
+                                icon={<StopOutlined />}
+                                loading={cancellingTaskIds.includes(task.id)}
+                                disabled={cancellingTaskIds.includes(task.id)}
+                                onClick={() => void handleCancelTask(task)}
+                                className={styles.linkButton}
+                              >
+                                {cancellingTaskIds.includes(task.id) ? '终止中' : '中止'}
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
                       }
                     />
                   </List.Item>
@@ -338,5 +390,8 @@ const formatDuration = (milliseconds?: number): string => {
   }
   return `${seconds}秒`;
 };
+
+const isTaskRunning = (status: TaskStatus) =>
+  ['pending', 'queued', 'running', 'paused'].includes(status);
 
 export default TaskHistoryPanel;

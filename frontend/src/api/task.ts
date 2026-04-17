@@ -36,6 +36,9 @@ export const taskApi = {
   getTaskDetail: (taskId: number) =>
     http.get<Task>(`/tasks/${taskId}`),
 
+  cancelTask: (taskId: number) =>
+    http.post<{ task_id: number; status: string; message: string }>(`/tasks/${taskId}/cancel`, {}),
+
   /**
    * 获取任务的节点执行记录
    * @param taskId 任务ID
