@@ -48,6 +48,10 @@
   - 怪物级论文模板，52 个节点
   - 10 路文本、10 个一线分析、4 个中层综合、2 个上层总述、初稿重写与终稿润色，目标是尽量压出高质量总结文档
 
+- `12-guan-yu-thesis-omni-bibliography-factory.json`
+  - 全源论文模板，40+ 个节点
+  - 原典爬虫 + 手动参考文献输入 + 文献综述分支 + 章节统稿 + 参考文献编排，适合把本科论文一次性做完整
+
 使用建议：
 
 - AI 节点默认使用 `system` 模式、`deepseek` 提供商、`deepseek-chat` 模型。
@@ -59,3 +63,6 @@
   - `https://ctext.org/sanguo-yanyi/ch25/zh`
   - `https://ctext.org/sanguo-yanyi/ch27/zh`
   - `https://ctext.org/sanguo-yanyi/ch75/zh`
+- `12-guan-yu-thesis-omni-bibliography-factory.json` 额外支持在开始节点直接粘贴：
+  - `referenceBibliographyRaw`：参考文献原始列表
+  - `literatureNotesRaw`：文献摘要、读书笔记、导师意见整理

@@ -31,7 +31,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { Task, TaskNodeExecution, NodeExecutionStatus } from '@/types/task';
+import type { Task, TaskNodeExecution, NodeExecutionStatus, TaskStatus } from '@/types/task';
 import { workflowApi } from '@/api/workflow';
 import { taskApi } from '@/api/task';
 import http from '@/http';
@@ -47,6 +47,9 @@ interface TaskExecutionDetailModalProps {
   onClose: () => void;
   task: Task | null;
   executions: TaskNodeExecution[];
+  cancellingTaskIds?: number[];
+  onCancelTask?: (task: Task) => void;
+  onOpenExecutionResult?: (task: Task) => void;
 }
 
 const normalizeDownloadPathForHttp = (p: string) => {
@@ -778,6 +781,9 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
   onClose,
   task,
   executions,
+  cancellingTaskIds = [],
+  onCancelTask,
+  onOpenExecutionResult,
 }) => {
   const { t } = useTranslation();
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
@@ -974,6 +980,29 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
       centered
       mask={false}
       footer={[
+        task && (
+          <Button
+            key="result"
+            size="small"
+            onClick={() => onOpenExecutionResult?.(task)}
+            icon={<EyeOutlined />}
+          >
+            {isTaskRunning(task.status) ? '恢复执行' : '打开结果'}
+          </Button>
+        ),
+        task && isTaskRunning(task.status) ? (
+          <Button
+            key="cancel"
+            size="small"
+            danger
+            loading={cancellingTaskIds.includes(task.id)}
+            disabled={cancellingTaskIds.includes(task.id)}
+            onClick={() => onCancelTask?.(task)}
+            icon={<StopOutlined />}
+          >
+            {cancellingTaskIds.includes(task.id) ? '终止中' : '中止'}
+          </Button>
+        ) : null,
         <Button key="close" onClick={onClose}>
           {t('taskHistory.executionDetail.close')}
         </Button>,
@@ -1185,5 +1214,8 @@ const getTaskStatusText = (status: string, task: Task | null | undefined, t: (ke
   };
   return textMap[status] || status;
 };
+
+const isTaskRunning = (status: TaskStatus) =>
+  ['pending', 'queued', 'running', 'paused'].includes(status);
 
 export default TaskExecutionDetailModal;

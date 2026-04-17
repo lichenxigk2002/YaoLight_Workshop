@@ -298,6 +298,7 @@ interface ExecutionResultPanelProps {
   nodes: any[];
   onCancel?: () => void; // 取消执行的回调函数
   isExecuting?: boolean; // 是否正在执行中
+  isCancelling?: boolean;
 }
 
 const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
@@ -306,6 +307,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   nodes,
   onCancel,
   isExecuting = false,
+  isCancelling = false,
 }) => {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -850,7 +852,9 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
       }}>
         <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span>{t('node.execution.result')}</span>
-          {isExecuting ? (
+          {isCancelling ? (
+            <Tag color="warning">终止中</Tag>
+          ) : isExecuting ? (
             <Tag color="processing">执行中</Tag>
           ) : result.success ? (
             <Tag color="success">{t('node.execution.success')}</Tag>
@@ -859,18 +863,17 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
           )}
         </div>
         <Space>
-          {isExecuting && onCancel && (
+          {(isExecuting || isCancelling) && onCancel && (
             <Button
               type="default"
               danger
               size="small"
               icon={<StopOutlined />}
-              onClick={() => {
-                onCancel();
-                message.info('正在中止执行...');
-              }}
+              loading={isCancelling}
+              disabled={isCancelling}
+              onClick={onCancel}
             >
-              中止
+              {isCancelling ? '终止中' : '中止'}
             </Button>
           )}
           <Button
@@ -1033,4 +1036,3 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
 };
 
 export default ExecutionResultPanel;
-
