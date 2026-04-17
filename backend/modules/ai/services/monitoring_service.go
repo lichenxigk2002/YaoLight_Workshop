@@ -467,7 +467,7 @@ func supportsChatProbe(capability *aiModels.ModelCapabilityConfig) bool {
 func buildProbePrompt(providerName string) string {
 	switch normalizeProvider(providerName) {
 	case "claude", "gemini", "gpt", "grok":
-		return "Return exactly the single character 1."
+		return "Respond with exactly 1 in message content. No markdown, no explanation, no tool use."
 	default:
 		return "Reply with 1 only."
 	}
