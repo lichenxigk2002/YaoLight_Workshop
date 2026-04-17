@@ -106,6 +106,10 @@ export default function ModelsPage() {
   const [models, setModels] = useState<AIAdminModel[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportKeyword, setExportKeyword] = useState('');
+  const [exportProvider, setExportProvider] = useState<string | undefined>();
+  const [selectedExportIds, setSelectedExportIds] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [pendingImportMeta, setPendingImportMeta] = useState<Pick<AIModelConfigExportPayload, 'version' | 'exported_at'> | null>(null);
@@ -138,6 +142,33 @@ export default function ModelsPage() {
     );
   }, [importDraftItems]);
 
+  const exportProviderOptions = useMemo(
+    () =>
+      Array.from(new Set(models.map((item) => item.provider)))
+        .sort()
+        .map((provider) => ({
+          label: getAIProviderLabel(provider, t),
+          value: provider,
+        })),
+    [models, t],
+  );
+
+  const filteredExportModels = useMemo(() => {
+    const keyword = exportKeyword.trim().toLowerCase();
+    return models.filter((item) => {
+      if (exportProvider && item.provider !== exportProvider) return false;
+      if (!keyword) return true;
+      return [
+        item.display_name,
+        item.model_name,
+        item.provider,
+        getAIProviderLabel(item.provider, t),
+      ]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(keyword));
+    });
+  }, [exportKeyword, exportProvider, models, t]);
+
   const handleDelete = async (record: AIAdminModel) => {
     try {
       setDeletingId(record.id);
@@ -151,11 +182,39 @@ export default function ModelsPage() {
     }
   };
 
+  const openExportDialog = () => {
+    if (models.length === 0) {
+      message.info('当前没有可导出的模型');
+      return;
+    }
+    setExportKeyword('');
+    setExportProvider(undefined);
+    setSelectedExportIds(models.map((item) => item.id));
+    setExportDialogOpen(true);
+  };
+
   const handleExport = async () => {
     try {
+      if (selectedExportIds.length === 0) {
+        message.info('请先选择需要导出的模型');
+        return;
+      }
       setExporting(true);
       const payload = await exportAIModelsConfig();
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const selectedKeys = new Set(
+        models
+          .filter((item) => selectedExportIds.includes(item.id))
+          .map((item) => buildImportKey(item.provider, item.model_name)),
+      );
+      const filteredPayload = {
+        ...payload,
+        items: payload.items.filter((item) => selectedKeys.has(buildImportKey(item.provider, item.model_name))),
+      };
+      if (filteredPayload.items.length === 0) {
+        message.info('未匹配到可导出的模型配置');
+        return;
+      }
+      const blob = new Blob([JSON.stringify(filteredPayload, null, 2)], { type: 'application/json;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -164,7 +223,8 @@ export default function ModelsPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      message.success(`已导出 ${payload.items.length} 个模型配置`);
+      setExportDialogOpen(false);
+      message.success(`已导出 ${filteredPayload.items.length} 个模型配置`);
     } catch (error: unknown) {
       message.error(error instanceof Error ? error.message : '导出模型配置失败');
     } finally {
@@ -283,6 +343,32 @@ export default function ModelsPage() {
     },
   ];
 
+  const exportColumns: ColumnsType<AIAdminModel> = [
+    {
+      title: '模型',
+      render: (_value, record) => (
+        <div>
+          <div>{record.display_name}</div>
+          <div className={styles.providerKey}>{record.model_name}</div>
+        </div>
+      ),
+    },
+    {
+      title: '模型服务商',
+      dataIndex: 'provider',
+      render: (provider: string) => getAIProviderLabel(provider, t),
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      render: (status: string) => (
+        <Tag color={status === 'active' ? 'green' : status === 'testing' ? 'blue' : 'default'}>
+          {getAIModelStatusLabel(status, t)}
+        </Tag>
+      ),
+    },
+  ];
+
   return (
     <div className={styles.page}>
       <input
@@ -300,7 +386,7 @@ export default function ModelsPage() {
           <Paragraph className={styles.muted}>{t('aiModels.modelsDescription')}</Paragraph>
         </div>
         <Space wrap>
-          <Button onClick={() => void handleExport()} loading={exporting}>
+          <Button onClick={openExportDialog}>
             导出配置
           </Button>
           {canEdit ? (
@@ -392,6 +478,63 @@ export default function ModelsPage() {
           ]}
         />
       </Card>
+
+      <Modal
+        title="选择导出模型"
+        open={exportDialogOpen}
+        onOk={() => void handleExport()}
+        onCancel={() => {
+          if (exporting) return;
+          setExportDialogOpen(false);
+        }}
+        okText="开始导出"
+        cancelText={t('aiModels.actionCancel')}
+        confirmLoading={exporting}
+        width={900}
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Space wrap style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Space wrap>
+              <Input
+                placeholder="搜索模型名称、标识或服务商"
+                value={exportKeyword}
+                onChange={(event) => setExportKeyword(event.target.value)}
+                style={{ width: 280 }}
+              />
+              <Select
+                allowClear
+                placeholder="全部服务商"
+                value={exportProvider}
+                onChange={(value) => setExportProvider(value)}
+                options={exportProviderOptions}
+                style={{ width: 180 }}
+              />
+            </Space>
+            <Space>
+              <Button onClick={() => setSelectedExportIds(filteredExportModels.map((item) => item.id))}>全选当前筛选结果</Button>
+              <Button onClick={() => setSelectedExportIds([])}>清空选择</Button>
+            </Space>
+          </Space>
+
+          <div className={styles.importPreviewSummary}>
+            <Tag color="blue">当前筛选 {filteredExportModels.length}</Tag>
+            <Tag color="green">已选择 {selectedExportIds.length}</Tag>
+          </div>
+
+          <Table
+            size="small"
+            rowKey="id"
+            dataSource={filteredExportModels}
+            columns={exportColumns}
+            pagination={{ pageSize: 8 }}
+            rowSelection={{
+              selectedRowKeys: selectedExportIds,
+              onChange: (keys) => setSelectedExportIds(keys as string[]),
+              preserveSelectedRowKeys: true,
+            }}
+          />
+        </Space>
+      </Modal>
 
       <Modal
         title="导入模型配置预检查"
