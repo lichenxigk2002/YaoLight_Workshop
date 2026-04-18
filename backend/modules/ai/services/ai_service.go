@@ -229,6 +229,18 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 		})
 	}
 
+	if config.MoonshotAPIKey != "" {
+		models = append(models, map[string]interface{}{
+			"id":          "system_moonshot",
+			"name":        s.resolveSystemPresetDisplayName("moonshot", "moonshot-v1", "Moonshot Kimi"),
+			"provider":    "moonshot",
+			"modelName":   "moonshot-v1",
+			"baseUrl":     "https://api.moonshot.cn/v1",
+			"isSystem":    true,
+			"description": "系统预设的 Moonshot Kimi 模型，所有用户可用",
+		})
+	}
+
 	// 检查是否有讯飞星火预设配置
 	if config.SparkAPIKey != "" {
 		models = append(models, map[string]interface{}{
@@ -354,6 +366,8 @@ func normalizeProvider(provider string) string {
 	switch provider {
 	case "qianwen":
 		return "qwen"
+	case "kimi":
+		return "moonshot"
 	default:
 		return provider
 	}
@@ -388,6 +402,7 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 		supportedProviders := map[string]bool{
 			"deepseek": true,
 			"doubao":   true,
+			"moonshot": true,
 			"qwen":     true,
 			"spark":    true,
 			"hunyuan":  true,
@@ -422,6 +437,8 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 				defaultURL = "https://api.deepseek.com"
 			case "doubao":
 				defaultURL = "https://ark.cn-beijing.volces.com/api/v3"
+			case "moonshot":
+				defaultURL = "https://api.moonshot.cn/v1"
 			case "qwen":
 				defaultURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 			case "spark":
@@ -446,8 +463,8 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 
 	temperature := req.Temperature
 	if temperature == nil {
-		// 智谱AI默认1.0，其他默认0.7
-		if req.Provider == "zhipuai" {
+		// 智谱AI、Moonshot 默认 1.0，其他默认 0.7
+		if req.Provider == "zhipuai" || req.Provider == "moonshot" {
 			t := 1.0
 			temperature = &t
 		} else {

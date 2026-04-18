@@ -80,6 +80,30 @@ func (m *ProviderConfigMapper) MapProviderConfig(
 			result["enable_thinking"] = false
 		}
 
+	case "moonshot", "kimi":
+		if thinkingMap, ok := nodeConfig["thinking"].(map[string]interface{}); ok {
+			result["thinking"] = thinkingMap
+		} else if thinking, ok := nodeConfig["thinking"].(bool); ok {
+			if thinking {
+				result["thinking"] = map[string]interface{}{"type": "enabled"}
+			} else {
+				result["thinking"] = map[string]interface{}{"type": "disabled"}
+			}
+		} else if reasoning, ok := nodeConfig["reasoning"].(bool); ok {
+			if reasoning {
+				result["thinking"] = map[string]interface{}{"type": "enabled"}
+			} else {
+				result["thinking"] = map[string]interface{}{"type": "disabled"}
+			}
+		}
+
+		if fp, ok := nodeConfig["frequencyPenalty"].(float64); ok {
+			result["frequencyPenalty"] = fp
+		}
+		if pp, ok := nodeConfig["presencePenalty"].(float64); ok {
+			result["presencePenalty"] = pp
+		}
+
 	case "claude", "gemini", "grok", "gpt":
 		// Claude/Gemini/Grok/GPT (via OpenRouter) 使用 reasoning (map)
 		// 优先检查 reasoning 参数

@@ -9,22 +9,14 @@ import (
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 )
 
-// SeedAlkaidOutputNodeKnowledge 将“输出节点新导出能力/Artifacts/导出API/图表与Mermaid结构”写入瑶光星知识库
-// 说明：
-// - SQL migrations 会先于 seed 执行；这里仍保留幂等 seed，用来持续维护输出节点相关知识的最新内容
-// - 这样即便历史库里已有旧版知识，启动后也能自动修正为当前版本
+// SeedAlkaidOutputNodeKnowledge 将“输出节点新导出能力/Artifacts/导出API/图表与Mermaid结构”写入瑶光星知识库。
+// 启动时仅补齐缺失的系统知识，不覆盖库中已有内容，避免重启改写后台维护数据。
 func SeedAlkaidOutputNodeKnowledge() error {
 	if DB == nil {
 		return fmt.Errorf("database not initialized")
 	}
 
-	// 1) 旧版输出节点知识置为不激活（避免检索到过期内容）
-	DB.Model(&alkaidModels.AlkaidKnowledge{}).
-		Where("user_id IS NULL AND category = ? AND target = ? AND title = ? AND is_active = ?",
-			"node_usage", "output", "输出节点使用说明", true).
-		Update("is_active", false)
-
-	// 2) 写入/更新新版知识条目
+	// 仅写入缺失的新版系统知识条目。
 	seeds := []alkaidModels.AlkaidKnowledge{
 		{
 			UserID:   nil,
@@ -233,15 +225,6 @@ AI 节点输出建议：
 			continue
 		}
 		if err != nil {
-			return err
-		}
-		if err := DB.Model(&existing).Updates(map[string]interface{}{
-			"content":   k.Content,
-			"tags":      k.Tags,
-			"is_active": true,
-			"category":  k.Category,
-			"target":    k.Target,
-		}).Error; err != nil {
 			return err
 		}
 	}

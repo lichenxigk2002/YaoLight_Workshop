@@ -101,7 +101,7 @@ const isTaskRunning = (status?: string) =>
 
 const buildExecutionResultFromTaskExecutions = (executions: TaskNodeExecution[]) => {
   const results = executions
-    .filter((execution) => execution.status !== 'pending')
+    .filter((execution) => ['completed', 'skipped', 'failed', 'timeout', 'cancelled'].includes(execution.status))
     .map((execution) => ({
       node_id: execution.nodeId,
       type: execution.nodeType,
@@ -274,9 +274,17 @@ const WorkflowEditor: React.FC = () => {
       setSelectedTask(task);
       setTaskExecutions(executions);
     }
-    setExecutionResult(buildExecutionResultFromTaskExecutions(executions));
+    const nextExecutionResult = buildExecutionResultFromTaskExecutions(executions);
+    const shouldPreserveLiveResult =
+      isExecuting &&
+      isTaskRunning(task.status) &&
+      (!nextExecutionResult.results || nextExecutionResult.results.length === 0);
+
+    if (!shouldPreserveLiveResult) {
+      setExecutionResult(nextExecutionResult);
+    }
     updateNodesExecutionStatus(buildNodeExecutionStatusMap(executions));
-  }, [selectedTask?.id, updateNodesExecutionStatus]);
+  }, [isExecuting, selectedTask?.id, updateNodesExecutionStatus]);
 
   const clearActiveTaskPolling = useCallback(() => {
     if (activeTaskPollTimerRef.current) {

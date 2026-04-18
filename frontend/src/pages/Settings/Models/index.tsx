@@ -49,6 +49,10 @@ const PROVIDER_METADATA: Record<string, { icon: React.ReactNode, capabilities: s
     icon: <ProviderIcon provider="qwen" size={24} />,
     capabilities: ['LLM']
   },
+  moonshot: {
+    icon: <ProviderIcon provider="moonshot" size={24} />,
+    capabilities: ['LLM']
+  },
   zhipuai: {
     icon: <ProviderIcon provider="zhipuai" size={24} />,
     capabilities: ['LLM']
