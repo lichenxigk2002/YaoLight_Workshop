@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Form, Input, Select, Radio, Collapse, InputNumber, Tag, App, Segmented } from 'antd';
+import { Form, Input, Select, Collapse, InputNumber, Tag, App, Segmented } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Node, Edge } from 'reactflow';
 import { VariableSelectField, VariableTagTextArea } from '../variables';
@@ -26,7 +26,7 @@ import {
 import '../providers';
 import { providerRegistry } from '../providers';
 import { AIModelConfigPopup } from './AIModelConfigPopup';
-import { ProviderIcon } from '../../Icons/ProviderIcon';
+import { AIIcon } from '../../Icons/AIIcon';
 import { ProviderPicker, type ProviderPickerMode, type ProviderPickerOption } from './ProviderPicker';
 import { StandardProviderConfig } from '../providers/parts/StandardProviderConfig';
 import { SegmentedSwitch } from '../providers/parts/SwitchPart';
@@ -167,6 +167,50 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
     );
   }, [systemModels, userModels]);
 
+  const syncIconFields = React.useCallback((params?: {
+    mode?: string;
+    provider?: string | null;
+    modelName?: string | null;
+    modelId?: number | null;
+  }) => {
+    const mode = params?.mode ?? form.getFieldValue('modelMode') ?? 'system';
+    const modelId = params?.modelId ?? form.getFieldValue('modelId');
+    const provider = params?.provider ?? form.getFieldValue('provider');
+    const modelName = params?.modelName ?? form.getFieldValue('modelName');
+
+    const setIcons = (providerIcon?: string, modelIcon?: string) => {
+      form.setFieldValue('providerIcon', providerIcon || undefined);
+      form.setFieldValue('modelIcon', modelIcon || undefined);
+    };
+
+    if (mode === 'saved' && modelId) {
+      const selectedModel = userModels.find((item) => item.id === modelId);
+      setIcons(selectedModel?.providerIcon, selectedModel?.modelIcon);
+      return;
+    }
+
+    const providerTemplate = provider
+      ? providerTemplates.find((item) => item.provider === provider)
+      : undefined;
+
+    if (mode === 'system') {
+      const matchedSystemModel = systemModels.find((item) => item.provider === provider && item.modelName === modelName)
+        || systemModels.find((item) => item.provider === provider);
+      setIcons(
+        matchedSystemModel?.providerIcon || providerTemplate?.icon,
+        matchedSystemModel?.modelIcon,
+      );
+      return;
+    }
+
+    if (mode === 'custom') {
+      setIcons(providerTemplate?.icon, undefined);
+      return;
+    }
+
+    setIcons(providerTemplate?.icon, undefined);
+  }, [form, providerTemplates, systemModels, userModels]);
+
   // 从节点配置中获取模型配置存储对象
   const getModelConfigs = React.useCallback((): Record<string, any> => {
     const config = node?.data?.config || {};
@@ -302,7 +346,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
         return sorted.map(tpl => ({
           value: tpl.provider,
           title: tpl.name || tpl.provider,
-          icon: <ProviderIcon provider={tpl.provider} size={18} />,
+          icon: <AIIcon iconKey={tpl.icon} fallbackProvider={tpl.provider} size={18} />,
         }));
       }
 
@@ -322,7 +366,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       return sorted.map(p => ({
         value: p.name,
         title: p.displayName || p.name,
-        icon: <ProviderIcon provider={p.name} size={18} />
+        icon: <AIIcon fallbackProvider={p.name} size={18} />
       }));
     },
     [providerTemplates],
@@ -338,7 +382,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
       opts.push({
         value: m.provider,
         title: providerReg?.displayName || m.name,
-        icon: <ProviderIcon provider={m.provider} size={18} />,
+        icon: <AIIcon iconKey={m.providerIcon} fallbackProvider={m.provider} size={18} />,
       });
     }
     return opts;
@@ -397,6 +441,10 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
     }
   }, [node]);
 
+  useEffect(() => {
+    syncIconFields();
+  }, [syncIconFields, watchedModelMode, watchedModelId, watchedProvider, watchedModelName]);
+
   return (
     <div className={styles.configContainer}>
       <ModelConfigWatcher />
@@ -415,6 +463,12 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
           style={{ marginBottom: 0 }}
         >
           <ModeSelector t={t} />
+        </Form.Item>
+        <Form.Item name="providerIcon" style={{ display: 'none' }}>
+          <Input />
+        </Form.Item>
+        <Form.Item name="modelIcon" style={{ display: 'none' }}>
+          <Input />
         </Form.Item>
       </div>
 
@@ -468,6 +522,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                             if (defaultModelName) {
                               form.setFieldValue('modelName', defaultModelName);
                             }
+                            syncIconFields({ mode: 'system', provider: value, modelName: defaultModelName || undefined });
                           }}
                         />
                       </Form.Item>
@@ -482,8 +537,6 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                           // 默认模型名称：优先使用系统预设模型的 modelName，否则使用模板的第一个模型
                           const defaultModelName = selectedSystemModel?.modelName || supportedModels[0] || '';
                           const currentModelName = getFieldValue('modelName');
-                          const providerConfigSupport = getModelConfigSupport(selectedProvider);
-
                           return (
                             <>
                               {providerPickerMode === 'cards' ? (
@@ -501,18 +554,22 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                       if (defaultName) {
                                         form.setFieldValue('modelName', defaultName);
                                       }
+                                      syncIconFields({ mode: 'system', provider: val, modelName: defaultName || undefined });
                                     }}
                                     options={providerPickerOptionsSystem}
                                     supportedModels={supportedModels}
                                     getModelLabel={(model) => getDisplayModelLabel(selectedProvider, model)}
                                     currentModelName={currentModelName}
-                                    onModelChange={(val) => form.setFieldValue('modelName', val)}
+                                    onModelChange={(val) => {
+                                      form.setFieldValue('modelName', val);
+                                      syncIconFields({ mode: 'system', provider: selectedProvider, modelName: val });
+                                    }}
                                     onOpen={() => restoreModelConfig()}
                                     trigger={
-                                      <div className={styles.triggerCard}>
-                                        <div className={styles.triggerCardIcon}>
-                                          <ProviderIcon provider={selectedProvider} size={24} />
-                                        </div>
+                                  <div className={styles.triggerCard}>
+                                    <div className={styles.triggerCardIcon}>
+                                          <AIIcon iconKey={selectedSystemModel?.modelIcon || selectedSystemModel?.providerIcon || providerTemplate?.icon} fallbackProvider={selectedProvider} size={24} />
+                                    </div>
                                         <div className={styles.triggerCardContent}>
                                           <div className={styles.triggerCardTitle}>
                                             {selectedSystemModel?.name || providerTemplate?.name || selectedProvider}
@@ -543,6 +600,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                     className={styles.modelSelect}
                                     onChange={(value) => {
                                       form.setFieldValue('modelName', value);
+                                      syncIconFields({ mode: 'system', provider: selectedProvider, modelName: value });
                                     }}
                                   >
                                     {supportedModels.length > 0 ? (
@@ -618,6 +676,12 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                               } else {
                                 form.setFieldValue('modelName', selectedModel.modelName);
                               }
+                              syncIconFields({
+                                mode: 'saved',
+                                modelId: value,
+                                provider: selectedModel.provider,
+                                modelName: selectedModel.modelName === '__provider_default__' ? undefined : selectedModel.modelName,
+                              });
                             }
                           }}
                           onFocus={() => {
@@ -630,7 +694,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                           {userModels.map((model) => (
                             <Option key={model.id} value={model.id}>
                               <div style={{ width: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
-                                <ProviderIcon provider={model.provider} size={16} />
+                                <AIIcon iconKey={model.modelIcon || model.providerIcon} fallbackProvider={model.provider} size={16} />
                                 <Tag color="green" className={styles.optionTag} title={model.name}>
                                   {model.name}
                                 </Tag>
@@ -659,8 +723,6 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                           const isProviderDefault = selectedModel?.modelName === '__provider_default__';
                           const supportedModels = selectedModel?.supportedModels || [];
                           const currentModelName = getFieldValue('modelName');
-                          const providerTemplate = providerTemplates.find(t => t.provider === selectedModel?.provider);
-
                           // 调试信息（开发环境）
                           if (process.env.NODE_ENV === 'development' && selectedModel) {
                             console.log('Selected model:', selectedModel);
@@ -676,16 +738,22 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                   <AIModelConfigPopup
                                     form={form}
                                     value={selectedModel.provider}
-                                    onChange={(val) => {
+                                    onChange={() => {
                                       // 卡片模式下，用户选择的是已保存的模型，不应该改变 provider
                                       // 这里只是为了兼容 AIModelConfigPopup 的接口
                                       // 但确保 provider 被设置
                                       form.setFieldValue('provider', selectedModel.provider);
+                                      syncIconFields({
+                                        mode: 'saved',
+                                        modelId: selectedModel.id,
+                                        provider: selectedModel.provider,
+                                        modelName: currentModelName || selectedModel.modelName,
+                                      });
                                     }}
                                     options={[{
                                       value: selectedModel.provider,
                                       title: selectedModel.name,
-                                      icon: <ProviderIcon provider={selectedModel.provider} size={18} />
+                                      icon: <AIIcon iconKey={selectedModel.modelIcon || selectedModel.providerIcon} fallbackProvider={selectedModel.provider} size={18} />
                                     }]}
                                     supportedModels={isProviderDefault ? supportedModels : []}
                                     getModelLabel={(model) => getDisplayModelLabel(selectedModel.provider, model)}
@@ -694,6 +762,12 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                       form.setFieldValue('modelName', val);
                                       // 确保 provider 也被设置
                                       form.setFieldValue('provider', selectedModel.provider);
+                                      syncIconFields({
+                                        mode: 'saved',
+                                        modelId: selectedModel.id,
+                                        provider: selectedModel.provider,
+                                        modelName: val,
+                                      });
                                     }}
                                     onOpen={() => {
                                       restoreModelConfig();
@@ -703,12 +777,18 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                         if (!isProviderDefault && selectedModel.modelName) {
                                           form.setFieldValue('modelName', selectedModel.modelName);
                                         }
+                                        syncIconFields({
+                                          mode: 'saved',
+                                          modelId: selectedModel.id,
+                                          provider: selectedModel.provider,
+                                          modelName: !isProviderDefault ? selectedModel.modelName : currentModelName,
+                                        });
                                       }
                                     }}
                                     trigger={
                                       <div className={styles.triggerCard}>
                                         <div className={styles.triggerCardIcon}>
-                                          <ProviderIcon provider={selectedModel.provider} size={24} />
+                                          <AIIcon iconKey={selectedModel.modelIcon || selectedModel.providerIcon} fallbackProvider={selectedModel.provider} size={24} />
                                         </div>
                                         <div className={styles.triggerCardContent}>
                                           <div className={styles.triggerCardTitle}>
@@ -749,6 +829,12 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                         placeholder={t('node.config.ai.selectModelVersion') || '请选择模型版本'}
                                         onChange={(value) => {
                                           form.setFieldValue('modelName', value);
+                                          syncIconFields({
+                                            mode: 'saved',
+                                            modelId: selectedModel?.id,
+                                            provider: selectedModel?.provider,
+                                            modelName: value,
+                                          });
                                         }}
                                       >
                                         {supportedModels.map((modelName) => (
@@ -809,6 +895,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                             const defaultBaseUrl = providerTemplate?.defaultBaseUrl || '';
                             if (defaultModelName) form.setFieldValue('modelName', defaultModelName);
                             if (defaultBaseUrl) form.setFieldValue('baseUrl', defaultBaseUrl);
+                            syncIconFields({ mode: 'custom', provider: value });
                           }}
                         />
                       </Form.Item>
@@ -839,17 +926,21 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                       const defaultUrl = template?.defaultBaseUrl || '';
                                       if (defaultName) form.setFieldValue('modelName', defaultName);
                                       if (defaultUrl) form.setFieldValue('baseUrl', defaultUrl);
+                                      syncIconFields({ mode: 'custom', provider: val });
                                     }}
                                     options={providerPickerOptionsCustom}
                                     supportedModels={supportedModels}
                                     getModelLabel={(model) => getDisplayModelLabel(selectedProvider, model)}
                                     currentModelName={currentModelName}
-                                    onModelChange={(val) => form.setFieldValue('modelName', val)}
+                                    onModelChange={(val) => {
+                                      form.setFieldValue('modelName', val);
+                                      syncIconFields({ mode: 'custom', provider: selectedProvider, modelName: val });
+                                    }}
                                     onOpen={() => restoreModelConfig()}
                                     trigger={
                                       <div className={styles.triggerCard}>
                                         <div className={styles.triggerCardIcon}>
-                                          <ProviderIcon provider={selectedProvider} size={24} />
+                                          <AIIcon iconKey={providerTemplate?.icon} fallbackProvider={selectedProvider} size={24} />
                                         </div>
                                         <div className={styles.triggerCardContent}>
                                           <div className={styles.triggerCardTitle}>
@@ -880,7 +971,13 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                     className={styles.formItem}
                                   >
                                     {supportedModels.length > 0 ? (
-                                      <Select className={styles.modelSelect}>
+                                      <Select
+                                        className={styles.modelSelect}
+                                        onChange={(value) => {
+                                          form.setFieldValue('modelName', value);
+                                          syncIconFields({ mode: 'custom', provider: selectedProvider, modelName: value });
+                                        }}
+                                      >
                                         {supportedModels.map((modelName) => (
                                           <Option key={modelName} value={modelName}>
                                             {getDisplayModelLabel(selectedProvider, modelName)}
@@ -888,7 +985,10 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                         ))}
                                       </Select>
                                     ) : (
-                                      <Input placeholder="模型名称" />
+                                      <Input
+                                        placeholder="模型名称"
+                                        onChange={() => syncIconFields({ mode: 'custom', provider: selectedProvider })}
+                                      />
                                     )}
                                   </Form.Item>
                                   <Form.Item

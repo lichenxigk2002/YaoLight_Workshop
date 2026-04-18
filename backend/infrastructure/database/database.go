@@ -331,11 +331,13 @@ func SeedProviderTemplates() error {
 		description string
 		baseURL     string
 		defaultCfg  map[string]interface{}
+		models      []interface{}
 	}
 
 	defaults := map[string]providerSeed{
 		"deepseek": {name: "DeepSeek", description: "DeepSeek model provider", baseURL: "https://api.deepseek.com", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 8192}},
 		"doubao":   {name: "Doubao", description: "Doubao model provider", baseURL: "https://ark.cn-beijing.volces.com/api/v3", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+		"moonshot": {name: "Moonshot", description: "Moonshot Kimi model provider", baseURL: "https://api.moonshot.cn/v1", defaultCfg: map[string]interface{}{"temperature": 1.0, "maxTokens": 4096}, models: []interface{}{"moonshot-v1"}},
 		"qwen":     {name: "Qwen", description: "Qwen model provider", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
 		"zhipuai":  {name: "ZhipuAI", description: "GLM model provider", baseURL: "https://open.bigmodel.cn/api/paas/v4", defaultCfg: map[string]interface{}{"temperature": 1.0, "maxTokens": 2048}},
 		"spark":    {name: "Spark", description: "Spark model provider", baseURL: "https://spark-api-open.xf-yun.com/v2", defaultCfg: map[string]interface{}{"temperature": 1.0, "maxTokens": 8192}},
@@ -345,6 +347,20 @@ func SeedProviderTemplates() error {
 		"gemini":   {name: "Gemini", description: "Google Gemini provider", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},
 		"grok":     {name: "Grok", description: "xAI Grok provider", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},
 		"openai":   {name: "OpenAI", description: "OpenAI official provider", baseURL: "https://api.openai.com/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
+	}
+	defaultIcons := map[string]string{
+		"claude":   "Claude",
+		"deepseek": "DeepSeek",
+		"doubao":   "Doubao",
+		"gemini":   "Gemini",
+		"gpt":      "OpenAI",
+		"grok":     "Grok",
+		"hunyuan":  "Hunyuan",
+		"moonshot": "Moonshot",
+		"openai":   "OpenAI",
+		"qwen":     "Qwen",
+		"spark":    "Spark",
+		"zhipuai":  "Zhipu",
 	}
 
 	providerSet := make(map[string]struct{})
@@ -361,6 +377,11 @@ func SeedProviderTemplates() error {
 		var existing aiModels.ProviderTemplate
 		err := DB.Where("provider = ?", provider).First(&existing).Error
 		if err == nil {
+			if existing.Icon == nil {
+				if iconKey, ok := defaultIcons[provider]; ok {
+					_ = DB.Model(&existing).Update("icon", iconKey).Error
+				}
+			}
 			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -376,8 +397,9 @@ func SeedProviderTemplates() error {
 			Provider:        provider,
 			Name:            def.name,
 			Description:     normalizeOptionalString(def.description),
+			Icon:            normalizeOptionalString(defaultIcons[provider]),
 			DefaultBaseURL:  normalizeOptionalString(def.baseURL),
-			SupportedModels: shared.JSONB{Data: []interface{}{}},
+			SupportedModels: shared.JSONB{Data: def.models},
 			ConfigSchema:    shared.JSONB{Data: map[string]interface{}{}},
 			DefaultConfig:   shared.JSONB{Data: def.defaultCfg},
 			IsActive:        true,
@@ -420,15 +442,6 @@ func SeedNodeTypes() error {
 		if err != nil {
 			return err
 		}
-		if err := DB.Model(&existing).Updates(map[string]interface{}{
-			"category":  node.Category,
-			"icon":      node.Icon,
-			"color":     node.Color,
-			"is_system": node.IsSystem,
-			"is_active": node.IsActive,
-		}).Error; err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -460,9 +473,6 @@ func SeedAlkaidSpecs() error {
 			continue
 		}
 		if err != nil {
-			return err
-		}
-		if err := DB.Model(&existing).Updates(spec).Error; err != nil {
 			return err
 		}
 	}
@@ -537,6 +547,13 @@ func SeedModelPricingConfigs() error {
 	}
 
 	for _, cfg := range configs {
+		if _, err := pricingRepo.FindByProviderAndModel(cfg.Provider, cfg.ModelName); err == nil {
+			// 保留后台已维护过的基础定价配置，避免服务重启时被默认种子覆盖。
+			continue
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
 		if err := pricingRepo.CreateOrUpdate(cfg); err != nil {
 			return err
 		}
@@ -555,6 +572,13 @@ func SeedModelCapabilityConfigs() error {
 	}
 
 	for _, pricing := range configs {
+		if _, err := capRepo.FindByProviderAndModel(pricing.Provider, pricing.ModelName); err == nil {
+			// 保留后台已维护过的模型能力配置，避免服务重启时被默认种子覆盖。
+			continue
+		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
 		capability := defaultCapabilityForModel(pricing.Provider, pricing.ModelName)
 		if err := capRepo.CreateOrUpdate(capability); err != nil {
 			return err
@@ -600,6 +624,11 @@ func defaultCapabilityForModel(provider, modelName string) *aiModels.ModelCapabi
 	case "qwen":
 		cfg.SupportStream = true
 		cfg.SupportEnableThinking = true
+	case "moonshot":
+		cfg.SupportStream = true
+		cfg.SupportThinking = true
+		cfg.SupportFrequencyPenalty = true
+		cfg.SupportPresencePenalty = true
 	case "zhipuai":
 		cfg.SupportStream = true
 		cfg.SupportThinking = true

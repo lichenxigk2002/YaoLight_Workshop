@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PageHero from '@/components/PageHero';
 import { createAIModel, getAIProviderOptions } from '@/api/aiModels';
+import { getAIIconOptions } from '@/features/ai/iconCatalog';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
 import type { CreateAIModelInput } from '@/types/aiModels';
@@ -21,7 +22,9 @@ export default function ModelCreatePage() {
   const navigate = useNavigate();
   const { t } = useI18n();
   const { canEdit } = useAdminPermission('ai_models.models');
+  const [form] = Form.useForm<CreateAIModelInput>();
   const [providers, setProviders] = useState<AIProviderOption[]>([]);
+  const modelIconOptions = getAIIconOptions(['model', 'provider']);
 
   useEffect(() => {
     void getAIProviderOptions().then(setProviders);
@@ -52,7 +55,7 @@ export default function ModelCreatePage() {
 
       <Card bordered={false} className={styles.card}>
         <Paragraph className={styles.muted}>{t('aiModels.createIntro')}</Paragraph>
-        <Form<CreateAIModelInput> layout="vertical" onFinish={handleFinish} initialValues={{ is_active: true }} disabled={!canEdit}>
+        <Form<CreateAIModelInput> form={form} layout="vertical" onFinish={handleFinish} initialValues={{ is_active: true }} disabled={!canEdit}>
           <div className={styles.formGrid}>
             <Form.Item
               label={t('aiModels.formProviderLabel')}
@@ -85,6 +88,32 @@ export default function ModelCreatePage() {
 
           <Form.Item label={t('aiModels.formDescriptionLabel')} name="description">
             <Input.TextArea rows={4} placeholder={t('aiModels.formDescriptionPlaceholder')} />
+          </Form.Item>
+
+          <Form.Item
+            label={t('aiModels.formModelIconLabel')}
+            name="model_icon"
+            tooltip={t('aiModels.formModelIconTooltip')}
+          >
+            <Select
+              allowClear
+              showSearch
+              placeholder={t('aiModels.formModelIconPlaceholder')}
+              options={modelIconOptions}
+              filterOption={(input, option) =>
+                typeof option?.searchText === 'string' && option.searchText.includes(input.trim().toLowerCase())
+              }
+              optionRender={(option) => {
+                const data = option.data as (typeof modelIconOptions)[number];
+                return (
+                  <Space>
+                    {data.preview}
+                    <span>{data.label}</span>
+                  </Space>
+                );
+              }}
+              optionLabelProp="label"
+            />
           </Form.Item>
 
           <Space>

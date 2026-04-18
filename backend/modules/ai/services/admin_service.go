@@ -33,6 +33,7 @@ type AdminAIService struct {
 type AdminProviderSummary struct {
 	Provider          string   `json:"provider"`
 	Name              string   `json:"name"`
+	Icon              *string  `json:"icon,omitempty"`
 	Description       string   `json:"description"`
 	IsActive          bool     `json:"is_active"`
 	ModelsCount       int      `json:"models_count"`
@@ -44,6 +45,13 @@ type AdminProviderSummary struct {
 type AdminProviderDetail struct {
 	AdminProviderSummary
 	Models []AdminModelResponse `json:"models"`
+}
+
+type UpdateProviderTemplateRequest struct {
+	Name        *string `json:"name"`
+	Icon        *string `json:"icon"`
+	Description *string `json:"description"`
+	IsActive    *bool   `json:"is_active"`
 }
 
 type AdminUsageSummary struct {
@@ -60,6 +68,8 @@ type AdminModelResponse struct {
 	Provider       string                          `json:"provider"`
 	ModelName      string                          `json:"model_name"`
 	DisplayName    string                          `json:"display_name"`
+	ModelIcon      *string                         `json:"model_icon,omitempty"`
+	ProviderIcon   *string                         `json:"provider_icon,omitempty"`
 	Description    *string                         `json:"description,omitempty"`
 	Status         string                          `json:"status"`
 	IsActive       bool                            `json:"is_active"`
@@ -73,12 +83,14 @@ type CreateManagedAIModelRequest struct {
 	Provider    string  `json:"provider"`
 	ModelName   string  `json:"model_name"`
 	DisplayName string  `json:"display_name"`
+	ModelIcon   *string `json:"model_icon"`
 	Description *string `json:"description"`
 	IsActive    bool    `json:"is_active"`
 }
 
 type UpdateManagedAIModelRequest struct {
 	DisplayName *string `json:"display_name"`
+	ModelIcon   *string `json:"model_icon"`
 	Description *string `json:"description"`
 	Status      *string `json:"status"`
 	IsActive    *bool   `json:"is_active"`
@@ -109,6 +121,7 @@ type AdminModelExportItem struct {
 	Provider    string                          `json:"provider"`
 	ModelName   string                          `json:"model_name"`
 	DisplayName string                          `json:"display_name"`
+	ModelIcon   *string                         `json:"model_icon,omitempty"`
 	Description *string                         `json:"description,omitempty"`
 	Status      string                          `json:"status"`
 	IsActive    bool                            `json:"is_active"`
@@ -231,6 +244,7 @@ func (s *AdminAIService) ListProviders() ([]AdminProviderSummary, error) {
 		summaries = append(summaries, AdminProviderSummary{
 			Provider:          tpl.Provider,
 			Name:              tpl.Name,
+			Icon:              tpl.Icon,
 			Description:       valueOrEmpty(tpl.Description),
 			IsActive:          tpl.IsActive,
 			ModelsCount:       len(models),
@@ -288,6 +302,7 @@ func (s *AdminAIService) GetProvider(provider string) (*AdminProviderDetail, err
 		AdminProviderSummary: AdminProviderSummary{
 			Provider:          tpl.Provider,
 			Name:              tpl.Name,
+			Icon:              tpl.Icon,
 			Description:       valueOrEmpty(tpl.Description),
 			IsActive:          tpl.IsActive,
 			ModelsCount:       len(models),
@@ -297,6 +312,39 @@ func (s *AdminAIService) GetProvider(provider string) (*AdminProviderDetail, err
 		},
 		Models: modelResponses,
 	}, nil
+}
+
+func (s *AdminAIService) UpdateProvider(provider string, req *UpdateProviderTemplateRequest) (*AdminProviderDetail, error) {
+	tpl, err := s.providerTplRepo.FindByProvider(provider)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrProviderTemplateNotFound
+		}
+		return nil, err
+	}
+
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		if name == "" {
+			return nil, ErrInvalidManagedModel
+		}
+		tpl.Name = name
+	}
+	if req.Icon != nil {
+		tpl.Icon = normalizeOptionalString(req.Icon)
+	}
+	if req.Description != nil {
+		tpl.Description = normalizeOptionalString(req.Description)
+	}
+	if req.IsActive != nil {
+		tpl.IsActive = *req.IsActive
+	}
+
+	if err := s.providerTplRepo.Update(tpl); err != nil {
+		return nil, err
+	}
+
+	return s.GetProvider(provider)
 }
 
 func (s *AdminAIService) ListModels() ([]AdminModelResponse, error) {
@@ -319,6 +367,7 @@ func (s *AdminAIService) ExportModels() (*AdminModelExportPayload, error) {
 			Provider:    model.Provider,
 			ModelName:   model.ModelName,
 			DisplayName: model.DisplayName,
+			ModelIcon:   model.ModelIcon,
 			Description: model.Description,
 			Status:      model.Status,
 			IsActive:    model.IsActive,
@@ -401,6 +450,7 @@ func (s *AdminAIService) ImportModels(req *AdminModelImportRequest) (*AdminModel
 					Provider:    item.Provider,
 					ModelName:   item.ModelName,
 					DisplayName: normalizeImportDisplayName(item.DisplayName, item.ModelName),
+					ModelIcon:   normalizeOptionalString(item.ModelIcon),
 					Description: normalizeOptionalString(item.Description),
 					Status:      normalizeImportStatus(item.Status),
 					IsActive:    item.IsActive,
@@ -419,6 +469,7 @@ func (s *AdminAIService) ImportModels(req *AdminModelImportRequest) (*AdminModel
 					continue
 				}
 				model.DisplayName = normalizeImportDisplayName(item.DisplayName, item.ModelName)
+				model.ModelIcon = normalizeOptionalString(item.ModelIcon)
 				model.Description = normalizeOptionalString(item.Description)
 				model.Status = normalizeImportStatus(item.Status)
 				model.IsActive = item.IsActive
@@ -430,6 +481,7 @@ func (s *AdminAIService) ImportModels(req *AdminModelImportRequest) (*AdminModel
 						Where("id = ?", model.ID).
 						Updates(map[string]interface{}{
 							"display_name": model.DisplayName,
+							"model_icon":   model.ModelIcon,
 							"description":  model.Description,
 							"status":       model.Status,
 							"is_active":    model.IsActive,
@@ -505,6 +557,7 @@ func (s *AdminAIService) CreateModel(req *CreateManagedAIModelRequest) (*AdminMo
 		Provider:    req.Provider,
 		ModelName:   req.ModelName,
 		DisplayName: displayName,
+		ModelIcon:   normalizeOptionalString(req.ModelIcon),
 		Description: normalizeOptionalString(req.Description),
 		Status:      "active",
 		IsActive:    req.IsActive,
@@ -555,6 +608,9 @@ func (s *AdminAIService) UpdateModel(id uint, req *UpdateManagedAIModelRequest) 
 			return nil, ErrInvalidManagedModel
 		}
 		model.DisplayName = trimmed
+	}
+	if req.ModelIcon != nil {
+		model.ModelIcon = normalizeOptionalString(req.ModelIcon)
 	}
 	if req.Description != nil {
 		model.Description = normalizeOptionalString(req.Description)
@@ -834,6 +890,15 @@ func (s *AdminAIService) enrichModels(models []aiModels.ManagedAIModel) ([]Admin
 		return nil, err
 	}
 
+	templates, err := s.providerTplRepo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+	providerIcons := make(map[string]*string, len(templates))
+	for _, template := range templates {
+		providerIcons[template.Provider] = template.Icon
+	}
+
 	response := make([]AdminModelResponse, 0, len(models))
 	for _, model := range models {
 		capability, capErr := s.capabilityRepo.FindByProviderAndModel(model.Provider, model.ModelName)
@@ -850,6 +915,8 @@ func (s *AdminAIService) enrichModels(models []aiModels.ManagedAIModel) ([]Admin
 			Provider:       model.Provider,
 			ModelName:      model.ModelName,
 			DisplayName:    model.DisplayName,
+			ModelIcon:      model.ModelIcon,
+			ProviderIcon:   providerIcons[model.Provider],
 			Description:    model.Description,
 			Status:         model.Status,
 			IsActive:       model.IsActive,

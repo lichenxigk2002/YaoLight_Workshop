@@ -52,6 +52,7 @@ services:
       CLAUDE_PROXY_URL: ${CLAUDE_PROXY_URL:-}
       GEMINI_PROXY_URL: ${GEMINI_PROXY_URL:-}
       GROK_PROXY_URL: ${GROK_PROXY_URL:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
     volumes:
       - backend_uploads:/app/uploads
     depends_on:
@@ -95,6 +96,7 @@ services:
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       DOUBAO_API_KEY: ${DOUBAO_API_KEY:-}
       QWEN_API_KEY: ${QWEN_API_KEY:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
       ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
       TOKENHUB_API_KEY: ${TOKENHUB_API_KEY:-}
       SPARK_API_PASSWORD: ${SPARK_API_PASSWORD:-}

@@ -13,6 +13,8 @@ const adaptAIModel = (raw: any): AIModel => ({
   name: raw?.name,
   provider: raw?.provider,
   modelName: raw?.modelName ?? raw?.model_name,
+  modelIcon: raw?.modelIcon ?? raw?.model_icon,
+  providerIcon: raw?.providerIcon ?? raw?.provider_icon,
   status: raw?.status,
   temperature: raw?.temperature,
   maxTokens: raw?.maxTokens ?? raw?.max_tokens,
@@ -65,4 +67,3 @@ export const aiApi = {
   deleteModel: (id: number): Promise<void> =>
     http.delete(`/ai/models/${id}`),
 };
-

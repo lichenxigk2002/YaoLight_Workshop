@@ -11,6 +11,7 @@ import (
 )
 
 // SeedCrawlerRules 写入一组平台级通用爬虫规则，便于测试/正式环境直接验证规则中心与工作流复用。
+// 启动时仅补齐缺失规则，不覆盖已有平台规则配置。
 func SeedCrawlerRules() error {
 	if DB == nil {
 		return fmt.Errorf("database not initialized")
@@ -126,34 +127,7 @@ func upsertCrawlerRuleSeed(seed crawlerModels.CrawlerRule) error {
 	if err != nil {
 		return err
 	}
-
-	updates := map[string]interface{}{
-		"description":        seed.Description,
-		"version":            seed.Version,
-		"url_pattern":        seed.URLPattern,
-		"url_pattern_type":   seed.URLPatternType,
-		"method":             seed.Method,
-		"headers":            seed.Headers,
-		"params":             seed.Params,
-		"selectors":          seed.Selectors,
-		"data_extraction":    seed.DataExtraction,
-		"timeout":            seed.Timeout,
-		"retry_count":        seed.RetryCount,
-		"retry_delay":        seed.RetryDelay,
-		"user_agent":         seed.UserAgent,
-		"follow_redirects":   seed.FollowRedirects,
-		"verify_ssl":         seed.VerifySSL,
-		"wait_time":          seed.WaitTime,
-		"javascript_enabled": seed.JavaScriptEnabled,
-		"screenshot":         seed.Screenshot,
-		"is_active":          seed.IsActive,
-		"deleted_at":         nil,
-	}
-
-	return DB.Unscoped().
-		Model(&crawlerModels.CrawlerRule{}).
-		Where("id = ?", existing.ID).
-		Updates(updates).Error
+	return nil
 }
 
 func stringPtr(value string) *string {

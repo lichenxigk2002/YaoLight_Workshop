@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"yaolight-workshop/backend/infrastructure/database"
+	aiModels "yaolight-workshop/backend/modules/ai/models"
 	"yaolight-workshop/backend/modules/task/models"
 	"yaolight-workshop/backend/modules/task/repositories"
 )
@@ -26,6 +28,8 @@ type TaskWithMetadata struct {
 	SequenceNumber int    `json:"sequenceNumber"` // 工作流内序号
 	Provider       string `json:"provider"`       // AI供应商（如果有AI节点）
 	ModelName      string `json:"modelName"`      // AI模型名称（如果有AI节点）
+	ProviderIcon   string `json:"providerIcon,omitempty"`
+	ModelIcon      string `json:"modelIcon,omitempty"`
 }
 
 // TaskService 任务服务
@@ -80,13 +84,15 @@ func (s *TaskService) GetWorkflowTasks(workflowID uint, page, limit int) (*TaskL
 		sequenceNumber := int(total) - offset - i
 
 		// 从节点执行记录中提取AI供应商和模型信息
-		provider, modelName := s.extractAIInfo(task.ID)
+		provider, modelName, providerIcon, modelIcon := s.extractAIInfo(task.ID)
 
 		tasksWithMetadata[i] = TaskWithMetadata{
 			Task:           task,
 			SequenceNumber: sequenceNumber,
 			Provider:       provider,
 			ModelName:      modelName,
+			ProviderIcon:   providerIcon,
+			ModelIcon:      modelIcon,
 		}
 	}
 
@@ -99,10 +105,10 @@ func (s *TaskService) GetWorkflowTasks(workflowID uint, page, limit int) (*TaskL
 }
 
 // extractAIInfo 从节点执行记录中提取AI供应商和模型信息
-func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName string) {
+func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName, providerIcon, modelIcon string) {
 	executions, err := s.nodeExecutionRepo.GetByTaskID(taskID)
 	if err != nil {
-		return "", ""
+		return "", "", "", ""
 	}
 
 	// 查找AI节点的执行记录（优先查找已完成的）
@@ -114,6 +120,15 @@ func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName string) {
 					// 尝试从输出中获取模型名称
 					if model, ok := outputMap["model"].(string); ok && model != "" {
 						modelName = model
+					}
+					if icon, ok := outputMap["providerIcon"].(string); ok && icon != "" {
+						providerIcon = icon
+					}
+					if icon, ok := outputMap["modelIcon"].(string); ok && icon != "" {
+						modelIcon = icon
+					}
+					if p, ok := outputMap["provider"].(string); ok && p != "" && provider == "" {
+						provider = p
 					}
 				}
 			}
@@ -141,10 +156,19 @@ func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName string) {
 			if provider == "" && modelName != "" {
 				provider = inferProviderFromModel(modelName)
 			}
+			if providerIcon == "" || (modelIcon == "" && modelName != "") {
+				resolvedProviderIcon, resolvedModelIcon := resolveAIIcons(provider, modelName)
+				if providerIcon == "" {
+					providerIcon = resolvedProviderIcon
+				}
+				if modelIcon == "" {
+					modelIcon = resolvedModelIcon
+				}
+			}
 
 			// 如果找到了AI节点信息，返回第一个找到的信息
 			if provider != "" || modelName != "" {
-				return provider, modelName
+				return provider, modelName, providerIcon, modelIcon
 			}
 		}
 	}
@@ -170,12 +194,13 @@ func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName string) {
 			}
 
 			if provider != "" || modelName != "" {
-				return provider, modelName
+				resolvedProviderIcon, resolvedModelIcon := resolveAIIcons(provider, modelName)
+				return provider, modelName, resolvedProviderIcon, resolvedModelIcon
 			}
 		}
 	}
 
-	return "", ""
+	return "", "", "", ""
 }
 
 // inferProviderFromModel 从模型名称推断供应商
@@ -209,6 +234,30 @@ func inferProviderFromModel(modelName string) string {
 	}
 
 	return ""
+}
+
+func resolveAIIcons(provider, modelName string) (providerIcon, modelIcon string) {
+	if strings.TrimSpace(provider) != "" {
+		var template aiModels.ProviderTemplate
+		if err := database.DB.
+			Where("provider = ?", provider).
+			Select("icon").
+			First(&template).Error; err == nil && template.Icon != nil {
+			providerIcon = strings.TrimSpace(*template.Icon)
+		}
+	}
+
+	if strings.TrimSpace(provider) != "" && strings.TrimSpace(modelName) != "" {
+		var managed aiModels.ManagedAIModel
+		if err := database.DB.
+			Where("provider = ? AND model_name = ?", provider, modelName).
+			Select("model_icon").
+			First(&managed).Error; err == nil && managed.ModelIcon != nil {
+			modelIcon = strings.TrimSpace(*managed.ModelIcon)
+		}
+	}
+
+	return providerIcon, modelIcon
 }
 
 // GetTaskDetail 获取任务详情

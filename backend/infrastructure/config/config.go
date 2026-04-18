@@ -41,6 +41,7 @@ var (
 	DoubaoAPIKey            string // 豆包预设API Key
 	QwenAPIKey              string // 通义千问预设API Key
 	ZhipuaiAPIKey           string // 智谱AI预设API Key
+	MoonshotAPIKey          string // Moonshot/Kimi 预设 API Key
 	GeminiAPIKey            string // Gemini预设API Key
 	SparkAPIKey             string // 讯飞星火预设API Key
 	HunyuanAPIKey           string // 腾讯混元 TokenHub 预设API Key
@@ -171,6 +172,7 @@ func LoadConfig() error {
 	DoubaoAPIKey = getEnv("DOUBAO_API_KEY", "")
 	QwenAPIKey = getEnv("QWEN_API_KEY", "")
 	ZhipuaiAPIKey = getEnv("ZHIPUAI_API_KEY", "")
+	MoonshotAPIKey = getEnv("MOONSHOT_API_KEY", "")
 	GeminiAPIKey = getEnv("OPENROUTER_API_KEY", "")
 	SparkAPIKey = getEnv("SPARK_API_PASSWORD", "")
 	HunyuanAPIKey = strings.TrimSpace(getEnv("TOKENHUB_API_KEY", ""))

@@ -54,6 +54,11 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置通义千问 API Key，请在.env中配置QWEN_API_KEY")
 		}
+	case "moonshot":
+		apiKey = config.MoonshotAPIKey
+		if apiKey == "" {
+			return nil, fmt.Errorf("系统未配置 Moonshot API Key，请在.env中配置MOONSHOT_API_KEY")
+		}
 	case "spark":
 		apiKey = config.SparkAPIKey
 		if apiKey == "" {
@@ -227,6 +232,8 @@ func getDefaultBaseURL(provider string) string {
 		return "https://ark.cn-beijing.volces.com/api/v3"
 	case "qwen":
 		return "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	case "moonshot":
+		return "https://api.moonshot.cn/v1"
 	case "spark":
 		return "https://spark-api-open.xf-yun.com/v2"
 	case "zhipuai":

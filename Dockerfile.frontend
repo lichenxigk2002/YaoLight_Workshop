@@ -4,6 +4,7 @@
 # ---------- 用户端 ----------
 FROM node:20-alpine AS user-builder
 WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=4096
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 COPY frontend .
@@ -13,6 +14,7 @@ RUN npm run build
 # ---------- 管理端（base /admin/） ----------
 FROM node:20-alpine AS admin-builder
 WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=4096
 COPY admin-frontend/package.json admin-frontend/package-lock.json ./
 RUN npm ci
 COPY admin-frontend .

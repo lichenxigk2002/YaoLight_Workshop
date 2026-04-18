@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, Col, Empty, Row, Skeleton, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import ProviderIcon from '@/components/Icons/ProviderIcon';
+import AIIcon from '@/components/Icons/AIIcon';
 import { getAIProviders } from '@/api/aiModels';
 import { useI18n } from '@/i18n';
 import type { AIProviderSummary } from '@/types/aiModels';
@@ -49,7 +49,7 @@ export default function ProvidersPage() {
               <Card bordered={false} className={styles.resourceCard}>
                 <div className={styles.resourceMeta}>
                   <div className={styles.providerHeading}>
-                    <ProviderIcon provider={provider.key} size={28} />
+                    <AIIcon iconKey={provider.icon} fallbackProvider={provider.key} size={28} />
                     <div className={styles.providerTextBlock}>
                       <Title level={4}>{provider.name}</Title>
                       <Paragraph className={styles.muted}>{provider.description}</Paragraph>
