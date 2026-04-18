@@ -13,6 +13,7 @@ type ManagedAIModel struct {
 	Provider    string         `gorm:"type:varchar(50);not null;uniqueIndex:idx_managed_provider_model" json:"provider"`
 	ModelName   string         `gorm:"type:varchar(150);not null;uniqueIndex:idx_managed_provider_model" json:"model_name"`
 	DisplayName string         `gorm:"type:varchar(200);not null" json:"display_name"`
+	ModelIcon   *string        `gorm:"type:varchar(100)" json:"model_icon"`
 	Description *string        `gorm:"type:text" json:"description"`
 	Status      string         `gorm:"type:varchar(20);not null;default:'active';check:status IN ('active','testing','disabled')" json:"status"`
 	IsActive    bool           `gorm:"default:true;index" json:"is_active"`

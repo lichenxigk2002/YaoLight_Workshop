@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, Tabs, Typography, Tag, Button } from 'antd';
 import { MarkdownRenderer } from '../../utils/MarkdownRenderer';
 import { StreamingLoader } from './StreamingLoader';
-import { ProviderIcon } from '@/components/Icons';
+import { AIIcon } from '@/components/Icons';
 import { CodeBlock } from '@/components/CodeBlock';
 import styles from './AIPreviewModal.module.scss';
 
@@ -157,6 +157,9 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
       return {
         model: aiResult.model,
         tokensUsed: aiResult.tokensUsed,
+        provider: aiResult.provider,
+        providerIcon: aiResult.providerIcon,
+        modelIcon: aiResult.modelIcon,
       };
     }
     return null;
@@ -213,30 +216,12 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     模型:
                   </Text>
-                  {/* 从模型名称或节点配置推断提供商 */}
+                  {/* 优先使用元数据中的图标配置，否则回退到 provider 图标 */}
                   {(() => {
-                    const modelName = metadata.model || '';
-                    // 优先从节点配置获取提供商
-                    let provider = nodeConfig?.provider?.toLowerCase() || '';
-                    // 如果配置中没有，从模型名称推断
-                    if (!provider) {
-                      if (modelName.toLowerCase().includes('deepseek')) {
-                        provider = 'deepseek';
-                      } else if (modelName.toLowerCase().includes('doubao') || modelName.toLowerCase().includes('seed')) {
-                        provider = 'doubao';
-                      } else if (modelName.toLowerCase().includes('qwen')) {
-                        provider = 'qianwen';
-                      } else if (modelName.toLowerCase().includes('glm') || modelName.toLowerCase().includes('zhipuai')) {
-                        provider = 'zhipuai';
-                      } else if (modelName.toLowerCase().includes('spark')) {
-                        provider = 'spark';
-                      } else if (modelName.toLowerCase().includes('hunyuan')) {
-                        provider = 'hunyuan';
-                      }
-                    }
+                    const provider = metadata.provider?.toLowerCase?.() || nodeConfig?.provider?.toLowerCase() || '';
                     return provider ? (
                       <>
-                        <ProviderIcon provider={provider} size={14} />
+                        <AIIcon iconKey={metadata.modelIcon || metadata.providerIcon} fallbackProvider={provider} size={14} />
                         <Text style={{ fontSize: 12 }}>{metadata.model}</Text>
                       </>
                     ) : (
@@ -406,4 +391,3 @@ export const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
     </Modal>
   );
 };
-

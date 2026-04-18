@@ -12,7 +12,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
 import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
-import { ProviderIcon, MessageIcon, CollapseIcon } from '@/components/Icons';
+import { AIIcon, MessageIcon, CollapseIcon } from '@/components/Icons';
 import { AIPreviewModal } from './components/AIPreviewModal';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
 import styles from './ExecutionResultPanel.module.scss';
@@ -673,32 +673,12 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
       const getModelInfo = () => {
         const modelName = data.model || '';
         if (!modelName) return null;
-
-        // 从模型名称推断提供商
-        const lowerModelName = modelName.toLowerCase();
-        let provider: string | null = null;
-
-        if (lowerModelName.includes('deepseek')) {
-          provider = 'deepseek';
-        } else if (lowerModelName.includes('doubao') || lowerModelName.includes('seed')) {
-          provider = 'doubao';
-        } else if (lowerModelName.includes('qwen')) {
-          provider = 'qwen';
-        } else if (lowerModelName.includes('zhipuai') || lowerModelName.includes('glm')) {
-          provider = 'zhipuai';
-        } else if (lowerModelName.includes('spark')) {
-          provider = 'spark';
-        } else if (lowerModelName.includes('hunyuan')) {
-          provider = 'hunyuan';
-        } else if (lowerModelName.includes('gpt') || lowerModelName.includes('openai')) {
-          provider = 'gpt';
-        } else if (lowerModelName.includes('gemini')) {
-          provider = 'gemini';
-        } else if (lowerModelName.includes('grok')) {
-          provider = 'grok';
-        }
-
-        return { modelName, provider };
+        return {
+          modelName,
+          provider: data.provider || null,
+          providerIcon: data.providerIcon,
+          modelIcon: data.modelIcon,
+        };
       };
 
       const modelInfo = getModelInfo();
@@ -762,7 +742,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                 {modelInfo ? (
                   <Space size={6} align="center">
                     {modelInfo.provider && (
-                      <ProviderIcon provider={modelInfo.provider} size={16} />
+                      <AIIcon iconKey={modelInfo.modelIcon || modelInfo.providerIcon} fallbackProvider={modelInfo.provider} size={16} />
                     )}
                     <span>{modelInfo.modelName}</span>
                   </Space>
@@ -914,24 +894,9 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                       {nodeResult.type === 'ai'
                         ? (() => {
                           const node = nodes.find((n) => n.id === nodeResult.node_id);
-                          const modelName =
-                            nodeResult.data?.model || node?.data?.config?.modelName || '';
-                          let provider = '';
-                          if (modelName.toLowerCase().includes('deepseek')) {
-                            provider = 'deepseek';
-                          } else if (
-                            modelName.toLowerCase().includes('doubao') ||
-                            modelName.toLowerCase().includes('seed')
-                          ) {
-                            provider = 'doubao';
-                          } else if (modelName.toLowerCase().includes('qwen')) {
-                            provider = 'qianwen';
-                          }
-                          if (!provider && node?.data?.config?.provider) {
-                            provider = node.data.config.provider.toLowerCase();
-                          }
+                          const provider = nodeResult.data?.provider?.toLowerCase() || node?.data?.config?.provider?.toLowerCase();
                           return provider ? (
-                            <ProviderIcon provider={provider} size={14} />
+                            <AIIcon iconKey={nodeResult.data?.modelIcon || nodeResult.data?.providerIcon} fallbackProvider={provider} size={14} />
                           ) : (
                             <Tag color={nodeResult.success ? 'success' : 'error'}>
                               {getNodeTypeLabel(nodeResult.type)}

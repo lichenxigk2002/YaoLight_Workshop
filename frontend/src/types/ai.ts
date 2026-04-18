@@ -10,6 +10,8 @@ export interface AIModel {
   name: string;
   provider: string;
   modelName: string;
+  modelIcon?: string;
+  providerIcon?: string;
   status: string;
   temperature?: number;
   maxTokens?: number;
@@ -69,6 +71,8 @@ export interface SystemPresetModel {
   name: string;
   provider: string;
   modelName: string;
+  modelIcon?: string;
+  providerIcon?: string;
   baseUrl: string;
   isSystem: boolean;
   description?: string;
@@ -102,4 +106,3 @@ export interface UpdateModelRequest {
   status?: string;
   params?: Record<string, any>; // 模型级别的自定义配置（JSONB）
 }
-

@@ -24,64 +24,12 @@ import { useTranslation } from 'react-i18next';
 import { aiApi } from '@/api/ai';
 import { userApi } from '@/api/user';
 import { useAuthStore } from '@/store/auth';
-import { ProviderIcon, StardustIcon } from '@/components/Icons';
+import { AIIcon, StardustIcon } from '@/components/Icons';
 import SettingsPageTitle from '@/components/SettingsPageTitle';
 import type { AIModel, ProviderTemplate, CreateModelRequest, SystemPresetModel } from '@/types/ai';
 import styles from './index.module.scss';
 
 const { Text } = Typography;
-
-// 增强供应商模板，添加图标和能力标签
-const PROVIDER_METADATA: Record<string, { icon: React.ReactNode, capabilities: string[] }> = {
-  gpt: {
-    icon: <ProviderIcon provider="gpt" size={24} />,
-    capabilities: ['LLM']
-  },
-  openai: {
-    icon: <ProviderIcon provider="openai" size={24} />,
-    capabilities: ['LLM', 'TEXT EMBEDDING']
-  },
-  gemini: {
-    icon: <ProviderIcon provider="gemini" size={24} />,
-    capabilities: ['LLM']
-  },
-  qwen: {
-    icon: <ProviderIcon provider="qwen" size={24} />,
-    capabilities: ['LLM']
-  },
-  moonshot: {
-    icon: <ProviderIcon provider="moonshot" size={24} />,
-    capabilities: ['LLM']
-  },
-  zhipuai: {
-    icon: <ProviderIcon provider="zhipuai" size={24} />,
-    capabilities: ['LLM']
-  },
-  deepseek: {
-    icon: <ProviderIcon provider="deepseek" size={24} />,
-    capabilities: ['LLM']
-  },
-  doubao: {
-    icon: <ProviderIcon provider="doubao" size={24} />,
-    capabilities: ['LLM']
-  },
-  hunyuan: {
-    icon: <ProviderIcon provider="hunyuan" size={24} />,
-    capabilities: ['LLM']
-  },
-  spark: {
-    icon: <ProviderIcon provider="spark" size={24} />,
-    capabilities: ['LLM']
-  },
-  grok: {
-    icon: <ProviderIcon provider="grok" size={24} />,
-    capabilities: ['LLM']
-  },
-  claude: {
-    icon: <ProviderIcon provider="claude" size={24} />,
-    capabilities: ['LLM']
-  },
-};
 
 export default function ModelProviders() {
   const { t } = useTranslation();
@@ -270,7 +218,6 @@ export default function ModelProviders() {
   };
 
   const renderProviderCard = (template: ProviderTemplate) => {
-    const meta = PROVIDER_METADATA[template.provider] || { icon: <CloudServerOutlined />, capabilities: template.capabilities || ['LLM'] };
     const isUserConfigured = models.some(m => m.provider === template.provider);
     const isSystemConfigured = systemModels.some(sm => sm.provider === template.provider);
     // 仅当用户自己配置了 Key 时，才算作“已配置”
@@ -280,18 +227,20 @@ export default function ModelProviders() {
       <div key={template.provider} className={`${styles.providerCard} ${!isConfigured ? styles.toBeConfigured : ''}`}>
         <div className={styles.cardMain}>
           <div className={styles.providerInfo}>
-            <div className={styles.iconWrapper}>{meta.icon}</div>
+            <div className={styles.iconWrapper}>
+              <AIIcon iconKey={template.icon} fallbackProvider={template.provider} size={24} />
+            </div>
             <div className={styles.nameAndTags}>
               <div className={styles.nameRow}>
                 <span className={styles.name}>{template.name}</span>
                 {isSystemConfigured && (
-                  <Tag color="gold" size="small" style={{ marginLeft: '8px', borderRadius: '4px', fontSize: '10px' }}>
+                  <Tag color="gold" style={{ marginLeft: '8px', borderRadius: '4px', fontSize: '10px' }}>
                     {t('workflowEditor.ai.systemPreset')}
                   </Tag>
                 )}
               </div>
               <div className={styles.tags}>
-                {meta.capabilities.map(cap => (
+                {(template.capabilities || ['LLM']).map(cap => (
                   <Tag key={cap} bordered={false} style={{ borderRadius: '4px', fontSize: '11px' }}>{cap}</Tag>
                 ))}
               </div>
@@ -530,7 +479,7 @@ export default function ModelProviders() {
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div className={styles.iconWrapperSmall}>
-              {viewingProvider && (PROVIDER_METADATA[viewingProvider.provider]?.icon || <CloudServerOutlined />)}
+              {viewingProvider ? <AIIcon iconKey={viewingProvider.icon} fallbackProvider={viewingProvider.provider} size={20} /> : <CloudServerOutlined />}
             </div>
             <span>{viewingProvider?.name} {t('settings.modelList')}</span>
           </div>
@@ -556,14 +505,14 @@ export default function ModelProviders() {
                     <div className={styles.modelInfo}>
                       <span className={styles.modelName}>{getDisplayModelLabel(viewingProvider?.provider, model)}</span>
                       <div className={styles.tags}>
-                        <Tag size="small" color="blue" bordered={false}>Chat</Tag>
+                        <Tag color="blue" bordered={false}>Chat</Tag>
                         {systemModel && (
-                          <Tag size="small" color="gold" bordered={false}>
+                          <Tag color="gold" bordered={false}>
                             {t('workflowEditor.ai.systemPreset')}
                           </Tag>
                         )}
                         {isConfigured && !systemModel && (
-                          <Tag size="small" color="success" bordered={false}>
+                          <Tag color="success" bordered={false}>
                             {specificModel ? t('settings.authorized') : t('settings.providerAuthorized')}
                           </Tag>
                         )}
@@ -597,7 +546,7 @@ export default function ModelProviders() {
             <List.Item className={styles.modelItem}>
               <div className={styles.modelInfo}>
                 <div className={styles.iconWrapperSmall}>
-                  {PROVIDER_METADATA[model.provider]?.icon || <CloudServerOutlined />}
+                  <AIIcon iconKey={model.modelIcon || model.providerIcon} fallbackProvider={model.provider} size={20} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span className={styles.modelName}>{model.name}</span>

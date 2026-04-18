@@ -348,6 +348,20 @@ func SeedProviderTemplates() error {
 		"grok":     {name: "Grok", description: "xAI Grok provider", baseURL: "https://openrouter.ai/api/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 4096}},
 		"openai":   {name: "OpenAI", description: "OpenAI official provider", baseURL: "https://api.openai.com/v1", defaultCfg: map[string]interface{}{"temperature": 0.7, "maxTokens": 2000}},
 	}
+	defaultIcons := map[string]string{
+		"claude":   "Claude",
+		"deepseek": "DeepSeek",
+		"doubao":   "Doubao",
+		"gemini":   "Gemini",
+		"gpt":      "OpenAI",
+		"grok":     "Grok",
+		"hunyuan":  "Hunyuan",
+		"moonshot": "Moonshot",
+		"openai":   "OpenAI",
+		"qwen":     "Qwen",
+		"spark":    "Spark",
+		"zhipuai":  "Zhipu",
+	}
 
 	providerSet := make(map[string]struct{})
 	for key := range defaults {
@@ -363,6 +377,11 @@ func SeedProviderTemplates() error {
 		var existing aiModels.ProviderTemplate
 		err := DB.Where("provider = ?", provider).First(&existing).Error
 		if err == nil {
+			if existing.Icon == nil {
+				if iconKey, ok := defaultIcons[provider]; ok {
+					_ = DB.Model(&existing).Update("icon", iconKey).Error
+				}
+			}
 			continue
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -378,6 +397,7 @@ func SeedProviderTemplates() error {
 			Provider:        provider,
 			Name:            def.name,
 			Description:     normalizeOptionalString(def.description),
+			Icon:            normalizeOptionalString(defaultIcons[provider]),
 			DefaultBaseURL:  normalizeOptionalString(def.baseURL),
 			SupportedModels: shared.JSONB{Data: def.models},
 			ConfigSchema:    shared.JSONB{Data: map[string]interface{}{}},

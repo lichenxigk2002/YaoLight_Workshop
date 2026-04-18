@@ -63,6 +63,29 @@ func (c *AdminAIController) GetProvider(ctx *gin.Context) {
 	ok(ctx, "ok", provider)
 }
 
+func (c *AdminAIController) UpdateProvider(ctx *gin.Context) {
+	var req aiServices.UpdateProviderTemplateRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		badRequest(ctx, "invalid request payload: "+err.Error())
+		return
+	}
+
+	provider, err := c.service.UpdateProvider(ctx.Param("provider"), &req)
+	if err != nil {
+		switch {
+		case errors.Is(err, aiServices.ErrProviderTemplateNotFound):
+			notFound(ctx, "provider not found")
+		case errors.Is(err, aiServices.ErrInvalidManagedModel):
+			badRequest(ctx, err.Error())
+		default:
+			internalError(ctx, "failed to update provider", err)
+		}
+		return
+	}
+
+	ok(ctx, "updated", provider)
+}
+
 func (c *AdminAIController) GetModels(ctx *gin.Context) {
 	models, err := c.service.ListModels()
 	if err != nil {
