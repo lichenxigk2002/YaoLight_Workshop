@@ -14,4 +14,7 @@ type ProviderTemplateRepository interface {
 
 	// FindByID 根据ID查找模板
 	FindByID(id uint) (*entity.ProviderTemplate, error)
+
+	// Update 更新模板
+	Update(template *entity.ProviderTemplate) error
 }

@@ -49,6 +49,7 @@ export type PricingData =
 export interface AIProviderSummary {
   key: string;
   name: string;
+  icon?: string;
   description: string;
   status: ProviderStatus;
   models_count: number;
@@ -105,6 +106,8 @@ export interface AIAdminModel {
   provider: string;
   model_name: string;
   display_name: string;
+  model_icon?: string;
+  provider_icon?: string;
   status: ModelStatus;
   is_active: boolean;
   sort_order: number;
@@ -128,6 +131,7 @@ export interface AIModelConfigExportItem {
   provider: string;
   model_name: string;
   display_name: string;
+  model_icon?: string;
   description?: string;
   status: ModelStatus;
   is_active: boolean;
@@ -152,6 +156,13 @@ export interface AIModelConfigImportResult {
 
 export interface AIProviderDetail extends AIProviderSummary {
   models: AIAdminModel[];
+}
+
+export interface UpdateAIProviderPayload {
+  name?: string;
+  icon?: string | null;
+  description?: string | null;
+  is_active?: boolean;
 }
 
 export interface AIUsageRecord {
@@ -220,6 +231,7 @@ export interface CreateAIModelInput {
   provider: string;
   model_name: string;
   display_name: string;
+  model_icon?: string;
   is_active: boolean;
   description?: string;
 }

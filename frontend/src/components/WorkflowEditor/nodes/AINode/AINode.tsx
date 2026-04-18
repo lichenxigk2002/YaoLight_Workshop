@@ -3,7 +3,7 @@ import { NodeProps } from 'reactflow';
 import { RobotOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import BaseNode from '../BaseNode/BaseNode';
-import { ProviderIcon } from '@/components/Icons/ProviderIcon';
+import { AIIcon } from '@/components/Icons';
 import styles from './AINode.module.scss';
 
 const AINode: React.FC<NodeProps> = ({ data, ...props }) => {
@@ -11,28 +11,9 @@ const AINode: React.FC<NodeProps> = ({ data, ...props }) => {
   
   // 获取提供商信息
   const getProvider = (): string | null => {
-    // 优先从配置中获取 provider
     if (data.config?.provider) {
       return data.config.provider.toLowerCase();
     }
-    
-    // 如果配置中有 modelName，尝试从模型名称推断
-    const modelName = data.config?.modelName || data.config?.model || '';
-    if (modelName) {
-      const lowerModelName = modelName.toLowerCase();
-      if (lowerModelName.includes('deepseek')) {
-        return 'deepseek';
-      } else if (lowerModelName.includes('doubao') || lowerModelName.includes('seed')) {
-        return 'doubao';
-      } else if (lowerModelName.includes('qwen')) {
-        return 'qianwen';
-      } else if (lowerModelName.includes('spark')) {
-        return 'spark';
-      } else if (lowerModelName.includes('hunyuan')) {
-        return 'hunyuan';
-      }
-    }
-    
     return null;
   };
 
@@ -41,7 +22,7 @@ const AINode: React.FC<NodeProps> = ({ data, ...props }) => {
   // 根据是否有 provider 决定使用哪个图标
   const renderIcon = () => {
     if (provider) {
-      return <ProviderIcon provider={provider} size={20} />;
+      return <AIIcon iconKey={data.config?.modelIcon || data.config?.providerIcon} fallbackProvider={provider} size={20} />;
     }
     return <RobotOutlined style={{ fontSize: 20 }} />;
   };
@@ -71,4 +52,3 @@ const AINode: React.FC<NodeProps> = ({ data, ...props }) => {
 };
 
 export default AINode;
-

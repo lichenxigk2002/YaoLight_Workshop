@@ -26,7 +26,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { taskApi } from '@/api/task';
 import type { Task, TaskNodeExecution, TaskStatus } from '@/types/task';
-import { ProviderIcon } from '@/components/Icons/ProviderIcon';
+import { AIIcon } from '@/components/Icons';
 import styles from './TaskHistoryPanel.module.scss';
 
 const { Text } = Typography;
@@ -248,7 +248,7 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
                               当前会话
                             </Tag>
                           ) : null}
-                          {task.provider ? <ProviderIcon provider={task.provider} size={16} /> : null}
+                          {task.provider ? <AIIcon iconKey={task.modelIcon || task.providerIcon} fallbackProvider={task.provider} size={16} /> : null}
                         </div>
                       }
                       description={

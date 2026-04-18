@@ -2,7 +2,6 @@ import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { Form, Modal, InputNumber, Tooltip, Select, Input, type FormInstance } from 'antd';
 import { InfoCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { ProviderIcon } from '../../Icons/ProviderIcon';
 import styles from './AIModelConfigPopup.module.scss';
 import { ProviderPickerOption } from './ProviderPicker';
 import {
@@ -185,8 +184,7 @@ export const AIModelConfigPopup: React.FC<AIModelConfigPopupProps> = ({
                 title={opt.title}
               >
                 <div className={styles.providerIcon}>
-                  {/* 直接渲染 ProviderIcon 以确保状态更新和避免上下文丢失 */}
-                  <ProviderIcon provider={opt.value} />
+                  {opt.icon}
                 </div>
                 <div className={styles.providerName}>{opt.title}</div>
               </div>

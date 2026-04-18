@@ -67,3 +67,21 @@ func (r *providerTemplateRepository) FindByID(id uint) (*entity.ProviderTemplate
 	}
 	return toTemplateDomainEntity(&m), nil
 }
+
+// Update 更新模板
+func (r *providerTemplateRepository) Update(template *entity.ProviderTemplate) error {
+	model := &models.ProviderTemplate{
+		ID:              template.ID,
+		Provider:        template.Provider,
+		Name:            template.Name,
+		Description:     template.Description,
+		Icon:            template.Icon,
+		DefaultBaseURL:  template.DefaultBaseURL,
+		DefaultEndpoint: template.DefaultEndpoint,
+		SupportedModels: template.SupportedModels,
+		ConfigSchema:    template.ConfigSchema,
+		DefaultConfig:   template.DefaultConfig,
+		IsActive:        template.IsActive,
+	}
+	return r.db.Save(model).Error
+}

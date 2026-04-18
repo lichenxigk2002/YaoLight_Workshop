@@ -37,7 +37,7 @@ import { taskApi } from '@/api/task';
 import http from '@/http';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
 import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
-import { ProviderIcon } from '@/components/Icons';
+import { AIIcon } from '@/components/Icons';
 import styles from './TaskExecutionDetailModal.module.scss';
 
 const { Text } = Typography;
@@ -329,32 +329,12 @@ const DataViewer: React.FC<{
 
     const modelName = data.model || '';
     if (!modelName) return null;
-
-    // 从模型名称推断提供商
-    const lowerModelName = modelName.toLowerCase();
-    let provider: string | null = null;
-
-    if (lowerModelName.includes('deepseek')) {
-      provider = 'deepseek';
-    } else if (lowerModelName.includes('doubao') || lowerModelName.includes('seed')) {
-      provider = 'doubao';
-    } else if (lowerModelName.includes('qwen')) {
-      provider = 'qwen';
-    } else if (lowerModelName.includes('zhipuai') || lowerModelName.includes('glm')) {
-      provider = 'zhipuai';
-    } else if (lowerModelName.includes('spark')) {
-      provider = 'spark';
-    } else if (lowerModelName.includes('hunyuan')) {
-      provider = 'hunyuan';
-    } else if (lowerModelName.includes('gpt') || lowerModelName.includes('openai')) {
-      provider = 'gpt';
-    } else if (lowerModelName.includes('gemini')) {
-      provider = 'gemini';
-    } else if (lowerModelName.includes('grok')) {
-      provider = 'grok';
-    }
-
-    return { modelName, provider };
+    return {
+      modelName,
+      provider: data.provider || null,
+      providerIcon: data.providerIcon,
+      modelIcon: data.modelIcon,
+    };
   };
 
   const modelInfo = getModelInfo();
@@ -536,7 +516,7 @@ const DataViewer: React.FC<{
                 {isAI && modelInfo && (
                   <Space size={6} align="center" style={{ marginBottom: 12, display: 'flex' }}>
                     {modelInfo.provider && (
-                      <ProviderIcon provider={modelInfo.provider} size={16} />
+                      <AIIcon iconKey={modelInfo.modelIcon || modelInfo.providerIcon} fallbackProvider={modelInfo.provider} size={16} />
                     )}
                     <Text strong style={{ fontSize: '13px' }}>
                       {modelInfo.modelName}

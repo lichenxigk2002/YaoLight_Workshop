@@ -15,8 +15,9 @@ import {
   Typography,
 } from 'antd';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import ProviderIcon from '@/components/Icons/ProviderIcon';
+import AIIcon from '@/components/Icons/AIIcon';
 import { getAIModelPricing, updateAIModel } from '@/api/aiModels';
+import { getAIIconOptions } from '@/features/ai/iconCatalog';
 import { useI18n } from '@/i18n';
 import type { AIAdminModel, AIModelPricingRule } from '@/types/aiModels';
 import { getAIModelStatusLabel, getAIProviderLabel, getAIPricingTypeLabel } from './i18n';
@@ -38,12 +39,13 @@ export default function ModelOverviewPage() {
   const { t } = useI18n();
   const { model, canEdit, setModel } = useOutletContext<ModelDetailOutletContext>();
   const [form] = Form.useForm<
-    Pick<AIAdminModel, 'display_name' | 'status' | 'is_active' | 'sort_order' | 'description'>
+    Pick<AIAdminModel, 'display_name' | 'model_icon' | 'status' | 'is_active' | 'sort_order' | 'description'>
   >();
   const [activeRule, setActiveRule] = useState<AIModelPricingRule | null>(null);
   const [updatingActive, setUpdatingActive] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const modelIconOptions = getAIIconOptions(['model', 'provider']);
 
   const handleToggleActive = async (checked: boolean) => {
     try {
@@ -67,6 +69,7 @@ export default function ModelOverviewPage() {
   useEffect(() => {
     form.setFieldsValue({
       display_name: model.display_name,
+      model_icon: model.model_icon,
       status: model.status,
       is_active: model.is_active,
       sort_order: model.sort_order,
@@ -74,11 +77,12 @@ export default function ModelOverviewPage() {
     });
   }, [form, model]);
 
-  const handleSave = async (values: Pick<AIAdminModel, 'display_name' | 'status' | 'is_active' | 'sort_order' | 'description'>) => {
+  const handleSave = async (values: Pick<AIAdminModel, 'display_name' | 'model_icon' | 'status' | 'is_active' | 'sort_order' | 'description'>) => {
     try {
       setSaving(true);
       const updated = await updateAIModel(model.id, {
         display_name: values.display_name.trim(),
+        model_icon: values.model_icon?.trim() || null,
         status: values.status,
         is_active: values.is_active,
         sort_order: values.sort_order ?? 0,
@@ -97,6 +101,7 @@ export default function ModelOverviewPage() {
   const handleCancelEdit = () => {
     form.setFieldsValue({
       display_name: model.display_name,
+      model_icon: model.model_icon,
       status: model.status,
       is_active: model.is_active,
       sort_order: model.sort_order,
@@ -161,6 +166,31 @@ export default function ModelOverviewPage() {
                   >
                     <Input />
                   </Form.Item>
+                  <Form.Item
+                    label={t('aiModels.formModelIconLabel')}
+                    name="model_icon"
+                    tooltip={t('aiModels.formModelIconTooltip')}
+                  >
+                    <Select
+                      allowClear
+                      showSearch
+                      placeholder={t('aiModels.formModelIconPlaceholder')}
+                      options={modelIconOptions}
+                      filterOption={(input, option) =>
+                        typeof option?.searchText === 'string' && option.searchText.includes(input.trim().toLowerCase())
+                      }
+                      optionRender={(option) => {
+                        const data = option.data as (typeof modelIconOptions)[number];
+                        return (
+                          <Space>
+                            {data.preview}
+                            <span>{data.label}</span>
+                          </Space>
+                        );
+                      }}
+                      optionLabelProp="label"
+                    />
+                  </Form.Item>
                   <Form.Item label={t('aiModels.overviewStatus')} name="status" rules={[{ required: true }]}>
                     <Select
                       options={[
@@ -188,14 +218,19 @@ export default function ModelOverviewPage() {
               <Descriptions column={2} size="small">
                 <Descriptions.Item label={t('aiModels.overviewProvider')}>
                   <div className={styles.providerCell}>
-                    <ProviderIcon provider={model.provider} size={18} />
+                    <AIIcon iconKey={model.provider_icon} fallbackProvider={model.provider} size={18} />
                     <div className={styles.providerCellText}>
                       <div>{getAIProviderLabel(model.provider, t)}</div>
                       <div className={styles.providerKey}>{model.provider}</div>
                     </div>
                   </div>
                 </Descriptions.Item>
-                <Descriptions.Item label={t('aiModels.overviewModelName')}>{model.model_name}</Descriptions.Item>
+                <Descriptions.Item label={t('aiModels.overviewModelName')}>
+                  <Space>
+                    <AIIcon iconKey={model.model_icon || model.provider_icon} fallbackProvider={model.provider} size={18} />
+                    <span>{model.model_name}</span>
+                  </Space>
+                </Descriptions.Item>
                 <Descriptions.Item label={t('aiModels.overviewDisplayName')}>{model.display_name}</Descriptions.Item>
                 <Descriptions.Item label={t('aiModels.overviewStatus')}>
                   <Tag color={model.status === 'active' ? 'green' : model.status === 'testing' ? 'blue' : 'default'}>

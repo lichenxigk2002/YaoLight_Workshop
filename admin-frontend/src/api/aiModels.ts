@@ -18,6 +18,7 @@ import type {
   CreateAIModelInput,
   PricingData,
   PricingType,
+  UpdateAIProviderPayload,
 } from '@/types/aiModels';
 
 interface ApiEnvelope<T> {
@@ -34,6 +35,7 @@ interface ListPayload<T> {
 interface BackendProviderSummary {
   provider: string;
   name: string;
+  icon?: string | null;
   description: string;
   is_active: boolean;
   models_count: number;
@@ -85,6 +87,8 @@ interface BackendAdminModel {
   provider: string;
   model_name: string;
   display_name: string;
+  model_icon?: string | null;
+  provider_icon?: string | null;
   description?: string | null;
   status: 'active' | 'disabled' | 'testing';
   is_active: boolean;
@@ -163,6 +167,7 @@ interface BackendModelConfigExportItem {
   provider: string;
   model_name: string;
   display_name: string;
+  model_icon?: string | null;
   description?: string | null;
   status: 'active' | 'disabled' | 'testing';
   is_active: boolean;
@@ -265,6 +270,8 @@ function mapModel(model: BackendAdminModel): AIAdminModel {
     provider: model.provider,
     model_name: model.model_name,
     display_name: model.display_name,
+    model_icon: trimText(model.model_icon) || undefined,
+    provider_icon: trimText(model.provider_icon) || undefined,
     status: model.status,
     is_active: model.is_active,
     sort_order: model.sort_order ?? 0,
@@ -288,6 +295,7 @@ function mapProvider(provider: BackendProviderSummary): AIProviderSummary {
   return {
     key: provider.provider,
     name: provider.name,
+    icon: trimText(provider.icon) || undefined,
     description: provider.description,
     status: deriveProviderStatus(provider),
     models_count: provider.models_count,
@@ -379,6 +387,7 @@ function mapModelConfigExportPayload(payload: BackendModelConfigExportPayload): 
       provider: item.provider,
       model_name: item.model_name,
       display_name: item.display_name,
+      model_icon: item.model_icon ?? undefined,
       description: item.description ?? undefined,
       status: item.status,
       is_active: item.is_active,
@@ -522,6 +531,18 @@ export async function getAIProvider(providerKey: string): Promise<AIProviderDeta
   }
 }
 
+export async function updateAIProvider(providerKey: string, payload: UpdateAIProviderPayload): Promise<AIProviderDetail> {
+  const body: Record<string, unknown> = {};
+  if (payload.name !== undefined) body.name = payload.name;
+  if (payload.icon !== undefined) body.icon = payload.icon;
+  if (payload.description !== undefined) body.description = payload.description;
+  if (payload.is_active !== undefined) body.is_active = payload.is_active;
+  const result = await unwrap(
+    http.put<ApiEnvelope<BackendProviderDetail>>(`/admin/ai-models/providers/${providerKey}`, body),
+  );
+  return mapProviderDetail(result);
+}
+
 export async function getAIModels(): Promise<AIAdminModel[]> {
   const payload = await unwrap(
     http.get<ApiEnvelope<ListPayload<BackendAdminModel>>>('/admin/ai-models/models'),
@@ -543,6 +564,7 @@ export async function getAIModel(id: string): Promise<AIAdminModel | null> {
 
 export interface UpdateAIModelPayload {
   display_name?: string;
+  model_icon?: string | null;
   description?: string | null;
   status?: string;
   is_active?: boolean;
@@ -552,6 +574,7 @@ export interface UpdateAIModelPayload {
 export async function updateAIModel(id: string, payload: UpdateAIModelPayload): Promise<AIAdminModel> {
   const body: Record<string, unknown> = {};
   if (payload.display_name !== undefined) body.display_name = payload.display_name;
+  if (payload.model_icon !== undefined) body.model_icon = payload.model_icon;
   if (payload.description !== undefined) body.description = payload.description;
   if (payload.status !== undefined) body.status = payload.status;
   if (payload.is_active !== undefined) body.is_active = payload.is_active;
@@ -568,6 +591,7 @@ export async function createAIModel(input: CreateAIModelInput): Promise<AIAdminM
       provider: input.provider,
       model_name: input.model_name,
       display_name: input.display_name,
+      model_icon: input.model_icon?.trim() || null,
       is_active: input.is_active,
       description: input.description?.trim() || null,
     }),
