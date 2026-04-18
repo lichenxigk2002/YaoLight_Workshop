@@ -16,9 +16,17 @@ function normalizeSearchText(value: string) {
 
 export function getAIIconOptions(groups?: AIIconGroup[]): AIIconOption[] {
   const groupSet = groups ? new Set(groups) : null;
+  const seen = new Set<string>();
 
   return AI_ICON_PRESETS
     .filter((item) => !groupSet || groupSet.has(item.group))
+    .filter((item) => {
+      if (seen.has(item.key)) {
+        return false;
+      }
+      seen.add(item.key);
+      return true;
+    })
     .map((item) => ({
       value: item.key,
       label: item.label,
