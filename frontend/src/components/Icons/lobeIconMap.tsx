@@ -23,6 +23,7 @@ import {
   Groq,
   HuggingFace,
   Hunyuan,
+  Kimi,
   Meta,
   Midjourney,
   Minimax,
@@ -49,6 +50,8 @@ export type LobeIconComponent = ComponentType<any> & {
   Color?: ComponentType<any>;
 };
 
+const KimiIcon = (Kimi.Avatar ?? Kimi.Color ?? Kimi) as LobeIconComponent;
+
 export const AI_ICON_MAP: Record<string, LobeIconComponent> = {
   Alibaba,
   AlibabaCloud,
@@ -72,6 +75,7 @@ export const AI_ICON_MAP: Record<string, LobeIconComponent> = {
   GoogleCloud,
   Qwen,
   Hunyuan,
+  Kimi: KimiIcon,
   Spark,
   Zhipu,
   Grok,

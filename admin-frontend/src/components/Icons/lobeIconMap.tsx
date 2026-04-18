@@ -23,6 +23,7 @@ import {
   Groq,
   HuggingFace,
   Hunyuan,
+  Kimi,
   Meta,
   Midjourney,
   Minimax,
@@ -57,6 +58,8 @@ export interface AIIconPreset {
   group: AIIconGroup;
   Icon: LobeIconComponent;
 }
+
+const KimiIcon = (Kimi.Avatar ?? Kimi.Color ?? Kimi) as LobeIconComponent;
 
 const PROVIDER_ICON_PRESETS: AIIconPreset[] = [
   { key: 'OpenAI', label: 'OpenAI', group: 'provider', Icon: OpenAI },
@@ -104,6 +107,7 @@ const MODEL_ICON_PRESETS: AIIconPreset[] = [
   { key: 'Spark', label: '讯飞星火', group: 'model', Icon: Spark },
   { key: 'Zhipu', label: '智谱 GLM', group: 'model', Icon: Zhipu },
   { key: 'Moonshot', label: 'Kimi / Moonshot', group: 'model', Icon: Moonshot },
+  { key: 'Kimi', label: 'Kimi', group: 'model', Icon: KimiIcon },
   { key: 'Mistral', label: 'Mistral', group: 'model', Icon: Mistral },
   { key: 'Meta', label: 'Llama / Meta', group: 'model', Icon: Meta },
   { key: 'Minimax', label: 'MiniMax', group: 'model', Icon: Minimax },
