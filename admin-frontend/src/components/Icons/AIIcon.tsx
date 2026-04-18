@@ -1,6 +1,6 @@
 import type { CSSProperties, ComponentType, FC } from 'react';
-import * as LobeHubIcons from '@lobehub/icons';
 import ProviderIcon from './ProviderIcon';
+import { AI_ICON_MAP } from './lobeIconMap';
 
 type IconProps = {
   size?: string | number;
@@ -17,8 +17,6 @@ interface AIIconProps extends IconProps {
   fallbackProvider?: string;
 }
 
-const iconRegistry = LobeHubIcons as Record<string, unknown>;
-
 const RenderIcon: FC<{ Icon?: LobeIconComponent } & IconProps> = ({ Icon, ...props }) => {
   if (!Icon) {
     return null;
@@ -34,7 +32,7 @@ function resolveIcon(iconKey?: string | null): LobeIconComponent | undefined {
     return undefined;
   }
 
-  const value = iconRegistry[key];
+  const value = AI_ICON_MAP[key];
   if (!value) {
     return undefined;
   }

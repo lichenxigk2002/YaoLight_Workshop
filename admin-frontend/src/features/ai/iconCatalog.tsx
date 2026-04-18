@@ -1,13 +1,11 @@
 import type { ReactNode } from 'react';
-import { toc } from '@lobehub/icons';
 import AIIcon from '@/components/Icons/AIIcon';
-
-type IconGroup = 'model' | 'provider' | 'application';
+import { AI_ICON_PRESETS, type AIIconGroup } from '@/components/Icons/lobeIconMap';
 
 export interface AIIconOption {
   value: string;
   label: string;
-  group: IconGroup;
+  group: AIIconGroup;
   searchText: string;
   preview: ReactNode;
 }
@@ -16,17 +14,17 @@ function normalizeSearchText(value: string) {
   return value.trim().toLowerCase();
 }
 
-export function getAIIconOptions(groups?: IconGroup[]): AIIconOption[] {
+export function getAIIconOptions(groups?: AIIconGroup[]): AIIconOption[] {
   const groupSet = groups ? new Set(groups) : null;
 
-  return toc
+  return AI_ICON_PRESETS
     .filter((item) => !groupSet || groupSet.has(item.group))
     .map((item) => ({
-      value: item.id,
-      label: item.fullTitle || item.title || item.id,
+      value: item.key,
+      label: item.label,
       group: item.group,
-      searchText: normalizeSearchText(`${item.id} ${item.title} ${item.fullTitle}`),
-      preview: <AIIcon iconKey={item.id} size={18} />,
+      searchText: normalizeSearchText(`${item.key} ${item.label}`),
+      preview: <AIIcon iconKey={item.key} size={18} />,
     }))
     .sort((left, right) => left.label.localeCompare(right.label));
 }
