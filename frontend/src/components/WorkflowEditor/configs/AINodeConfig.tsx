@@ -691,7 +691,7 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                             const model = userModels.find(m => m.id === option?.value);
                             if (!model) return false;
                             // 基于模型的名称、提供商和模型名称进行过滤
-                            const searchText = `${model.name} ${model.provider} ${model.modelName}`.toLowerCase();
+                            const searchText = `${model.name} ${getProviderDisplayLabel(model.provider, model.provider)} ${model.modelName}`.toLowerCase();
                             return searchText.includes(input.toLowerCase());
                           }}
                           onChange={(value) => {
@@ -737,8 +737,8 @@ export const AINodeConfig: React.FC<AINodeConfigProps> = ({
                                 <Tag color="green" className={styles.optionTag} title={model.name}>
                                   {model.name}
                                 </Tag>
-                                <span className={styles.optionText} title={`${model.provider} / ${model.modelName}`}>
-                                  {model.provider} / {model.name || getDisplayModelLabel(model.provider, model.modelName)}
+                                <span className={styles.optionText} title={`${getProviderDisplayLabel(model.provider, model.provider)} / ${model.modelName}`}>
+                                  {getProviderDisplayLabel(model.provider, model.provider)} / {model.name || getDisplayModelLabel(model.provider, model.modelName)}
                                 </span>
                                 {model.status === 'active' && (
                                   <Tag color="success" style={{ flexShrink: 0 }}>
