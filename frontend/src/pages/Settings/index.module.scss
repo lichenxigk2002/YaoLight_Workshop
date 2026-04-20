@@ -6,11 +6,31 @@
   height: 100%;
   overflow: auto;
   padding: 16px 18px 24px;
-  background: var(--settings-page-bg);
+  background:
+    radial-gradient(circle at top center, rgba(0, 0, 0, 0.035), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.14)),
+    #f7f5f1;
+
+  [data-theme='dark'] & {
+    background:
+      radial-gradient(circle at top center, rgba(255, 255, 255, 0.05), transparent 24%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+      #171717;
+  }
 }
 
 .profileMode {
-  background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  background:
+    radial-gradient(circle at top center, rgba(0, 0, 0, 0.035), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.14)),
+    #f7f5f1;
+
+  [data-theme='dark'] & {
+    background:
+      radial-gradient(circle at top center, rgba(255, 255, 255, 0.05), transparent 24%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+      #171717;
+  }
 
   .glow {
     display: none;
@@ -24,8 +44,8 @@
   width: min(920px, calc(100vw - 64px));
   height: 180px;
   transform: translateX(-50%);
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1), transparent 72%);
-  filter: blur(28px);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.06), transparent 72%);
+  filter: blur(36px);
   pointer-events: none;
 }
 
@@ -84,7 +104,8 @@
 
 .sider {
   overflow: hidden;
-  background: transparent !important;
+  background: var(--settings-shell-bg) !important;
+  backdrop-filter: blur(14px);
 }
 
 .sidebarPanel {
@@ -149,9 +170,9 @@
 
   :global(.ant-menu-item-selected) {
     border: 1px solid var(--settings-card-border) !important;
-    background: var(--settings-card-bg-strong) !important;
+    background: var(--settings-pill-bg-strong) !important;
     color: var(--text-primary) !important;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22) !important;
+    box-shadow: none !important;
   }
 }
 
@@ -163,6 +184,8 @@
 .contentSurface {
   min-height: 580px;
   padding: 0;
+  background: var(--settings-shell-bg);
+  backdrop-filter: blur(14px);
 }
 
 .scrollContainer {
@@ -173,8 +196,8 @@
   :global(.ant-card) {
     border: 1px solid var(--settings-card-border) !important;
     border-radius: 16px !important;
-    background: var(--settings-card-bg-soft) !important;
-    box-shadow: var(--settings-card-shadow) !important;
+    background: var(--settings-card-bg) !important;
+    box-shadow: none !important;
   }
 
   :global(.ant-card-head) {

@@ -44,14 +44,12 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({ provider, size = 16,
   }
 
   if (providerLower === 'qianwen' || providerLower === 'qwen') {
-    // 确保 Qwen 组件存在，否则返回 null 避免报错
     if (!Qwen) {
       console.warn('Qwen icon component is missing');
       return null;
     }
-    // 用户反馈图标显示有问题，使用单色版本，并指定通义千问的品牌色（紫色 #615CED）
-    // 注意：SafeIcon 会优先使用 Color 组件，所以这里直接使用 Qwen 组件
-    return <Qwen size={size} className={className} style={{ color: '#615CED' }} />;
+    const QwenMono = (Qwen as any).Mono ?? Qwen;
+    return <QwenMono size={size} className={className} style={{ color: '#615ced' }} />;
   }
 
   if (providerLower === 'zhipuai') {

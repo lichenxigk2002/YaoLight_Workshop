@@ -51,6 +51,7 @@ export type LobeIconComponent = ComponentType<any> & {
 };
 
 const KimiIcon = (Kimi.Avatar ?? Kimi.Color ?? Kimi) as LobeIconComponent;
+const QwenIcon = ((Qwen as any).Mono ?? Qwen) as LobeIconComponent;
 
 export const AI_ICON_MAP: Record<string, LobeIconComponent> = {
   Alibaba,
@@ -73,7 +74,7 @@ export const AI_ICON_MAP: Record<string, LobeIconComponent> = {
   Fireworks,
   Google,
   GoogleCloud,
-  Qwen,
+  Qwen: QwenIcon,
   Hunyuan,
   Kimi: KimiIcon,
   Spark,

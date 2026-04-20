@@ -33,6 +33,19 @@ type AIService struct {
 	providerFactory *ProviderFactory
 }
 
+type managedModelMetaRow struct {
+	Provider    string  `gorm:"column:provider"`
+	ModelName   string  `gorm:"column:model_name"`
+	DisplayName string  `gorm:"column:display_name"`
+	ModelIcon   *string `gorm:"column:model_icon"`
+}
+
+type providerTemplateModelMeta struct {
+	ModelName   string  `json:"modelName"`
+	DisplayName string  `json:"displayName,omitempty"`
+	ModelIcon   *string `json:"modelIcon,omitempty"`
+}
+
 // NewAIService 创建AI服务实例
 func NewAIService(
 	modelRepo repository.AIModelRepository,
@@ -77,6 +90,26 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 		return []map[string]interface{}{}, nil
 	}
 
+	managedModelMeta := make(map[string]map[string]managedModelMetaRow)
+	var managedRows []managedModelMetaRow
+	if err := database.DB.
+		Model(&models.ManagedAIModel{}).
+		Where("deleted_at IS NULL").
+		Select("provider, model_name, display_name, model_icon").
+		Find(&managedRows).Error; err == nil {
+		for _, row := range managedRows {
+			provider := strings.ToLower(strings.TrimSpace(row.Provider))
+			modelName := strings.ToLower(strings.TrimSpace(row.ModelName))
+			if provider == "" || modelName == "" {
+				continue
+			}
+			if managedModelMeta[provider] == nil {
+				managedModelMeta[provider] = make(map[string]managedModelMetaRow)
+			}
+			managedModelMeta[provider][modelName] = row
+		}
+	}
+
 	// 构建结果列表（以 DB 模板为准；supportedModels 优先取计费表动态聚合，否则回退模板自带 supported_models）
 	result := make([]map[string]interface{}, 0, len(templatesFromDB))
 	for _, t := range templatesFromDB {
@@ -116,6 +149,34 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 			"defaultConfig":   defaultConfig,
 			"supportedModels": supportedModels,
 		}
+
+		modelDisplayNames := make(map[string]string, len(supportedModels))
+		modelIcons := make(map[string]*string, len(supportedModels))
+		modelsMeta := make([]map[string]interface{}, 0, len(supportedModels))
+		for _, modelName := range supportedModels {
+			meta, ok := managedModelMeta[provider][strings.ToLower(strings.TrimSpace(modelName))]
+			modelMeta := providerTemplateModelMeta{
+				ModelName: modelName,
+			}
+			if ok {
+				if strings.TrimSpace(meta.DisplayName) != "" {
+					modelDisplayNames[modelName] = meta.DisplayName
+					modelMeta.DisplayName = meta.DisplayName
+				}
+				if meta.ModelIcon != nil && strings.TrimSpace(*meta.ModelIcon) != "" {
+					modelIcons[modelName] = meta.ModelIcon
+					modelMeta.ModelIcon = meta.ModelIcon
+				}
+			}
+			modelsMeta = append(modelsMeta, map[string]interface{}{
+				"modelName":   modelMeta.ModelName,
+				"displayName": modelMeta.DisplayName,
+				"modelIcon":   modelMeta.ModelIcon,
+			})
+		}
+		template["modelDisplayNames"] = modelDisplayNames
+		template["modelIcons"] = modelIcons
+		template["models"] = modelsMeta
 
 		// 附加该 provider 下各模型的能力配置（按 model_name 索引）
 		modelCapabilities := make(map[string]map[string]interface{})
@@ -178,9 +239,10 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	models := []map[string]interface{}{}
 	appendSystemModel := func(id, provider, modelName, baseURL, fallbackName, description string) {
 		modelIcon, providerIcon := s.getManagedModelIcons(provider, modelName)
+		displayName := s.resolveSystemPresetDisplayName(provider, modelName, fallbackName)
 		models = append(models, map[string]interface{}{
 			"id":           id,
-			"name":         s.resolveSystemPresetDisplayName(provider, modelName, fallbackName),
+			"name":         displayName,
 			"provider":     provider,
 			"modelName":    modelName,
 			"baseUrl":      baseURL,
@@ -260,7 +322,7 @@ func (s *AIService) getManagedModelIcons(provider, modelName string) (*string, *
 
 	var model models.ManagedAIModel
 	if err := database.DB.
-		Where("provider = ? AND model_name = ?", provider, modelName).
+		Where("LOWER(provider) = LOWER(?) AND LOWER(model_name) = LOWER(?)", provider, modelName).
 		Select("model_icon").
 		First(&model).Error; err == nil {
 		return model.ModelIcon, providerIcon
