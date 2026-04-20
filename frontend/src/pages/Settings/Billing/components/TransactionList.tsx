@@ -3,8 +3,10 @@ import { App, Button, Select, Table, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
+import { aiApi } from '@/api/ai';
 import { userApi } from '@/api/user';
 import { ProviderIcon } from '@/components/Icons';
+import type { ProviderTemplate } from '@/types/ai';
 import type { TokenTransaction } from '@/types/user';
 import styles from './transaction-list.module.scss';
 
@@ -32,8 +34,14 @@ export default function TransactionList({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [providerOptions, setProviderOptions] = useState<{ provider: string; models: string[] }[]>([]);
+  const [providerTemplates, setProviderTemplates] = useState<ProviderTemplate[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string | undefined>();
   const [selectedModel, setSelectedModel] = useState<string | undefined>();
+
+  const getProviderDisplayLabel = useCallback((provider?: string) => {
+    if (!provider) return '';
+    return providerTemplates.find((item) => item.provider === provider)?.name || provider;
+  }, [providerTemplates]);
 
   const availableModels = useMemo(() => {
     if (!selectedProvider) {
@@ -48,8 +56,12 @@ export default function TransactionList({
 
   const fetchOptions = useCallback(async () => {
     try {
-      const res = await userApi.getTransactionOptions();
+      const [res, templates] = await Promise.all([
+        userApi.getTransactionOptions(),
+        aiApi.getProviderTemplates().catch(() => [] as ProviderTemplate[]),
+      ]);
       setProviderOptions(res.items || []);
+      setProviderTemplates(templates);
     } catch (error) {
       console.error(error);
     }
@@ -265,7 +277,7 @@ export default function TransactionList({
               <Select.Option key={item.provider} value={item.provider}>
                 <div className={styles.modelCell}>
                   <ProviderIcon provider={item.provider} size={16} />
-                  {item.provider}
+                  {getProviderDisplayLabel(item.provider)}
                 </div>
               </Select.Option>
             ))}
