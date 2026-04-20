@@ -1,19 +1,23 @@
-import React from 'react';
-import { Form, Input, Select, Row, Col, Space } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Form, Input, Select, Row, Col, Space, Tag } from 'antd';
 import {
+  LinkOutlined as RuleOutlined,
   RobotOutlined,
   FileTextOutlined,
   UnorderedListOutlined,
   LinkOutlined,
   CodeOutlined,
   PictureOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { Node, Edge } from 'reactflow';
+import { crawlerRulesApi, type WorkflowCrawlerRuleListItem } from '@/api/crawlerRules';
 import { VariableSelectField } from '../variables';
 import { CrawlerTooltips } from '../utils/configTooltips';
 import { jsonValidatorRule } from '../extensions/jsonValidator';
 import { SegmentedSwitch } from '../providers/parts/SwitchPart';
+import styles from './CrawlerRuleSelector.module.scss';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -32,9 +36,145 @@ export const CrawlerNodeConfig: React.FC<CrawlerNodeConfigProps> = ({
   executionResult,
 }) => {
   const { t } = useTranslation();
+  const form = Form.useFormInstance();
+  const [ruleOptions, setRuleOptions] = useState<WorkflowCrawlerRuleListItem[]>([]);
+  const [rulesLoading, setRulesLoading] = useState(false);
+  const [rulesError, setRulesError] = useState<string | null>(null);
+
+  const selectedRuleIdValue = Form.useWatch('ruleId', form);
+  const selectedLegacyRuleIdValue = Form.useWatch('rule_id', form);
+  const selectedRuleId = selectedRuleIdValue ?? selectedLegacyRuleIdValue;
+  const selectedRule = useMemo(
+    () => ruleOptions.find((item) => item.id === Number(selectedRuleId)) ?? null,
+    [ruleOptions, selectedRuleId],
+  );
+
+  const loadRules = async () => {
+    setRulesLoading(true);
+    setRulesError(null);
+    try {
+      const response = await crawlerRulesApi.list({ is_active: true, page_size: 100 });
+      setRuleOptions(response.list || []);
+    } catch (error) {
+      setRulesError(error instanceof Error ? error.message : '加载爬虫规则失败');
+    } finally {
+      setRulesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadRules();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedRule) {
+      return;
+    }
+
+    form.setFieldsValue({
+      ruleId: selectedRule.id,
+      rule_id: selectedRule.id,
+      ruleName: selectedRule.name,
+      ruleVersion: selectedRule.version,
+    });
+  }, [form, selectedRule]);
 
   return (
     <>
+      <div className={styles.rulePanel}>
+        <div className={styles.rulePanelHeader}>
+          <div className={styles.rulePanelTitle}>
+            <RuleOutlined style={{ marginRight: 8 }} />
+            使用爬虫规则
+          </div>
+          <Button
+            type="text"
+            size="small"
+            icon={<ReloadOutlined />}
+            onClick={() => void loadRules()}
+            loading={rulesLoading}
+          />
+        </div>
+
+        <Form.Item label="规则模板" name="ruleId" tooltip="引用后台规则中心的配置，当前节点填写的字段会作为局部覆盖。">
+          <Select
+            allowClear
+            showSearch
+            placeholder={rulesLoading ? '正在加载规则...' : '可选：选择一条爬虫规则'}
+            optionFilterProp="label"
+            loading={rulesLoading}
+            options={ruleOptions.map((rule) => ({
+              value: rule.id,
+              label: `${rule.name} · v${rule.version}`,
+            }))}
+            onChange={(value) => {
+              const matched = ruleOptions.find((item) => item.id === value);
+              form.setFieldsValue({
+                ruleId: value,
+                rule_id: value,
+                ruleName: matched?.name || undefined,
+                ruleVersion: matched?.version || undefined,
+              });
+            }}
+          />
+        </Form.Item>
+
+        <Form.Item name="rule_id" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="ruleName" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="ruleVersion" hidden>
+          <Input />
+        </Form.Item>
+
+        {rulesError ? <Alert type="warning" showIcon message={rulesError} /> : null}
+
+        {selectedRule ? (
+          <>
+            <Space wrap>
+              <Tag color="blue">v{selectedRule.version}</Tag>
+              <Tag color={selectedRule.is_active ? 'green' : 'default'}>
+                {selectedRule.is_active ? '启用中' : '已停用'}
+              </Tag>
+              <Tag color="gold">使用 {selectedRule.usage_count}</Tag>
+              {typeof selectedRule.success_rate === 'number' ? (
+                <Tag color="purple">成功率 {selectedRule.success_rate.toFixed(2)}%</Tag>
+              ) : null}
+            </Space>
+            <div className={styles.ruleMeta}>
+              <div className={styles.ruleMetaItem}>
+                <span className={styles.ruleMetaLabel}>匹配 URL</span>
+                <div className={styles.ruleMetaValue}>{selectedRule.url_pattern || '-'}</div>
+              </div>
+              <div className={styles.ruleMetaItem}>
+                <span className={styles.ruleMetaLabel}>匹配方式</span>
+                <div className={styles.ruleMetaValue}>{selectedRule.url_pattern_type || '-'}</div>
+              </div>
+            </div>
+            {selectedRule.description ? (
+              <div className={styles.ruleHint}>
+                <Alert type="info" showIcon message={selectedRule.description} />
+              </div>
+            ) : null}
+            <div className={styles.ruleHint}>
+              <Alert
+                type="info"
+                showIcon
+                message="规则会提供默认抓取配置。当前节点填写的 URL、提取方式、请求参数等字段会在执行时覆盖规则默认值。"
+              />
+            </div>
+          </>
+        ) : (
+          <Alert
+            type="info"
+            showIcon
+            message="不选规则时，当前节点继续按原来的独立爬虫配置执行。"
+          />
+        )}
+      </div>
+
       <Form.Item
         noStyle
         shouldUpdate={(prevValues, currentValues) => prevValues?.urlVariable !== currentValues?.urlVariable}
@@ -178,22 +318,33 @@ export const CrawlerNodeConfig: React.FC<CrawlerNodeConfigProps> = ({
 
       <Form.Item
         noStyle
-        shouldUpdate={(prev, curr) => prev?.extractMode !== curr?.extractMode}
+        shouldUpdate={(prev, curr) =>
+          prev?.extractMode !== curr?.extractMode || prev?.ruleId !== curr?.ruleId || prev?.rule_id !== curr?.rule_id
+        }
       >
         {({ getFieldValue }) => {
           const mode = getFieldValue('extractMode');
+          const activeRuleId = getFieldValue('ruleId') || getFieldValue('rule_id');
           if (mode === 'custom') {
             return (
               <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '4px', marginBottom: '24px', border: '1px solid var(--border-secondary)' }}>
                 <Form.Item
                   label={t('node.config.crawler.cssSelector')}
                   name="selector"
-                  rules={[{ required: true, message: t('node.config.crawler.cssSelectorRequired') }]}
+                  rules={[{ required: !activeRuleId, message: t('node.config.crawler.cssSelectorRequired') }]}
                   tooltip={t('node.config.crawler.cssSelectorTooltip')}
                   style={{ marginBottom: 12 }}
                 >
                   <Input placeholder=".class-name or #id" />
                 </Form.Item>
+                {activeRuleId ? (
+                  <Alert
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 12 }}
+                    message="当前已选择规则。这里不填写 selector 时，会沿用规则里的 selector。"
+                  />
+                ) : null}
                 <Form.Item
                   label={t('node.config.crawler.extractType')}
                   name="extractType"
@@ -341,4 +492,3 @@ export const CrawlerNodeConfig: React.FC<CrawlerNodeConfigProps> = ({
     </>
   );
 };
-

@@ -3,6 +3,7 @@ import type {
   Task,
   TaskListResponse,
   TaskNodeExecutionListResponse,
+  TaskNodeExecutionDetailResponse,
   TaskLogListResponse,
   RunningTasksResponse,
   GetTaskListParams,
@@ -35,12 +36,18 @@ export const taskApi = {
   getTaskDetail: (taskId: number) =>
     http.get<Task>(`/tasks/${taskId}`),
 
+  cancelTask: (taskId: number) =>
+    http.post<{ task_id: number; status: string; message: string }>(`/tasks/${taskId}/cancel`, {}),
+
   /**
    * 获取任务的节点执行记录
    * @param taskId 任务ID
    */
   getTaskNodeExecutions: (taskId: number) =>
     http.get<TaskNodeExecutionListResponse>(`/tasks/${taskId}/node-executions`),
+
+  getTaskNodeExecutionDetail: (taskId: number, executionId: number) =>
+    http.get<TaskNodeExecutionDetailResponse>(`/tasks/${taskId}/node-executions/${executionId}`),
 
   /**
    * 获取任务日志
@@ -65,4 +72,3 @@ export const taskApi = {
   ) =>
     http.post(`/tasks/${taskId}/artifacts/send-email`, payload),
 };
-

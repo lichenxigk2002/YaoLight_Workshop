@@ -41,10 +41,19 @@ var (
 	DoubaoAPIKey            string // 豆包预设API Key
 	QwenAPIKey              string // 通义千问预设API Key
 	ZhipuaiAPIKey           string // 智谱AI预设API Key
+	MoonshotAPIKey          string // Moonshot/Kimi 预设 API Key
 	GeminiAPIKey            string // Gemini预设API Key
 	SparkAPIKey             string // 讯飞星火预设API Key
-	HunyuanAPIKey           string // 腾讯混元预设API Key
+	HunyuanAPIKey           string // 腾讯混元 TokenHub 预设API Key
 	AIRequestTimeoutSeconds int    // AI 请求超时时间（秒）
+	AIHTTPProxyURL          string // AI 请求通用代理
+	OpenRouterProxyURL      string // OpenRouter 通用代理
+	GPTProxyURL             string // GPT provider 专用代理
+	ClaudeProxyURL          string // Claude provider 专用代理
+	GeminiProxyURL          string // Gemini provider 专用代理
+	GrokProxyURL            string // Grok provider 专用代理
+	GeminiBaseURL           string // Gemini provider 默认 Base URL
+	OpenAIBaseURL           string // GPT/OpenAI provider 默认 Base URL
 
 	// 文件上传配置
 	UploadPath string // 文件上传路径
@@ -163,10 +172,19 @@ func LoadConfig() error {
 	DoubaoAPIKey = getEnv("DOUBAO_API_KEY", "")
 	QwenAPIKey = getEnv("QWEN_API_KEY", "")
 	ZhipuaiAPIKey = getEnv("ZHIPUAI_API_KEY", "")
+	MoonshotAPIKey = getEnv("MOONSHOT_API_KEY", "")
 	GeminiAPIKey = getEnv("OPENROUTER_API_KEY", "")
 	SparkAPIKey = getEnv("SPARK_API_PASSWORD", "")
-	HunyuanAPIKey = getEnv("HUNYUAN_API_KEY", "")
+	HunyuanAPIKey = strings.TrimSpace(getEnv("TOKENHUB_API_KEY", ""))
 	AIRequestTimeoutSeconds = getEnvInt("AI_REQUEST_TIMEOUT_SECONDS", 90)
+	AIHTTPProxyURL = strings.TrimSpace(getEnv("AI_HTTP_PROXY_URL", ""))
+	OpenRouterProxyURL = strings.TrimSpace(getEnv("OPENROUTER_PROXY_URL", ""))
+	GPTProxyURL = strings.TrimSpace(getEnv("GPT_PROXY_URL", ""))
+	ClaudeProxyURL = strings.TrimSpace(getEnv("CLAUDE_PROXY_URL", ""))
+	GeminiProxyURL = strings.TrimSpace(getEnv("GEMINI_PROXY_URL", ""))
+	GrokProxyURL = strings.TrimSpace(getEnv("GROK_PROXY_URL", ""))
+	GeminiBaseURL = strings.TrimSpace(getEnv("GEMINI_BASE_URL", ""))
+	OpenAIBaseURL = strings.TrimSpace(getEnv("OPENAI_BASE_URL", ""))
 
 	// 文件上传配置
 	UploadPath = getEnv("UPLOAD_PATH", "./uploads")

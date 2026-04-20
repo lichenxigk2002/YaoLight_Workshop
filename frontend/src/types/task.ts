@@ -72,6 +72,8 @@ export interface Task {
   sequenceNumber?: number;    // 工作流内序号
   provider?: string;          // AI供应商（如果有AI节点）
   modelName?: string;          // AI模型名称（如果有AI节点）
+  providerIcon?: string;
+  modelIcon?: string;
 }
 
 /**
@@ -83,6 +85,10 @@ export interface TaskNodeExecution {
   nodeId: string;
   nodeType: string;
   status: NodeExecutionStatus;
+  hasInputData?: boolean;
+  hasOutputData?: boolean;
+  hasErrorStack?: boolean;
+  hasResourceUsage?: boolean;
   inputData?: Record<string, any>;
   outputData?: Record<string, any>;
   errorMessage?: string;
@@ -127,6 +133,10 @@ export interface TaskNodeExecutionListResponse {
   total: number;
 }
 
+export interface TaskNodeExecutionDetailResponse {
+  execution: TaskNodeExecution;
+}
+
 /**
  * 任务日志列表响应
  */
@@ -162,4 +172,3 @@ export interface GetTaskLogsParams {
   page?: number;
   limit?: number;
 }
-

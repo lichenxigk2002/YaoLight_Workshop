@@ -56,8 +56,12 @@ func transformData(variableContext *VariableContext, transformType string, origi
 	}
 
 	switch transformType {
+	case "passthrough":
+		return originalData, nil
 	case "map":
-		if strings.TrimSpace(script) == "" {
+		trimmed := strings.TrimSpace(script)
+		// 兼容历史模板：过去把 map + {} 当成“透传”使用，这里兜底按透传处理
+		if trimmed == "" || trimmed == "{}" {
 			return originalData, nil
 		}
 		var mapping map[string]interface{}

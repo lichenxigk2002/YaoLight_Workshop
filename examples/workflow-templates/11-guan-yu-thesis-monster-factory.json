@@ -1,0 +1,745 @@
+{
+  "version": "1.0.0",
+  "name": "论文模板 - 关羽形象叙事差异怪物工厂",
+  "description": "按开题报告重组的重型论文工作流，围绕《三国志》与《三国演义》中关羽形象的叙事差异，聚焦文体差异、叙事视角与时间节奏、文化动因，目标生成约 15000 字论文。",
+  "exportedAt": "2026-04-17T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 60, "y": 560 },
+      "data": {
+        "label": "开始",
+        "type": "start",
+        "config": {
+          "inputDataType": "json",
+          "inputData": "{\n  \"thesisTitle\": \"叙事学视域下《三国志》与《三国演义》中关羽形象的叙事差异研究\",\n  \"goal\": \"生成一篇约15000字、结构完整、符合中文本科论文写法的论文初稿\",\n  \"coreStructure\": [\"绪论\", \"文体差异梳理\", \"叙事与形象对比\", \"文化动因探析\", \"结论\"],\n  \"narratologyFocus\": [\"叙事视角\", \"叙事时间\", \"叙事节奏\"],\n  \"teacherFeedback\": [\"删去重复性研究意义表述\", \"保留三个核心递进部分\", \"强化叙事学视角与时间维度\", \"删除声音维度\", \"术语统一\", \"优先吸收近年研究\"]\n}"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-1",
+      "type": "crawler",
+      "position": { "x": 250, "y": 40 },
+      "data": {
+        "label": "抓取《三国志·关羽传》",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/text.pl?if=gb&node=603534&remap=gb",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-2",
+      "type": "crawler",
+      "position": { "x": 250, "y": 120 },
+      "data": {
+        "label": "抓取《三国演义》桃园结义",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch1/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-3",
+      "type": "crawler",
+      "position": { "x": 250, "y": 200 },
+      "data": {
+        "label": "抓取《三国演义》温酒斩华雄",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch5/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-4",
+      "type": "crawler",
+      "position": { "x": 250, "y": 280 },
+      "data": {
+        "label": "抓取《三国演义》土山约三事",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch25/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-5",
+      "type": "crawler",
+      "position": { "x": 250, "y": 360 },
+      "data": {
+        "label": "抓取《三国演义》千里走单骑",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch27/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-6",
+      "type": "crawler",
+      "position": { "x": 250, "y": 440 },
+      "data": {
+        "label": "抓取《三国演义》华容道",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch50/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-7",
+      "type": "crawler",
+      "position": { "x": 250, "y": 520 },
+      "data": {
+        "label": "抓取《三国演义》单刀赴会",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch66/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-8",
+      "type": "crawler",
+      "position": { "x": 250, "y": 600 },
+      "data": {
+        "label": "抓取《三国演义》刮骨疗毒与败走麦城",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/sanguo-yanyi/ch75/zh",
+          "extractMode": "smart",
+          "timeout": 30,
+          "useHeadless": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-1",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 40 },
+      "data": {
+        "label": "清洗正史",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-1.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-2",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 120 },
+      "data": {
+        "label": "清洗桃园",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-2.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-3",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 200 },
+      "data": {
+        "label": "清洗华雄",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-3.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-4",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 280 },
+      "data": {
+        "label": "清洗约三事",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-4.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-5",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 360 },
+      "data": {
+        "label": "清洗走单骑",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-5.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-6",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 440 },
+      "data": {
+        "label": "清洗华容道",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-6.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-7",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 520 },
+      "data": {
+        "label": "清洗单刀赴会",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-7.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-8",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 600 },
+      "data": {
+        "label": "清洗麦城",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-8.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-1",
+      "type": "ai",
+      "position": { "x": 700, "y": 40 },
+      "data": {
+        "label": "正史叙事底稿",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "你在写中国古代文学本科论文材料卡。请只根据输入文本，分析《三国志·关羽传》如何以正史纪传体方式塑造关羽，重点回答：1. 叙事视角为何呈现为史家客观视角；2. 叙事时间与节奏为何表现为压缩、跳跃、以关键史事为节点；3. 如何同时写出勇武、功绩与“刚而自矜”“护前”等缺陷；4. 这种写法如何服务于“不虚美、不隐恶”的史传规范。输出用 Markdown，分小标题，700-1000字。",
+          "contentVariable": "{{clean-1.cleaned}}",
+          "temperature": 0.2,
+          "maxTokens": 1800,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-2",
+      "type": "ai",
+      "position": { "x": 700, "y": 120 },
+      "data": {
+        "label": "桃园起点分析",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析《三国演义》桃园结义叙事对关羽形象的先验建模作用，重点讨论：叙事者如何预设忠义框架；事件时间如何前置人物伦理身份；这一虚构起点如何为后文关羽的忠、义、信奠定合法性。输出 Markdown，600-900字。",
+          "contentVariable": "{{clean-2.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1600,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-3",
+      "type": "ai",
+      "position": { "x": 700, "y": 200 },
+      "data": {
+        "label": "华雄首秀分析",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析温酒斩华雄如何以小说化场面调度塑造关羽的英雄首秀，重点讨论：聚焦式叙事视角、快节奏时间压缩、对比映衬和传奇化效果；并指出这与《三国志》简要记事方式的差异。输出 Markdown，600-900字。",
+          "contentVariable": "{{clean-3.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1600,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-4",
+      "type": "ai",
+      "position": { "x": 700, "y": 280 },
+      "data": {
+        "label": "约三事分析",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析土山约三事情节如何把关羽从历史名将改写为道德化英雄，重点讨论：叙事者如何引导读者评价；时间安排如何制造伦理抉择的悬念；关羽的降曹与归刘如何被写成“权变而不失忠义”。输出 Markdown，700-1000字。",
+          "contentVariable": "{{clean-4.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1800,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-5",
+      "type": "ai",
+      "position": { "x": 700, "y": 360 },
+      "data": {
+        "label": "走单骑分析",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析千里走单骑如何通过连续闯关叙事强化关羽形象，重点讨论：连环事件推进的叙事节奏；第三人称全知叙事如何持续抬升英雄光环；人物形象如何从勇武走向忠义与信义兼具。输出 Markdown，700-1000字。",
+          "contentVariable": "{{clean-5.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1800,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-6",
+      "type": "ai",
+      "position": { "x": 700, "y": 440 },
+      "data": {
+        "label": "华容道分析",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析华容道义释曹操的叙事意义，重点讨论：小说叙事如何制造忠与义的张力；叙事时间如何通过铺垫、对峙、放行形成戏剧停顿；这一虚构情节如何扩大关羽的道德高度。输出 Markdown，700-1000字。",
+          "contentVariable": "{{clean-6.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1800,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-7",
+      "type": "ai",
+      "position": { "x": 700, "y": 520 },
+      "data": {
+        "label": "单刀赴会分析",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析单刀赴会如何把关羽塑造成兼具威仪、智略与神勇的文学典型，重点讨论：叙事场景的集中化处理、时间节奏的张弛控制、人物言行的舞台化书写，以及其相较正史的艺术增饰。输出 Markdown，700-1000字。",
+          "contentVariable": "{{clean-7.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1800,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-8",
+      "type": "ai",
+      "position": { "x": 700, "y": 600 },
+      "data": {
+        "label": "麦城悲剧分析",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请分析刮骨疗毒与败走麦城的小说叙事如何把关羽推向悲剧高峰，重点讨论：细节扩充如何神圣化其意志；叙事时间如何从舒缓转向急促并制造宿命感；小说怎样弱化其性格缺陷而强化悲剧崇高性。输出 Markdown，800-1100字。",
+          "contentVariable": "{{clean-8.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 2000,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-1",
+      "type": "merge",
+      "position": { "x": 980, "y": 120 },
+      "data": {
+        "label": "合并文体基础",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 3
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-2",
+      "type": "merge",
+      "position": { "x": 980, "y": 360 },
+      "data": {
+        "label": "合并中段对比",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 3
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-3",
+      "type": "merge",
+      "position": { "x": 980, "y": 560 },
+      "data": {
+        "label": "合并高潮结局",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 2
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-intro",
+      "type": "ai",
+      "position": { "x": 1240, "y": 40 },
+      "data": {
+        "label": "生成绪论",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请生成这篇论文的“绪论”部分，必须符合中文本科毕业论文语体，约2500-3200字。标题为“绪论”。内容包括：1. 研究背景与问题提出；2. 国内外研究现状综述，优先吸收近年研究，可点到姚昌浩、莫春娟、王玉玺、王方领、余跃、兰方飞、吴洁、束强、浦安迪等研究线索，但不要硬造页码；3. 选题依据与研究意义；4. 研究思路、研究方法与创新点。必须明确本文采用“文体差异梳理—叙事与形象对比—文化动因探析”的三层递进结构，且叙事学层面只聚焦叙事视角、叙事时间与叙事节奏，不写声音维度。输出 Markdown，使用完整段落。",
+          "contentVariable": "{{merge-1.merged}}",
+          "temperature": 0.35,
+          "maxTokens": 4200,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-ch1",
+      "type": "ai",
+      "position": { "x": 1240, "y": 180 },
+      "data": {
+        "label": "第一章文体差异",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请生成论文第一章《<三国志>与<三国演义>的叙事文体差异》，约2500-3200字。必须围绕两节展开：1. 《三国志》的正史纪实性叙事传统；2. 《三国演义》的演义文学性叙事特征。写作要求：突出史传叙事与小说叙事的文体规范差异；明确比较叙事视角、叙事时间、叙事节奏如何影响人物呈现；结合关羽相关情节举例，但不要偏离文体比较这个中心。输出 Markdown，含二级标题与学术化过渡。",
+          "contentVariable": "{{merge-1.merged}}",
+          "temperature": 0.32,
+          "maxTokens": 4200,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-ch2a",
+      "type": "ai",
+      "position": { "x": 1240, "y": 340 },
+      "data": {
+        "label": "第二章上半",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请生成论文第二章前半部分《关羽形象在正史与演义中的叙事差异比较（上）》，约2400-3000字。必须写两节：1. 人物特质的重塑：从勇武到道德化；2. 性格缺陷的改写：从“刚而自矜”到理想化英雄人格。要求紧扣文本细读，强调叙事视角与叙事时间安排如何重塑人物，并结合《三国志》与《三国演义》的具体情节比较。输出 Markdown。",
+          "contentVariable": "{{merge-2.merged}}",
+          "temperature": 0.33,
+          "maxTokens": 4000,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-ch2b",
+      "type": "ai",
+      "position": { "x": 1240, "y": 500 },
+      "data": {
+        "label": "第二章下半",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请生成论文第二章后半部分《关羽形象在正史与演义中的叙事差异比较（下）》，约2400-3000字。必须写两节：1. 形象功能的转化：从历史评价对象到文化符号；2. 情节叙事的重构：从史实叙述到文学虚构。要求突出单刀赴会、华容道、麦城等典型情节，分析叙事节奏、场景扩写和情感导向如何塑造形象功能。输出 Markdown。",
+          "contentVariable": "{{merge-3.merged}}",
+          "temperature": 0.33,
+          "maxTokens": 4000,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-4",
+      "type": "merge",
+      "position": { "x": 1510, "y": 420 },
+      "data": {
+        "label": "合并第二章",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 2
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-ch3",
+      "type": "ai",
+      "position": { "x": 1770, "y": 420 },
+      "data": {
+        "label": "第三章文化动因",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请生成论文第三章《关羽形象叙事差异形成的文化动因》，约2800-3400字。必须围绕三节展开：1. 正史与演义的文体功能分野；2. 儒家伦理与元明时代价值观念的渗透；3. 民间信仰与英雄崇拜的推动作用。要求解释“为何如此叙述”，不要只重复现象描述；必须回应前文叙事差异，并把文化动因与叙事机制联系起来。输出 Markdown。",
+          "contentVariable": "{{merge-4.merged}}",
+          "temperature": 0.35,
+          "maxTokens": 4200,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-draft",
+      "type": "merge",
+      "position": { "x": 2030, "y": 300 },
+      "data": {
+        "label": "合并论文主料",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 4
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-draft",
+      "type": "ai",
+      "position": { "x": 2280, "y": 300 },
+      "data": {
+        "label": "生成15000字初稿",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请把输入材料整合为一篇完整论文初稿，题目为《叙事学视域下〈三国志〉与〈三国演义〉中关羽形象的叙事差异研究》。硬性要求：1. 总字数目标约13000至16000字；2. 结构必须包括题目、摘要、关键词、绪论、第一章、第二章、第三章、结论；3. 第二章要成为全文核心，篇幅明显最长；4. 必须贯彻老师意见，删除重复研究意义表述，不写声音维度，统一使用“叙事视角、叙事时间、叙事节奏、文体差异、文化动因”等术语；5. 学术风格自然，不要模板腔，不要列条目式空话；6. 不编造具体页码、卷次、版本细节。只输出 Markdown 成稿。",
+          "contentVariable": "{{merge-draft.merged}}",
+          "temperature": 0.38,
+          "maxTokens": 12000,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-rewrite",
+      "type": "ai",
+      "position": { "x": 2530, "y": 220 },
+      "data": {
+        "label": "重写论证链",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请对输入论文初稿做一轮深度重写，目标不是缩写，而是增强论证的学术连贯性。要求：1. 保持总字数基本不降；2. 强化章节之间的递进关系，让“文体差异梳理—叙事与形象对比—文化动因探析”构成清晰主线；3. 强化《三国志》与《三国演义》的对应比较；4. 修复术语不统一、概念重复、段落转折生硬等问题；5. 保留本科论文语气，不要写成研究报告。输出 Markdown。",
+          "contentVariable": "{{ai-draft.result}}",
+          "temperature": 0.32,
+          "maxTokens": 12000,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-polish",
+      "type": "ai",
+      "position": { "x": 2530, "y": 380 },
+      "data": {
+        "label": "终稿润色定长",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请对输入论文做最后一轮学术化润色与定长控制。要求：1. 维持在约15000字上下，可浮动但不要明显短于13000字；2. 摘要控制在300-500字，关键词3-5个；3. 结论要有收束感，回到叙事学方法的解释力；4. 语言准确、自然、避免口语和重复；5. 标题层级清楚，适合直接导出为 Markdown 论文稿。只输出最终版本。",
+          "contentVariable": "{{ai-rewrite.result}}",
+          "temperature": 0.25,
+          "maxTokens": 12000,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "output",
+      "position": { "x": 2770, "y": 380 },
+      "data": {
+        "label": "导出论文终稿",
+        "type": "output",
+        "config": {
+          "format": "markdown",
+          "destination": "file",
+          "fileName": "guan_yu_narratology_thesis_15000.md"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 3000, "y": 380 },
+      "data": {
+        "label": "结束",
+        "type": "end",
+        "config": {},
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-1" },
+    { "id": "e2", "source": "start-1", "target": "crawler-2" },
+    { "id": "e3", "source": "start-1", "target": "crawler-3" },
+    { "id": "e4", "source": "start-1", "target": "crawler-4" },
+    { "id": "e5", "source": "start-1", "target": "crawler-5" },
+    { "id": "e6", "source": "start-1", "target": "crawler-6" },
+    { "id": "e7", "source": "start-1", "target": "crawler-7" },
+    { "id": "e8", "source": "start-1", "target": "crawler-8" },
+    { "id": "e9", "source": "crawler-1", "target": "clean-1" },
+    { "id": "e10", "source": "crawler-2", "target": "clean-2" },
+    { "id": "e11", "source": "crawler-3", "target": "clean-3" },
+    { "id": "e12", "source": "crawler-4", "target": "clean-4" },
+    { "id": "e13", "source": "crawler-5", "target": "clean-5" },
+    { "id": "e14", "source": "crawler-6", "target": "clean-6" },
+    { "id": "e15", "source": "crawler-7", "target": "clean-7" },
+    { "id": "e16", "source": "crawler-8", "target": "clean-8" },
+    { "id": "e17", "source": "clean-1", "target": "ai-1" },
+    { "id": "e18", "source": "clean-2", "target": "ai-2" },
+    { "id": "e19", "source": "clean-3", "target": "ai-3" },
+    { "id": "e20", "source": "clean-4", "target": "ai-4" },
+    { "id": "e21", "source": "clean-5", "target": "ai-5" },
+    { "id": "e22", "source": "clean-6", "target": "ai-6" },
+    { "id": "e23", "source": "clean-7", "target": "ai-7" },
+    { "id": "e24", "source": "clean-8", "target": "ai-8" },
+    { "id": "e25", "source": "ai-1", "target": "merge-1", "targetHandle": "input-0" },
+    { "id": "e26", "source": "ai-2", "target": "merge-1", "targetHandle": "input-1" },
+    { "id": "e27", "source": "ai-3", "target": "merge-1", "targetHandle": "input-2" },
+    { "id": "e28", "source": "ai-4", "target": "merge-2", "targetHandle": "input-0" },
+    { "id": "e29", "source": "ai-5", "target": "merge-2", "targetHandle": "input-1" },
+    { "id": "e30", "source": "ai-6", "target": "merge-2", "targetHandle": "input-2" },
+    { "id": "e31", "source": "ai-7", "target": "merge-3", "targetHandle": "input-0" },
+    { "id": "e32", "source": "ai-8", "target": "merge-3", "targetHandle": "input-1" },
+    { "id": "e33", "source": "merge-1", "target": "ai-intro" },
+    { "id": "e34", "source": "merge-1", "target": "ai-ch1" },
+    { "id": "e35", "source": "merge-2", "target": "ai-ch2a" },
+    { "id": "e36", "source": "merge-3", "target": "ai-ch2b" },
+    { "id": "e37", "source": "ai-ch2a", "target": "merge-4", "targetHandle": "input-0" },
+    { "id": "e38", "source": "ai-ch2b", "target": "merge-4", "targetHandle": "input-1" },
+    { "id": "e39", "source": "merge-4", "target": "ai-ch3" },
+    { "id": "e40", "source": "ai-intro", "target": "merge-draft", "targetHandle": "input-0" },
+    { "id": "e41", "source": "ai-ch1", "target": "merge-draft", "targetHandle": "input-1" },
+    { "id": "e42", "source": "merge-4", "target": "merge-draft", "targetHandle": "input-2" },
+    { "id": "e43", "source": "ai-ch3", "target": "merge-draft", "targetHandle": "input-3" },
+    { "id": "e44", "source": "merge-draft", "target": "ai-draft" },
+    { "id": "e45", "source": "ai-draft", "target": "ai-rewrite" },
+    { "id": "e46", "source": "ai-rewrite", "target": "ai-polish" },
+    { "id": "e47", "source": "ai-polish", "target": "output-1" },
+    { "id": "e48", "source": "output-1", "target": "end-1" }
+  ],
+  "commentCards": []
+}

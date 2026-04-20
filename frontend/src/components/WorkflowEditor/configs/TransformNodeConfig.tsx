@@ -16,6 +16,7 @@ export const TransformNodeConfig: React.FC = () => {
         initialValue="map"
       >
         <Select>
+          <Option value="passthrough">{t('node.config.transform.passthrough')}</Option>
           <Option value="map">{t('node.config.transform.map')}</Option>
           <Option value="filter">{t('node.config.transform.filter')}</Option>
           <Option value="sort">{t('node.config.transform.sort')}</Option>
@@ -26,6 +27,17 @@ export const TransformNodeConfig: React.FC = () => {
       <Form.Item shouldUpdate noStyle>
         {({ getFieldValue }) => {
           const transformType = getFieldValue('transformType');
+          if (transformType === 'passthrough') {
+            return (
+              <Form.Item
+                label={t('node.config.transform.script')}
+                name="script"
+                tooltip={t('node.config.transform.passthroughTooltip')}
+              >
+                <TextArea rows={3} placeholder="" disabled />
+              </Form.Item>
+            );
+          }
           const placeholder =
             transformType === 'map'
               ? '{"title":"data.title","url":"data.url"}'
@@ -48,4 +60,3 @@ export const TransformNodeConfig: React.FC = () => {
     </>
   );
 };
-

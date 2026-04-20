@@ -54,6 +54,11 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置通义千问 API Key，请在.env中配置QWEN_API_KEY")
 		}
+	case "moonshot":
+		apiKey = config.MoonshotAPIKey
+		if apiKey == "" {
+			return nil, fmt.Errorf("系统未配置 Moonshot API Key，请在.env中配置MOONSHOT_API_KEY")
+		}
 	case "spark":
 		apiKey = config.SparkAPIKey
 		if apiKey == "" {
@@ -62,7 +67,7 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 	case "hunyuan":
 		apiKey = config.HunyuanAPIKey
 		if apiKey == "" {
-			return nil, fmt.Errorf("系统未配置腾讯混元 API Key，请在.env中配置HUNYUAN_API_KEY")
+			return nil, fmt.Errorf("系统未配置腾讯混元 TokenHub API Key，请在.env中配置 TOKENHUB_API_KEY")
 		}
 	case "zhipuai":
 		apiKey = config.ZhipuaiAPIKey
@@ -227,13 +232,25 @@ func getDefaultBaseURL(provider string) string {
 		return "https://ark.cn-beijing.volces.com/api/v3"
 	case "qwen":
 		return "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	case "moonshot":
+		return "https://api.moonshot.cn/v1"
 	case "spark":
 		return "https://spark-api-open.xf-yun.com/v2"
 	case "zhipuai":
 		return "https://open.bigmodel.cn/api/paas/v4"
 	case "hunyuan":
-		return "https://api.hunyuan.cloud.tencent.com/v1"
-	case "claude", "gemini", "gpt", "grok":
+		return "https://tokenhub.tencentmaas.com/v1"
+	case "gemini":
+		if config.GeminiBaseURL != "" {
+			return config.GeminiBaseURL
+		}
+		return "https://openrouter.ai/api/v1"
+	case "gpt":
+		if config.OpenAIBaseURL != "" {
+			return config.OpenAIBaseURL
+		}
+		return "https://openrouter.ai/api/v1"
+	case "claude", "grok":
 		return "https://openrouter.ai/api/v1"
 	default:
 		return ""

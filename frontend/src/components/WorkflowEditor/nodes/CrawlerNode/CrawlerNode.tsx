@@ -80,13 +80,15 @@ const CrawlerNode: React.FC<NodeProps> = ({ data, id, ...props }) => {
   const renderContent = () => {
     // 优先显示变量URL，否则显示输入的URL
     const displayUrl = getVariableDisplayValue || data.config?.url;
+    const ruleName = data.config?.ruleName;
     
-    if (displayUrl) {
+    if (displayUrl || ruleName) {
       // 截断长URL
-      const truncatedUrl = displayUrl.length > 40 ? `${displayUrl.substring(0, 40)}...` : displayUrl;
+      const truncatedUrl = displayUrl && displayUrl.length > 40 ? `${displayUrl.substring(0, 40)}...` : displayUrl;
       return (
         <div className={styles.nodeInfo}>
-          <div className={styles.nodeInfoItem}>URL: {truncatedUrl}</div>
+          {ruleName ? <div className={styles.nodeInfoItem}>Rule: {ruleName}</div> : null}
+          {truncatedUrl ? <div className={styles.nodeInfoItem}>URL: {truncatedUrl}</div> : null}
         </div>
       );
     }
@@ -107,4 +109,3 @@ const CrawlerNode: React.FC<NodeProps> = ({ data, id, ...props }) => {
 };
 
 export default CrawlerNode;
-

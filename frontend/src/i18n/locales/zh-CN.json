@@ -773,6 +773,8 @@
       },
       "transform": {
         "transformType": "转换类型",
+        "passthrough": "透传",
+        "passthroughTooltip": "不做任何转换，直接把上游数据原样传给下游节点。",
         "map": "映射",
         "filter": "过滤",
         "sort": "排序",

@@ -12,6 +12,115 @@ import (
 	"yaolight-workshop/backend/modules/ai/services/providers"
 )
 
+type openAICompatibleMessageContentPart struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+func truncateForError(value string, limit int) string {
+	value = strings.TrimSpace(value)
+	if limit <= 0 || len(value) <= limit {
+		return value
+	}
+	return value[:limit]
+}
+
+func extractOpenAICompatibleContent(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return strings.TrimSpace(text)
+	}
+
+	var parts []openAICompatibleMessageContentPart
+	if err := json.Unmarshal(raw, &parts); err == nil {
+		var sb strings.Builder
+		for _, part := range parts {
+			if part.Type == "text" && strings.TrimSpace(part.Text) != "" {
+				if sb.Len() > 0 {
+					sb.WriteString("\n")
+				}
+				sb.WriteString(strings.TrimSpace(part.Text))
+			}
+		}
+		return strings.TrimSpace(sb.String())
+	}
+
+	var singlePart openAICompatibleMessageContentPart
+	if err := json.Unmarshal(raw, &singlePart); err == nil && singlePart.Type == "text" {
+		return strings.TrimSpace(singlePart.Text)
+	}
+
+	return ""
+}
+
+func extractGeminiFallbackContent(body []byte) string {
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+
+	choices, ok := payload["choices"].([]interface{})
+	if ok && len(choices) > 0 {
+		if choice, ok := choices[0].(map[string]interface{}); ok {
+			if message, ok := choice["message"].(map[string]interface{}); ok {
+				if text := strings.TrimSpace(stringifyFallbackField(message["reasoning"])); text != "" {
+					return text
+				}
+				if text := strings.TrimSpace(stringifyFallbackField(message["reasoning_details"])); text != "" {
+					return text
+				}
+				if text := strings.TrimSpace(stringifyFallbackField(message["text"])); text != "" {
+					return text
+				}
+			}
+			if text := strings.TrimSpace(stringifyFallbackField(choice["text"])); text != "" {
+				return text
+			}
+		}
+	}
+
+	if text := strings.TrimSpace(stringifyFallbackField(payload["output_text"])); text != "" {
+		return text
+	}
+
+	return ""
+}
+
+func stringifyFallbackField(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case []interface{}:
+		var sb strings.Builder
+		for _, item := range v {
+			text := strings.TrimSpace(stringifyFallbackField(item))
+			if text == "" {
+				continue
+			}
+			if sb.Len() > 0 {
+				sb.WriteString("\n")
+			}
+			sb.WriteString(text)
+		}
+		return sb.String()
+	case map[string]interface{}:
+		if text, ok := v["text"].(string); ok {
+			return text
+		}
+		if text, ok := v["content"].(string); ok {
+			return text
+		}
+		if summary, ok := v["summary"].(string); ok {
+			return summary
+		}
+	}
+	return ""
+}
+
 // GeminiProvider Gemini提供商实现 (via OpenRouter)
 type GeminiProvider struct {
 	client *http.Client
@@ -20,7 +129,7 @@ type GeminiProvider struct {
 // NewGeminiProvider 创建Gemini提供商实例
 func NewGeminiProvider() providers.AIProvider {
 	return &GeminiProvider{
-		client: providers.NewHTTPClient(),
+		client: providers.NewHTTPClientForProvider("gemini"),
 	}
 }
 
@@ -161,8 +270,8 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 	var response struct {
 		Choices []struct {
 			Message struct {
-				Content          string      `json:"content"`
-				ReasoningDetails interface{} `json:"reasoning_details,omitempty"`
+				Content          json.RawMessage `json:"content"`
+				ReasoningDetails interface{}     `json:"reasoning_details,omitempty"`
 			} `json:"message"`
 		} `choices`
 		Usage struct {
@@ -184,6 +293,14 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 		return nil, fmt.Errorf("no choices in response")
 	}
 
+	contentText := extractOpenAICompatibleContent(response.Choices[0].Message.Content)
+	if contentText == "" {
+		contentText = extractGeminiFallbackContent(body)
+	}
+	if contentText == "" {
+		return nil, fmt.Errorf("empty response from provider; body=%s", truncateForError(string(body), 500))
+	}
+
 	usage := &providers.TokenUsage{
 		PromptTokens:     response.Usage.PromptTokens,
 		CompletionTokens: response.Usage.CompletionTokens,
@@ -199,7 +316,7 @@ func (p *GeminiProvider) Chat(config *providers.AIModelConfig, prompt string, co
 	}
 
 	return &providers.ChatResponse{
-		Content:          response.Choices[0].Message.Content,
+		Content:          contentText,
 		TokensUsed:       response.Usage.TotalTokens,
 		Usage:            usage,
 		Model:            config.ModelName,

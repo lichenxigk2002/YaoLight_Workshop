@@ -241,6 +241,10 @@
   font-size: 22px;
   font-weight: 600;
   line-height: 1.2;
+
+  [data-theme='dark'] & {
+    color: rgba(248, 250, 252, 0.96);
+  }
 }
 
 .packageStardust {
@@ -252,6 +256,10 @@
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.04em;
+
+  [data-theme='dark'] & {
+    color: rgba(248, 250, 252, 0.92);
+  }
 }
 
 .packageTag {
@@ -260,6 +268,11 @@
   background: rgba(0, 0, 0, 0.06) !important;
   color: #18181b !important;
   border: none !important;
+
+  [data-theme='dark'] & {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: rgba(226, 232, 240, 0.82) !important;
+  }
 }
 
 .packagePriceRow {
@@ -274,11 +287,19 @@
   font-weight: 700;
   letter-spacing: -0.05em;
   line-height: 1;
+
+  [data-theme='dark'] & {
+    color: rgba(248, 250, 252, 0.98);
+  }
 }
 
 .packageMeta {
   color: var(--text-secondary);
   font-size: 12px;
+
+  [data-theme='dark'] & {
+    color: rgba(226, 232, 240, 0.64);
+  }
 }
 
 .packageDesc {
@@ -286,6 +307,10 @@
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.65;
+
+  [data-theme='dark'] & {
+    color: rgba(226, 232, 240, 0.72);
+  }
 }
 
 .packageFooter {
@@ -301,6 +326,10 @@
   gap: 8px;
   color: var(--text-secondary);
   font-size: 12px;
+
+  [data-theme='dark'] & {
+    color: rgba(226, 232, 240, 0.76);
+  }
 }
 
 .purchaseButton {

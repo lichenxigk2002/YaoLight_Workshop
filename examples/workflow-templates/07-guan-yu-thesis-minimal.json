@@ -1,0 +1,109 @@
+{
+  "version": "1.0.0",
+  "name": "论文模板 - 关羽形象研究极简版",
+  "description": "最小论文研究链路：正史抓取 -> 清洗 -> AI 归纳 -> 输出综述文章。",
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 80, "y": 120 },
+      "data": {
+        "label": "开始",
+        "type": "start",
+        "config": {
+          "inputDataType": "json",
+          "inputData": "{\n  \"thesisTitle\": \"忠义符号的建构与解构——关羽形象在历代文人叙事中的重塑与异化\",\n  \"focus\": [\"正史原型\", \"忠义话语\", \"后世重塑\"]\n}"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-1",
+      "type": "crawler",
+      "position": { "x": 300, "y": 120 },
+      "data": {
+        "label": "抓取《三国志·关羽传》",
+        "type": "crawler",
+        "config": {
+          "url": "https://ctext.org/text.pl?if=gb&node=603534&remap=gb",
+          "extractMode": "smart",
+          "useHeadless": false,
+          "timeout": 30
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-1",
+      "type": "dataclean",
+      "position": { "x": 520, "y": 120 },
+      "data": {
+        "label": "清洗正史文本",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-1.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true,
+          "removeSpaces": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-1",
+      "type": "ai",
+      "position": { "x": 760, "y": 120 },
+      "data": {
+        "label": "生成正史研究综述",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "你是一名中国古代文学与文献学方向的论文助理。请基于输入的《三国志·关羽传》文本，围绕“关羽忠义形象的原始史传基础”写一篇中文研究综述。要求：1. 用 Markdown 输出；2. 包含“史传中的关羽形象”“忠与义的原始叙事逻辑”“与后世文学关羽形象的差异提示”“可继续扩展的论文论点”四个部分；3. 风格保持学术写作，不要口语化；4. 结尾给出 3 条可直接用于毕业论文正文的小标题建议。",
+          "contentVariable": "{{clean-1.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 2200,
+          "stream": false
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-1",
+      "type": "output",
+      "position": { "x": 1020, "y": 120 },
+      "data": {
+        "label": "导出论文综述",
+        "type": "output",
+        "config": {
+          "format": "markdown",
+          "destination": "file",
+          "fileName": "guan_yu_thesis_minimal.md"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 1240, "y": 120 },
+      "data": {
+        "label": "结束",
+        "type": "end",
+        "config": {},
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-1" },
+    { "id": "e2", "source": "crawler-1", "target": "clean-1" },
+    { "id": "e3", "source": "clean-1", "target": "ai-1" },
+    { "id": "e4", "source": "ai-1", "target": "output-1" },
+    { "id": "e5", "source": "output-1", "target": "end-1" }
+  ],
+  "commentCards": []
+}

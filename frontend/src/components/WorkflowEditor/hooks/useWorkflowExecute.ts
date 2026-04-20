@@ -103,7 +103,7 @@ export function useWorkflowExecute(
             executionData,
             (nodeId, content, done, contentType) => {
               // 如果是工作流完成信号，直接处理，不当作节点
-              if (contentType === 'workflow_complete' && done && !isComplete) {
+              if (nodeId === 'workflow_complete' && done && !isComplete) {
                 isComplete = true;
                 cancelStreamRef.current = null; // 清除取消函数
                 setIsExecuting(false); // 标记为执行完成
@@ -494,4 +494,3 @@ export function useWorkflowExecute(
     isExecuting,
   };
 }
-

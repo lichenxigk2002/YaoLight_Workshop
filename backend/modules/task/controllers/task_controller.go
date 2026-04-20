@@ -97,6 +97,40 @@ func (c *TaskController) GetTaskDetail(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, task)
 }
 
+func (c *TaskController) CancelTask(ctx *gin.Context) {
+	userIDAny, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未授权",
+		})
+		return
+	}
+
+	taskIDStr := ctx.Param("id")
+	taskID, err := strconv.ParseUint(taskIDStr, 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的任务ID",
+		})
+		return
+	}
+
+	result, err := c.taskService.CancelTask(uint(taskID), userIDAny.(uint))
+	if err != nil {
+		switch err {
+		case services.ErrTaskNotOwned:
+			ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		case services.ErrTaskActionNotAllow:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
+}
+
 // GetTaskNodeExecutions 获取任务的节点执行记录
 // @Summary 获取任务的节点执行记录
 // @Description 获取指定任务的所有节点执行详情
@@ -119,6 +153,35 @@ func (c *TaskController) GetTaskNodeExecutions(ctx *gin.Context) {
 	}
 
 	result, err := c.taskService.GetTaskNodeExecutions(uint(taskID))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
+}
+
+// GetTaskNodeExecutionDetail 获取任务单条节点执行详情
+func (c *TaskController) GetTaskNodeExecutionDetail(ctx *gin.Context) {
+	taskID, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的任务ID",
+		})
+		return
+	}
+
+	executionID, err := strconv.ParseUint(ctx.Param("executionId"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的执行记录ID",
+		})
+		return
+	}
+
+	result, err := c.taskService.GetTaskNodeExecutionDetail(uint(taskID), uint(executionID))
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),

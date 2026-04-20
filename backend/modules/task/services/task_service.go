@@ -1,18 +1,35 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"time"
+	"yaolight-workshop/backend/infrastructure/database"
+	aiModels "yaolight-workshop/backend/modules/ai/models"
 	"yaolight-workshop/backend/modules/task/models"
 	"yaolight-workshop/backend/modules/task/repositories"
 )
+
+var (
+	ErrTaskNotOwned       = errors.New("task does not belong to current user")
+	ErrTaskActionNotAllow = errors.New("task action not allowed for current status")
+)
+
+type TaskActionResponse struct {
+	TaskID  uint   `json:"task_id"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
 
 // TaskWithMetadata 带元数据的任务（包含序号和AI信息）
 type TaskWithMetadata struct {
 	models.Task
 	SequenceNumber int    `json:"sequenceNumber"` // 工作流内序号
-	Provider       string `json:"provider"`      // AI供应商（如果有AI节点）
+	Provider       string `json:"provider"`       // AI供应商（如果有AI节点）
 	ModelName      string `json:"modelName"`      // AI模型名称（如果有AI节点）
+	ProviderIcon   string `json:"providerIcon,omitempty"`
+	ModelIcon      string `json:"modelIcon,omitempty"`
 }
 
 // TaskService 任务服务
@@ -67,13 +84,15 @@ func (s *TaskService) GetWorkflowTasks(workflowID uint, page, limit int) (*TaskL
 		sequenceNumber := int(total) - offset - i
 
 		// 从节点执行记录中提取AI供应商和模型信息
-		provider, modelName := s.extractAIInfo(task.ID)
+		provider, modelName, providerIcon, modelIcon := s.extractAIInfo(task.ID)
 
 		tasksWithMetadata[i] = TaskWithMetadata{
 			Task:           task,
 			SequenceNumber: sequenceNumber,
 			Provider:       provider,
 			ModelName:      modelName,
+			ProviderIcon:   providerIcon,
+			ModelIcon:      modelIcon,
 		}
 	}
 
@@ -86,10 +105,10 @@ func (s *TaskService) GetWorkflowTasks(workflowID uint, page, limit int) (*TaskL
 }
 
 // extractAIInfo 从节点执行记录中提取AI供应商和模型信息
-func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName string) {
+func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName, providerIcon, modelIcon string) {
 	executions, err := s.nodeExecutionRepo.GetByTaskID(taskID)
 	if err != nil {
-		return "", ""
+		return "", "", "", ""
 	}
 
 	// 查找AI节点的执行记录（优先查找已完成的）
@@ -101,6 +120,15 @@ func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName string) {
 					// 尝试从输出中获取模型名称
 					if model, ok := outputMap["model"].(string); ok && model != "" {
 						modelName = model
+					}
+					if icon, ok := outputMap["providerIcon"].(string); ok && icon != "" {
+						providerIcon = icon
+					}
+					if icon, ok := outputMap["modelIcon"].(string); ok && icon != "" {
+						modelIcon = icon
+					}
+					if p, ok := outputMap["provider"].(string); ok && p != "" && provider == "" {
+						provider = p
 					}
 				}
 			}
@@ -128,10 +156,19 @@ func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName string) {
 			if provider == "" && modelName != "" {
 				provider = inferProviderFromModel(modelName)
 			}
+			if providerIcon == "" || (modelIcon == "" && modelName != "") {
+				resolvedProviderIcon, resolvedModelIcon := resolveAIIcons(provider, modelName)
+				if providerIcon == "" {
+					providerIcon = resolvedProviderIcon
+				}
+				if modelIcon == "" {
+					modelIcon = resolvedModelIcon
+				}
+			}
 
 			// 如果找到了AI节点信息，返回第一个找到的信息
 			if provider != "" || modelName != "" {
-				return provider, modelName
+				return provider, modelName, providerIcon, modelIcon
 			}
 		}
 	}
@@ -157,12 +194,13 @@ func (s *TaskService) extractAIInfo(taskID uint) (provider, modelName string) {
 			}
 
 			if provider != "" || modelName != "" {
-				return provider, modelName
+				resolvedProviderIcon, resolvedModelIcon := resolveAIIcons(provider, modelName)
+				return provider, modelName, resolvedProviderIcon, resolvedModelIcon
 			}
 		}
 	}
 
-	return "", ""
+	return "", "", "", ""
 }
 
 // inferProviderFromModel 从模型名称推断供应商
@@ -198,6 +236,30 @@ func inferProviderFromModel(modelName string) string {
 	return ""
 }
 
+func resolveAIIcons(provider, modelName string) (providerIcon, modelIcon string) {
+	if strings.TrimSpace(provider) != "" {
+		var template aiModels.ProviderTemplate
+		if err := database.DB.
+			Where("provider = ?", provider).
+			Select("icon").
+			First(&template).Error; err == nil && template.Icon != nil {
+			providerIcon = strings.TrimSpace(*template.Icon)
+		}
+	}
+
+	if strings.TrimSpace(provider) != "" && strings.TrimSpace(modelName) != "" {
+		var managed aiModels.ManagedAIModel
+		if err := database.DB.
+			Where("provider = ? AND model_name = ?", provider, modelName).
+			Select("model_icon").
+			First(&managed).Error; err == nil && managed.ModelIcon != nil {
+			modelIcon = strings.TrimSpace(*managed.ModelIcon)
+		}
+	}
+
+	return providerIcon, modelIcon
+}
+
 // GetTaskDetail 获取任务详情
 func (s *TaskService) GetTaskDetail(taskID uint) (*models.Task, error) {
 	task, err := s.taskRepo.GetTaskByID(taskID)
@@ -207,10 +269,81 @@ func (s *TaskService) GetTaskDetail(taskID uint) (*models.Task, error) {
 	return task, nil
 }
 
+func (s *TaskService) CancelTask(taskID, userID uint) (*TaskActionResponse, error) {
+	task, err := s.taskRepo.GetTaskByID(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("获取任务详情失败: %w", err)
+	}
+	if task.UserID != userID {
+		return nil, ErrTaskNotOwned
+	}
+
+	switch task.Status {
+	case "pending", "queued", "running", "paused":
+	default:
+		return nil, ErrTaskActionNotAllow
+	}
+
+	now := time.Now()
+	task.Status = "cancelled"
+	task.CancelledAt = &now
+	task.CancelledBy = &userID
+	task.UpdatedAt = now
+	if task.StartedAt != nil {
+		duration := int(now.Sub(*task.StartedAt).Milliseconds())
+		task.ActualDuration = &duration
+	}
+
+	if err := s.taskRepo.UpdateTask(task); err != nil {
+		return nil, fmt.Errorf("更新任务状态失败: %w", err)
+	}
+
+	executions, err := s.nodeExecutionRepo.GetByTaskID(taskID)
+	if err == nil {
+		for i := range executions {
+			if executions[i].Status == "pending" || executions[i].Status == "running" {
+				executions[i].Status = "cancelled"
+				executions[i].CompletedAt = &now
+				if updateErr := s.nodeExecutionRepo.Update(&executions[i]); updateErr != nil {
+					return nil, fmt.Errorf("更新节点执行状态失败: %w", updateErr)
+				}
+			}
+		}
+	}
+
+	return &TaskActionResponse{
+		TaskID:  task.ID,
+		Status:  task.Status,
+		Message: "task cancelled",
+	}, nil
+}
+
 // TaskNodeExecutionListResponse 节点执行列表响应
 type TaskNodeExecutionListResponse struct {
-	Executions []models.TaskNodeExecution `json:"executions"`
+	Executions []TaskNodeExecutionSummary `json:"executions"`
 	Total      int                        `json:"total"`
+}
+
+type TaskNodeExecutionSummary struct {
+	ID               uint        `json:"id"`
+	TaskID           uint        `json:"taskId"`
+	NodeID           string      `json:"nodeId"`
+	NodeType         string      `json:"nodeType"`
+	Status           string      `json:"status"`
+	ErrorMessage     *string     `json:"errorMessage"`
+	ExecutionTime    *int        `json:"executionTime"`
+	RetryCount       int         `json:"retryCount"`
+	StartedAt        interface{} `json:"startedAt"`
+	CompletedAt      interface{} `json:"completedAt"`
+	CreatedAt        interface{} `json:"createdAt"`
+	HasInputData     bool        `json:"hasInputData"`
+	HasOutputData    bool        `json:"hasOutputData"`
+	HasErrorStack    bool        `json:"hasErrorStack"`
+	HasResourceUsage bool        `json:"hasResourceUsage"`
+}
+
+type TaskNodeExecutionDetailResponse struct {
+	Execution *models.TaskNodeExecution `json:"execution"`
 }
 
 // GetTaskNodeExecutions 获取任务的节点执行记录
@@ -220,9 +353,41 @@ func (s *TaskService) GetTaskNodeExecutions(taskID uint) (*TaskNodeExecutionList
 		return nil, fmt.Errorf("获取节点执行记录失败: %w", err)
 	}
 
+	summaries := make([]TaskNodeExecutionSummary, 0, len(executions))
+	for _, execution := range executions {
+		summaries = append(summaries, TaskNodeExecutionSummary{
+			ID:               execution.ID,
+			TaskID:           execution.TaskID,
+			NodeID:           execution.NodeID,
+			NodeType:         execution.NodeType,
+			Status:           execution.Status,
+			ErrorMessage:     execution.ErrorMessage,
+			ExecutionTime:    execution.ExecutionTime,
+			RetryCount:       execution.RetryCount,
+			StartedAt:        execution.StartedAt,
+			CompletedAt:      execution.CompletedAt,
+			CreatedAt:        execution.CreatedAt,
+			HasInputData:     execution.InputData != nil,
+			HasOutputData:    execution.OutputData != nil,
+			HasErrorStack:    execution.ErrorStack != nil && *execution.ErrorStack != "",
+			HasResourceUsage: execution.ResourceUsage != nil,
+		})
+	}
+
 	return &TaskNodeExecutionListResponse{
-		Executions: executions,
-		Total:      len(executions),
+		Executions: summaries,
+		Total:      len(summaries),
+	}, nil
+}
+
+func (s *TaskService) GetTaskNodeExecutionDetail(taskID uint, executionID uint) (*TaskNodeExecutionDetailResponse, error) {
+	execution, err := s.nodeExecutionRepo.GetByID(taskID, executionID)
+	if err != nil {
+		return nil, fmt.Errorf("获取节点执行详情失败: %w", err)
+	}
+
+	return &TaskNodeExecutionDetailResponse{
+		Execution: execution,
 	}, nil
 }
 

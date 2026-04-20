@@ -45,6 +45,13 @@ function normalizeTemplateListResponse(payload: WorkflowTemplateListResponse): W
   };
 }
 
+function normalizeSourceWorkflowResponse(payload: WorkflowTemplateSourceWorkflowResponse): WorkflowTemplateSourceWorkflowResponse {
+  return {
+    ...payload,
+    list: Array.isArray(payload.list) ? payload.list : [],
+  };
+}
+
 function normalizeCanvas(canvas: WorkflowTemplateCanvas): WorkflowTemplateCanvas {
   return {
     ...canvas,
@@ -79,7 +86,7 @@ export function searchSourceWorkflows(keyword: string, pageSize = 20) {
         page_size: pageSize,
       },
     }),
-  );
+  ).then(normalizeSourceWorkflowResponse);
 }
 
 export function getWorkflowTemplate(id: number) {

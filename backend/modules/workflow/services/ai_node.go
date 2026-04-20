@@ -321,6 +321,22 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 		} else if _, exists := providerConfig["enableEnhancement"]; !exists {
 			providerConfig["enableEnhancement"] = true
 		}
+		if v, ok := node.Config["enableThinking"].(bool); ok {
+			providerConfig["enableThinking"] = v
+			providerConfig["enable_thinking"] = v
+		} else if v, ok := node.Config["enable_thinking"].(bool); ok {
+			providerConfig["enableThinking"] = v
+			providerConfig["enable_thinking"] = v
+		}
+		if v, ok := node.Config["citation"].(bool); ok {
+			providerConfig["citation"] = v
+		}
+		if v, ok := node.Config["seed"].(float64); ok {
+			providerConfig["seed"] = int(v)
+		}
+		if v, ok := node.Config["tool_choice"]; ok {
+			providerConfig["tool_choice"] = v
+		}
 
 		if s, ok := node.Config["stream"].(bool); ok {
 			stream = s
@@ -469,6 +485,7 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 			// 但为了简化，这里设为0，因为实际token数已经在计费记录中
 		}
 
+		modelIcon, providerIcon := e.aiService.ResolveModelIcons(modelConfig.Provider, modelConfig.ModelName)
 		resultData := map[string]interface{}{
 			"result":            fullContent.String(),
 			"content":           fullContent.String(),
@@ -476,6 +493,9 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 			"reasoning_details": fullReasoningContent.String(), // 兼容 reasoning_details
 			"tokensUsed":        tokensUsed,
 			"model":             modelConfig.ModelName,
+			"provider":          modelConfig.Provider,
+			"providerIcon":      providerIcon,
+			"modelIcon":         modelIcon,
 		}
 		return NodeExecutionResult{
 			NodeID:  node.ID,
@@ -609,11 +629,15 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	}
 
 	// 返回结果
+	modelIcon, providerIcon := e.aiService.ResolveModelIcons(modelConfig.Provider, modelConfig.ModelName)
 	resultData := map[string]interface{}{
 		"result":            chatResp.Content, // AI节点的输出变量名是 result
 		"content":           chatResp.Content, // 保留 content 以兼容旧代码
 		"tokensUsed":        chatResp.TokensUsed,
 		"model":             chatResp.Model,
+		"provider":          modelConfig.Provider,
+		"providerIcon":      providerIcon,
+		"modelIcon":         modelIcon,
 		"reasoning_details": chatResp.ReasoningDetails, // 包含推理详情
 	}
 	if chatResp.ReasoningDetails != nil {

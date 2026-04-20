@@ -10,6 +10,7 @@ import (
 	"yaolight-workshop/backend/modules/ai/services/providers/gpt"
 	"yaolight-workshop/backend/modules/ai/services/providers/grok"
 	"yaolight-workshop/backend/modules/ai/services/providers/hunyuan"
+	"yaolight-workshop/backend/modules/ai/services/providers/moonshot"
 	"yaolight-workshop/backend/modules/ai/services/providers/qwen"
 	"yaolight-workshop/backend/modules/ai/services/providers/spark"
 	"yaolight-workshop/backend/modules/ai/services/providers/zhipuai"
@@ -34,6 +35,8 @@ func NewProviderFactory() *ProviderFactory {
 	factory.RegisterProvider("gpt", gpt.NewGPTProvider())
 	factory.RegisterProvider("grok", grok.NewGrokProvider())
 	factory.RegisterProvider("hunyuan", hunyuan.NewHunyuanProvider())
+	factory.RegisterProvider("moonshot", moonshot.NewMoonshotProvider())
+	factory.RegisterProvider("kimi", moonshot.NewMoonshotProvider())
 	factory.RegisterProvider("qwen", qwen.NewQwenProvider())
 	factory.RegisterProvider("qianwen", qwen.NewQwenProvider())
 	factory.RegisterProvider("spark", spark.NewSparkProvider())

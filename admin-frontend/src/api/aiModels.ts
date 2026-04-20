@@ -3,6 +3,8 @@ import http from '@/api/http';
 import { formatDateTime as formatLocalizedDateTime } from '@/i18n/runtime';
 import type {
   AIAdminModel,
+  AIModelConfigExportPayload,
+  AIModelConfigImportResult,
   AIModelCapabilityConfig,
   AIMonitoringRecord,
   AIMonitoringSettings,
@@ -16,6 +18,7 @@ import type {
   CreateAIModelInput,
   PricingData,
   PricingType,
+  UpdateAIProviderPayload,
 } from '@/types/aiModels';
 
 interface ApiEnvelope<T> {
@@ -32,6 +35,7 @@ interface ListPayload<T> {
 interface BackendProviderSummary {
   provider: string;
   name: string;
+  icon?: string | null;
   description: string;
   is_active: boolean;
   models_count: number;
@@ -83,6 +87,8 @@ interface BackendAdminModel {
   provider: string;
   model_name: string;
   display_name: string;
+  model_icon?: string | null;
+  provider_icon?: string | null;
   description?: string | null;
   status: 'active' | 'disabled' | 'testing';
   is_active: boolean;
@@ -145,6 +151,43 @@ interface BackendMonitoringSnapshot {
   summary: BackendMonitoringSummary;
   is_checking: boolean;
   items: BackendMonitoringRecord[];
+}
+
+interface BackendModelConfigExportPricing {
+  pricing_type: PricingType;
+  currency: string;
+  is_active: boolean;
+  effective_at?: string | null;
+  expired_at?: string | null;
+  description?: string | null;
+  pricing_data: PricingData;
+}
+
+interface BackendModelConfigExportItem {
+  provider: string;
+  model_name: string;
+  display_name: string;
+  model_icon?: string | null;
+  description?: string | null;
+  status: 'active' | 'disabled' | 'testing';
+  is_active: boolean;
+  sort_order: number;
+  capability?: BackendCapabilityConfig | null;
+  pricing?: BackendModelConfigExportPricing | null;
+}
+
+interface BackendModelConfigExportPayload {
+  version: number;
+  exported_at: string;
+  items: BackendModelConfigExportItem[];
+}
+
+interface BackendModelConfigImportResult {
+  strategy: 'skip' | 'overwrite' | string;
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
 }
 
 const EMPTY_CAPABILITY: AIModelCapabilityConfig = {
@@ -227,6 +270,8 @@ function mapModel(model: BackendAdminModel): AIAdminModel {
     provider: model.provider,
     model_name: model.model_name,
     display_name: model.display_name,
+    model_icon: trimText(model.model_icon) || undefined,
+    provider_icon: trimText(model.provider_icon) || undefined,
     status: model.status,
     is_active: model.is_active,
     sort_order: model.sort_order ?? 0,
@@ -250,6 +295,7 @@ function mapProvider(provider: BackendProviderSummary): AIProviderSummary {
   return {
     key: provider.provider,
     name: provider.name,
+    icon: trimText(provider.icon) || undefined,
     description: provider.description,
     status: deriveProviderStatus(provider),
     models_count: provider.models_count,
@@ -330,6 +376,45 @@ function mapMonitoringSnapshot(snapshot: BackendMonitoringSnapshot): AIMonitorin
     summary: mapMonitoringSummary(snapshot.summary),
     is_checking: snapshot.is_checking,
     items: (snapshot.items ?? []).map(mapMonitoringRecord),
+  };
+}
+
+function mapModelConfigExportPayload(payload: BackendModelConfigExportPayload): AIModelConfigExportPayload {
+  return {
+    version: payload.version,
+    exported_at: payload.exported_at,
+    items: (payload.items ?? []).map((item) => ({
+      provider: item.provider,
+      model_name: item.model_name,
+      display_name: item.display_name,
+      model_icon: item.model_icon ?? undefined,
+      description: item.description ?? undefined,
+      status: item.status,
+      is_active: item.is_active,
+      sort_order: item.sort_order,
+      capability: item.capability ? mapCapability(item.capability) : null,
+      pricing: item.pricing
+        ? {
+            pricing_type: item.pricing.pricing_type,
+            currency: item.pricing.currency,
+            is_active: item.pricing.is_active,
+            effective_at: item.pricing.effective_at ?? null,
+            expired_at: item.pricing.expired_at ?? null,
+            description: item.pricing.description ?? undefined,
+            pricing_data: item.pricing.pricing_data,
+          }
+        : null,
+    })),
+  };
+}
+
+function mapModelConfigImportResult(result: BackendModelConfigImportResult): AIModelConfigImportResult {
+  return {
+    strategy: result.strategy,
+    total: result.total,
+    created: result.created,
+    updated: result.updated,
+    skipped: result.skipped,
   };
 }
 
@@ -446,6 +531,18 @@ export async function getAIProvider(providerKey: string): Promise<AIProviderDeta
   }
 }
 
+export async function updateAIProvider(providerKey: string, payload: UpdateAIProviderPayload): Promise<AIProviderDetail> {
+  const body: Record<string, unknown> = {};
+  if (payload.name !== undefined) body.name = payload.name;
+  if (payload.icon !== undefined) body.icon = payload.icon;
+  if (payload.description !== undefined) body.description = payload.description;
+  if (payload.is_active !== undefined) body.is_active = payload.is_active;
+  const result = await unwrap(
+    http.put<ApiEnvelope<BackendProviderDetail>>(`/admin/ai-models/providers/${providerKey}`, body),
+  );
+  return mapProviderDetail(result);
+}
+
 export async function getAIModels(): Promise<AIAdminModel[]> {
   const payload = await unwrap(
     http.get<ApiEnvelope<ListPayload<BackendAdminModel>>>('/admin/ai-models/models'),
@@ -467,6 +564,7 @@ export async function getAIModel(id: string): Promise<AIAdminModel | null> {
 
 export interface UpdateAIModelPayload {
   display_name?: string;
+  model_icon?: string | null;
   description?: string | null;
   status?: string;
   is_active?: boolean;
@@ -476,6 +574,7 @@ export interface UpdateAIModelPayload {
 export async function updateAIModel(id: string, payload: UpdateAIModelPayload): Promise<AIAdminModel> {
   const body: Record<string, unknown> = {};
   if (payload.display_name !== undefined) body.display_name = payload.display_name;
+  if (payload.model_icon !== undefined) body.model_icon = payload.model_icon;
   if (payload.description !== undefined) body.description = payload.description;
   if (payload.status !== undefined) body.status = payload.status;
   if (payload.is_active !== undefined) body.is_active = payload.is_active;
@@ -492,6 +591,7 @@ export async function createAIModel(input: CreateAIModelInput): Promise<AIAdminM
       provider: input.provider,
       model_name: input.model_name,
       display_name: input.display_name,
+      model_icon: input.model_icon?.trim() || null,
       is_active: input.is_active,
       description: input.description?.trim() || null,
     }),
@@ -501,6 +601,22 @@ export async function createAIModel(input: CreateAIModelInput): Promise<AIAdminM
 
 export async function deleteAIModel(id: string): Promise<void> {
   await unwrap(http.delete<ApiEnvelope<{ id: number }>>(`/admin/ai-models/models/${id}`));
+}
+
+export async function exportAIModelsConfig(): Promise<AIModelConfigExportPayload> {
+  const payload = await unwrap(
+    http.get<ApiEnvelope<BackendModelConfigExportPayload>>('/admin/ai-models/models/export'),
+  );
+  return mapModelConfigExportPayload(payload);
+}
+
+export async function importAIModelsConfig(
+  payload: AIModelConfigExportPayload & { strategy: 'skip' | 'overwrite' },
+): Promise<AIModelConfigImportResult> {
+  const result = await unwrap(
+    http.post<ApiEnvelope<BackendModelConfigImportResult>>('/admin/ai-models/models/import', payload),
+  );
+  return mapModelConfigImportResult(result);
 }
 
 export async function getAIModelCapability(id: string): Promise<AIModelCapabilityConfig | null> {

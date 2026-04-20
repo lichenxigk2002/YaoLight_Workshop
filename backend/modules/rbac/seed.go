@@ -31,13 +31,6 @@ func seedRoles(db *gorm.DB) error {
 		var role rbacModels.Role
 		err := db.Where("code = ?", def.Code).First(&role).Error
 		if err == nil {
-			updates := map[string]interface{}{
-				"name":        def.Name,
-				"description": nullableString(def.Description),
-			}
-			if err := db.Model(&role).Updates(updates).Error; err != nil {
-				return err
-			}
 			continue
 		}
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -64,9 +57,6 @@ func seedPermissions(db *gorm.DB) error {
 				First(&permission).Error
 			description := fmt.Sprintf("%s %s", resource.Description, map[string]string{"view": "查看", "edit": "编辑"}[action])
 			if err == nil {
-				if err := db.Model(&permission).Update("description", nullableString(description)).Error; err != nil {
-					return err
-				}
 				continue
 			}
 			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {

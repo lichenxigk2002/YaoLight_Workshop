@@ -1,0 +1,318 @@
+{
+  "version": "1.0.0",
+  "name": "多分支模板 - 市场情报汇总",
+  "description": "三路并发抓取新闻、官网、政策信息，分别 AI 提炼后汇总，并导出时间线与关系网络。",
+  "exportedAt": "2026-04-15T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-1",
+      "type": "start",
+      "position": { "x": 60, "y": 320 },
+      "data": {
+        "label": "开始",
+        "type": "start",
+        "config": {
+          "inputDataType": "json",
+          "inputData": "{\n  \"topic\": \"新能源行业情报\",\n  \"window\": \"最近90天\"\n}"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-news",
+      "type": "crawler",
+      "position": { "x": 250, "y": 80 },
+      "data": {
+        "label": "抓取行业新闻",
+        "type": "crawler",
+        "config": {
+          "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+          "extractMode": "smart",
+          "timeout": 30
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-site",
+      "type": "crawler",
+      "position": { "x": 250, "y": 320 },
+      "data": {
+        "label": "抓取企业官网",
+        "type": "crawler",
+        "config": {
+          "url": "https://docs.python.org/3/tutorial/index.html",
+          "extractMode": "smart",
+          "timeout": 30
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler-policy",
+      "type": "crawler",
+      "position": { "x": 250, "y": 560 },
+      "data": {
+        "label": "抓取政策页面",
+        "type": "crawler",
+        "config": {
+          "url": "https://www.nist.gov/artificial-intelligence",
+          "extractMode": "smart",
+          "timeout": 30
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-news",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 80 },
+      "data": {
+        "label": "清洗新闻",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-news.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-site",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 320 },
+      "data": {
+        "label": "清洗官网",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-site.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "clean-policy",
+      "type": "dataclean",
+      "position": { "x": 470, "y": 560 },
+      "data": {
+        "label": "清洗政策",
+        "type": "dataclean",
+        "config": {
+          "dataVariable": "{{crawler-policy.text}}",
+          "cleanType": "custom",
+          "removeHTML": true,
+          "trim": true
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-news",
+      "type": "ai",
+      "position": { "x": 700, "y": 80 },
+      "data": {
+        "label": "新闻事件提炼",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请提炼新闻中的关键事件、涉及企业、日期、影响，并输出 Markdown 摘要。",
+          "contentVariable": "{{clean-news.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1800
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-site",
+      "type": "ai",
+      "position": { "x": 700, "y": 320 },
+      "data": {
+        "label": "官网能力提炼",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请提炼企业官网中的产品、技术能力、合作伙伴、市场定位，并输出 Markdown 摘要。",
+          "contentVariable": "{{clean-site.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1800
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-policy",
+      "type": "ai",
+      "position": { "x": 700, "y": 560 },
+      "data": {
+        "label": "政策影响提炼",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请提炼政策中的发布日期、政策方向、扶持重点、潜在受益方，并输出 Markdown 摘要。",
+          "contentVariable": "{{clean-policy.cleaned}}",
+          "temperature": 0.3,
+          "maxTokens": 1800
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "merge-1",
+      "type": "merge",
+      "position": { "x": 950, "y": 320 },
+      "data": {
+        "label": "合并情报材料",
+        "type": "merge",
+        "config": {
+          "mergeType": "concat",
+          "inputCount": 3
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-timeline",
+      "type": "ai",
+      "position": { "x": 1190, "y": 180 },
+      "data": {
+        "label": "生成时间线 JSON",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请根据输入内容输出严格 JSON，不要额外解释，格式为 {\"title\":\"行业时间线\",\"events\":[{\"date\":\"2026-01-01\",\"label\":\"事件\",\"group\":\"新闻/政策/企业\"}]}。",
+          "contentVariable": "{{merge-1.merged}}",
+          "temperature": 0.1,
+          "maxTokens": 2200
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai-network",
+      "type": "ai",
+      "position": { "x": 1190, "y": 460 },
+      "data": {
+        "label": "生成关系网络 JSON",
+        "type": "ai",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "prompt": "请根据输入内容输出严格 JSON，不要额外解释，格式为 {\"direction\":\"LR\",\"edges\":[{\"from\":\"主体A\",\"to\":\"主体B\",\"label\":\"关系\"}]}。",
+          "contentVariable": "{{merge-1.merged}}",
+          "temperature": 0.1,
+          "maxTokens": 2200
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "transform-network",
+      "type": "transform",
+      "position": { "x": 1430, "y": 460 },
+      "data": {
+        "label": "网络结构透传",
+        "type": "transform",
+        "config": {
+          "transformType": "map",
+          "script": ""
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-timeline",
+      "type": "output",
+      "position": { "x": 1460, "y": 180 },
+      "data": {
+        "label": "导出时间线",
+        "type": "output",
+        "config": {
+          "format": "timeline",
+          "destination": "file",
+          "fileName": "market_intelligence_timeline"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-network",
+      "type": "output",
+      "position": { "x": 1690, "y": 460 },
+      "data": {
+        "label": "导出关系网络",
+        "type": "output",
+        "config": {
+          "format": "network",
+          "destination": "file",
+          "fileName": "market_intelligence_network"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-report",
+      "type": "output",
+      "position": { "x": 1460, "y": 320 },
+      "data": {
+        "label": "导出情报汇总",
+        "type": "output",
+        "config": {
+          "format": "json",
+          "destination": "file",
+          "fileName": "market_intelligence_payload.json"
+        },
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "end-1",
+      "type": "end",
+      "position": { "x": 1930, "y": 320 },
+      "data": {
+        "label": "结束",
+        "type": "end",
+        "config": {},
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "start-1", "target": "crawler-news" },
+    { "id": "e2", "source": "start-1", "target": "crawler-site" },
+    { "id": "e3", "source": "start-1", "target": "crawler-policy" },
+    { "id": "e4", "source": "crawler-news", "target": "clean-news" },
+    { "id": "e5", "source": "crawler-site", "target": "clean-site" },
+    { "id": "e6", "source": "crawler-policy", "target": "clean-policy" },
+    { "id": "e7", "source": "clean-news", "target": "ai-news" },
+    { "id": "e8", "source": "clean-site", "target": "ai-site" },
+    { "id": "e9", "source": "clean-policy", "target": "ai-policy" },
+    { "id": "e10", "source": "ai-news", "target": "merge-1", "targetHandle": "input-0" },
+    { "id": "e11", "source": "ai-site", "target": "merge-1", "targetHandle": "input-1" },
+    { "id": "e12", "source": "ai-policy", "target": "merge-1", "targetHandle": "input-2" },
+    { "id": "e13", "source": "merge-1", "target": "ai-timeline" },
+    { "id": "e14", "source": "merge-1", "target": "ai-network" },
+    { "id": "e15", "source": "merge-1", "target": "output-report" },
+    { "id": "e16", "source": "ai-timeline", "target": "output-timeline" },
+    { "id": "e17", "source": "ai-network", "target": "transform-network" },
+    { "id": "e18", "source": "transform-network", "target": "output-network" },
+    { "id": "e19", "source": "output-timeline", "target": "end-1" },
+    { "id": "e20", "source": "output-network", "target": "end-1" },
+    { "id": "e21", "source": "output-report", "target": "end-1" }
+  ],
+  "commentCards": []
+}
