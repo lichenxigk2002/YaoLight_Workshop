@@ -49,10 +49,11 @@ type TokenUsageStats struct {
 
 // ModelTokenStats 模型维度统计
 type ModelTokenStats struct {
-	Provider  string          `json:"provider"`
-	ModelName string          `json:"model_name"`
-	Today     TokenUsageStats `json:"today"`
-	Total     TokenUsageStats `json:"total"`
+	Provider    string          `json:"provider"`
+	ModelName   string          `json:"model_name"`
+	DisplayName string          `json:"display_name"`
+	Today       TokenUsageStats `json:"today"`
+	Total       TokenUsageStats `json:"total"`
 }
 
 // TokenStats 整体统计响应
@@ -156,6 +157,7 @@ func (s *BillingService) GetTokenStats(userID uint) (*TokenStats, error) {
 	type ModelStatRaw struct {
 		Provider     string
 		ModelName    string
+		DisplayName  string
 		Cost         float64
 		InputTokens  int64
 		OutputTokens int64
@@ -163,19 +165,37 @@ func (s *BillingService) GetTokenStats(userID uint) (*TokenStats, error) {
 	}
 
 	var totalRaw []ModelStatRaw
-	if err := database.DB.Model(&userModels.TokenTransaction{}).
-		Select("provider, model_name, COALESCE(SUM(cost), 0) as cost, COALESCE(SUM(prompt_tokens), 0) as input_tokens, COALESCE(SUM(completion_tokens), 0) as output_tokens, COALESCE(SUM(total_tokens), 0) as total_tokens").
-		Where("user_id = ? AND (provider != '' OR model_name != '')", userID).
-		Group("provider, model_name").
+	if err := database.DB.Table("token_transactions AS t").
+		Select(`
+			t.provider,
+			t.model_name,
+			COALESCE(m.display_name, t.model_name) AS display_name,
+			COALESCE(SUM(t.cost), 0) as cost,
+			COALESCE(SUM(t.prompt_tokens), 0) as input_tokens,
+			COALESCE(SUM(t.completion_tokens), 0) as output_tokens,
+			COALESCE(SUM(t.total_tokens), 0) as total_tokens
+		`).
+		Joins("LEFT JOIN managed_ai_models m ON m.provider = t.provider AND m.model_name = t.model_name").
+		Where("t.user_id = ? AND (t.provider != '' OR t.model_name != '')", userID).
+		Group("t.provider, t.model_name, m.display_name").
 		Scan(&totalRaw).Error; err != nil {
 		return nil, err
 	}
 
 	var todayRaw []ModelStatRaw
-	if err := database.DB.Model(&userModels.TokenTransaction{}).
-		Select("provider, model_name, COALESCE(SUM(cost), 0) as cost, COALESCE(SUM(prompt_tokens), 0) as input_tokens, COALESCE(SUM(completion_tokens), 0) as output_tokens, COALESCE(SUM(total_tokens), 0) as total_tokens").
-		Where("user_id = ? AND created_at >= ? AND (provider != '' OR model_name != '')", userID, todayStart).
-		Group("provider, model_name").
+	if err := database.DB.Table("token_transactions AS t").
+		Select(`
+			t.provider,
+			t.model_name,
+			COALESCE(m.display_name, t.model_name) AS display_name,
+			COALESCE(SUM(t.cost), 0) as cost,
+			COALESCE(SUM(t.prompt_tokens), 0) as input_tokens,
+			COALESCE(SUM(t.completion_tokens), 0) as output_tokens,
+			COALESCE(SUM(t.total_tokens), 0) as total_tokens
+		`).
+		Joins("LEFT JOIN managed_ai_models m ON m.provider = t.provider AND m.model_name = t.model_name").
+		Where("t.user_id = ? AND t.created_at >= ? AND (t.provider != '' OR t.model_name != '')", userID, todayStart).
+		Group("t.provider, t.model_name, m.display_name").
 		Scan(&todayRaw).Error; err != nil {
 		return nil, err
 	}
@@ -189,8 +209,9 @@ func (s *BillingService) GetTokenStats(userID uint) (*TokenStats, error) {
 		key := raw.Provider + "|" + raw.ModelName
 		if _, exists := modelMap[key]; !exists {
 			modelMap[key] = &ModelTokenStats{
-				Provider:  raw.Provider,
-				ModelName: raw.ModelName,
+				Provider:    raw.Provider,
+				ModelName:   raw.ModelName,
+				DisplayName: raw.DisplayName,
 			}
 		}
 		modelMap[key].Total = TokenUsageStats{
@@ -207,8 +228,9 @@ func (s *BillingService) GetTokenStats(userID uint) (*TokenStats, error) {
 		if _, exists := modelMap[key]; !exists {
 			// 理论上Today有的Total一定有，但为了保险起见
 			modelMap[key] = &ModelTokenStats{
-				Provider:  raw.Provider,
-				ModelName: raw.ModelName,
+				Provider:    raw.Provider,
+				ModelName:   raw.ModelName,
+				DisplayName: raw.DisplayName,
 			}
 		}
 		modelMap[key].Today = TokenUsageStats{

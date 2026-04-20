@@ -126,14 +126,17 @@ export function useAITest(
         modelName: config.modelName,
       });
 
-      // 对于豆包，即使配置中没有 stream，也应该使用流式（因为豆包默认开启思考，会返回思考内容）
-      // 通过检查 thinkingLevel 字段来判断是否是豆包（只有豆包有这个字段）
+      // 对于需要思考流的提供商，即使配置中没有显式开启 stream，也应走流式链路。
+      // 豆包通过 thinkingLevel 判断；Moonshot/Kimi 通过 thinking 开关判断。
       const isDoubao = config.thinkingLevel !== undefined;
-      const shouldUseStream = enableStream || isDoubao;
+      const providerName = String(config.provider || '').toLowerCase();
+      const isMoonshotThinking = (providerName === 'moonshot' || providerName === 'kimi') && config.thinking === true;
+      const shouldUseStream = enableStream || isDoubao || isMoonshotThinking;
       console.log('[流式调试-前端] 流式决策:', {
         nodeId: node.id,
         enableStream,
         isDoubao,
+        isMoonshotThinking,
         shouldUseStream,
       });
 
@@ -180,6 +183,11 @@ export function useAITest(
                 setStreamingContent(fullContent);
                 // 如果开始输出正式内容，说明思考内容已经完成
                 if (fullReasoningContent.length > 0) {
+                  setIsReasoningStreaming(false);
+                }
+              } else if (contentType === 'node_result' || contentType === 'node_complete') {
+                // 节点终态事件用于原始数据/最终状态，不应拼接到展示正文里。
+                if (done) {
                   setIsReasoningStreaming(false);
                 }
               } else {
@@ -464,4 +472,3 @@ export function useAITest(
     cancelStream,
   };
 }
-

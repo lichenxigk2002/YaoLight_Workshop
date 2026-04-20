@@ -41,7 +41,7 @@ export function getDefaultConfig(type: string): any {
       };
     case 'transform':
       return {
-        transformType: 'map', // map, filter, sort, group
+        transformType: 'passthrough', // passthrough, map, filter, sort, group
         script: '',
       };
     case 'loop':
@@ -119,4 +119,3 @@ export function calculateMaxNodeId(nodes: Node[]): number {
   if (nodes.length === 0) return 0;
   return Math.max(...nodes.map((n) => extractNodeIdNumber(n.id)), 0);
 }
-

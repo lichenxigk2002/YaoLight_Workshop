@@ -144,6 +144,9 @@ func (c *AIController) GetModels(ctx *gin.Context) {
 				"createdAt":   model.CreatedAt,
 				"updatedAt":   model.UpdatedAt,
 			}
+			modelIcon, providerIcon := c.aiService.ResolveModelIcons(model.Provider, model.ModelName)
+			modelMap["modelIcon"] = modelIcon
+			modelMap["providerIcon"] = providerIcon
 			// 如果是 __provider_default__，添加 supportedModels
 			if model.ModelName == "__provider_default__" {
 				if supportedModels, exists := modelsByProvider[model.Provider]; exists {

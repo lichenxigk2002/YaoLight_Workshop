@@ -20,7 +20,7 @@ type GrokProvider struct {
 // NewGrokProvider 创建Grok提供商实例
 func NewGrokProvider() providers.AIProvider {
 	return &GrokProvider{
-		client: providers.NewHTTPClient(),
+		client: providers.NewHTTPClientForProvider("grok"),
 	}
 }
 

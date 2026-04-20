@@ -269,8 +269,10 @@ func main() {
 			auth.GET("/workflows/:id/tasks", taskController.GetWorkflowTasks)            // 获取工作流的任务历史列表
 			auth.GET("/workflows/:id/running-tasks", taskController.GetRunningTasks)     // 获取正在运行的任务
 			auth.GET("/tasks/:id", taskController.GetTaskDetail)                         // 获取任务详情
+			auth.POST("/tasks/:id/cancel", taskController.CancelTask)                    // 取消任务
 			auth.GET("/tasks/:id/node-executions", taskController.GetTaskNodeExecutions) // 获取任务的节点执行记录
-			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs)                      // 获取任务日志
+			auth.GET("/tasks/:id/node-executions/:executionId", taskController.GetTaskNodeExecutionDetail)
+			auth.GET("/tasks/:id/logs", taskController.GetTaskLogs) // 获取任务日志
 			auth.GET("/task-schedules", taskScheduleController.ListSchedules)
 			auth.POST("/task-schedules", taskScheduleController.CreateSchedule)
 			auth.PATCH("/task-schedules/:id", taskScheduleController.UpdateSchedule)
@@ -291,6 +293,7 @@ func main() {
 			adminTasks.GET("/:id", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskDetail)
 			adminTasks.GET("/:id/artifacts", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.ListTaskArtifacts)
 			adminTasks.GET("/:id/node-executions", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskNodeExecutions)
+			adminTasks.GET("/:id/node-executions/:executionId", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskNodeExecutionDetail)
 			adminTasks.GET("/:id/logs", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.GetTaskLogs)
 			adminTasks.GET("/artifacts/:artifactId/download", rbacMiddleware.RequirePermission("tasks.detail:view"), adminTaskController.DownloadArtifact)
 
@@ -317,7 +320,10 @@ func main() {
 			adminAI.GET("", rbacMiddleware.RequirePermission("ai_models.overview:view"), adminAIController.GetModels)
 			adminAI.GET("/providers", rbacMiddleware.RequirePermission("ai_models.providers:view"), adminAIController.GetProviders)
 			adminAI.GET("/providers/:provider", rbacMiddleware.RequirePermission("ai_models.providers:view"), adminAIController.GetProvider)
+			adminAI.PUT("/providers/:provider", rbacMiddleware.RequirePermission("ai_models.providers:edit"), adminAIController.UpdateProvider)
 			adminAI.GET("/models", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.GetModels)
+			adminAI.GET("/models/export", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.ExportModels)
+			adminAI.POST("/models/import", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.ImportModels)
 			adminAI.POST("/models", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.CreateModel)
 			adminAI.GET("/models/:id", rbacMiddleware.RequirePermission("ai_models.models:view"), adminAIController.GetModel)
 			adminAI.PUT("/models/:id", rbacMiddleware.RequirePermission("ai_models.models:edit"), adminAIController.UpdateModel)

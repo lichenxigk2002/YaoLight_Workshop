@@ -7,6 +7,7 @@ import type {
   AdminTaskListResponse,
   AdminTaskLogResponse,
   AdminTaskNodeExecutionResponse,
+  AdminTaskNodeExecutionDetailResponse,
   AdminTaskSummary,
 } from '@/types/tasks';
 
@@ -70,6 +71,10 @@ export function getAdminTaskArtifacts(id: string | number, params?: { page?: num
 
 export function getAdminTaskNodeExecutions(id: string | number) {
   return unwrap<AdminTaskNodeExecutionResponse>(http.get(`/admin/tasks/${id}/node-executions`));
+}
+
+export function getAdminTaskNodeExecutionDetail(id: string | number, executionId: string | number) {
+  return unwrap<AdminTaskNodeExecutionDetailResponse>(http.get(`/admin/tasks/${id}/node-executions/${executionId}`));
 }
 
 export function getAdminTaskLogs(

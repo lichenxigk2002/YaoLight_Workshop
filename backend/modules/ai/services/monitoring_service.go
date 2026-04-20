@@ -346,7 +346,7 @@ func (s *AIModelMonitoringService) runProbeForModel(model *aiModels.ManagedAIMod
 				msg := truncateForStorage(probeErr.Error(), 500)
 				lastError = &msg
 			} else {
-				content := strings.TrimSpace(resp.Content)
+				content := probeResponseText(resp)
 				if content == "" {
 					msg := "empty response"
 					lastError = &msg
@@ -467,7 +467,7 @@ func supportsChatProbe(capability *aiModels.ModelCapabilityConfig) bool {
 func buildProbePrompt(providerName string) string {
 	switch normalizeProvider(providerName) {
 	case "claude", "gemini", "gpt", "grok":
-		return "Return exactly the single character 1."
+		return "Respond with exactly 1 in message content. No markdown, no explanation, no tool use."
 	default:
 		return "Reply with 1 only."
 	}
@@ -482,19 +482,36 @@ func shouldRetryProbe(config *providers.AIModelConfig, resp *providers.ChatRespo
 	}
 
 	return resp != nil &&
-		strings.TrimSpace(resp.Content) == "" &&
-		isOpenRouterProbeProvider(config.Provider)
+		probeResponseText(resp) == "" &&
+		(isOpenRouterProbeProvider(config.Provider) || normalizeProvider(config.Provider) == "moonshot")
+}
+
+func probeResponseText(resp *providers.ChatResponse) string {
+	if resp == nil {
+		return ""
+	}
+
+	if content := strings.TrimSpace(resp.Content); content != "" {
+		return content
+	}
+
+	switch reasoning := resp.ReasoningDetails.(type) {
+	case string:
+		return strings.TrimSpace(reasoning)
+	default:
+		return strings.TrimSpace(fmt.Sprint(reasoning))
+	}
 }
 
 func resolveRetryMaxTokens(providerName string, current *int) int {
 	minValue := 16
-	if !isOpenRouterProbeProvider(providerName) {
+	if !isOpenRouterProbeProvider(providerName) && normalizeProvider(providerName) != "moonshot" {
 		minValue = 8
 	}
 	if current != nil && *current >= minValue {
 		return *current * 2
 	}
-	if isOpenRouterProbeProvider(providerName) {
+	if isOpenRouterProbeProvider(providerName) || normalizeProvider(providerName) == "moonshot" {
 		return 32
 	}
 	return minValue
@@ -510,13 +527,18 @@ func isOpenRouterProbeProvider(providerName string) bool {
 }
 
 func resolveProbeMaxTokens(providerName string) int {
-	if isOpenRouterProbeProvider(providerName) {
+	if isOpenRouterProbeProvider(providerName) || normalizeProvider(providerName) == "moonshot" {
 		return 16
 	}
 	return 8
 }
 
 func resolveProbeTemperature(providerName string) float64 {
+	switch normalizeProvider(providerName) {
+	case "moonshot":
+		return 1
+	}
+
 	if isOpenRouterProbeProvider(providerName) {
 		return 0
 	}
@@ -576,6 +598,8 @@ func resolveSystemProviderCredentials(providerName string) (string, string) {
 		return config.DeepSeekAPIKey, "https://api.deepseek.com"
 	case "doubao":
 		return config.DoubaoAPIKey, "https://ark.cn-beijing.volces.com/api/v3"
+	case "moonshot":
+		return config.MoonshotAPIKey, "https://api.moonshot.cn/v1"
 	case "qwen":
 		return config.QwenAPIKey, "https://dashscope.aliyuncs.com/compatible-mode/v1"
 	case "zhipuai":
@@ -583,8 +607,20 @@ func resolveSystemProviderCredentials(providerName string) (string, string) {
 	case "spark":
 		return config.SparkAPIKey, "https://spark-api-open.xf-yun.com/v2"
 	case "hunyuan":
-		return config.HunyuanAPIKey, "https://api.hunyuan.cloud.tencent.com/v1"
-	case "claude", "gemini", "gpt", "grok":
+		return config.HunyuanAPIKey, "https://tokenhub.tencentmaas.com/v1"
+	case "gemini":
+		baseURL := config.GeminiBaseURL
+		if baseURL == "" {
+			baseURL = "https://openrouter.ai/api/v1"
+		}
+		return config.GeminiAPIKey, baseURL
+	case "gpt":
+		baseURL := config.OpenAIBaseURL
+		if baseURL == "" {
+			baseURL = "https://openrouter.ai/api/v1"
+		}
+		return config.GeminiAPIKey, baseURL
+	case "claude", "grok":
 		return config.GeminiAPIKey, "https://openrouter.ai/api/v1"
 	case "openai":
 		return "", "https://api.openai.com/v1"

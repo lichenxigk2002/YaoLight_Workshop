@@ -85,6 +85,10 @@ export interface AdminTaskNodeExecution {
   nodeId: string;
   nodeType: string;
   status: string;
+  hasInputData?: boolean;
+  hasOutputData?: boolean;
+  hasErrorStack?: boolean;
+  hasResourceUsage?: boolean;
   inputData?: { Data?: unknown } | null;
   outputData?: { Data?: unknown } | null;
   errorMessage?: string | null;
@@ -99,6 +103,10 @@ export interface AdminTaskNodeExecution {
 export interface AdminTaskNodeExecutionResponse {
   executions: AdminTaskNodeExecution[];
   total: number;
+}
+
+export interface AdminTaskNodeExecutionDetailResponse {
+  execution: AdminTaskNodeExecution;
 }
 
 export interface AdminTaskLog {

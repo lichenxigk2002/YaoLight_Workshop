@@ -53,6 +53,7 @@ import {
 } from '@/utils/alkaid/patch';
 import { PatchItem } from '@/components/Alkaid/types/progress';
 import { workflowApi } from '@/api/workflow';
+import { taskApi } from '@/api/task';
 import type { WorkflowTemplateLibraryItem } from '@/types/workflow';
 
 // 瀵煎叆鑷畾涔塇ooks
@@ -95,6 +96,42 @@ const nodeTypes: NodeTypes = {
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
 
+const isTaskRunning = (status?: string) =>
+  !!status && ['pending', 'queued', 'running', 'paused'].includes(status);
+
+const buildExecutionResultFromTaskExecutions = (executions: TaskNodeExecution[]) => {
+  const results = executions
+    .filter((execution) => ['completed', 'skipped', 'failed', 'timeout', 'cancelled'].includes(execution.status))
+    .map((execution) => ({
+      node_id: execution.nodeId,
+      type: execution.nodeType,
+      success: execution.status === 'completed' || execution.status === 'skipped',
+      data: execution.outputData || {},
+      error: execution.errorMessage,
+    }));
+
+  return {
+    success: results.every((item) => item.success),
+    results,
+  };
+};
+
+const buildNodeExecutionStatusMap = (executions: TaskNodeExecution[]) => {
+  const statusMap = new Map<string, 'success' | 'failed' | 'pending'>();
+  executions.forEach((execution) => {
+    if (execution.status === 'completed' || execution.status === 'skipped') {
+      statusMap.set(execution.nodeId, 'success');
+      return;
+    }
+    if (execution.status === 'failed' || execution.status === 'timeout' || execution.status === 'cancelled') {
+      statusMap.set(execution.nodeId, 'failed');
+      return;
+    }
+    statusMap.set(execution.nodeId, 'pending');
+  });
+  return statusMap;
+};
+
 const WorkflowEditor: React.FC = () => {
   const { theme } = useThemeStore();
   const { t, i18n } = useTranslation();
@@ -120,6 +157,11 @@ const WorkflowEditor: React.FC = () => {
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [taskExecutions, setTaskExecutions] = useState<TaskNodeExecution[]>([]);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [cancellingTaskIds, setCancellingTaskIds] = useState<number[]>([]);
+  const activeTaskPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const bindRunningTaskTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const executionLaunchAtRef = useRef<number>(0);
 
   // 鎸夐挳缁勫睍寮€/鏀惰捣鐘舵€?
   const [buttonsExpanded, setButtonsExpanded] = useState(true);
@@ -221,8 +263,172 @@ const WorkflowEditor: React.FC = () => {
   const handleRun = useCallback(() => {
     setHistoryVisible(false);
     setAutomationVisible(false);
-    originalHandleRun();
+    executionLaunchAtRef.current = Date.now();
+    setActiveTask(null);
+    void originalHandleRun();
   }, [originalHandleRun]);
+
+  const applyTaskStateToEditor = useCallback((task: Task, executions: TaskNodeExecution[]) => {
+    setActiveTask(task);
+    if (selectedTask?.id === task.id) {
+      setSelectedTask(task);
+      setTaskExecutions(executions);
+    }
+    const nextExecutionResult = buildExecutionResultFromTaskExecutions(executions);
+    const shouldPreserveLiveResult =
+      isExecuting &&
+      isTaskRunning(task.status) &&
+      (!nextExecutionResult.results || nextExecutionResult.results.length === 0);
+
+    if (!shouldPreserveLiveResult) {
+      setExecutionResult(nextExecutionResult);
+    }
+    updateNodesExecutionStatus(buildNodeExecutionStatusMap(executions));
+  }, [isExecuting, selectedTask?.id, updateNodesExecutionStatus]);
+
+  const clearActiveTaskPolling = useCallback(() => {
+    if (activeTaskPollTimerRef.current) {
+      clearInterval(activeTaskPollTimerRef.current);
+      activeTaskPollTimerRef.current = null;
+    }
+  }, []);
+
+  const clearBindRunningTaskPolling = useCallback(() => {
+    if (bindRunningTaskTimerRef.current) {
+      clearInterval(bindRunningTaskTimerRef.current);
+      bindRunningTaskTimerRef.current = null;
+    }
+  }, []);
+
+  const syncTaskState = useCallback(async (taskId: number) => {
+    const [taskDetail, executionResponse] = await Promise.all([
+      taskApi.getTaskDetail(taskId),
+      taskApi.getTaskNodeExecutions(taskId),
+    ]);
+    applyTaskStateToEditor(taskDetail, executionResponse.executions || []);
+    return { task: taskDetail, executions: executionResponse.executions || [] };
+  }, [applyTaskStateToEditor]);
+
+  const resumeTaskExecution = useCallback(async (task: Task, options?: { openResultPanel?: boolean; openHistory?: boolean }) => {
+    const { task: latestTask, executions } = await syncTaskState(task.id);
+    setHistoryVisible(options?.openHistory ?? false);
+    if (options?.openResultPanel !== false) {
+      handleSetResultPanelVisible(true);
+      setConfigPanelVisible(false);
+      setSelectedNode(null);
+    }
+    if (!detailVisible || selectedTask?.id === latestTask.id) {
+      setSelectedTask(latestTask);
+      setTaskExecutions(executions);
+    }
+  }, [detailVisible, handleSetResultPanelVisible, selectedTask?.id, syncTaskState]);
+
+  const handleCancelExecution = useCallback(async (task?: Task | null) => {
+    const runningTask = task || activeTask;
+    if (runningTask && isTaskRunning(runningTask.status)) {
+      if (cancellingTaskIds.includes(runningTask.id)) {
+        return;
+      }
+
+      setCancellingTaskIds((current) => [...current, runningTask.id]);
+      handleCancel();
+
+      const cancelledTask = {
+        ...runningTask,
+        status: 'cancelled' as Task['status'],
+      };
+      setActiveTask(cancelledTask);
+      if (selectedTask?.id === runningTask.id) {
+        setSelectedTask(cancelledTask);
+      }
+
+      message.info('正在中止执行...');
+
+      try {
+        await taskApi.cancelTask(runningTask.id);
+        const { task: latestTask, executions } = await syncTaskState(runningTask.id);
+        applyTaskStateToEditor(latestTask, executions);
+      } finally {
+        setCancellingTaskIds((current) => current.filter((id) => id !== runningTask.id));
+      }
+      return;
+    }
+    handleCancel();
+  }, [activeTask, applyTaskStateToEditor, cancellingTaskIds, handleCancel, message, selectedTask?.id, syncTaskState]);
+
+  useEffect(() => {
+    if (!workflowId || !isExecuting) {
+      clearBindRunningTaskPolling();
+      return;
+    }
+
+    let attempts = 0;
+    const workflowNumericId = Number(workflowId);
+    const bindLatestRunningTask = async () => {
+      attempts += 1;
+      try {
+        const response = await taskApi.getRunningTasks(workflowNumericId);
+        const candidates = (response.tasks || []).filter((task) =>
+          new Date(task.createdAt).getTime() >= executionLaunchAtRef.current - 5000
+        );
+        const latestTask = candidates[0];
+        if (latestTask) {
+          setActiveTask((current) => current?.id === latestTask.id ? current : latestTask);
+          clearBindRunningTaskPolling();
+          return;
+        }
+      } catch (error) {
+        console.error('绑定当前运行任务失败:', error);
+      }
+
+      if (attempts >= 20) {
+        clearBindRunningTaskPolling();
+      }
+    };
+
+    void bindLatestRunningTask();
+    bindRunningTaskTimerRef.current = setInterval(() => {
+      void bindLatestRunningTask();
+    }, 1000);
+
+    return () => {
+      clearBindRunningTaskPolling();
+    };
+  }, [clearBindRunningTaskPolling, isExecuting, workflowId]);
+
+  useEffect(() => {
+    clearActiveTaskPolling();
+    if (!activeTask?.id) {
+      return;
+    }
+
+    let disposed = false;
+    const refreshTask = async () => {
+      try {
+        const { task } = await syncTaskState(activeTask.id);
+        if (disposed) {
+          return;
+        }
+        if (!isTaskRunning(task.status)) {
+          clearActiveTaskPolling();
+        }
+      } catch (error) {
+        console.error('刷新活动任务失败:', error);
+      }
+    };
+
+    void refreshTask();
+    if (isTaskRunning(activeTask.status)) {
+      activeTaskPollTimerRef.current = setInterval(() => {
+        void refreshTask();
+      }, 2000);
+    }
+
+    return () => {
+      disposed = true;
+      clearActiveTaskPolling();
+    };
+  }, [activeTask?.id, activeTask?.status, clearActiveTaskPolling, syncTaskState]);
 
   const enterWorkflowPreview = useCallback(
     (newNodes: Node[], newEdges: Edge[]) => {
@@ -1045,11 +1251,21 @@ const WorkflowEditor: React.FC = () => {
                   setHistoryVisible(false);
                 }}
                 workflowId={workflowId ? parseInt(workflowId) : 0}
+                activeTaskId={activeTask?.id}
+                cancellingTaskIds={cancellingTaskIds}
                 onViewExecutionDetail={(executions, task) => {
                   setSelectedTask(task);
                   setTaskExecutions(executions);
                   setDetailVisible(true);
-                  // 淇濇寔鍘嗗彶璁板綍闈㈡澘鎵撳紑锛屼笉鍏抽棴
+                }}
+                onOpenExecutionResult={(task) => {
+                  void resumeTaskExecution(task, { openResultPanel: true, openHistory: false });
+                }}
+                onResumeExecution={(task) => {
+                  void resumeTaskExecution(task, { openResultPanel: true, openHistory: false });
+                }}
+                onCancelTask={(task) => {
+                  void handleCancelExecution(task);
                 }}
               />
             ) : resultPanelVisible ? (
@@ -1058,8 +1274,11 @@ const WorkflowEditor: React.FC = () => {
                 onClose={() => setResultPanelVisible(false)}
                 result={executionResult}
                 nodes={nodes}
-                onCancel={handleCancel}
-                isExecuting={isExecuting}
+                onCancel={() => {
+                  void handleCancelExecution();
+                }}
+                isExecuting={(isExecuting || isTaskRunning(activeTask?.status)) && !cancellingTaskIds.includes(activeTask?.id || -1)}
+                isCancelling={cancellingTaskIds.includes(activeTask?.id || -1)}
               />
             ) : (
               selectedNode && (
@@ -1176,15 +1395,19 @@ const WorkflowEditor: React.FC = () => {
           setDetailVisible(false);
           setSelectedTask(null);
           setTaskExecutions([]);
-          // 淇濇寔鍘嗗彶璁板綍闈㈡澘鎵撳紑鐘舵€侊紝涓嶅叧闂?
         }}
         task={selectedTask}
         executions={taskExecutions}
+        onCancelTask={(task) => {
+          void handleCancelExecution(task);
+        }}
+        onOpenExecutionResult={(task) => {
+          void resumeTaskExecution(task, { openResultPanel: true, openHistory: false });
+        }}
+        cancellingTaskIds={cancellingTaskIds}
       />
     </div>
   );
 };
 
 export default WorkflowEditor;
-
-

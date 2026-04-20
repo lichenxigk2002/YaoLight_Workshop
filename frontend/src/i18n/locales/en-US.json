@@ -798,6 +798,8 @@
       },
       "transform": {
         "transformType": "Transform Type",
+        "passthrough": "Passthrough",
+        "passthroughTooltip": "Do not transform the input. Pass upstream data to downstream nodes as-is.",
         "map": "Map",
         "filter": "Filter",
         "sort": "Sort",

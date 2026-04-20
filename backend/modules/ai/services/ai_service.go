@@ -7,6 +7,7 @@ import (
 	"yaolight-workshop/backend/domain/entity"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/config"
+	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/infrastructure/shared"
 	"yaolight-workshop/backend/modules/ai/models"
 	aiRepos "yaolight-workshop/backend/modules/ai/repositories"
@@ -30,6 +31,19 @@ type AIService struct {
 	pricingRepo     aiRepos.PricingConfigRepository
 	capabilityRepo  aiRepos.CapabilityConfigRepository
 	providerFactory *ProviderFactory
+}
+
+type managedModelMetaRow struct {
+	Provider    string  `gorm:"column:provider"`
+	ModelName   string  `gorm:"column:model_name"`
+	DisplayName string  `gorm:"column:display_name"`
+	ModelIcon   *string `gorm:"column:model_icon"`
+}
+
+type providerTemplateModelMeta struct {
+	ModelName   string  `json:"modelName"`
+	DisplayName string  `json:"displayName,omitempty"`
+	ModelIcon   *string `json:"modelIcon,omitempty"`
 }
 
 // NewAIService 创建AI服务实例
@@ -76,6 +90,26 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 		return []map[string]interface{}{}, nil
 	}
 
+	managedModelMeta := make(map[string]map[string]managedModelMetaRow)
+	var managedRows []managedModelMetaRow
+	if err := database.DB.
+		Model(&models.ManagedAIModel{}).
+		Where("deleted_at IS NULL").
+		Select("provider, model_name, display_name, model_icon").
+		Find(&managedRows).Error; err == nil {
+		for _, row := range managedRows {
+			provider := strings.ToLower(strings.TrimSpace(row.Provider))
+			modelName := strings.ToLower(strings.TrimSpace(row.ModelName))
+			if provider == "" || modelName == "" {
+				continue
+			}
+			if managedModelMeta[provider] == nil {
+				managedModelMeta[provider] = make(map[string]managedModelMetaRow)
+			}
+			managedModelMeta[provider][modelName] = row
+		}
+	}
+
 	// 构建结果列表（以 DB 模板为准；supportedModels 优先取计费表动态聚合，否则回退模板自带 supported_models）
 	result := make([]map[string]interface{}, 0, len(templatesFromDB))
 	for _, t := range templatesFromDB {
@@ -115,6 +149,34 @@ func (s *AIService) GetProviderTemplates() ([]map[string]interface{}, error) {
 			"defaultConfig":   defaultConfig,
 			"supportedModels": supportedModels,
 		}
+
+		modelDisplayNames := make(map[string]string, len(supportedModels))
+		modelIcons := make(map[string]*string, len(supportedModels))
+		modelsMeta := make([]map[string]interface{}, 0, len(supportedModels))
+		for _, modelName := range supportedModels {
+			meta, ok := managedModelMeta[provider][strings.ToLower(strings.TrimSpace(modelName))]
+			modelMeta := providerTemplateModelMeta{
+				ModelName: modelName,
+			}
+			if ok {
+				if strings.TrimSpace(meta.DisplayName) != "" {
+					modelDisplayNames[modelName] = meta.DisplayName
+					modelMeta.DisplayName = meta.DisplayName
+				}
+				if meta.ModelIcon != nil && strings.TrimSpace(*meta.ModelIcon) != "" {
+					modelIcons[modelName] = meta.ModelIcon
+					modelMeta.ModelIcon = meta.ModelIcon
+				}
+			}
+			modelsMeta = append(modelsMeta, map[string]interface{}{
+				"modelName":   modelMeta.ModelName,
+				"displayName": modelMeta.DisplayName,
+				"modelIcon":   modelMeta.ModelIcon,
+			})
+		}
+		template["modelDisplayNames"] = modelDisplayNames
+		template["modelIcons"] = modelIcons
+		template["models"] = modelsMeta
 
 		// 附加该 provider 下各模型的能力配置（按 model_name 索引）
 		modelCapabilities := make(map[string]map[string]interface{})
@@ -175,130 +237,118 @@ func (s *AIService) GetProvider(providerName string) (providers.AIProvider, erro
 // GetSystemPresetModels 获取系统预设模型列表（从.env读取）
 func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 	models := []map[string]interface{}{}
+	appendSystemModel := func(id, provider, modelName, baseURL, fallbackName, description string) {
+		modelIcon, providerIcon := s.getManagedModelIcons(provider, modelName)
+		displayName := s.resolveSystemPresetDisplayName(provider, modelName, fallbackName)
+		models = append(models, map[string]interface{}{
+			"id":           id,
+			"name":         displayName,
+			"provider":     provider,
+			"modelName":    modelName,
+			"baseUrl":      baseURL,
+			"isSystem":     true,
+			"description":  description,
+			"providerIcon": providerIcon,
+			"modelIcon":    modelIcon,
+		})
+	}
 
 	// 检查是否有DeepSeek预设配置
 	if config.DeepSeekAPIKey != "" {
-		models = append(models, map[string]interface{}{
-			"id":          "system_deepseek",
-			"name":        "DeepSeek",
-			"provider":    "deepseek",
-			"modelName":   "deepseek-chat",
-			"baseUrl":     "https://api.deepseek.com",
-			"isSystem":    true,
-			"description": "系统预设的DeepSeek模型，所有用户可用",
-		})
+		appendSystemModel("system_deepseek", "deepseek", "deepseek-chat", "https://api.deepseek.com", "DeepSeek", "系统预设的DeepSeek模型，所有用户可用")
 	}
 
 	// 检查是否有豆包预设配置
 	if config.DoubaoAPIKey != "" {
-		models = append(models, map[string]interface{}{
-			"id":          "system_doubao",
-			"name":        "豆包",
-			"provider":    "doubao",
-			"modelName":   "doubao-seed-1-6-251015",
-			"baseUrl":     "https://ark.cn-beijing.volces.com/api/v3",
-			"isSystem":    true,
-			"description": "系统预设的豆包模型，所有用户可用",
-		})
+		appendSystemModel("system_doubao", "doubao", "doubao-seed-1-6-251015", "https://ark.cn-beijing.volces.com/api/v3", "豆包", "系统预设的豆包模型，所有用户可用")
 	}
 
 	// 检查是否有通义千问预设配置
 	if config.QwenAPIKey != "" {
-		models = append(models, map[string]interface{}{
-			"id":          "system_qwen",
-			"name":        "通义千问",
-			"provider":    "qwen",
-			"modelName":   "qwen-plus",
-			"baseUrl":     "https://dashscope.aliyuncs.com/compatible-mode/v1",
-			"isSystem":    true,
-			"description": "系统预设的通义千问模型，所有用户可用",
-		})
+		appendSystemModel("system_qwen", "qwen", "qwen-plus", "https://dashscope.aliyuncs.com/compatible-mode/v1", "通义千问", "系统预设的通义千问模型，所有用户可用")
 	}
 
 	// 检查是否有智谱AI预设配置
 	if config.ZhipuaiAPIKey != "" {
-		models = append(models, map[string]interface{}{
-			"id":          "system_zhipuai",
-			"name":        "智谱AI GLM",
-			"provider":    "zhipuai",
-			"modelName":   "glm-4.7",
-			"baseUrl":     "https://open.bigmodel.cn/api/paas/v4",
-			"isSystem":    true,
-			"description": "系统预设的智谱AI GLM模型，所有用户可用",
-		})
+		appendSystemModel("system_zhipuai", "zhipuai", "glm-4.7", "https://open.bigmodel.cn/api/paas/v4", "智谱AI GLM", "系统预设的智谱AI GLM模型，所有用户可用")
+	}
+
+	if config.MoonshotAPIKey != "" {
+		appendSystemModel("system_moonshot", "moonshot", "moonshot-v1", "https://api.moonshot.cn/v1", "Moonshot Kimi", "系统预设的 Moonshot Kimi 模型，所有用户可用")
 	}
 
 	// 检查是否有讯飞星火预设配置
 	if config.SparkAPIKey != "" {
-		models = append(models, map[string]interface{}{
-			"id":          "system_spark",
-			"name":        "讯飞星火",
-			"provider":    "spark",
-			"modelName":   "spark-x",
-			"baseUrl":     "https://spark-api-open.xf-yun.com/v2",
-			"isSystem":    true,
-			"description": "系统预设的讯飞星火模型，所有用户可用",
-		})
+		appendSystemModel("system_spark", "spark", "spark-x", "https://spark-api-open.xf-yun.com/v2", "讯飞星火", "系统预设的讯飞星火模型，所有用户可用")
 	}
 
 	// 检查是否有腾讯混元预设配置
 	if config.HunyuanAPIKey != "" {
-		models = append(models, map[string]interface{}{
-			"id":          "system_hunyuan",
-			"name":        "腾讯混元",
-			"provider":    "hunyuan",
-			"modelName":   "hunyuan-turbos-latest",
-			"baseUrl":     "https://api.hunyuan.cloud.tencent.com/v1",
-			"isSystem":    true,
-			"description": "系统预设的腾讯混元模型，所有用户可用",
-		})
+		appendSystemModel("system_hunyuan", "hunyuan", "hunyuan-2.0-thinking-20251109", "https://tokenhub.tencentmaas.com/v1", "腾讯混元", "系统预设的腾讯混元 TokenHub 模型，所有用户可用")
 	}
 
 	// 检查是否有OpenRouter预设配置（Claude、Gemini、GPT、Grok都使用OpenRouter）
 	if config.GeminiAPIKey != "" {
-		models = append(models, map[string]interface{}{
-			"id":          "system_claude",
-			"name":        "Claude",
-			"provider":    "claude",
-			"modelName":   "anthropic/claude-sonnet-4.5",
-			"baseUrl":     "https://openrouter.ai/api/v1",
-			"isSystem":    true,
-			"description": "系统预设的Anthropic Claude模型，所有用户可用",
-		})
-
-		models = append(models, map[string]interface{}{
-			"id":          "system_gemini",
-			"name":        "Google Gemini",
-			"provider":    "gemini",
-			"modelName":   "google/gemini-3-pro-preview",
-			"baseUrl":     "https://openrouter.ai/api/v1",
-			"isSystem":    true,
-			"description": "系统预设的Google Gemini模型，所有用户可用",
-		})
-
-		models = append(models, map[string]interface{}{
-			"id":          "system_gpt",
-			"name":        "GPT",
-			"provider":    "gpt",
-			"modelName":   "openai/gpt-oss-20b",
-			"baseUrl":     "https://openrouter.ai/api/v1",
-			"isSystem":    true,
-			"description": "系统预设的OpenAI GPT模型（OpenRouter），所有用户可用",
-		})
+		appendSystemModel("system_claude", "claude", "anthropic/claude-sonnet-4.5", "https://openrouter.ai/api/v1", "Claude", "系统预设的Anthropic Claude模型，所有用户可用")
+		appendSystemModel("system_gemini", "gemini", "google/gemini-3-pro-preview", "https://openrouter.ai/api/v1", "Google Gemini", "系统预设的Google Gemini模型，所有用户可用")
+		appendSystemModel("system_gpt", "gpt", "openai/gpt-oss-20b", "https://openrouter.ai/api/v1", "GPT", "系统预设的OpenAI GPT模型（OpenRouter），所有用户可用")
 
 		// 既然有了OpenRouter Key，顺便也加上Grok作为系统预设
-		models = append(models, map[string]interface{}{
-			"id":          "system_grok",
-			"name":        "Grok",
-			"provider":    "grok",
-			"modelName":   "x-ai/grok-4.1-fast",
-			"baseUrl":     "https://openrouter.ai/api/v1",
-			"isSystem":    true,
-			"description": "系统预设的xAI Grok模型，所有用户可用",
-		})
+		appendSystemModel("system_grok", "grok", "x-ai/grok-4.1-fast", "https://openrouter.ai/api/v1", "Grok", "系统预设的xAI Grok模型，所有用户可用")
 	}
 
 	return models
+}
+
+func (s *AIService) getProviderIcon(provider string) *string {
+	if strings.TrimSpace(provider) == "" {
+		return nil
+	}
+
+	if s.templateRepo != nil {
+		if tpl, err := s.templateRepo.FindByProvider(provider); err == nil {
+			return tpl.Icon
+		}
+	}
+
+	return nil
+}
+
+func (s *AIService) getManagedModelIcons(provider, modelName string) (*string, *string) {
+	providerIcon := s.getProviderIcon(provider)
+	if strings.TrimSpace(provider) == "" || strings.TrimSpace(modelName) == "" {
+		return nil, providerIcon
+	}
+
+	var model models.ManagedAIModel
+	if err := database.DB.
+		Where("LOWER(provider) = LOWER(?) AND LOWER(model_name) = LOWER(?)", provider, modelName).
+		Select("model_icon").
+		First(&model).Error; err == nil {
+		return model.ModelIcon, providerIcon
+	}
+
+	return nil, providerIcon
+}
+
+func (s *AIService) ResolveModelIcons(provider, modelName string) (*string, *string) {
+	return s.getManagedModelIcons(provider, modelName)
+}
+
+func (s *AIService) resolveSystemPresetDisplayName(provider, modelName, fallback string) string {
+	if provider == "" || modelName == "" {
+		return fallback
+	}
+
+	var model models.ManagedAIModel
+	if err := database.DB.
+		Where("provider = ? AND model_name = ?", provider, modelName).
+		Select("display_name").
+		First(&model).Error; err == nil && strings.TrimSpace(model.DisplayName) != "" {
+		return model.DisplayName
+	}
+
+	return fallback
 }
 
 // GetModelsByUserID 获取用户的模型列表
@@ -337,6 +387,8 @@ func normalizeProvider(provider string) string {
 	switch provider {
 	case "qianwen":
 		return "qwen"
+	case "kimi":
+		return "moonshot"
 	default:
 		return provider
 	}
@@ -371,6 +423,7 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 		supportedProviders := map[string]bool{
 			"deepseek": true,
 			"doubao":   true,
+			"moonshot": true,
 			"qwen":     true,
 			"spark":    true,
 			"hunyuan":  true,
@@ -405,12 +458,14 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 				defaultURL = "https://api.deepseek.com"
 			case "doubao":
 				defaultURL = "https://ark.cn-beijing.volces.com/api/v3"
+			case "moonshot":
+				defaultURL = "https://api.moonshot.cn/v1"
 			case "qwen":
 				defaultURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 			case "spark":
 				defaultURL = "https://spark-api-open.xf-yun.com/v2"
 			case "hunyuan":
-				defaultURL = "https://api.hunyuan.cloud.tencent.com/v1"
+				defaultURL = "https://tokenhub.tencentmaas.com/v1"
 			case "zhipuai":
 				defaultURL = "https://open.bigmodel.cn/api/paas/v4"
 			case "claude", "gemini", "gpt", "grok", "openai":
@@ -429,8 +484,8 @@ func (s *AIService) CreateModel(req *CreateModelRequest) (*models.AIModel, error
 
 	temperature := req.Temperature
 	if temperature == nil {
-		// 智谱AI默认1.0，其他默认0.7
-		if req.Provider == "zhipuai" {
+		// 智谱AI、Moonshot 默认 1.0，其他默认 0.7
+		if req.Provider == "zhipuai" || req.Provider == "moonshot" {
 			t := 1.0
 			temperature = &t
 		} else {

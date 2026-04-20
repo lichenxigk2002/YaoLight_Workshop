@@ -12,6 +12,7 @@ import './doubao';
 import './gemini';
 import './gpt';
 import './hunyuan';
+import './moonshot';
 import './qwen';
 import './spark';
 import './zhipuai';

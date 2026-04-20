@@ -50,5 +50,5 @@ func (r *capabilityConfigRepository) CreateOrUpdate(config *aiModels.ModelCapabi
 		return err
 	}
 	config.ID = existing.ID
-	return r.db.Model(&existing).Updates(config).Error
+	return r.db.Model(&existing).Select("*").Updates(config).Error
 }

@@ -41,7 +41,7 @@ export default function Statistics() {
         render: (_, record) => (
           <div className={styles.modelCell}>
             {record.provider ? <ProviderIcon provider={record.provider} size={20} /> : null}
-            <span>{record.model_name}</span>
+            <span>{record.display_name || record.model_name}</span>
           </div>
         ),
       },

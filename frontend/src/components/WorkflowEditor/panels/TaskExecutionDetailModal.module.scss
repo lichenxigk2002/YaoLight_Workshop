@@ -83,6 +83,75 @@
   gap: 12px;
 }
 
+.miniMapSection {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--editor-border-soft, var(--border-secondary));
+  border-radius: 18px;
+  background: var(--editor-surface-soft, var(--bg-secondary));
+}
+
+.miniMapHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.miniMapHint {
+  margin-top: 4px;
+  color: var(--editor-text-secondary, var(--text-secondary));
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.miniMap {
+  display: grid;
+  gap: 4px;
+}
+
+.miniMapRow {
+  display: block;
+}
+
+.miniMapTrack {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.02)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.05) 0,
+      rgba(0, 0, 0, 0.05) 1px,
+      transparent 1px,
+      transparent 12.5%
+    );
+
+  [data-theme='dark'] & {
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.05) 0,
+        rgba(255, 255, 255, 0.05) 1px,
+        transparent 1px,
+        transparent 12.5%
+      );
+  }
+}
+
+.miniMapBar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 1px;
+  border-radius: 999px;
+  opacity: 0.95;
+}
+
 .concurrentRow {
   display: grid;
   grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) 84px;
@@ -147,6 +216,36 @@
     background: rgba(255, 255, 255, 0.82);
     color: #111111;
   }
+}
+
+.concurrentBarNeutral {
+  background: rgba(17, 17, 17, 0.78);
+  color: #f7f5f1;
+
+  [data-theme='dark'] & {
+    background: rgba(255, 255, 255, 0.82);
+    color: #111111;
+  }
+}
+
+.concurrentBarSuccess {
+  background: linear-gradient(90deg, rgba(19, 143, 88, 0.9), rgba(63, 185, 80, 0.92));
+  color: #f6fff8;
+}
+
+.concurrentBarError {
+  background: linear-gradient(90deg, rgba(181, 39, 62, 0.92), rgba(255, 94, 98, 0.9));
+  color: #fff7f7;
+}
+
+.concurrentBarRunning {
+  background: linear-gradient(90deg, rgba(0, 104, 201, 0.92), rgba(34, 156, 255, 0.9));
+  color: #f5fbff;
+}
+
+.concurrentBarMuted {
+  background: linear-gradient(90deg, rgba(120, 120, 120, 0.82), rgba(165, 165, 165, 0.82));
+  color: #ffffff;
 }
 
 .concurrentDuration {
@@ -349,6 +448,11 @@
 
 @media (max-width: 900px) {
   .concurrentStats {
+    grid-template-columns: 1fr;
+  }
+
+  .miniMapHeader,
+  .miniMapRow {
     grid-template-columns: 1fr;
   }
 

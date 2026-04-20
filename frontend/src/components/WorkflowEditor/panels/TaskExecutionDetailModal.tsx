@@ -31,13 +31,13 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { Task, TaskNodeExecution, NodeExecutionStatus } from '@/types/task';
+import type { Task, TaskNodeExecution, NodeExecutionStatus, TaskStatus } from '@/types/task';
 import { workflowApi } from '@/api/workflow';
 import { taskApi } from '@/api/task';
 import http from '@/http';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
 import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
-import { ProviderIcon } from '@/components/Icons';
+import { AIIcon } from '@/components/Icons';
 import styles from './TaskExecutionDetailModal.module.scss';
 
 const { Text } = Typography;
@@ -47,6 +47,9 @@ interface TaskExecutionDetailModalProps {
   onClose: () => void;
   task: Task | null;
   executions: TaskNodeExecution[];
+  cancellingTaskIds?: number[];
+  onCancelTask?: (task: Task) => void;
+  onOpenExecutionResult?: (task: Task) => void;
 }
 
 const normalizeDownloadPathForHttp = (p: string) => {
@@ -168,6 +171,23 @@ const formatMs = (value?: number | null) => {
   if (value == null) return '-';
   if (value < 1000) return `${value}ms`;
   return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}s`;
+};
+
+const getTimelineBarClassName = (status: NodeExecutionStatus) => {
+  switch (status) {
+    case 'completed':
+      return styles.concurrentBarSuccess;
+    case 'failed':
+    case 'timeout':
+      return styles.concurrentBarError;
+    case 'running':
+      return styles.concurrentBarRunning;
+    case 'skipped':
+    case 'cancelled':
+      return styles.concurrentBarMuted;
+    default:
+      return styles.concurrentBarNeutral;
+  }
 };
 
 /**
@@ -309,32 +329,12 @@ const DataViewer: React.FC<{
 
     const modelName = data.model || '';
     if (!modelName) return null;
-
-    // 从模型名称推断提供商
-    const lowerModelName = modelName.toLowerCase();
-    let provider: string | null = null;
-
-    if (lowerModelName.includes('deepseek')) {
-      provider = 'deepseek';
-    } else if (lowerModelName.includes('doubao') || lowerModelName.includes('seed')) {
-      provider = 'doubao';
-    } else if (lowerModelName.includes('qwen')) {
-      provider = 'qwen';
-    } else if (lowerModelName.includes('zhipuai') || lowerModelName.includes('glm')) {
-      provider = 'zhipuai';
-    } else if (lowerModelName.includes('spark')) {
-      provider = 'spark';
-    } else if (lowerModelName.includes('hunyuan')) {
-      provider = 'hunyuan';
-    } else if (lowerModelName.includes('gpt') || lowerModelName.includes('openai')) {
-      provider = 'gpt';
-    } else if (lowerModelName.includes('gemini')) {
-      provider = 'gemini';
-    } else if (lowerModelName.includes('grok')) {
-      provider = 'grok';
-    }
-
-    return { modelName, provider };
+    return {
+      modelName,
+      provider: data.provider || null,
+      providerIcon: data.providerIcon,
+      modelIcon: data.modelIcon,
+    };
   };
 
   const modelInfo = getModelInfo();
@@ -516,7 +516,7 @@ const DataViewer: React.FC<{
                 {isAI && modelInfo && (
                   <Space size={6} align="center" style={{ marginBottom: 12, display: 'flex' }}>
                     {modelInfo.provider && (
-                      <ProviderIcon provider={modelInfo.provider} size={16} />
+                      <AIIcon iconKey={modelInfo.modelIcon || modelInfo.providerIcon} fallbackProvider={modelInfo.provider} size={16} />
                     )}
                     <Text strong style={{ fontSize: '13px' }}>
                       {modelInfo.modelName}
@@ -761,10 +761,15 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
   onClose,
   task,
   executions,
+  cancellingTaskIds = [],
+  onCancelTask,
+  onOpenExecutionResult,
 }) => {
   const { t } = useTranslation();
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
   const [nodeLabels, setNodeLabels] = useState<Record<string, string>>({});
+  const [executionDetails, setExecutionDetails] = useState<Record<number, TaskNodeExecution>>({});
+  const [loadingExecutionIds, setLoadingExecutionIds] = useState<Record<number, boolean>>({});
 
   // 获取工作流节点信息，建立 nodeId -> label 的映射
   useEffect(() => {
@@ -795,18 +800,51 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
     fetchNodeLabels();
   }, [task?.workflowId, visible]);
 
+  useEffect(() => {
+    if (!visible) {
+      setExecutionDetails({});
+      setLoadingExecutionIds({});
+      setActiveKeys([]);
+    }
+  }, [visible]);
+
   if (!task) return null;
 
   const timelineSummary = buildExecutionTimeline(executions);
   const timelineExecutions = timelineSummary.executions;
 
+  const fetchExecutionDetail = async (execution: TaskNodeExecution) => {
+    if (!task || executionDetails[execution.id] || loadingExecutionIds[execution.id]) {
+      return;
+    }
+
+    setLoadingExecutionIds((current) => ({ ...current, [execution.id]: true }));
+    try {
+      const response = await taskApi.getTaskNodeExecutionDetail(task.id, execution.id);
+      setExecutionDetails((current) => ({
+        ...current,
+        [execution.id]: response.execution,
+      }));
+    } catch (error) {
+      console.error('获取节点执行详情失败:', error);
+    } finally {
+      setLoadingExecutionIds((current) => {
+        const next = { ...current };
+        delete next[execution.id];
+        return next;
+      });
+    }
+  };
+
   // 构建折叠面板项
   const collapseItems = timelineExecutions.map((execution) => {
+    const detailedExecution = executionDetails[execution.id] || execution;
+    const isExecutionLoading = !!loadingExecutionIds[execution.id];
     const nodeLabel = nodeLabels[execution.nodeId] || execution.nodeId;
     const showNodeName = nodeLabels[execution.nodeId] && nodeLabels[execution.nodeId] !== execution.nodeId;
 
     return {
-      key: execution.nodeId,
+      key: String(execution.id),
       label: (
         <div className={styles.collapseHeader}>
           <Space>
@@ -869,27 +907,36 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
 
           {/* 输入输出数据 */}
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            {execution.inputData && (
+            {isExecutionLoading && !detailedExecution.inputData && !detailedExecution.outputData && (
+              <Card size="small" bordered={false}>
+                <Space>
+                  <ClockCircleOutlined spin />
+                  <Text type="secondary">正在加载节点详情...</Text>
+                </Space>
+              </Card>
+            )}
+
+            {detailedExecution.inputData && (
               <DataViewer
                 title={t('taskHistory.executionDetail.inputData')}
-                data={execution.inputData}
+                data={detailedExecution.inputData}
               />
             )}
 
-            {execution.outputData && (
+            {detailedExecution.outputData && (
               <DataViewer
                 title={t('taskHistory.executionDetail.outputData')}
-                data={execution.outputData}
+                data={detailedExecution.outputData}
                 filename={`${execution.nodeId}_output.json`}
                 nodeType={execution.nodeType}
                 taskId={task.id}
               />
             )}
 
-            {execution.resourceUsage && (
+            {detailedExecution.resourceUsage && (
               <DataViewer
                 title={t('taskHistory.executionDetail.resourceUsage')}
-                data={execution.resourceUsage}
+                data={detailedExecution.resourceUsage}
               />
             )}
           </Space>
@@ -913,6 +960,29 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
       centered
       mask={false}
       footer={[
+        task && (
+          <Button
+            key="result"
+            size="small"
+            onClick={() => onOpenExecutionResult?.(task)}
+            icon={<EyeOutlined />}
+          >
+            {isTaskRunning(task.status) ? '恢复执行' : '打开结果'}
+          </Button>
+        ),
+        task && isTaskRunning(task.status) ? (
+          <Button
+            key="cancel"
+            size="small"
+            danger
+            loading={cancellingTaskIds.includes(task.id)}
+            disabled={cancellingTaskIds.includes(task.id)}
+            onClick={() => onCancelTask?.(task)}
+            icon={<StopOutlined />}
+          >
+            {cancellingTaskIds.includes(task.id) ? '终止中' : '中止'}
+          </Button>
+        ) : null,
         <Button key="close" onClick={onClose}>
           {t('taskHistory.executionDetail.close')}
         </Button>,
@@ -957,6 +1027,35 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
           </div>
 
           <Card size="small" bordered={false} className={styles.concurrentTimelineCard} title="并发执行">
+            <div className={styles.miniMapSection}>
+              <div className={styles.miniMapHeader}>
+                <div>
+                  <Text strong>全量缩略总览</Text>
+                  <div className={styles.miniMapHint}>
+                    纵轴仍然是节点，横轴仍然是时间，只保留更细的执行条带用于整体观察。
+                  </div>
+                </div>
+                <Tag bordered={false} className={styles.semanticTag}>
+                  {timelineExecutions.length} 节点
+                </Tag>
+              </div>
+              <div className={styles.miniMap}>
+                {timelineExecutions.map((execution) => (
+                  <div key={`overview-${execution.id}`} className={styles.miniMapRow}>
+                    <div className={styles.miniMapTrack}>
+                      <div
+                        className={`${styles.miniMapBar} ${getTimelineBarClassName(execution.status)}`}
+                        style={{
+                          left: `${execution.offsetPercent}%`,
+                          width: `${execution.widthPercent}%`,
+                        }}
+                        title={`${nodeLabels[execution.nodeId] || execution.nodeId} · ${execution.nodeType} · ${formatMs(execution.timelineEnd - execution.timelineStart)}`}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className={styles.concurrentTimeline}>
               {timelineExecutions.map((execution) => (
                 <div key={`timeline-${execution.id}`} className={styles.concurrentRow}>
@@ -966,7 +1065,7 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
                   </div>
                   <div className={styles.concurrentTrack}>
                     <div
-                      className={styles.concurrentBar}
+                      className={`${styles.concurrentBar} ${getTimelineBarClassName(execution.status)}`}
                       style={{
                         left: `${execution.offsetPercent}%`,
                         width: `${execution.widthPercent}%`,
@@ -993,7 +1092,16 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
         ) : (
           <Collapse
             activeKey={activeKeys}
-            onChange={(keys) => setActiveKeys(keys as string[])}
+            onChange={(keys) => {
+              const nextKeys = keys as string[];
+              setActiveKeys(nextKeys);
+              nextKeys.forEach((key) => {
+                const match = timelineExecutions.find((item) => String(item.id) === key);
+                if (match) {
+                  void fetchExecutionDetail(match);
+                }
+              });
+            }}
             items={collapseItems}
             expandIcon={({ isActive }) => <RightOutlined rotate={isActive ? 90 : 0} />}
             className={styles.nodeCollapse}
@@ -1086,5 +1194,8 @@ const getTaskStatusText = (status: string, task: Task | null | undefined, t: (ke
   };
   return textMap[status] || status;
 };
+
+const isTaskRunning = (status: TaskStatus) =>
+  ['pending', 'queued', 'running', 'paused'].includes(status);
 
 export default TaskExecutionDetailModal;

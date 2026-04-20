@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { DeepSeek, Doubao, Qwen, Zhipu, Gemini, Grok, OpenAI, Spark, Hunyuan, Claude } from '@lobehub/icons';
+import { Claude, DeepSeek, Doubao, Gemini, Grok, Hunyuan, Moonshot, OpenAI, Qwen, Spark, Zhipu } from '@lobehub/icons';
 
 // 检查图标组件是否正确加载
 const SafeIcon = ({ Component, ...props }: any) => {
@@ -39,15 +39,17 @@ export const ProviderIcon: React.FC<ProviderIconProps> = ({ provider, size = 16,
     return <SafeIcon Component={Doubao} size={size} className={className} />;
   }
 
+  if (providerLower === 'moonshot' || providerLower === 'kimi') {
+    return <SafeIcon Component={Moonshot} size={size} className={className} />;
+  }
+
   if (providerLower === 'qianwen' || providerLower === 'qwen') {
-    // 确保 Qwen 组件存在，否则返回 null 避免报错
     if (!Qwen) {
       console.warn('Qwen icon component is missing');
       return null;
     }
-    // 用户反馈图标显示有问题，使用单色版本，并指定通义千问的品牌色（紫色 #615CED）
-    // 注意：SafeIcon 会优先使用 Color 组件，所以这里直接使用 Qwen 组件
-    return <Qwen size={size} className={className} style={{ color: '#615CED' }} />;
+    const QwenMono = (Qwen as any).Mono ?? Qwen;
+    return <QwenMono size={size} className={className} style={{ color: '#615ced' }} />;
   }
 
   if (providerLower === 'zhipuai') {

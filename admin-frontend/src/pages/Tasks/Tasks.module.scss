@@ -92,6 +92,60 @@
   gap: 12px;
 }
 
+.timelineMiniMapSection {
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--admin-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--admin-panel-alt) 84%, white 16%);
+}
+
+.timelineMiniMapHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.timelineMiniMap {
+  display: grid;
+  gap: 4px;
+}
+
+.timelineMiniMapRow {
+  display: block;
+}
+
+.timelineMiniMapTrack {
+  position: relative;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--admin-brand) 10%, transparent),
+      color-mix(in srgb, var(--admin-accent) 4%, transparent)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--admin-brand) 8%, transparent) 0,
+      color-mix(in srgb, var(--admin-brand) 8%, transparent) 1px,
+      transparent 1px,
+      transparent 12.5%
+    );
+}
+
+.timelineMiniMapBar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 1px;
+  border-radius: 999px;
+  opacity: 0.95;
+}
+
 .timelineBoardRow {
   display: grid;
   grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) 96px;
@@ -163,6 +217,40 @@
   box-shadow: 0 8px 16px color-mix(in srgb, var(--admin-brand) 22%, transparent);
 }
 
+.timelineBarNeutral {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--admin-brand) 82%, #0f172a 18%),
+    color-mix(in srgb, var(--admin-accent) 86%, white 14%)
+  );
+  border: 1px solid color-mix(in srgb, var(--admin-brand) 36%, transparent);
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--admin-brand) 22%, transparent);
+}
+
+.timelineBarSuccess {
+  background: linear-gradient(135deg, #0f8a5f, #38b26d);
+  border: 1px solid rgba(15, 138, 95, 0.3);
+  box-shadow: 0 8px 16px rgba(15, 138, 95, 0.2);
+}
+
+.timelineBarError {
+  background: linear-gradient(135deg, #b4233c, #ff6b6b);
+  border: 1px solid rgba(180, 35, 60, 0.3);
+  box-shadow: 0 8px 16px rgba(180, 35, 60, 0.2);
+}
+
+.timelineBarRunning {
+  background: linear-gradient(135deg, #0a67c8, #3ba8ff);
+  border: 1px solid rgba(10, 103, 200, 0.3);
+  box-shadow: 0 8px 16px rgba(10, 103, 200, 0.2);
+}
+
+.timelineBarMuted {
+  background: linear-gradient(135deg, #7b8794, #a8b2bc);
+  border: 1px solid rgba(123, 135, 148, 0.28);
+  box-shadow: 0 8px 16px rgba(123, 135, 148, 0.18);
+}
+
 .timelineBarLabel {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -186,6 +274,11 @@
 @media (max-width: 980px) {
   .analysisGrid,
   .codePanels {
+    grid-template-columns: 1fr;
+  }
+
+  .timelineMiniMapHeader,
+  .timelineMiniMapRow {
     grid-template-columns: 1fr;
   }
 

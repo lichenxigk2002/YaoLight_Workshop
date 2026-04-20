@@ -132,7 +132,7 @@ export default function TransactionList({
         width: 204,
         render: (_, record) => {
           const provider = record.provider || '';
-          const model = record.model_name || '';
+          const model = record.display_name || record.model_name || '';
 
           return (
             <div className={styles.modelCell}>
