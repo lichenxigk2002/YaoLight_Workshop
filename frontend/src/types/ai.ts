@@ -54,6 +54,13 @@ export interface ProviderTemplate {
   description?: string;
   defaultBaseUrl?: string;
   supportedModels: string[];
+  models?: Array<{
+    modelName: string;
+    displayName?: string;
+    modelIcon?: string | null;
+  }>;
+  modelDisplayNames?: Record<string, string>;
+  modelIcons?: Record<string, string | null | undefined>;
   /** 该供应商下各模型的能力配置，key 为 modelName */
   modelCapabilities?: Record<string, ModelCapability>;
   capabilities?: string[]; // 例如: ['LLM', 'TEXT EMBEDDING', 'TTS']

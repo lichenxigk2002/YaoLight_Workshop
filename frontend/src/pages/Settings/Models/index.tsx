@@ -51,11 +51,39 @@ export default function ModelProviders() {
 
   const getDisplayModelLabel = (provider?: string | null, modelName?: string | null) => {
     if (!modelName) return '';
+    const templateModel = templates.find(item => item.provider === provider)?.models?.find(item => item.modelName === modelName);
+    if (templateModel?.displayName) return templateModel.displayName;
+    const templateDisplayName = templates.find(item => item.provider === provider)?.modelDisplayNames?.[modelName];
+    if (templateDisplayName) return templateDisplayName;
     return (
       systemModels.find(item => item.provider === provider && item.modelName === modelName)?.name ||
       models.find(item => item.provider === provider && item.modelName === modelName)?.name ||
       modelName
     );
+  };
+
+  const getProviderDisplayLabel = (provider?: string | null) => {
+    if (!provider) return '';
+    return templates.find(item => item.provider === provider)?.name || provider;
+  };
+
+  const getModelIconKey = (
+    provider?: string | null,
+    modelName?: string | null,
+    fallbackModelIcon?: string | null,
+    fallbackProviderIcon?: string | null,
+  ) => {
+    if (!provider || !modelName) {
+      return fallbackModelIcon || fallbackProviderIcon || undefined;
+    }
+    const templateModel = templates.find(item => item.provider === provider)?.models?.find(item => item.modelName === modelName);
+    if (templateModel?.modelIcon) {
+      return templateModel.modelIcon;
+    }
+    return templates.find(item => item.provider === provider)?.modelIcons?.[modelName]
+      || fallbackModelIcon
+      || fallbackProviderIcon
+      || undefined;
   };
 
   // 刷新用户信息以获取最新 Token 余额
@@ -545,14 +573,29 @@ export default function ModelProviders() {
           renderItem={(model) => (
             <List.Item className={styles.modelItem}>
               <div className={styles.modelInfo}>
-                <div className={styles.iconWrapperSmall}>
-                  <AIIcon iconKey={model.modelIcon || model.providerIcon} fallbackProvider={model.provider} size={20} />
-                </div>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span className={styles.modelName}>{model.name}</span>
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    {model.provider}
-                  </Text>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className={styles.iconWrapperSmall}>
+                      <AIIcon
+                        iconKey={templates.find(item => item.provider === model.provider)?.icon || model.providerIcon}
+                        fallbackProvider={model.provider}
+                        size={18}
+                      />
+                    </div>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      {getProviderDisplayLabel(model.provider)}
+                    </Text>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px' }}>
+                    <div className={styles.iconWrapperSmall}>
+                      <AIIcon
+                        iconKey={getModelIconKey(model.provider, model.modelName, model.modelIcon, model.providerIcon)}
+                        fallbackProvider={model.provider}
+                        size={20}
+                      />
+                    </div>
+                    <span className={styles.modelName}>{getDisplayModelLabel(model.provider, model.modelName) || model.name}</span>
+                  </div>
                   {model.description && (
                     <Text type="secondary" style={{ fontSize: '11px', marginTop: '4px' }}>
                       {model.description}
