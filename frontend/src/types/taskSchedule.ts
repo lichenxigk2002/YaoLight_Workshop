@@ -1,4 +1,12 @@
 export type TaskScheduleTriggerType = 'cron' | 'webhook';
+export type TaskSchedulePlanFrequency = 'daily' | 'weekly' | 'monthly';
+
+export interface TaskSchedulePlan {
+  frequency: TaskSchedulePlanFrequency;
+  time: string;
+  weekdays?: number[];
+  monthDay?: number;
+}
 
 export interface RetryPolicy {
   mode: 'none' | 'fixed' | 'exponential';
@@ -17,6 +25,7 @@ export interface TaskSchedule {
   description?: string;
   triggerType: TaskScheduleTriggerType;
   cronExpression: string;
+  schedulePlan?: TaskSchedulePlan;
   timezone: string;
   isActive: boolean;
   startDate?: string;
