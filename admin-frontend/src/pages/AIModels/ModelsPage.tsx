@@ -147,7 +147,7 @@ export default function ModelsPage() {
       Array.from(new Set(models.map((item) => item.provider)))
         .sort()
         .map((provider) => ({
-          label: getAIProviderLabel(provider, t),
+          label: models.find((item) => item.provider === provider)?.provider_name || getAIProviderLabel(provider, t),
           value: provider,
         })),
     [models, t],
@@ -162,7 +162,7 @@ export default function ModelsPage() {
         item.display_name,
         item.model_name,
         item.provider,
-        getAIProviderLabel(item.provider, t),
+        item.provider_name || getAIProviderLabel(item.provider, t),
       ]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(keyword));
@@ -329,7 +329,7 @@ export default function ModelsPage() {
     {
       title: '模型服务商',
       dataIndex: 'provider',
-      render: (provider: string) => getAIProviderLabel(provider, t),
+      render: (provider: string, record) => record.provider_name || getAIProviderLabel(provider, t),
     },
     {
       title: '检查结果',
@@ -356,7 +356,7 @@ export default function ModelsPage() {
     {
       title: '模型服务商',
       dataIndex: 'provider',
-      render: (provider: string) => getAIProviderLabel(provider, t),
+      render: (provider: string, record) => record.provider_name || getAIProviderLabel(provider, t),
     },
     {
       title: '状态',
@@ -421,7 +421,7 @@ export default function ModelsPage() {
                 <div className={styles.providerCell}>
                   <ProviderIcon provider={provider} size={18} />
                   <div className={styles.providerCellText}>
-                    <div>{getAIProviderLabel(provider, t)}</div>
+                    <div>{models.find((item) => item.provider === provider)?.provider_name || getAIProviderLabel(provider, t)}</div>
                     <div className={styles.providerKey}>{provider}</div>
                   </div>
                 </div>

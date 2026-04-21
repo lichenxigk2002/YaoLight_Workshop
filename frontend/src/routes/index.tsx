@@ -89,7 +89,11 @@ const router = createBrowserRouter([
   },
   {
     path: '/open-api-docs/:slug',
-    element: <PublicWorkflowApiDocsPage />,
+    element: (
+      <Layout>
+        <PublicWorkflowApiDocsPage />
+      </Layout>
+    ),
   },
   {
     path: '/settings',

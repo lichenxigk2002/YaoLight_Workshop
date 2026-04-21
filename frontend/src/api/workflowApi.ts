@@ -20,8 +20,14 @@ export const workflowPublishApi = {
   listKeys: (workflowId: number) =>
     http.get<WorkflowAPIKeySummary[]>(`/workflows/${workflowId}/api/keys`),
 
-  createKey: (workflowId: number, data: { name: string }) =>
+  createKey: (workflowId: number, data: { name: string; expiresAt?: string }) =>
     http.post<CreatedWorkflowAPIKey>(`/workflows/${workflowId}/api/keys`, data),
+
+  updateKey: (workflowId: number, keyId: number, data: { status: string }) =>
+    http.patch<WorkflowAPIKeySummary>(`/workflows/${workflowId}/api/keys/${keyId}`, data),
+
+  deleteKey: (workflowId: number, keyId: number) =>
+    http.delete(`/workflows/${workflowId}/api/keys/${keyId}`),
 
   listInvocations: (workflowId: number, params?: { page?: number; pageSize?: number }) =>
     http.get<WorkflowAPIInvocationPage>(`/workflows/${workflowId}/api/invocations`, params),

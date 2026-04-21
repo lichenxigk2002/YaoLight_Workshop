@@ -161,21 +161,30 @@ export default function RulesListPage() {
     {
       title: '规则名称',
       dataIndex: 'name',
+      width: 260,
       render: (value: string, record) => (
-        <Button type="link" onClick={() => navigate(`/crawler-rules/${record.id}`)}>
+        <Button className={styles.ruleNameButton} type="link" onClick={() => navigate(`/crawler-rules/${record.id}`)}>
           {value}
         </Button>
       ),
     },
-    { title: '版本', dataIndex: 'version', width: 120 },
+    {
+      title: '版本',
+      dataIndex: 'version',
+      width: 100,
+      render: (value: string) => <span className={styles.nowrapCell}>{value}</span>,
+    },
     {
       title: 'URL 模式',
       dataIndex: 'url_pattern',
+      width: 220,
       ellipsis: true,
       render: (value: string | null | undefined, record) => (
-        <div>
-          <div>{value || '-'}</div>
-          <Text type="secondary">{record.url_pattern_type}</Text>
+        <div className={styles.urlPatternCell}>
+          <div className={styles.urlPatternValue} title={value || '-'}>
+            {value || '-'}
+          </div>
+          <Text className={styles.nowrapCell} type="secondary">{record.url_pattern_type}</Text>
         </div>
       ),
     },
@@ -315,6 +324,8 @@ export default function RulesListPage() {
           loading={loading}
           dataSource={rules}
           columns={columns}
+          tableLayout="fixed"
+          scroll={{ x: 1360 }}
           pagination={{
             current: page,
             pageSize,

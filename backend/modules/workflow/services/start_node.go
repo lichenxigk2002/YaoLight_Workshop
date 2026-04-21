@@ -6,13 +6,20 @@ import (
 	"time"
 )
 
+const skippedManualOpenAPIStartError = "manual start node skipped for open_api execution"
+
 // executeStartNode 执行开始节点
 func (e *WorkflowExecutor) executeStartNode(node NodeConfig, dataFlow *DataFlow, meta ExecutionMeta) NodeExecutionResult {
 	// 获取用户输入的数据
 	inputData := getString(node.Config, "inputData", "")
 	inputDataType := getString(node.Config, "inputDataType", "auto")
+	inputMode, hasExplicitInputMode := readStartInputMode(node.Config)
 
 	var initialData map[string]interface{}
+
+	if shouldSkipStartNodeForOpenAPI(inputMode, hasExplicitInputMode, meta) {
+		return skippedStartNodeResult(node.ID)
+	}
 
 	if meta.RuntimeInput != nil {
 		switch value := meta.RuntimeInput.(type) {
@@ -121,4 +128,48 @@ func (e *WorkflowExecutor) executeStartNode(node NodeConfig, dataFlow *DataFlow,
 		Success: true,
 		Data:    initialData,
 	}
+}
+
+func isOpenAPIRuntime(meta ExecutionMeta) bool {
+	source, _ := meta.RuntimeMeta["source"].(string)
+	return source == "open_api"
+}
+
+func readStartInputMode(config map[string]interface{}) (string, bool) {
+	if config == nil {
+		return "manual", false
+	}
+	raw, exists := config["inputMode"]
+	if !exists {
+		return "manual", false
+	}
+	mode, ok := raw.(string)
+	if !ok || mode == "" {
+		return "manual", false
+	}
+	return mode, true
+}
+
+func shouldSkipStartNodeForOpenAPI(inputMode string, hasExplicitInputMode bool, meta ExecutionMeta) bool {
+	if !isOpenAPIRuntime(meta) {
+		return false
+	}
+	if !hasExplicitInputMode {
+		// Preserve legacy published API behavior for historical canvases that predate inputMode.
+		return false
+	}
+	return inputMode != "api_input"
+}
+
+func skippedStartNodeResult(nodeID string) NodeExecutionResult {
+	return NodeExecutionResult{
+		NodeID:  nodeID,
+		Type:    "start",
+		Success: false,
+		Error:   skippedManualOpenAPIStartError,
+	}
+}
+
+func isSkippedStartNodeResult(result NodeExecutionResult) bool {
+	return result.Type == "start" && result.Error == skippedManualOpenAPIStartError
 }

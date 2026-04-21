@@ -1,20 +1,44 @@
 .wrapper {
-  border-radius: 8px;
-  border: 1px solid var(--border-secondary);
-  background-color: var(--bg-primary);
   overflow: hidden;
-  font-family: Consolas, Monaco, 'Courier New', monospace;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 248, 246, 0.72)),
+    rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  font-family: var(--font-mono);
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.08);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+      rgba(18, 18, 18, 0.94);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  :global(pre) {
+    background: transparent !important;
+  }
+
+  :global(code) {
+    font-family: var(--font-mono) !important;
+  }
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-secondary);
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
   font-size: 12px;
   color: var(--text-secondary);
+
+  [data-theme='dark'] & {
+    background: rgba(255, 255, 255, 0.035);
+    border-bottom-color: rgba(255, 255, 255, 0.07);
+  }
 }
 
 .left {
@@ -41,8 +65,8 @@
 .actionButton {
   border: none;
   outline: none;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
   font-size: 12px;
   background-color: transparent;
   color: var(--text-secondary);
@@ -50,8 +74,12 @@
 }
 
 .actionButton:hover {
-  background-color: var(--bg-tertiary);
+  background-color: rgba(0, 0, 0, 0.06);
   color: var(--text-primary);
+
+  [data-theme='dark'] & {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
 }
 
 .copied {
@@ -67,4 +95,3 @@
 .body[data-expanded='false'] {
   max-height: 260px;
 }
-

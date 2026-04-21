@@ -259,6 +259,8 @@ func main() {
 			auth.POST("/workflows/:id/api", workflowAPIController.UpsertEndpoint)
 			auth.GET("/workflows/:id/api/keys", workflowAPIController.ListKeys)
 			auth.POST("/workflows/:id/api/keys", workflowAPIController.CreateKey)
+			auth.PATCH("/workflows/:id/api/keys/:keyId", workflowAPIController.UpdateKey)
+			auth.DELETE("/workflows/:id/api/keys/:keyId", workflowAPIController.DeleteKey)
 			auth.GET("/workflows/:id/api/invocations", workflowAPIController.ListInvocations)
 			auth.POST("/workflows/execute", workflowController.ExecuteWorkflow)
 			auth.POST("/workflows/execute/stream", workflowController.ExecuteWorkflowStream)

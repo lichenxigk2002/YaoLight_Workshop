@@ -19,6 +19,7 @@ var (
 type CrawlerRulePayload struct {
 	Name              string                 `json:"name"`
 	Description       *string                `json:"description"`
+	Tutorial          *string                `json:"tutorial"`
 	Version           string                 `json:"version"`
 	URLPattern        *string                `json:"url_pattern"`
 	URLPatternType    string                 `json:"url_pattern_type"`
@@ -210,6 +211,7 @@ func (s *AdminCrawlerRuleService) buildRuleModel(payload *CrawlerRulePayload, cr
 	rule := &models.CrawlerRule{
 		Name:              strings.TrimSpace(payload.Name),
 		Description:       payload.Description,
+		Tutorial:          trimOptionalString(payload.Tutorial),
 		Version:           strings.TrimSpace(payload.Version),
 		URLPattern:        trimOptionalString(payload.URLPattern),
 		URLPatternType:    strings.ToLower(strings.TrimSpace(payload.URLPatternType)),

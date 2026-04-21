@@ -85,6 +85,7 @@ interface BackendCapabilityConfig extends AIModelCapabilityConfig {
 interface BackendAdminModel {
   id: number;
   provider: string;
+  provider_name?: string | null;
   model_name: string;
   display_name: string;
   model_icon?: string | null;
@@ -268,6 +269,7 @@ function mapModel(model: BackendAdminModel): AIAdminModel {
   return {
     id: toId(model.id),
     provider: model.provider,
+    provider_name: trimText(model.provider_name) || undefined,
     model_name: model.model_name,
     display_name: model.display_name,
     model_icon: trimText(model.model_icon) || undefined,

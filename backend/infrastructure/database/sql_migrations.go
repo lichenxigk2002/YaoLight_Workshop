@@ -21,6 +21,12 @@ const migrationAdvisoryLockKey int64 = 2026031201
 
 var migrationFilePattern = regexp.MustCompile(`^(\d+)_(.+)\.sql$`)
 
+var compatibleMigrationChecksums = map[int]map[string]bool{
+	20: {
+		"85b9b519732e5b2de0c82fc4a668ce1a2cdd3fd247c53275b06688fd71ce0add": true,
+	},
+}
+
 type sqlMigration struct {
 	Version  int
 	Name     string
@@ -60,13 +66,24 @@ func RunSQLMigrations() error {
 
 	for _, migration := range migrations {
 		if existing, ok := applied[migration.Version]; ok {
-			if existing.Name != migration.Name || existing.Checksum != migration.Checksum {
+			if existing.Name != migration.Name {
 				return fmt.Errorf(
 					"migration %s already recorded with different content; expected checksum=%s got checksum=%s",
 					migration.Name,
 					existing.Checksum,
 					migration.Checksum,
 				)
+			}
+			if existing.Checksum != migration.Checksum {
+				if !isCompatibleMigrationChecksum(migration.Version, existing.Checksum) {
+					return fmt.Errorf(
+						"migration %s already recorded with different content; expected checksum=%s got checksum=%s",
+						migration.Name,
+						existing.Checksum,
+						migration.Checksum,
+					)
+				}
+				log.Printf("SQL migration %s matches a compatible historical checksum; continuing", migration.Name)
 			}
 			continue
 		}
@@ -201,6 +218,14 @@ func recordAppliedMigration(db *gorm.DB, migration sqlMigration) error {
 		migration.Name,
 		migration.Checksum,
 	).Error
+}
+
+func isCompatibleMigrationChecksum(version int, checksum string) bool {
+	versions, ok := compatibleMigrationChecksums[version]
+	if !ok {
+		return false
+	}
+	return versions[checksum]
 }
 
 func hasExplicitTransaction(content string) bool {

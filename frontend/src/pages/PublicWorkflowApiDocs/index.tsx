@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, App, Button, Card, Col, Divider, Row, Segmented, Space, Spin, Tag, Typography } from 'antd'
-import { ClockCircleOutlined, CopyOutlined, GlobalOutlined, LockOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, ClockCircleOutlined, CopyOutlined, GlobalOutlined, LockOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import { CodeBlock } from '@/components/CodeBlock'
 import { getPublicWorkflowDocs } from '@/api/workflowApi'
 import type { WorkflowPublicDocs } from '@/types/workflowApi'
 import styles from './index.module.scss'
@@ -15,14 +16,67 @@ function formatJson(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2)
 }
 
+function getOpenApiOrigin() {
+  const explicitOrigin = import.meta.env.VITE_OPEN_API_ORIGIN || import.meta.env.VITE_PROXY_TARGET
+  if (explicitOrigin && /^https?:\/\//i.test(explicitOrigin)) {
+    return explicitOrigin.replace(/\/$/, '')
+  }
+
+  const apiBase = import.meta.env.VITE_BASE_URL || '/api'
+  if (/^https?:\/\//i.test(apiBase)) {
+    return apiBase.replace(/\/api\/?$/, '').replace(/\/$/, '')
+  }
+
+  if (typeof window === 'undefined') return ''
+
+  const { hostname, origin, port, protocol } = window.location
+  if ((hostname === 'localhost' || hostname === '127.0.0.1') && (port === '3000' || port === '5173')) {
+    return `${protocol}//${hostname}:8080`
+  }
+
+  return origin
+}
+
+function buildOpenApiUrl(path: string | undefined) {
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+
+  const origin = getOpenApiOrigin()
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return origin ? `${origin}${normalizedPath}` : normalizedPath
+}
+
+function HighlightedCode({ value, language = 'json' }: { value: string; language?: string }) {
+  return (
+    <CodeBlock
+      value={value}
+      language={language}
+      className={styles.codeBlock}
+      showHeader={false}
+      defaultExpanded
+      collapsedLines={999}
+    />
+  )
+}
+
 export default function PublicWorkflowApiDocsPage() {
   const { t } = useTranslation()
   const { message } = App.useApp()
+  const navigate = useNavigate()
   const { slug } = useParams<{ slug: string }>()
   const [docs, setDocs] = useState<WorkflowPublicDocs | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [language, setLanguage] = useState<SampleLang>('curl')
+  const invokeUrl = useMemo(() => buildOpenApiUrl(docs?.endpoints.invoke), [docs?.endpoints.invoke])
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1)
+      return
+    }
+    navigate('/')
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -53,15 +107,16 @@ export default function PublicWorkflowApiDocsPage() {
     }
 
     const requestExample = docs.requestExample ?? {}
+    const endpoint = invokeUrl || docs.endpoints.invoke
     const requestLiteral = JSON.stringify(requestExample, null, 2)
     const requestInline = JSON.stringify(requestExample)
 
     return {
-      curl: `curl --request POST '${docs.endpoints.invoke}' \\
+      curl: `curl --request POST '${endpoint}' \\
   --header 'Content-Type: application/json' \\
   --header 'X-API-Key: YOUR_API_KEY' \\
   --data '${requestInline}'`,
-      javascript: `const response = await fetch('${docs.endpoints.invoke}', {
+      javascript: `const response = await fetch('${endpoint}', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -75,7 +130,7 @@ console.log(data)`,
       python: `import requests
 
 response = requests.post(
-    '${docs.endpoints.invoke}',
+    '${endpoint}',
     headers={
         'Content-Type': 'application/json',
         'X-API-Key': 'YOUR_API_KEY',
@@ -85,7 +140,7 @@ response = requests.post(
 
 print(response.json())`,
     }
-  }, [docs])
+  }, [docs, invokeUrl])
 
   const handleCopy = async (value: string, tip = t('workflowApi.copySuccess')) => {
     try {
@@ -123,6 +178,9 @@ print(response.json())`,
           <div className={styles.heroGlow} />
           <div className={styles.heroContent}>
             <div className={styles.heroBadgeRow}>
+              <Button className={styles.backButton} type="text" size="small" icon={<ArrowLeftOutlined />} onClick={handleBack}>
+                返回
+              </Button>
               <Text className={styles.badge}>{t('workflowApi.publicBadge')}</Text>
               <Tag color={isPublished ? 'success' : 'default'}>
                 {isPublished ? t('workflowApi.statusPublished') : t('workflowApi.statusDraft')}
@@ -140,9 +198,9 @@ print(response.json())`,
               <div className={styles.heroActionStack}>
                 <div className={styles.heroActionCard}>
                   <span className={styles.heroActionLabel}>{t('workflowApi.invokePath')}</span>
-                  <span className={styles.heroActionValue}>{docs.endpoints.invoke}</span>
+                  <span className={styles.heroActionValue}>{invokeUrl || docs.endpoints.invoke}</span>
                 </div>
-                <Button type="primary" icon={<CopyOutlined />} onClick={() => void handleCopy(docs.endpoints.invoke, t('workflowApi.copyInvokeUrl'))}>
+                <Button type="primary" icon={<CopyOutlined />} onClick={() => void handleCopy(invokeUrl || docs.endpoints.invoke, t('workflowApi.copyInvokeUrl'))}>
                   {t('workflowApi.copyInvokeUrl')}
                 </Button>
               </div>
@@ -193,8 +251,8 @@ print(response.json())`,
                   <div className={styles.infoCard}>
                     <span className={styles.infoLabel}><GlobalOutlined /> {t('workflowApi.invokePath')}</span>
                     <div className={styles.valueRow}>
-                      <span className={styles.valueText}>{docs.endpoints.invoke}</span>
-                      <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(docs.endpoints.invoke, t('workflowApi.copyInvokeUrl'))} />
+                      <span className={styles.valueText}>{invokeUrl || docs.endpoints.invoke}</span>
+                      <Button size="small" icon={<CopyOutlined />} onClick={() => void handleCopy(invokeUrl || docs.endpoints.invoke, t('workflowApi.copyInvokeUrl'))} />
                     </div>
                   </div>
 
@@ -227,8 +285,26 @@ print(response.json())`,
                       {t('workflowApi.copyRequest')}
                     </Button>
                   </div>
-                  <pre className={styles.codeBlock}>{formatJson(docs.requestExample)}</pre>
+                  <HighlightedCode value={formatJson(docs.requestExample)} language="json" />
                 </div>
+
+                {docs.requestSchema ? (
+                  <div className={styles.blockSection}>
+                    <div className={styles.blockHeader}>
+                      <span className={styles.blockTitle}>Request Schema</span>
+                    </div>
+                    <HighlightedCode value={formatJson(docs.requestSchema)} language="json" />
+                  </div>
+                ) : null}
+
+                {docs.inputMapping ? (
+                  <div className={styles.blockSection}>
+                    <div className={styles.blockHeader}>
+                      <span className={styles.blockTitle}>Input Mapping</span>
+                    </div>
+                    <HighlightedCode value={formatJson(docs.inputMapping)} language="json" />
+                  </div>
+                ) : null}
               </Card>
 
               <Card
@@ -253,6 +329,31 @@ print(response.json())`,
                   <Text type="secondary">{t('workflowApi.emptyErrors')}</Text>
                 )}
               </Card>
+
+              {docs.responseSchema || docs.outputMapping || docs.exposeArtifacts !== 'all' ? (
+                <Card
+                  className={styles.card}
+                  title={(
+                    <div className={styles.cardHeader}>
+                      <span className={styles.cardTitle}>Response Contract</span>
+                      <span className={styles.cardDesc}>返回值结构、映射规则和 artifacts 暴露策略。</span>
+                    </div>
+                  )}
+                >
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <div className={styles.infoCard}>
+                      <span className={styles.infoLabel}>Artifacts</span>
+                      <span className={styles.infoMuted}>
+                        {docs.exposeArtifacts === 'selected'
+                          ? `selected: ${(docs.exposedArtifactNodeIds || []).join(', ') || '-'}`
+                          : docs.exposeArtifacts}
+                      </span>
+                    </div>
+                    {docs.responseSchema ? <HighlightedCode value={formatJson(docs.responseSchema)} language="json" /> : null}
+                    {docs.outputMapping ? <HighlightedCode value={formatJson(docs.outputMapping)} language="json" /> : null}
+                  </Space>
+                </Card>
+              ) : null}
             </div>
           </Col>
 
@@ -285,7 +386,10 @@ print(response.json())`,
                     {t('workflowApi.copyCode')}
                   </Button>
                 </div>
-                <pre className={styles.codeBlock}>{codeSamples[language]}</pre>
+                <HighlightedCode
+                  value={codeSamples[language]}
+                  language={language === 'curl' ? 'bash' : language}
+                />
               </Card>
 
               <Card
@@ -304,7 +408,7 @@ print(response.json())`,
                       {t('workflowApi.copyResponse')}
                     </Button>
                   </div>
-                  <pre className={styles.codeBlock}>{formatJson(waitExample)}</pre>
+                  <HighlightedCode value={formatJson(waitExample)} language="json" />
                 </div>
 
                 <div className={styles.blockSection}>
@@ -314,7 +418,7 @@ print(response.json())`,
                       {t('workflowApi.copyResponse')}
                     </Button>
                   </div>
-                  <pre className={styles.codeBlock}>{formatJson(asyncExample)}</pre>
+                  <HighlightedCode value={formatJson(asyncExample)} language="json" />
                 </div>
               </Card>
             </div>

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"syscall"
@@ -832,6 +833,14 @@ func (c *WorkflowController) SaveWorkflowNodes(ctx *gin.Context) {
 			})
 			return
 		}
+		if errors.Is(err, workflowService.ErrPublishedWorkflowAPICanvasInvalid) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"message": err.Error(),
+				"data":    nil,
+			})
+			return
+		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
 			"message": "保存节点失败: " + err.Error(),
@@ -899,6 +908,14 @@ func (c *WorkflowController) SaveWorkflowNode(ctx *gin.Context) {
 			ctx.JSON(http.StatusNotFound, gin.H{
 				"code":    404,
 				"message": "工作流不存在",
+				"data":    nil,
+			})
+			return
+		}
+		if errors.Is(err, workflowService.ErrPublishedWorkflowAPICanvasInvalid) {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"code":    400,
+				"message": err.Error(),
 				"data":    nil,
 			})
 			return

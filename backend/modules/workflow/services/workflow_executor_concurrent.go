@@ -421,7 +421,7 @@ func (e *WorkflowExecutor) executeConcurrentWorkflow(
 		opts.task.UpdatedAt = completedAt
 		duration := int(completedAt.Sub(*opts.task.StartedAt).Milliseconds())
 		opts.task.ActualDuration = &duration
-		opts.task.Result = collectTaskResultPayload(dataFlow, terminalNodes)
+		opts.task.Result = collectTaskResultPayload(dataFlow, req.Nodes, terminalNodes, shouldPreferAPIOutputResults(req))
 
 		switch {
 		case workflowCancelled:
@@ -558,6 +558,10 @@ func (e *WorkflowExecutor) executeConcurrentWorkflow(
 				nodeStatus[nodeID] = "completed"
 				saveNodeExecution(nodeID, outcome.nodeType, outcome.result, outcome.executionTime, "completed")
 				emit(nodeID, nodeResultPayload(outcome.result, "completed"), false, "node_result", nil)
+			} else if isSkippedStartNodeResult(outcome.result) {
+				nodeStatus[nodeID] = "skipped"
+				saveNodeExecution(nodeID, outcome.nodeType, outcome.result, outcome.executionTime, "skipped")
+				emit(nodeID, nodeResultPayload(outcome.result, "skipped"), false, "node_result", nil)
 			} else {
 				status := "failed"
 				if workflowCancelled || errorsContainContextCancellation(outcome.result.Error) {
@@ -578,6 +582,9 @@ func (e *WorkflowExecutor) executeConcurrentWorkflow(
 				emit(nodeID, nodeResultPayload(outcome.result, status), false, "node_result", nil)
 			}
 			updateTaskProgress(len(nodeResults))
+			if isSkippedStartNodeResult(outcome.result) {
+				continue
+			}
 
 			if nodeConfig.Type == "condition" && outcome.result.Success {
 				if resultData, ok := outcome.result.Data.(map[string]interface{}); ok {

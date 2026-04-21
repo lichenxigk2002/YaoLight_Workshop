@@ -7,6 +7,12 @@ export interface WorkflowAPIEndpoint {
   status: string
   responseMode: 'wait' | 'async'
   resultMode: 'json' | 'artifact'
+  requestSchema?: any
+  inputMapping?: any
+  responseSchema?: any
+  outputMapping?: any
+  exposeArtifacts: 'all' | 'none' | 'selected'
+  exposedArtifactNodeIds?: string[]
   waitTimeoutSeconds: number
   requestExample?: any
   responseExample?: any
@@ -57,6 +63,12 @@ export interface WorkflowPublicDocs {
   status: string
   responseMode: 'wait' | 'async'
   resultMode: 'json' | 'artifact'
+  requestSchema?: any
+  responseSchema?: any
+  inputMapping?: any
+  outputMapping?: any
+  exposeArtifacts: 'all' | 'none' | 'selected'
+  exposedArtifactNodeIds?: string[]
   waitTimeoutSeconds: number
   auth: Record<string, string>
   endpoints: Record<string, string>

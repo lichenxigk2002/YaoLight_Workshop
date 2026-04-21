@@ -157,6 +157,17 @@ export function useNodeConfigForm({
       const config: any = { ...values };
       const existingConfig = node.data?.config || {};
 
+      // Preserve legacy start nodes that predate inputMode. Opening and re-saving them
+      // should not silently persist `manual` and change open_api behavior.
+      if (
+        nodeType === 'start' &&
+        existingConfig.inputMode === undefined &&
+        config.inputMode === 'manual' &&
+        !form.isFieldTouched('inputMode')
+      ) {
+        delete config.inputMode;
+      }
+
       // 为AI节点处理模型配置
       if (isAINode) {
         // 确保 modelMode 被正确设置（如果为空或未定义，默认为 'system'）

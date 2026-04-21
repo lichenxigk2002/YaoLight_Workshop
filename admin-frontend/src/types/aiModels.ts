@@ -104,6 +104,7 @@ export interface AIUsageSummary {
 export interface AIAdminModel {
   id: string;
   provider: string;
+  provider_name?: string;
   model_name: string;
   display_name: string;
   model_icon?: string;

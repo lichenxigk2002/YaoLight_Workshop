@@ -66,6 +66,7 @@ type AdminUsageSummary struct {
 type AdminModelResponse struct {
 	ID             uint                            `json:"id"`
 	Provider       string                          `json:"provider"`
+	ProviderName   *string                         `json:"provider_name,omitempty"`
 	ModelName      string                          `json:"model_name"`
 	DisplayName    string                          `json:"display_name"`
 	ModelIcon      *string                         `json:"model_icon,omitempty"`
@@ -895,8 +896,11 @@ func (s *AdminAIService) enrichModels(models []aiModels.ManagedAIModel) ([]Admin
 		return nil, err
 	}
 	providerIcons := make(map[string]*string, len(templates))
+	providerNames := make(map[string]*string, len(templates))
 	for _, template := range templates {
 		providerIcons[template.Provider] = template.Icon
+		name := template.Name
+		providerNames[template.Provider] = &name
 	}
 
 	response := make([]AdminModelResponse, 0, len(models))
@@ -913,6 +917,7 @@ func (s *AdminAIService) enrichModels(models []aiModels.ManagedAIModel) ([]Admin
 		response = append(response, AdminModelResponse{
 			ID:             model.ID,
 			Provider:       model.Provider,
+			ProviderName:   providerNames[model.Provider],
 			ModelName:      model.ModelName,
 			DisplayName:    model.DisplayName,
 			ModelIcon:      model.ModelIcon,
