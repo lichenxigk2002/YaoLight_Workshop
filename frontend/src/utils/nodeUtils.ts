@@ -7,6 +7,7 @@ export function getDefaultConfig(type: string): any {
   switch (type) {
     case 'start':
       return {
+        inputMode: 'manual',
         trigger: 'manual', // manual, schedule, webhook
       };
     case 'crawler':

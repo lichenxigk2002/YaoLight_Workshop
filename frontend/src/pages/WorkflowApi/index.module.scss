@@ -1,17 +1,17 @@
 .page {
   height: 100%;
   overflow: auto;
-  padding: 24px 24px 56px;
+  padding: 20px 24px 44px;
   background:
-    radial-gradient(circle at top left, rgba(185, 122, 34, 0.12), transparent 24%),
-    radial-gradient(circle at 85% 8%, rgba(38, 84, 124, 0.12), transparent 22%),
-    linear-gradient(180deg, rgba(245, 241, 233, 0.96), rgba(239, 234, 226, 0.94)),
-    #ede7de;
+    radial-gradient(circle at top center, rgba(0, 0, 0, 0.045), transparent 28%),
+    radial-gradient(circle at 84% 8%, rgba(57, 86, 118, 0.08), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.74)),
+    #f7f5f1;
 
   [data-theme='dark'] & {
     background:
-      radial-gradient(circle at top left, rgba(217, 151, 67, 0.12), transparent 22%),
-      radial-gradient(circle at 82% 10%, rgba(88, 133, 173, 0.12), transparent 22%),
+      radial-gradient(circle at top center, rgba(255, 255, 255, 0.055), transparent 26%),
+      radial-gradient(circle at 82% 10%, rgba(108, 137, 172, 0.12), transparent 22%),
       linear-gradient(180deg, rgba(17, 17, 17, 0.98), rgba(14, 14, 14, 0.98)),
       #0d0d0d;
   }
@@ -25,12 +25,12 @@
 .hero {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(33, 28, 23, 0.08);
-  border-radius: 32px;
+  border: 1px solid rgba(0, 0, 0, 0.075);
+  border-radius: 26px;
   background:
-    linear-gradient(140deg, rgba(255, 252, 247, 0.9), rgba(247, 241, 232, 0.8)),
-    rgba(255, 255, 255, 0.7);
-  box-shadow: 0 22px 52px rgba(43, 31, 19, 0.1);
+    linear-gradient(140deg, rgba(255, 255, 255, 0.92), rgba(248, 248, 246, 0.78)),
+    rgba(255, 255, 255, 0.72);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.075);
 
   [data-theme='dark'] & {
     border-color: rgba(255, 255, 255, 0.07);
@@ -48,17 +48,17 @@
   width: 360px;
   height: 360px;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(193, 141, 63, 0.22), transparent 68%);
+  background: radial-gradient(circle, rgba(49, 70, 96, 0.12), transparent 68%);
   pointer-events: none;
 
   [data-theme='dark'] & {
-    background: radial-gradient(circle, rgba(202, 149, 84, 0.18), transparent 70%);
+    background: radial-gradient(circle, rgba(112, 139, 173, 0.16), transparent 70%);
   }
 }
 
 .heroContent {
   position: relative;
-  padding: 28px;
+  padding: 22px 24px 24px;
 }
 
 .heroBadgeRow {
@@ -66,7 +66,33 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
+}
+
+.backButton {
+  min-height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  background: rgba(255, 255, 255, 0.7) !important;
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+
+  &:hover {
+    border-color: rgba(0, 0, 0, 0.14) !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+  }
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.14) !important;
+      background: rgba(255, 255, 255, 0.07) !important;
+    }
+  }
 }
 
 .badge {
@@ -92,8 +118,8 @@
 
 .heroHeader {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 380px);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 420px);
+  gap: 18px;
   align-items: start;
 }
 
@@ -104,17 +130,17 @@
 .title {
   margin: 0 !important;
   font-family: var(--font-display);
-  font-size: clamp(36px, 4vw, 54px) !important;
-  line-height: 1.04 !important;
+  font-size: clamp(32px, 3.4vw, 46px) !important;
+  line-height: 1.08 !important;
   letter-spacing: -0.04em;
 }
 
 .description {
   max-width: 760px;
-  margin: 14px 0 0 !important;
+  margin: 10px 0 0 !important;
   color: var(--text-secondary);
   font-size: 15px;
-  line-height: 1.85;
+  line-height: 1.65;
 }
 
 .heroAside {
@@ -129,7 +155,7 @@
 .editorSection,
 .infoCard,
 .securityNote {
-  border: 1px solid rgba(33, 28, 23, 0.07);
+  border: 1px solid rgba(0, 0, 0, 0.07);
   background: rgba(255, 255, 255, 0.62);
   backdrop-filter: blur(18px);
 
@@ -140,8 +166,8 @@
 }
 
 .heroAsideCard {
-  padding: 16px 18px;
-  border-radius: 20px;
+  padding: 14px 16px;
+  border-radius: 18px;
 }
 
 .heroAsideLabel,
@@ -155,10 +181,10 @@
 }
 
 .heroAsideValue {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--text-primary);
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 1.55;
   word-break: break-all;
 }
 
@@ -171,21 +197,21 @@
 .metricGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 24px;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .metricCard {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 18px;
-  border-radius: 22px;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
 }
 
 .metricValue {
   color: var(--text-primary);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.04em;
@@ -194,22 +220,22 @@
 .metricHint {
   color: var(--text-secondary);
   font-size: 12px;
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .heroRail {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .heroRailCard {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px 18px;
-  border-radius: 20px;
+  gap: 6px;
+  padding: 13px 16px;
+  border-radius: 18px;
 }
 
 .heroRailValue {
@@ -220,19 +246,19 @@
 }
 
 .latestKeyAlert {
-  margin-top: 18px;
-  border-radius: 22px;
+  margin-top: 14px;
+  border-radius: 18px;
 }
 
 .mainGrid {
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .contentStack,
 .railStack {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .railStack {
@@ -242,9 +268,9 @@
 
 .card {
   overflow: hidden;
-  border-radius: 28px;
-  border: 1px solid rgba(33, 28, 23, 0.08);
-  box-shadow: 0 18px 36px rgba(43, 31, 19, 0.07);
+  border-radius: 22px;
+  border: 1px solid rgba(0, 0, 0, 0.075);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.055);
 
   [data-theme='dark'] & {
     border-color: rgba(255, 255, 255, 0.07);
@@ -252,9 +278,9 @@
   }
 
   :global(.ant-card-head) {
-    min-height: 78px;
-    padding: 0 24px;
-    border-bottom-color: rgba(33, 28, 23, 0.08);
+    min-height: 66px;
+    padding: 0 20px;
+    border-bottom-color: rgba(0, 0, 0, 0.07);
 
     [data-theme='dark'] & {
       border-bottom-color: rgba(255, 255, 255, 0.06);
@@ -262,7 +288,7 @@
   }
 
   :global(.ant-card-body) {
-    padding: 24px;
+    padding: 20px;
   }
 
   :global(.ant-table-wrapper) {
@@ -294,9 +320,9 @@
 }
 
 .editorSection {
-  margin-top: 20px;
-  padding: 18px;
-  border-radius: 22px;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 18px;
 }
 
 .editorHeader {
@@ -330,24 +356,10 @@
   }
 }
 
-.codeInput {
-  font-family: var(--font-mono);
-
-  :global(.ant-input) {
-    min-height: 240px;
-    border-radius: 18px !important;
-    background: rgba(15, 23, 42, 0.98) !important;
-    color: #e2e8f0 !important;
-    border: 1px solid rgba(148, 163, 184, 0.16) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
-    line-height: 1.65;
-  }
-}
-
 .formActions {
   display: flex;
   justify-content: flex-start;
-  margin-top: 22px;
+  margin-top: 18px;
 }
 
 .infoGrid {
@@ -359,9 +371,9 @@
 .infoCard {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border-radius: 20px;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 18px;
 }
 
 .infoLabel {
@@ -403,17 +415,17 @@
 .securityNote {
   display: flex;
   gap: 12px;
-  margin-top: 16px;
-  padding: 16px;
-  border-radius: 20px;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 18px;
 }
 
 .securityIcon {
   margin-top: 3px;
-  color: #9a6225;
+  color: rgba(17, 17, 17, 0.62);
 
   [data-theme='dark'] & {
-    color: #d6a35e;
+    color: rgba(255, 255, 255, 0.66);
   }
 }
 
@@ -436,7 +448,7 @@
   align-items: flex-start;
   gap: 16px;
   padding: 14px 0;
-  border-bottom: 1px solid rgba(33, 28, 23, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 
   [data-theme='dark'] & {
     border-bottom-color: rgba(255, 255, 255, 0.06);

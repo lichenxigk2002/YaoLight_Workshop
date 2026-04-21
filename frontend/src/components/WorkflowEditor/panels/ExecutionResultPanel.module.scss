@@ -351,27 +351,6 @@
   object-fit: contain;
 }
 
-.jsonDisplay,
-.codeBlock,
-.errorStack {
-  margin: 0;
-  padding: 14px;
-  border: 1px solid var(--editor-border-soft, var(--border-secondary));
-  border-radius: 18px;
-  background: var(--editor-surface-soft, var(--bg-secondary));
-  color: var(--editor-text, var(--text-primary));
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.jsonDisplay {
-  max-height: 600px;
-  overflow: auto;
-}
-
 .errorMessage {
   padding: 14px;
   border: 1px solid rgba(255, 77, 79, 0.16);

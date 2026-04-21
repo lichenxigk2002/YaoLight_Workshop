@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -32,6 +33,9 @@ var (
 	ErrEndpointNotFound   = errors.New("workflow api endpoint not found")
 	ErrAPIKeyInvalid      = errors.New("invalid api key")
 	ErrInvocationNotFound = errors.New("invocation not found")
+	ErrInvalidKeyStatus   = errors.New("invalid api key status")
+	ErrInvalidKeyExpiry   = errors.New("api key expiry must be in the future")
+	ErrValidationFailed   = errors.New("workflow api validation failed")
 )
 
 type WorkflowAPIService struct {
@@ -51,6 +55,12 @@ type EndpointSummary struct {
 	Status             string      `json:"status"`
 	ResponseMode       string      `json:"responseMode"`
 	ResultMode         string      `json:"resultMode"`
+	RequestSchema      interface{} `json:"requestSchema,omitempty"`
+	InputMapping       interface{} `json:"inputMapping,omitempty"`
+	ResponseSchema     interface{} `json:"responseSchema,omitempty"`
+	OutputMapping      interface{} `json:"outputMapping,omitempty"`
+	ExposeArtifacts    string      `json:"exposeArtifacts"`
+	ExposedArtifactIDs interface{} `json:"exposedArtifactNodeIds,omitempty"`
 	WaitTimeoutSeconds int         `json:"waitTimeoutSeconds"`
 	RequestExample     interface{} `json:"requestExample,omitempty"`
 	ResponseExample    interface{} `json:"responseExample,omitempty"`
@@ -60,20 +70,30 @@ type EndpointSummary struct {
 }
 
 type EndpointUpsertRequest struct {
-	Name               string      `json:"name"`
-	Slug               string      `json:"slug"`
-	Description        *string     `json:"description"`
-	Status             string      `json:"status"`
-	ResponseMode       string      `json:"responseMode"`
-	ResultMode         string      `json:"resultMode"`
-	WaitTimeoutSeconds int         `json:"waitTimeoutSeconds"`
-	RequestExample     interface{} `json:"requestExample"`
-	ResponseExample    interface{} `json:"responseExample"`
+	Name               string       `json:"name"`
+	Slug               string       `json:"slug"`
+	Description        *string      `json:"description"`
+	Status             string       `json:"status"`
+	ResponseMode       string       `json:"responseMode"`
+	ResultMode         string       `json:"resultMode"`
+	RequestSchema      OptionalJSON `json:"requestSchema"`
+	InputMapping       OptionalJSON `json:"inputMapping"`
+	ResponseSchema     OptionalJSON `json:"responseSchema"`
+	OutputMapping      OptionalJSON `json:"outputMapping"`
+	ExposeArtifacts    string       `json:"exposeArtifacts"`
+	ExposedArtifactIDs OptionalJSON `json:"exposedArtifactNodeIds"`
+	WaitTimeoutSeconds int          `json:"waitTimeoutSeconds"`
+	RequestExample     OptionalJSON `json:"requestExample"`
+	ResponseExample    OptionalJSON `json:"responseExample"`
 }
 
 type CreateAPIKeyRequest struct {
 	Name      string     `json:"name"`
 	ExpiresAt *time.Time `json:"expiresAt"`
+}
+
+type UpdateAPIKeyRequest struct {
+	Status string `json:"status"`
 }
 
 type CreatedAPIKey struct {
@@ -118,6 +138,7 @@ type PublicInvokeRequest struct {
 
 type ArtifactDTO struct {
 	ID          uint        `json:"id"`
+	NodeID      string      `json:"nodeId,omitempty"`
 	Name        string      `json:"name"`
 	Kind        string      `json:"kind"`
 	MimeType    string      `json:"mimeType"`
@@ -143,6 +164,12 @@ type PublicDocsResponse struct {
 	Status             string                 `json:"status"`
 	ResponseMode       string                 `json:"responseMode"`
 	ResultMode         string                 `json:"resultMode"`
+	RequestSchema      interface{}            `json:"requestSchema,omitempty"`
+	ResponseSchema     interface{}            `json:"responseSchema,omitempty"`
+	InputMapping       interface{}            `json:"inputMapping,omitempty"`
+	OutputMapping      interface{}            `json:"outputMapping,omitempty"`
+	ExposeArtifacts    string                 `json:"exposeArtifacts"`
+	ExposedArtifactIDs interface{}            `json:"exposedArtifactNodeIds,omitempty"`
 	WaitTimeoutSeconds int                    `json:"waitTimeoutSeconds"`
 	Auth               map[string]string      `json:"auth"`
 	Endpoints          map[string]string      `json:"endpoints"`
@@ -155,6 +182,27 @@ type authenticatedEndpoint struct {
 	Endpoint workflowAPIModels.WorkflowAPIEndpoint
 	Key      workflowAPIModels.WorkflowAPIKey
 	Workflow workflowModels.Workflow
+}
+
+type OptionalJSON struct {
+	Set   bool
+	Value interface{}
+}
+
+func (o *OptionalJSON) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	trimmed := bytes.TrimSpace(data)
+	if bytes.Equal(trimmed, []byte("null")) {
+		o.Value = nil
+		return nil
+	}
+
+	var value interface{}
+	if err := json.Unmarshal(trimmed, &value); err != nil {
+		return err
+	}
+	o.Value = value
+	return nil
 }
 
 func NewWorkflowAPIService(db *gorm.DB) *WorkflowAPIService {
@@ -191,6 +239,7 @@ func (s *WorkflowAPIService) UpsertEndpoint(userID uint, workflowID uint, req En
 	if err != nil {
 		return nil, err
 	}
+	previousStatus := endpoint.Status
 
 	if strings.TrimSpace(req.Name) != "" {
 		endpoint.Name = strings.TrimSpace(req.Name)
@@ -207,14 +256,32 @@ func (s *WorkflowAPIService) UpsertEndpoint(userID uint, workflowID uint, req En
 	if req.ResultMode != "" {
 		endpoint.ResultMode = normalizeResultMode(req.ResultMode)
 	}
+	if req.RequestSchema.Set {
+		endpoint.RequestSchema = jsonbFieldPtr(req.RequestSchema.Value)
+	}
+	if req.InputMapping.Set {
+		endpoint.InputMapping = jsonbFieldPtr(req.InputMapping.Value)
+	}
+	if req.ResponseSchema.Set {
+		endpoint.ResponseSchema = jsonbFieldPtr(req.ResponseSchema.Value)
+	}
+	if req.OutputMapping.Set {
+		endpoint.OutputMapping = jsonbFieldPtr(req.OutputMapping.Value)
+	}
+	if req.ExposeArtifacts != "" {
+		endpoint.ExposeArtifacts = normalizeArtifactExposure(req.ExposeArtifacts)
+	}
+	if req.ExposedArtifactIDs.Set {
+		endpoint.ExposedArtifactIDs = jsonbFieldPtr(req.ExposedArtifactIDs.Value)
+	}
 	if req.WaitTimeoutSeconds > 0 {
 		endpoint.WaitTimeoutSeconds = req.WaitTimeoutSeconds
 	}
-	if req.RequestExample != nil {
-		endpoint.RequestExample = &shared.JSONB{Data: req.RequestExample}
+	if req.RequestExample.Set {
+		endpoint.RequestExample = jsonbFieldPtr(req.RequestExample.Value)
 	}
-	if req.ResponseExample != nil {
-		endpoint.ResponseExample = &shared.JSONB{Data: req.ResponseExample}
+	if req.ResponseExample.Set {
+		endpoint.ResponseExample = jsonbFieldPtr(req.ResponseExample.Value)
 	}
 	if strings.TrimSpace(req.Slug) != "" {
 		slug, err := s.ensureUniqueSlug(req.Slug, endpoint.ID)
@@ -225,6 +292,11 @@ func (s *WorkflowAPIService) UpsertEndpoint(userID uint, workflowID uint, req En
 	}
 
 	now := time.Now()
+	if shouldValidatePublishedEndpointCanvas(previousStatus, endpoint.Status) {
+		if err := s.validatePublishedEndpointCanvas(workflow.ID); err != nil {
+			return nil, wrapValidationError(err)
+		}
+	}
 	if endpoint.Status == "published" && endpoint.PublishedAt == nil {
 		endpoint.PublishedAt = &now
 	}
@@ -269,6 +341,9 @@ func (s *WorkflowAPIService) CreateKey(userID uint, workflowID uint, req CreateA
 	if err != nil {
 		return nil, err
 	}
+	if err := validateAPIKeyExpiry(req.ExpiresAt, time.Now()); err != nil {
+		return nil, err
+	}
 
 	rawKey, err := generateAPIKey()
 	if err != nil {
@@ -295,6 +370,56 @@ func (s *WorkflowAPIService) CreateKey(userID uint, workflowID uint, req CreateA
 		ExpiresAt: entity.ExpiresAt,
 		CreatedAt: entity.CreatedAt,
 	}, nil
+}
+
+func (s *WorkflowAPIService) UpdateKey(userID uint, workflowID uint, keyID uint, req UpdateAPIKeyRequest) (*APIKeySummary, error) {
+	endpoint, err := s.getExistingEndpointForUser(userID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	var entity workflowAPIModels.WorkflowAPIKey
+	if err := s.db.Where("id = ? AND endpoint_id = ?", keyID, endpoint.ID).First(&entity).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrEndpointNotFound
+		}
+		return nil, err
+	}
+
+	status, err := normalizeAPIKeyStatus(req.Status)
+	if err != nil {
+		return nil, err
+	}
+	entity.Status = status
+	if err := s.db.Save(&entity).Error; err != nil {
+		return nil, err
+	}
+
+	return &APIKeySummary{
+		ID:         entity.ID,
+		Name:       entity.Name,
+		KeyPrefix:  entity.KeyPrefix,
+		Status:     entity.Status,
+		ExpiresAt:  entity.ExpiresAt,
+		LastUsedAt: entity.LastUsedAt,
+		CreatedAt:  entity.CreatedAt,
+	}, nil
+}
+
+func (s *WorkflowAPIService) DeleteKey(userID uint, workflowID uint, keyID uint) error {
+	endpoint, err := s.getExistingEndpointForUser(userID, workflowID)
+	if err != nil {
+		return err
+	}
+
+	result := s.db.Where("id = ? AND endpoint_id = ?", keyID, endpoint.ID).Delete(&workflowAPIModels.WorkflowAPIKey{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrEndpointNotFound
+	}
+	return nil
 }
 
 func (s *WorkflowAPIService) ListInvocations(userID uint, workflowID uint, page int, pageSize int) (*InvocationPage, error) {
@@ -341,6 +466,11 @@ func (s *WorkflowAPIService) PublicInvoke(ctx context.Context, slug string, rawK
 	if err != nil {
 		return nil, err
 	}
+	if auth.Endpoint.RequestSchema != nil {
+		if err := validateContractSchema(req.Input, auth.Endpoint.RequestSchema.Data, "input"); err != nil {
+			return nil, wrapValidationError(err)
+		}
+	}
 
 	requestID, err := generateRequestID()
 	if err != nil {
@@ -370,7 +500,12 @@ func (s *WorkflowAPIService) PublicInvoke(ctx context.Context, slug string, rawK
 		responseMode = normalizeResponseMode(req.ResponseMode)
 	}
 
-	execReq, err := s.buildExecutionRequest(&auth.Workflow, req.Input, requestID)
+	mappedInput := req.Input
+	if auth.Endpoint.InputMapping != nil {
+		mappedInput = applyContractMapping(req.Input, auth.Endpoint.InputMapping.Data)
+	}
+
+	execReq, err := s.buildExecutionRequest(&auth.Workflow, &auth.Endpoint, mappedInput, requestID)
 	if err != nil {
 		_ = s.failInvocation(invocation, err.Error())
 		return nil, err
@@ -448,6 +583,9 @@ func (s *WorkflowAPIService) GetInvocationArtifact(slug string, rawKey string, r
 	if artifact.TaskID == nil || *artifact.TaskID != *invocation.TaskID || artifact.UserID != auth.Endpoint.UserID {
 		return nil, ErrInvocationNotFound
 	}
+	if !isArtifactExposed(&auth.Endpoint, artifact.NodeID) {
+		return nil, ErrInvocationNotFound
+	}
 	return artifact, nil
 }
 
@@ -469,6 +607,12 @@ func (s *WorkflowAPIService) GetDocs(baseURL string, slug string) (*PublicDocsRe
 		Status:             endpoint.Status,
 		ResponseMode:       endpoint.ResponseMode,
 		ResultMode:         endpoint.ResultMode,
+		RequestSchema:      jsonbValue(endpoint.RequestSchema),
+		ResponseSchema:     jsonbValue(endpoint.ResponseSchema),
+		InputMapping:       jsonbValue(endpoint.InputMapping),
+		OutputMapping:      jsonbValue(endpoint.OutputMapping),
+		ExposeArtifacts:    endpoint.ExposeArtifacts,
+		ExposedArtifactIDs: jsonbValue(endpoint.ExposedArtifactIDs),
 		WaitTimeoutSeconds: endpoint.WaitTimeoutSeconds,
 		Auth: map[string]string{
 			"type":   "apiKey",
@@ -485,7 +629,7 @@ func (s *WorkflowAPIService) GetDocs(baseURL string, slug string) (*PublicDocsRe
 			"wait": map[string]interface{}{
 				"requestId": "req_demo_123456",
 				"status":    "completed",
-				"result":    jsonbValue(endpoint.ResponseExample),
+				"result":    firstNonNil(jsonbValue(endpoint.ResponseExample), map[string]interface{}{}),
 			},
 			"async": map[string]interface{}{
 				"requestId": "req_demo_123456",
@@ -539,6 +683,7 @@ func (s *WorkflowAPIService) finalizeInvocation(invocationID uint, taskID uint, 
 	}
 
 	status := mapTaskStatus(task.Status)
+	now := time.Now()
 	snapshot := map[string]interface{}{
 		"taskId": task.ID,
 		"status": task.Status,
@@ -550,12 +695,41 @@ func (s *WorkflowAPIService) finalizeInvocation(invocationID uint, taskID uint, 
 
 	var endpoint workflowAPIModels.WorkflowAPIEndpoint
 	if err := s.db.First(&endpoint, invocation.EndpointID).Error; err == nil {
-		if artifacts, loadErr := s.loadArtifactsByTaskID(&endpoint, task.ID, invocation.RequestID); loadErr == nil {
-			snapshot["artifacts"] = artifacts
+		artifacts, loadErr := s.loadArtifactsByTaskID(&endpoint, task.ID, invocation.RequestID)
+		if loadErr == nil {
+			if len(artifacts) > 0 {
+				snapshot["artifacts"] = artifacts
+			}
 		}
-	}
 
-	now := time.Now()
+		mappedResult := snapshot["result"]
+		if endpoint.OutputMapping != nil {
+			mappedResult = applyContractMapping(map[string]interface{}{
+				"result":    snapshot["result"],
+				"artifacts": artifacts,
+				"taskId":    task.ID,
+				"status":    task.Status,
+				"requestId": invocation.RequestID,
+			}, endpoint.OutputMapping.Data)
+		}
+		if endpoint.ResponseSchema != nil && shouldValidateResponseSchema(status) {
+			if err := validateContractSchema(mappedResult, endpoint.ResponseSchema.Data, "result"); err != nil {
+				invocation.Status = "failed"
+				invocation.CompletedAt = &now
+				invocation.ErrorMessage = ptrString("response schema validation failed: " + err.Error())
+				invocation.ResponseSnapshot = &shared.JSONB{Data: map[string]interface{}{
+					"taskId": task.ID,
+					"status": task.Status,
+					"error":  *invocation.ErrorMessage,
+				}}
+				if saveErr := s.db.Save(&invocation).Error; saveErr != nil {
+					return nil, saveErr
+				}
+				return s.toPublicInvokeResponse(&invocation)
+			}
+		}
+		snapshot["result"] = mappedResult
+	}
 	invocation.Status = status
 	invocation.CompletedAt = &now
 	invocation.ResponseSnapshot = &shared.JSONB{Data: snapshot}
@@ -568,7 +742,7 @@ func (s *WorkflowAPIService) finalizeInvocation(invocationID uint, taskID uint, 
 	return s.toPublicInvokeResponse(&invocation)
 }
 
-func (s *WorkflowAPIService) buildExecutionRequest(workflow *workflowModels.Workflow, input interface{}, requestID string) (workflowServices.ExecutionRequest, error) {
+func (s *WorkflowAPIService) buildExecutionRequest(workflow *workflowModels.Workflow, endpoint *workflowAPIModels.WorkflowAPIEndpoint, input interface{}, requestID string) (workflowServices.ExecutionRequest, error) {
 	canvas, err := s.workflowSvc.GetWorkflowNodes(workflow.ID)
 	if err != nil {
 		return workflowServices.ExecutionRequest{}, err
@@ -608,6 +782,7 @@ func (s *WorkflowAPIService) buildExecutionRequest(workflow *workflowModels.Work
 		RuntimeMeta: map[string]interface{}{
 			"requestId": requestID,
 			"source":    "open_api",
+			"endpoint":  endpoint.Slug,
 		},
 	}, nil
 }
@@ -629,6 +804,22 @@ func (s *WorkflowAPIService) getEndpointForUser(userID uint, workflowID uint) (*
 		return nil, err
 	}
 	return s.findOrCreateEndpoint(workflow)
+}
+
+func (s *WorkflowAPIService) getExistingEndpointForUser(userID uint, workflowID uint) (*workflowAPIModels.WorkflowAPIEndpoint, error) {
+	workflow, err := s.getOwnedWorkflow(userID, workflowID)
+	if err != nil {
+		return nil, err
+	}
+
+	var endpoint workflowAPIModels.WorkflowAPIEndpoint
+	if err := s.db.Where("workflow_id = ?", workflow.ID).First(&endpoint).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrEndpointNotFound
+		}
+		return nil, err
+	}
+	return &endpoint, nil
 }
 
 func (s *WorkflowAPIService) findOrCreateEndpoint(workflow *workflowModels.Workflow) (*workflowAPIModels.WorkflowAPIEndpoint, error) {
@@ -655,6 +846,7 @@ func (s *WorkflowAPIService) findOrCreateEndpoint(workflow *workflowModels.Workf
 		Status:             "draft",
 		ResponseMode:       "wait",
 		ResultMode:         "json",
+		ExposeArtifacts:    "all",
 		WaitTimeoutSeconds: 15,
 		RequestExample:     &shared.JSONB{Data: s.buildDefaultRequestExample(workflow)},
 	}
@@ -796,6 +988,12 @@ func (s *WorkflowAPIService) toEndpointSummary(endpoint *workflowAPIModels.Workf
 		Status:             endpoint.Status,
 		ResponseMode:       endpoint.ResponseMode,
 		ResultMode:         endpoint.ResultMode,
+		RequestSchema:      jsonbValue(endpoint.RequestSchema),
+		InputMapping:       jsonbValue(endpoint.InputMapping),
+		ResponseSchema:     jsonbValue(endpoint.ResponseSchema),
+		OutputMapping:      jsonbValue(endpoint.OutputMapping),
+		ExposeArtifacts:    endpoint.ExposeArtifacts,
+		ExposedArtifactIDs: jsonbValue(endpoint.ExposedArtifactIDs),
 		WaitTimeoutSeconds: endpoint.WaitTimeoutSeconds,
 		RequestExample:     jsonbValue(endpoint.RequestExample),
 		ResponseExample:    jsonbValue(endpoint.ResponseExample),
@@ -841,10 +1039,12 @@ func (s *WorkflowAPIService) loadArtifactsByTaskID(endpoint *workflowAPIModels.W
 	if err != nil {
 		return nil, err
 	}
-	items := make([]ArtifactDTO, 0, len(artifacts))
-	for _, item := range artifacts {
+	filtered := filterArtifactsByExposure(artifacts, normalizeArtifactExposure(endpoint.ExposeArtifacts), toStringSet(jsonbValue(endpoint.ExposedArtifactIDs)))
+	items := make([]ArtifactDTO, 0, len(filtered))
+	for _, item := range filtered {
 		items = append(items, ArtifactDTO{
 			ID:          item.ID,
+			NodeID:      item.NodeID,
 			Name:        item.Name,
 			Kind:        item.Kind,
 			MimeType:    item.MimeType,
@@ -855,6 +1055,25 @@ func (s *WorkflowAPIService) loadArtifactsByTaskID(endpoint *workflowAPIModels.W
 		})
 	}
 	return items, nil
+}
+
+func jsonbFieldPtr(value interface{}) *shared.JSONB {
+	if value == nil {
+		return nil
+	}
+	return &shared.JSONB{Data: value}
+}
+
+func isArtifactExposed(endpoint *workflowAPIModels.WorkflowAPIEndpoint, nodeID string) bool {
+	switch normalizeArtifactExposure(endpoint.ExposeArtifacts) {
+	case "none":
+		return false
+	case "selected":
+		_, ok := toStringSet(jsonbValue(endpoint.ExposedArtifactIDs))[nodeID]
+		return ok
+	default:
+		return true
+	}
 }
 
 func (s *WorkflowAPIService) ensureWorkflowName(endpoint *workflowAPIModels.WorkflowAPIEndpoint, workflow *workflowModels.Workflow) error {
@@ -889,6 +1108,38 @@ func (s *WorkflowAPIService) buildDefaultRequestExample(workflow *workflowModels
 		return map[string]interface{}{"input": map[string]interface{}{"data": rawInput}, "responseMode": "wait"}
 	}
 	return map[string]interface{}{"input": map[string]interface{}{"data": "example"}, "responseMode": "wait"}
+}
+
+func (s *WorkflowAPIService) validatePublishedEndpointCanvas(workflowID uint) error {
+	canvas, err := s.workflowSvc.GetWorkflowNodes(workflowID)
+	if err != nil {
+		return err
+	}
+
+	hasAPIInput := false
+	hasAPIOutput := false
+	for _, node := range canvas.Nodes {
+		if node.Type == "start" {
+			rawConfig, _ := node.Data["config"].(map[string]interface{})
+			if readNodeConfigString(rawConfig, "inputMode", "manual") == "api_input" {
+				hasAPIInput = true
+			}
+		}
+		if node.Type == "output" {
+			rawConfig, _ := node.Data["config"].(map[string]interface{})
+			if readNodeConfigString(rawConfig, "outputMode", "artifact_export") == "api_output" {
+				hasAPIOutput = true
+			}
+		}
+	}
+
+	if !hasAPIInput {
+		return fmt.Errorf("发布 API 前，工作流至少需要一个开始节点设置为 api_input 模式")
+	}
+	if !hasAPIOutput {
+		return fmt.Errorf("发布 API 前，工作流至少需要一个输出节点设置为 api_output 模式")
+	}
+	return nil
 }
 
 func (s *WorkflowAPIService) resolveRequestExample(endpoint *workflowAPIModels.WorkflowAPIEndpoint) interface{} {
@@ -927,6 +1178,34 @@ func defaultString(value string, fallback string) string {
 	return value
 }
 
+func readNodeConfigString(m map[string]interface{}, key string, fallback string) string {
+	if m == nil {
+		return fallback
+	}
+	value, ok := m[key]
+	if !ok {
+		return fallback
+	}
+	text, ok := value.(string)
+	if !ok || strings.TrimSpace(text) == "" {
+		return fallback
+	}
+	return text
+}
+
+func ptrString(value string) *string {
+	return &value
+}
+
+func firstNonNil(values ...interface{}) interface{} {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
+}
+
 func normalizeEndpointStatus(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "published":
@@ -950,6 +1229,42 @@ func normalizeResultMode(value string) string {
 		return "artifact"
 	}
 	return "json"
+}
+
+func shouldValidatePublishedEndpointCanvas(previousStatus string, currentStatus string) bool {
+	return previousStatus != "published" && currentStatus == "published"
+}
+
+func shouldValidateResponseSchema(status string) bool {
+	return status == "completed"
+}
+
+func wrapValidationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", ErrValidationFailed, err.Error())
+}
+
+func normalizeAPIKeyStatus(value string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "active":
+		return "active", nil
+	case "inactive":
+		return "inactive", nil
+	default:
+		return "", ErrInvalidKeyStatus
+	}
+}
+
+func validateAPIKeyExpiry(expiresAt *time.Time, now time.Time) error {
+	if expiresAt == nil {
+		return nil
+	}
+	if !expiresAt.After(now) {
+		return ErrInvalidKeyExpiry
+	}
+	return nil
 }
 
 func mapTaskStatus(status string) string {

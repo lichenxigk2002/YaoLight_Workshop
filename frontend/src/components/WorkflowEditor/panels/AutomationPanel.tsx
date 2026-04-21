@@ -28,6 +28,8 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { taskScheduleApi } from '@/api/taskSchedule';
+import { CodeBlock } from '@/components/CodeBlock';
+import { JsonCodeEditor } from '../utils/JsonCodeEditor';
 import type { TaskSchedule, TaskScheduleRun } from '@/types/taskSchedule';
 import styles from './AutomationPanel.module.scss';
 
@@ -480,12 +482,12 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                           <div className={styles.webhookGrid}>
                             <div className={styles.webhookCard}>
                               <div className={styles.fieldLabel}>{a('webhookUrl', 'Webhook URL')}</div>
-                              <div className={styles.codeBlock}>{selectedSchedule.webhookUrl || '-'}</div>
+                              <CodeBlock value={selectedSchedule.webhookUrl || '-'} language="text" className={styles.webhookCodeBlock} showHeader={false} defaultExpanded />
                               <Button icon={<CopyOutlined />} onClick={() => void copyText(selectedSchedule.webhookUrl)}>{a('copyUrl', 'Copy URL')}</Button>
                             </div>
                             <div className={styles.webhookCard}>
                               <div className={styles.fieldLabel}>{a('latestSecret', 'Latest secret')}</div>
-                              <div className={styles.codeBlock}>{latestWebhookSecret || a('secretPlaceholder', 'It will be shown once after creation or regeneration.')}</div>
+                              <CodeBlock value={latestWebhookSecret || a('secretPlaceholder', 'It will be shown once after creation or regeneration.')} language="text" className={styles.webhookCodeBlock} showHeader={false} defaultExpanded />
                               <Button icon={<CopyOutlined />} onClick={() => void copyText(latestWebhookSecret || undefined)} disabled={!latestWebhookSecret}>{a('copySecret', 'Copy secret')}</Button>
                             </div>
                           </div>
@@ -640,7 +642,7 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                 <div className={styles.formSectionHint}>{a('inputAndSecurityHint', 'Prepare default input for the start node and optionally restrict who can call it.')}</div>
               </div>
               <div className={styles.formGridTwo}>
-                <Form.Item name="inputTemplateText" label={a('inputTemplate', 'Input template JSON')}><TextArea rows={4} className={styles.jsonEditor} placeholder='{"source":"schedule"}' /></Form.Item>
+                <Form.Item name="inputTemplateText" label={a('inputTemplate', 'Input template JSON')}><JsonCodeEditor rows={4} placeholder='{"source":"schedule"}' /></Form.Item>
                 <Form.Item name="ipWhitelistText" label={a('ipWhitelist', 'IP allowlist')}><TextArea rows={4} placeholder={a('ipWhitelistPlaceholder', 'One IP or CIDR per line, for example:\n127.0.0.1\n10.0.0.0/24')} /></Form.Item>
               </div>
             </div>

@@ -62,6 +62,9 @@ export default function RuleEditorDrawer({
                   <Form.Item name="description" label="规则说明">
                     <Input.TextArea rows={3} placeholder="说明这个规则适用于哪些站点、页面结构或采集目的。" />
                   </Form.Item>
+                  <Form.Item name="tutorial" label="使用教程">
+                    <Input.TextArea rows={10} placeholder={'建议包含：适用场景、操作步骤、常见失败原因、调参建议、示例 URL。'} />
+                  </Form.Item>
                   <Row gutter={16}>
                     <Col xs={24} md={14}>
                       <Form.Item name="url_pattern" label="URL 模式" rules={[{ required: true, message: '请输入 URL 模式' }]}>

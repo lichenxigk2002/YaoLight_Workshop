@@ -8,6 +8,7 @@ export type FilterStatus = 'all' | 'active' | 'inactive';
 export interface RuleFormValues {
   name: string;
   description: string;
+  tutorial: string;
   version: string;
   url_pattern: string;
   url_pattern_type: 'regex' | 'glob' | 'exact';
@@ -40,6 +41,7 @@ export interface TestFormValues {
 export const DEFAULT_RULE_FORM: RuleFormValues = {
   name: '',
   description: '',
+  tutorial: '',
   version: '1.0.0',
   url_pattern: '',
   url_pattern_type: 'regex',
@@ -100,6 +102,7 @@ export function toRulePayload(values: RuleFormValues): CrawlerRulePayload {
   return {
     name: values.name.trim(),
     description: values.description.trim() || null,
+    tutorial: values.tutorial.trim() || null,
     version: values.version.trim() || '1.0.0',
     url_pattern: values.url_pattern.trim(),
     url_pattern_type: values.url_pattern_type,
@@ -129,6 +132,7 @@ export function detailToFormValues(detail: CrawlerRuleDetail): RuleFormValues {
   return {
     name: detail.name ?? '',
     description: detail.description ?? '',
+    tutorial: detail.tutorial ?? '',
     version: detail.version ?? '1.0.0',
     url_pattern: detail.url_pattern ?? '',
     url_pattern_type: detail.url_pattern_type ?? 'regex',

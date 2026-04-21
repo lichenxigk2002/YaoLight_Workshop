@@ -18,6 +18,12 @@ type WorkflowAPIEndpoint struct {
 	Status             string         `gorm:"type:varchar(20);not null;default:'draft';index" json:"status"`
 	ResponseMode       string         `gorm:"type:varchar(20);not null;default:'wait'" json:"responseMode"`
 	ResultMode         string         `gorm:"type:varchar(20);not null;default:'json'" json:"resultMode"`
+	RequestSchema      *shared.JSONB  `gorm:"type:jsonb" json:"requestSchema,omitempty"`
+	InputMapping       *shared.JSONB  `gorm:"type:jsonb" json:"inputMapping,omitempty"`
+	ResponseSchema     *shared.JSONB  `gorm:"type:jsonb" json:"responseSchema,omitempty"`
+	OutputMapping      *shared.JSONB  `gorm:"type:jsonb" json:"outputMapping,omitempty"`
+	ExposeArtifacts    string         `gorm:"type:varchar(20);not null;default:'all'" json:"exposeArtifacts"`
+	ExposedArtifactIDs *shared.JSONB  `gorm:"type:jsonb" json:"exposedArtifactNodeIds,omitempty"`
 	WaitTimeoutSeconds int            `gorm:"not null;default:15" json:"waitTimeoutSeconds"`
 	RequestExample     *shared.JSONB  `gorm:"type:jsonb" json:"requestExample,omitempty"`
 	ResponseExample    *shared.JSONB  `gorm:"type:jsonb" json:"responseExample,omitempty"`

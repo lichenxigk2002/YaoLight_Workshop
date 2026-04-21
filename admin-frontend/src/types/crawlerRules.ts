@@ -16,6 +16,7 @@ export interface CrawlerRuleDetail {
   id: number;
   name: string;
   description?: string | null;
+  tutorial?: string | null;
   version: string;
   url_pattern?: string | null;
   url_pattern_type: 'regex' | 'glob' | 'exact';
@@ -63,6 +64,7 @@ export interface CrawlerRuleUsage {
 export interface CrawlerRulePayload {
   name: string;
   description?: string | null;
+  tutorial?: string | null;
   version?: string;
   url_pattern: string;
   url_pattern_type: 'regex' | 'glob' | 'exact';

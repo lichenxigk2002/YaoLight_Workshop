@@ -59,6 +59,19 @@ func (r *WorkflowNodeRepository) FindByWorkflowID(workflowID uint) ([]*models.Wo
 	return nodes, err
 }
 
+// HasPublishedAPIEndpoint reports whether this workflow currently backs a published public API.
+func (r *WorkflowNodeRepository) HasPublishedAPIEndpoint(workflowID uint) (bool, error) {
+	if !r.db.Migrator().HasTable("workflow_api_endpoints") {
+		return false, nil
+	}
+
+	var count int64
+	err := r.db.Table("workflow_api_endpoints").
+		Where("workflow_id = ? AND status = ? AND deleted_at IS NULL", workflowID, "published").
+		Count(&count).Error
+	return count > 0, err
+}
+
 // DeleteByWorkflowID 删除工作流的所有节点
 func (r *WorkflowNodeRepository) DeleteByWorkflowID(workflowID uint) error {
 	return r.db.Where("workflow_id = ?", workflowID).Delete(&models.WorkflowNode{}).Error

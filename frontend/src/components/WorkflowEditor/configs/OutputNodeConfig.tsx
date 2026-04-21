@@ -19,6 +19,7 @@ import {
   BarsOutlined,
   DownloadOutlined,
   ApiOutlined,
+  ExportOutlined,
 } from '@ant-design/icons';
 
 // 导入以触发默认注册（注册式架构：格式/目标可扩展）
@@ -39,6 +40,7 @@ export const OutputNodeConfig: React.FC = () => {
   const watchedFormat = Form.useWatch('format', form) || 'json';
   const watchedChartType = Form.useWatch('chartType', form) || 'scatter';
   const watchedDestination = Form.useWatch('destination', form) || 'file';
+  const watchedOutputMode = Form.useWatch('outputMode', form) || 'artifact_export';
 
   type CategoryId = 'doc' | 'diagram' | 'chart';
 
@@ -169,6 +171,24 @@ export const OutputNodeConfig: React.FC = () => {
 
   return (
     <div className={styles.configContainer}>
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>出口模式</div>
+        <div className={styles.sectionDescription}>
+          选择该节点是用于生成站内制品，还是作为 Workflow API 的对外响应出口。
+        </div>
+        <Form.Item name="outputMode" initialValue="artifact_export" style={{ marginBottom: 0 }}>
+          <ProviderPicker
+            mode="cards"
+            options={[
+              { value: 'artifact_export', title: '制品导出', description: '生成 artifact，用于下载、预览和邮件发送', icon: <ExportOutlined /> },
+              { value: 'api_output', title: 'API 响应输出', description: '作为 Workflow API 的对外返回出口，发布 API 时至少需要一个', icon: <ApiOutlined /> },
+            ]}
+            value={watchedOutputMode}
+            onChange={(v) => form.setFieldValue('outputMode', v)}
+          />
+        </Form.Item>
+      </div>
+
       <div className={styles.section}>
         <div className={styles.sectionTitle}>{t('node.config.output.format')}</div>
         <div className={styles.sectionDescription}>
@@ -313,7 +333,18 @@ export const OutputNodeConfig: React.FC = () => {
           <Input placeholder={t('node.config.output.fileNamePlaceholder')} />
         </Form.Item>
       </div>
+
+      {watchedOutputMode === 'api_output' ? (
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>API 返回路径</div>
+          <div className={styles.sectionDescription}>
+            可选。填写后会从当前节点输入数据中抽取指定路径作为 API 返回值；不填则直接返回当前输入整体。
+          </div>
+          <Form.Item name="responsePath" preserve={false} style={{ marginBottom: 0 }}>
+            <Input placeholder="例如：result.summary 或 data.items[0]" />
+          </Form.Item>
+        </div>
+      ) : null}
     </div>
   );
 };
-

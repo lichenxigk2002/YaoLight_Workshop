@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import { App, Button, Card, Empty, Popconfirm, Space, Tabs } from 'antd';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
-import { deleteAIModel, getAIModel } from '@/api/aiModels';
+import { deleteAIModel, getAIModel, getAIProvider } from '@/api/aiModels';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
 import { useI18n } from '@/i18n';
-import type { AIAdminModel } from '@/types/aiModels';
+import type { AIAdminModel, AIProviderDetail } from '@/types/aiModels';
 import { getAIModelStatusLabel, getAIProviderLabel } from './i18n';
 import styles from './AIModels.module.scss';
 
 export interface ModelDetailOutletContext {
   model: AIAdminModel;
+  providerDetail: AIProviderDetail | null;
   isDraft: boolean;
   canEdit: boolean;
   setModel: (model: AIAdminModel) => void;
@@ -34,6 +35,7 @@ export default function ModelDetailLayout() {
   const { t } = useI18n();
   const { canEdit } = useAdminPermission('ai_models.models');
   const [model, setModel] = useState<AIAdminModel | null | undefined>(undefined);
+  const [providerDetail, setProviderDetail] = useState<AIProviderDetail | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -58,6 +60,24 @@ export default function ModelDetailLayout() {
       setModel(null);
     });
   }, [id, location.state]);
+
+  useEffect(() => {
+    if (!model?.provider) {
+      setProviderDetail(null);
+      return;
+    }
+
+    let cancelled = false;
+    void getAIProvider(model.provider).then((detail) => {
+      if (!cancelled) {
+        setProviderDetail(detail);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [model?.provider]);
 
   if (model === undefined || !id) {
     return <Card loading bordered={false} className={styles.card} />;
@@ -86,8 +106,9 @@ export default function ModelDetailLayout() {
         eyebrow={t('aiModels.detailEyebrow')}
         title={model.display_name}
         description={model.description || t('aiModels.detailNoDescription')}
+        descriptionRows={4}
         tags={[
-          getAIProviderLabel(model.provider, t),
+          providerDetail?.name || model.provider_name || getAIProviderLabel(model.provider, t),
           model.model_name,
           getAIModelStatusLabel(model.status, t),
           model.is_active ? t('aiModels.modelEnabled.active') : t('aiModels.modelEnabled.inactive'),
@@ -127,7 +148,7 @@ export default function ModelDetailLayout() {
         />
       </Card>
 
-      <Outlet context={{ model, isDraft: model.id.startsWith('draft-'), canEdit, setModel }} />
+      <Outlet context={{ model, providerDetail, isDraft: model.id.startsWith('draft-'), canEdit, setModel }} />
     </div>
   );
 }

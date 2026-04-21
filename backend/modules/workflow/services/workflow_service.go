@@ -2,6 +2,8 @@ package services
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"yaolight-workshop/backend/domain/entity"
 	"yaolight-workshop/backend/domain/repository"
@@ -11,7 +13,8 @@ import (
 )
 
 var (
-	ErrWorkflowNotFound = errors.New("workflow not found")
+	ErrWorkflowNotFound                  = errors.New("workflow not found")
+	ErrPublishedWorkflowAPICanvasInvalid = errors.New("published workflow api canvas invalid")
 )
 
 type WorkflowService struct {
@@ -161,6 +164,9 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 	if err != nil {
 		return ErrWorkflowNotFound
 	}
+	if err := s.validatePublishedAPICanvasSave(workflowID, req.Nodes); err != nil {
+		return err
+	}
 
 	nodeIDs := make([]string, len(req.Nodes))
 	nodes := make([]*models.WorkflowNode, len(req.Nodes))
@@ -168,13 +174,13 @@ func (s *WorkflowService) SaveWorkflowNodes(workflowID uint, req *SaveWorkflowNo
 	for i, nodeData := range req.Nodes {
 		nodeIDs[i] = nodeData.ID
 
-		config := nodeData.Data["config"]
+		config := workflowNodeDataValue(nodeData, "config")
 		if config == nil {
 			config = map[string]interface{}{}
 		}
 
 		var label *string
-		if labelVal, ok := nodeData.Data["label"].(string); ok {
+		if labelVal, ok := workflowNodeDataValue(nodeData, "label").(string); ok {
 			label = &labelVal
 		}
 
@@ -270,13 +276,17 @@ func (s *WorkflowService) SaveWorkflowNode(workflowID uint, nodeID string, req *
 	}
 
 	nodeData := req.Node
-	config := nodeData.Data["config"]
+	if err := s.validatePublishedAPISingleNodeSave(workflowID, nodeID, nodeData); err != nil {
+		return err
+	}
+
+	config := workflowNodeDataValue(nodeData, "config")
 	if config == nil {
 		config = map[string]interface{}{}
 	}
 
 	var label *string
-	if labelVal, ok := nodeData.Data["label"].(string); ok {
+	if labelVal, ok := workflowNodeDataValue(nodeData, "label").(string); ok {
 		label = &labelVal
 	}
 
@@ -291,6 +301,107 @@ func (s *WorkflowService) SaveWorkflowNode(workflowID uint, nodeID string, req *
 	}
 
 	return s.workflowNodeRepo.CreateOrUpdate(node)
+}
+
+func (s *WorkflowService) validatePublishedAPICanvasSave(workflowID uint, nodes []WorkflowNodeData) error {
+	hasPublishedAPI, err := s.workflowNodeRepo.HasPublishedAPIEndpoint(workflowID)
+	if err != nil || !hasPublishedAPI {
+		return err
+	}
+	return validatePublishedAPICanvasNodes(nodes)
+}
+
+func (s *WorkflowService) validatePublishedAPISingleNodeSave(workflowID uint, nodeID string, nodeData WorkflowNodeData) error {
+	hasPublishedAPI, err := s.workflowNodeRepo.HasPublishedAPIEndpoint(workflowID)
+	if err != nil || !hasPublishedAPI {
+		return err
+	}
+
+	existing, err := s.workflowNodeRepo.FindByWorkflowID(workflowID)
+	if err != nil {
+		return err
+	}
+
+	nodes := make([]WorkflowNodeData, 0, len(existing)+1)
+	replaced := false
+	for _, existingNode := range existing {
+		if existingNode.NodeID == nodeID {
+			nodes = append(nodes, nodeData)
+			replaced = true
+			continue
+		}
+		nodes = append(nodes, workflowNodeModelToData(existingNode))
+	}
+	if !replaced {
+		nodes = append(nodes, nodeData)
+	}
+
+	return validatePublishedAPICanvasNodes(nodes)
+}
+
+func validatePublishedAPICanvasNodes(nodes []WorkflowNodeData) error {
+	hasAPIInput := false
+	hasAPIOutput := false
+	for _, node := range nodes {
+		config := workflowNodeConfig(node)
+		if node.Type == "start" && workflowNodeConfigString(config, "inputMode", "manual") == "api_input" {
+			hasAPIInput = true
+		}
+		if node.Type == "output" && workflowNodeConfigString(config, "outputMode", "artifact_export") == "api_output" {
+			hasAPIOutput = true
+		}
+	}
+
+	if !hasAPIInput {
+		return fmt.Errorf("%w: 已发布 API 工作流至少需要一个开始节点设置为 api_input 模式", ErrPublishedWorkflowAPICanvasInvalid)
+	}
+	if !hasAPIOutput {
+		return fmt.Errorf("%w: 已发布 API 工作流至少需要一个输出节点设置为 api_output 模式", ErrPublishedWorkflowAPICanvasInvalid)
+	}
+	return nil
+}
+
+func workflowNodeModelToData(node *models.WorkflowNode) WorkflowNodeData {
+	position, _ := node.Position.Data.(map[string]interface{})
+	data := map[string]interface{}{
+		"config": node.Config.Data,
+	}
+	if node.Label != nil {
+		data["label"] = *node.Label
+	}
+	return WorkflowNodeData{
+		ID:       node.NodeID,
+		Type:     node.NodeType,
+		Position: position,
+		Data:     data,
+	}
+}
+
+func workflowNodeConfig(node WorkflowNodeData) map[string]interface{} {
+	raw, _ := workflowNodeDataValue(node, "config").(map[string]interface{})
+	return raw
+}
+
+func workflowNodeDataValue(node WorkflowNodeData, key string) interface{} {
+	if node.Data == nil {
+		return nil
+	}
+	return node.Data[key]
+}
+
+func workflowNodeConfigString(config map[string]interface{}, key string, fallback string) string {
+	if config == nil {
+		return fallback
+	}
+	value, ok := config[key]
+	if !ok {
+		return fallback
+	}
+	text, ok := value.(string)
+	if !ok || strings.TrimSpace(text) == "" {
+		return fallback
+	}
+	return strings.TrimSpace(text)
 }
 
 func (s *WorkflowService) GetWorkflowNodes(workflowID uint) (*SaveWorkflowNodesRequest, error) {

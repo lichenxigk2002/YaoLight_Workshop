@@ -1,0 +1,181 @@
+{
+  "version": "1.0.0",
+  "name": "百度热搜榜 AI 分析 API",
+  "description": "外部 API 触发：抓取百度实时热搜榜，把页面文本交给 AI 分析，再把分析结果返回给 Apifox。",
+  "exportedAt": "2026-04-21T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start_api",
+      "type": "start",
+      "position": {
+        "x": 80,
+        "y": 160
+      },
+      "data": {
+        "label": "API 输入",
+        "config": {
+          "inputMode": "api_input",
+          "inputDataType": "json",
+          "inputData": "{\"limit\":5,\"focus\":\"商业机会、舆论风险、内容选题\"}"
+        },
+        "type": "start",
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "crawler_baidu",
+      "type": "crawler",
+      "position": {
+        "x": 420,
+        "y": 160
+      },
+      "data": {
+        "label": "抓取百度热搜",
+        "config": {
+          "url": "https://top.baidu.com/board?tab=realtime",
+          "method": "GET",
+          "extractMode": "custom",
+          "selector": "body",
+          "extractType": "text",
+          "timeout": 30,
+          "retryCount": 2,
+          "retryDelay": 1,
+          "followRedirect": true,
+          "verifySSL": true,
+          "useHeadless": false,
+          "waitTime": 1,
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+            "Accept-Language": "zh-CN,zh;q=0.9"
+          }
+        },
+        "type": "crawler",
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "ai_analysis",
+      "type": "ai",
+      "position": {
+        "x": 760,
+        "y": 160
+      },
+      "data": {
+        "label": "AI 热搜分析",
+        "config": {
+          "modelMode": "system",
+          "provider": "deepseek",
+          "modelName": "deepseek-chat",
+          "temperature": 0.3,
+          "maxTokens": 1800,
+          "contentVariable": "{{crawler_baidu.text}}",
+          "prompt": "你是中文热点分析师。下面是百度实时热搜榜页面提取文本。请先清洗噪声，只保留真实热搜条目，再按用户要求输出分析。\\n\\n用户要求：返回前 {{start_api.data.limit}} 条；分析角度：{{start_api.data.focus}}。\\n\\n请用 Markdown 输出，结构如下：\\n1. 今日热搜概览：一句话总结整体趋势。\\n2. Top 热点表格：序号、热搜词、可能原因、热度判断、建议动作。\\n3. 重点解读：挑 2-3 条做更深入分析。\\n4. 可执行建议：给运营/产品/内容团队 3 条建议。\\n\\n如果页面文本里包含导航、广告或重复项，请忽略。"
+        },
+        "type": "ai",
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output_api",
+      "type": "output",
+      "position": {
+        "x": 1100,
+        "y": 160
+      },
+      "data": {
+        "label": "API 返回分析",
+        "config": {
+          "outputMode": "api_output",
+          "format": "markdown",
+          "destination": "file",
+          "responsePath": "result",
+          "fileName": "baidu-hot-ai-analysis.md"
+        },
+        "type": "output",
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_start_to_crawler",
+      "source": "start_api",
+      "target": "crawler_baidu"
+    },
+    {
+      "id": "edge_crawler_to_ai",
+      "source": "crawler_baidu",
+      "target": "ai_analysis"
+    },
+    {
+      "id": "edge_ai_to_output",
+      "source": "ai_analysis",
+      "target": "output_api"
+    }
+  ],
+  "commentCards": [],
+  "apiPublishGuide": {
+    "publishEndpoint": {
+      "name": "百度热搜榜 AI 分析",
+      "slug": "baidu-hot-ai",
+      "description": "抓取百度实时热搜榜，并返回 AI 分析 Markdown。",
+      "status": "published",
+      "responseMode": "wait",
+      "resultMode": "json",
+      "exposeArtifacts": "none",
+      "waitTimeoutSeconds": 60,
+      "requestSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number"
+          },
+          "focus": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "limit",
+          "focus"
+        ]
+      },
+      "responseSchema": {
+        "type": "string"
+      },
+      "requestExample": {
+        "input": {
+          "limit": 5,
+          "focus": "商业机会、舆论风险、内容选题"
+        },
+        "responseMode": "wait"
+      },
+      "responseExample": {
+        "requestId": "example-request-id",
+        "status": "completed",
+        "result": "## 今日热搜概览\\n..."
+      }
+    },
+    "createKey": {
+      "name": "Apifox Baidu Hot AI Test Key"
+    },
+    "apifoxInvoke": {
+      "method": "POST",
+      "url": "http://localhost:8080/open-api/v1/workflows/baidu-hot-ai/invoke",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-API-Key": "<createKey 返回的 key，只显示一次>"
+      },
+      "body": {
+        "input": {
+          "limit": 5,
+          "focus": "商业机会、舆论风险、内容选题"
+        },
+        "responseMode": "wait"
+      }
+    },
+    "notes": [
+      "如果你系统预设模型不是 DeepSeek，把 ai_analysis.config.provider 和 modelName 改成你页面里能用的系统模型，例如 provider=gemini, modelName=google/gemini-3-pro-preview。",
+      "如果百度热搜页面返回空文本或反爬，把 crawler_baidu.config.useHeadless 改成 true，并把 waitTime 改成 3。"
+    ]
+  }
+}

@@ -29,12 +29,11 @@ import {
   EyeOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { Task, TaskNodeExecution, NodeExecutionStatus, TaskStatus } from '@/types/task';
 import { workflowApi } from '@/api/workflow';
 import { taskApi } from '@/api/task';
 import http from '@/http';
+import { CodeBlock } from '@/components/CodeBlock';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
 import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
 import { AIIcon } from '@/components/Icons';
@@ -64,7 +63,9 @@ const getTokenForFetch = () => {
       const authData = JSON.parse(authStorage);
       return authData.state?.token || null;
     }
-  } catch { }
+  } catch {
+    return null;
+  }
   return null;
 };
 
@@ -539,21 +540,7 @@ const DataViewer: React.FC<{
         ),
         children: (
           <div className={styles.dataContent}>
-            <SyntaxHighlighter
-              language="json"
-              style={oneDark}
-              wrapLongLines={true}
-              customStyle={{
-                margin: 0,
-                padding: '12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                maxHeight: '400px',
-                overflowY: 'auto',
-              }}
-            >
-              {jsonContent}
-            </SyntaxHighlighter>
+            <CodeBlock value={jsonContent} language="json" defaultExpanded collapsedLines={999} />
           </div>
         ),
       },
@@ -733,21 +720,7 @@ const DataViewer: React.FC<{
         </Space>
       </div>
       <div className={styles.dataContent}>
-        <SyntaxHighlighter
-          language="json"
-          style={oneDark}
-          wrapLongLines={true}
-          customStyle={{
-            margin: 0,
-            padding: '12px',
-            borderRadius: '0 0 6px 6px',
-            fontSize: '12px',
-            maxHeight: '300px',
-            overflowY: 'auto',
-          }}
-        >
-          {jsonContent}
-        </SyntaxHighlighter>
+        <CodeBlock value={jsonContent} language="json" showHeader={false} defaultExpanded collapsedLines={999} />
       </div>
     </div>
   );
@@ -896,7 +869,7 @@ const TaskExecutionDetailModal: React.FC<TaskExecutionDetailModalProps> = ({
               {execution.errorStack && (
                 <Collapse ghost size="small">
                   <Collapse.Panel header={t('taskHistory.executionDetail.errorStack')} key="stack">
-                    <pre className={styles.errorStack}>{execution.errorStack}</pre>
+                    <CodeBlock value={execution.errorStack} language="text" defaultExpanded collapsedLines={999} />
                   </Collapse.Panel>
                 </Collapse>
               )}

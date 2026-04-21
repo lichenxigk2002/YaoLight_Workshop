@@ -37,7 +37,7 @@ export default function ModelOverviewPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
   const { t } = useI18n();
-  const { model, canEdit, setModel } = useOutletContext<ModelDetailOutletContext>();
+  const { model, providerDetail, canEdit, setModel } = useOutletContext<ModelDetailOutletContext>();
   const [form] = Form.useForm<
     Pick<AIAdminModel, 'display_name' | 'model_icon' | 'status' | 'is_active' | 'sort_order' | 'description'>
   >();
@@ -154,7 +154,7 @@ export default function ModelOverviewPage() {
               <Form form={form} layout="vertical" onFinish={handleSave}>
                 <div className={styles.formGrid}>
                   <Form.Item label={t('aiModels.overviewProvider')}>
-                    <Input value={getAIProviderLabel(model.provider, t)} disabled />
+                    <Input value={providerDetail?.name || model.provider_name || getAIProviderLabel(model.provider, t)} disabled />
                   </Form.Item>
                   <Form.Item label={t('aiModels.overviewModelName')}>
                     <Input value={model.model_name} disabled />
@@ -218,9 +218,9 @@ export default function ModelOverviewPage() {
               <Descriptions column={2} size="small">
                 <Descriptions.Item label={t('aiModels.overviewProvider')}>
                   <div className={styles.providerCell}>
-                    <AIIcon iconKey={model.provider_icon} fallbackProvider={model.provider} size={18} />
+                    <AIIcon iconKey={providerDetail?.icon || model.provider_icon} fallbackProvider={model.provider} size={18} />
                     <div className={styles.providerCellText}>
-                      <div>{getAIProviderLabel(model.provider, t)}</div>
+                      <div>{providerDetail?.name || model.provider_name || getAIProviderLabel(model.provider, t)}</div>
                       <div className={styles.providerKey}>{model.provider}</div>
                     </div>
                   </div>

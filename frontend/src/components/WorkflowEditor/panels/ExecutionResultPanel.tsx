@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { MarkdownRenderer } from '../utils/MarkdownRenderer';
 import { MermaidRenderer, looksLikeMermaid } from '../utils/MermaidRenderer';
 import { AIIcon, MessageIcon, CollapseIcon } from '@/components/Icons';
+import { CodeBlock } from '@/components/CodeBlock';
 import { AIPreviewModal } from './components/AIPreviewModal';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
 import styles from './ExecutionResultPanel.module.scss';
@@ -52,7 +53,9 @@ const getTokenForFetch = () => {
       const authData = JSON.parse(authStorage);
       return authData.state?.token || null;
     }
-  } catch { }
+  } catch {
+    return null;
+  }
   return null;
 };
 
@@ -108,7 +111,9 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
       }
 
       setOpen(true);
-    } catch { }
+    } catch {
+      return;
+    }
   };
 
   const downloadSmartContent = () => {
@@ -168,7 +173,7 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
         return <MarkdownRenderer content={smartContent} />;
       }
       // JSON Object
-      return <pre className={styles.jsonDisplay}>{JSON.stringify(smartContent, null, 2)}</pre>;
+      return <CodeBlock value={smartContent} language="json" defaultExpanded collapsedLines={999} />;
     }
 
     // Fallback to original logic
@@ -197,7 +202,7 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
       );
     }
     if (mime.toLowerCase().includes('application/json')) {
-      return <pre className={styles.jsonDisplay}>{content}</pre>;
+      return <CodeBlock value={content} language="json" defaultExpanded collapsedLines={999} />;
     }
     return <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{content}</Paragraph>;
   };
@@ -789,9 +794,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
               {data}
             </Paragraph>
           ) : (
-            <pre className={styles.jsonDisplay}>
-              {JSON.stringify(data, null, 2)}
-            </pre>
+            <CodeBlock value={data} language="json" defaultExpanded collapsedLines={999} />
           )}
         </div>
       );
@@ -799,9 +802,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
 
     // 其他节点，使用代码块展示JSON
     return (
-      <pre className={styles.jsonDisplay}>
-        {JSON.stringify(data, null, 2)}
-      </pre>
+      <CodeBlock value={data} language="json" defaultExpanded collapsedLines={999} />
     );
   };
 
@@ -991,9 +992,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
               <Text type="danger">{rawPreview.error}</Text>
             </div>
           ) : null}
-          <pre className={styles.jsonDisplay}>
-            {JSON.stringify(rawPreview.data, null, 2)}
-          </pre>
+          <CodeBlock value={rawPreview.data} language="json" defaultExpanded collapsedLines={999} />
         </Modal>
       )}
     </div>

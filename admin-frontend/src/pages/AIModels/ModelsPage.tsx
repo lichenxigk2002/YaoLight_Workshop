@@ -19,6 +19,7 @@ interface ImportDraftItem {
   exists: boolean;
   mode: ImportMode;
   provider: string;
+  provider_name?: string;
   model_name: string;
   display_name: string;
   description?: string;
@@ -57,11 +58,13 @@ function buildDraftItems(
   const existingKeys = new Set(models.map((item) => buildImportKey(item.provider, item.model_name)));
   return payload.items.map((item) => {
     const exists = existingKeys.has(buildImportKey(item.provider, item.model_name));
+    const providerName = models.find((model) => model.provider === item.provider)?.provider_name;
     return {
       key: buildImportKey(item.provider, item.model_name),
       exists,
       mode: exists ? 'overwrite' : 'create',
       provider: item.provider,
+      provider_name: providerName,
       model_name: item.model_name,
       display_name: item.display_name,
       description: item.description,
@@ -147,7 +150,7 @@ export default function ModelsPage() {
       Array.from(new Set(models.map((item) => item.provider)))
         .sort()
         .map((provider) => ({
-          label: getAIProviderLabel(provider, t),
+          label: models.find((item) => item.provider === provider)?.provider_name || getAIProviderLabel(provider, t),
           value: provider,
         })),
     [models, t],
@@ -162,7 +165,7 @@ export default function ModelsPage() {
         item.display_name,
         item.model_name,
         item.provider,
-        getAIProviderLabel(item.provider, t),
+        item.provider_name || getAIProviderLabel(item.provider, t),
       ]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(keyword));
@@ -329,7 +332,7 @@ export default function ModelsPage() {
     {
       title: '模型服务商',
       dataIndex: 'provider',
-      render: (provider: string) => getAIProviderLabel(provider, t),
+      render: (provider: string, record) => record.provider_name || getAIProviderLabel(provider, t),
     },
     {
       title: '检查结果',
@@ -356,7 +359,7 @@ export default function ModelsPage() {
     {
       title: '模型服务商',
       dataIndex: 'provider',
-      render: (provider: string) => getAIProviderLabel(provider, t),
+      render: (provider: string, record) => record.provider_name || getAIProviderLabel(provider, t),
     },
     {
       title: '状态',
@@ -421,7 +424,7 @@ export default function ModelsPage() {
                 <div className={styles.providerCell}>
                   <ProviderIcon provider={provider} size={18} />
                   <div className={styles.providerCellText}>
-                    <div>{getAIProviderLabel(provider, t)}</div>
+                    <div>{models.find((item) => item.provider === provider)?.provider_name || getAIProviderLabel(provider, t)}</div>
                     <div className={styles.providerKey}>{provider}</div>
                   </div>
                 </div>

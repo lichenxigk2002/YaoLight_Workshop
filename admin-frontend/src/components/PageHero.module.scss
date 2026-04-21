@@ -10,6 +10,11 @@
   align-items: flex-start;
 }
 
+.main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .eyebrow {
   font-size: 12px;
   font-weight: 700;
@@ -24,9 +29,10 @@
 }
 
 .description {
-  max-width: 720px;
+  max-width: 880px;
   margin-bottom: 16px !important;
   color: var(--admin-ink-soft);
+  line-height: 1.65;
 }
 
 .tag {
@@ -40,6 +46,7 @@
 .action {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
 }
 
 @media (max-width: 860px) {
@@ -47,4 +54,3 @@
     flex-direction: column;
   }
 }
-
