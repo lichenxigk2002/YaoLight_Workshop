@@ -19,6 +19,7 @@ interface ImportDraftItem {
   exists: boolean;
   mode: ImportMode;
   provider: string;
+  provider_name?: string;
   model_name: string;
   display_name: string;
   description?: string;
@@ -57,11 +58,13 @@ function buildDraftItems(
   const existingKeys = new Set(models.map((item) => buildImportKey(item.provider, item.model_name)));
   return payload.items.map((item) => {
     const exists = existingKeys.has(buildImportKey(item.provider, item.model_name));
+    const providerName = models.find((model) => model.provider === item.provider)?.provider_name;
     return {
       key: buildImportKey(item.provider, item.model_name),
       exists,
       mode: exists ? 'overwrite' : 'create',
       provider: item.provider,
+      provider_name: providerName,
       model_name: item.model_name,
       display_name: item.display_name,
       description: item.description,

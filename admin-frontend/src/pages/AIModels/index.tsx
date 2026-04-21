@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Card, Col, Row, Skeleton, Statistic, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import AIIcon from '@/components/Icons/AIIcon';
-import ProviderIcon from '@/components/Icons/ProviderIcon';
 import PageHero from '@/components/PageHero';
 import { getAIPricingRules, getAIOverviewModels, getAIProviders, getAIUsage } from '@/api/aiModels';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
