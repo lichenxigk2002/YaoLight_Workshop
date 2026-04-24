@@ -110,7 +110,7 @@ export default function Settings() {
           <div className={styles.pageSubtitle}>
             {t(
               'settings.pageSubtitle',
-              '把账号、模型、账单和通知放在一个更安静的地方，保持设置清晰而不过载。',
+              '账号、模型、账单和提醒都在这里，按需调整就好。',
             )}
           </div>
         </div>

@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import type { LoginRequest } from '@/types/user';
 import LoginWorkflowCanvas from '@/components/LoginWorkflowCanvas';
 import SplitText from '@/components/SplitText';
+import { ICP_ICON_URL, ICP_NUMBER, ICP_URL } from '@/config/legal';
 import styles from './index.module.scss';
 
 const { Option } = Select;
@@ -69,8 +70,8 @@ export default function Login() {
       codeRequired: t('login.codeRequired'),
       codeInvalid: t('login.codeInvalid'),
       inviteLabel: isZh ? '邀请码已生效' : 'Invite code applied',
-      previewLabel: isZh ? '工作流预览' : 'Workflow Preview',
-      previewMeta: isZh ? '保留原始画布元素' : 'Original workflow elements',
+      previewLabel: isZh ? '灵感画布' : 'Inspiration canvas',
+      previewMeta: isZh ? '把想法拖成一条可执行的路径' : 'Shape ideas into a path you can run',
       loginSuccess: isZh ? '登录成功' : 'Signed in successfully.',
       loginInvalid: isZh ? '登录失败，请检查用户名和密码' : 'Sign in failed. Please check your username and password.',
       oauthNotConfigured: isZh ? 'OAuth 未配置' : 'OAuth is not configured.',
@@ -284,7 +285,6 @@ export default function Login() {
             </div>
           </div>
 
-          <Text className={styles.copyrightText}>{copy.copyright}</Text>
         </section>
 
         <section className={styles.formPane}>
@@ -460,6 +460,14 @@ export default function Login() {
                 </Button>
               </div>
             </div>
+          </div>
+
+          <div className={styles.legalText}>
+            <Text className={styles.copyrightText}>{copy.copyright}</Text>
+            <a href={ICP_URL} target="_blank" rel="noreferrer" className={styles.legalLink}>
+              <img src={ICP_ICON_URL} alt="" className={styles.legalIcon} aria-hidden="true" />
+              {ICP_NUMBER}
+            </a>
           </div>
         </section>
       </div>

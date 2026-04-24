@@ -147,6 +147,10 @@ services:
     image: ghcr.io/${GITHUB_OWNER}/yaolight-frontend:${IMAGE_TAG:-latest}
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/yaolight/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /opt/yaolight/ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
 
