@@ -427,9 +427,31 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 
 	if sendEmail && meta.UserID > 0 && len(emailAttachments) > 0 {
 		go func(userID uint, nodeID string, fmtStr string, files []email.Attachment, payload interface{}, workflowID *uint) {
+			log.WithContext(log.LevelInfo, 4012, "输出节点开始发送邮件", map[string]any{
+				"user_id":     userID,
+				"node_id":     nodeID,
+				"format":      fmtStr,
+				"workflow_id": workflowID,
+				"attachments": summarizeOutputEmailAttachments(files),
+			})
 			if err := sendOutputEmailForUser(userID, nodeID, fmtStr, files, payload, workflowID); err != nil {
-				log.Printf("发送输出节点邮件失败: %v", err)
+				log.WithContext(log.LevelError, 4012, "输出节点邮件发送失败", map[string]any{
+					"user_id":     userID,
+					"node_id":     nodeID,
+					"format":      fmtStr,
+					"workflow_id": workflowID,
+					"attachments": summarizeOutputEmailAttachments(files),
+					"error":       err.Error(),
+				})
+				return
 			}
+			log.WithContext(log.LevelInfo, 4012, "输出节点邮件发送完成", map[string]any{
+				"user_id":     userID,
+				"node_id":     nodeID,
+				"format":      fmtStr,
+				"workflow_id": workflowID,
+				"attachments": summarizeOutputEmailAttachments(files),
+			})
 		}(meta.UserID, node.ID, format, emailAttachments, payload, meta.WorkflowID)
 	}
 
@@ -526,4 +548,16 @@ func sendOutputEmailForUser(userID uint, nodeID, format string, attachments []em
 	}
 
 	return email.SendWorkflowOutputEmail(emailAddr, subject, title, markdownBody, attachments)
+}
+
+func summarizeOutputEmailAttachments(attachments []email.Attachment) []map[string]any {
+	result := make([]map[string]any, 0, len(attachments))
+	for _, att := range attachments {
+		result = append(result, map[string]any{
+			"filename":  att.Filename,
+			"mime_type": att.MimeType,
+			"size":      len(att.Data),
+		})
+	}
+	return result
 }

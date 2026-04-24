@@ -41,6 +41,7 @@ export interface AdminUserDetail extends AdminUserListItem {
   phone?: string | null;
   real_name?: string | null;
   last_login_ip?: string | null;
+  last_login_location?: string | null;
   updated_at: string;
   has_password: boolean;
   inviter?: AdminUserInviter | null;

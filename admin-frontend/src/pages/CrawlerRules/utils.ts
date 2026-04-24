@@ -2,6 +2,7 @@ import type {
   CrawlerRuleDetail,
   CrawlerRulePayload,
 } from '@/types/crawlerRules';
+import { translateCurrent } from '@/i18n/runtime';
 
 export type FilterStatus = 'all' | 'active' | 'inactive';
 
@@ -93,7 +94,7 @@ export function parseJsonField(label: string, raw: string, mode: 'object' | 'opt
 
   const value = JSON.parse(text) as unknown;
   if (mode !== 'optional-any' && (typeof value !== 'object' || value === null || Array.isArray(value))) {
-    throw new Error(`${label} 必须是 JSON 对象`);
+    throw new Error(`${label} ${translateCurrent('crawlerRules.jsonObjectRequired')}`);
   }
   return value;
 }
@@ -107,13 +108,13 @@ export function toRulePayload(values: RuleFormValues): CrawlerRulePayload {
     url_pattern: values.url_pattern.trim(),
     url_pattern_type: values.url_pattern_type,
     method: values.method,
-    headers: (parseJsonField('请求头', values.headers_json, 'object') as Record<string, unknown>) ?? {},
-    params: (parseJsonField('查询参数', values.params_json, 'object') as Record<string, unknown>) ?? {},
-    body: parseJsonField('请求体', values.body_json, 'optional-any'),
-    selectors: (parseJsonField('选择器配置', values.selectors_json, 'object') as Record<string, unknown>) ?? {},
-    data_extraction: parseJsonField('提取配置', values.data_extraction_json, 'optional-object') as Record<string, unknown> | undefined,
-    pagination: parseJsonField('分页配置', values.pagination_json, 'optional-object') as Record<string, unknown> | undefined,
-    proxy_config: parseJsonField('代理配置', values.proxy_config_json, 'optional-object') as Record<string, unknown> | undefined,
+    headers: (parseJsonField(translateCurrent('crawlerRules.fieldHeaders'), values.headers_json, 'object') as Record<string, unknown>) ?? {},
+    params: (parseJsonField(translateCurrent('crawlerRules.fieldParams'), values.params_json, 'object') as Record<string, unknown>) ?? {},
+    body: parseJsonField(translateCurrent('crawlerRules.fieldBody'), values.body_json, 'optional-any'),
+    selectors: (parseJsonField(translateCurrent('crawlerRules.fieldSelectors'), values.selectors_json, 'object') as Record<string, unknown>) ?? {},
+    data_extraction: parseJsonField(translateCurrent('crawlerRules.fieldDataExtraction'), values.data_extraction_json, 'optional-object') as Record<string, unknown> | undefined,
+    pagination: parseJsonField(translateCurrent('crawlerRules.fieldPagination'), values.pagination_json, 'optional-object') as Record<string, unknown> | undefined,
+    proxy_config: parseJsonField(translateCurrent('crawlerRules.fieldProxyConfig'), values.proxy_config_json, 'optional-object') as Record<string, unknown> | undefined,
     cookies: parseJsonField('Cookies', values.cookies_json, 'optional-object') as Record<string, unknown> | undefined,
     timeout: values.timeout,
     retry_count: values.retry_count,
@@ -159,7 +160,9 @@ export function detailToFormValues(detail: CrawlerRuleDetail): RuleFormValues {
 }
 
 export function getStatusMeta(active: boolean) {
-  return active ? { color: 'green', label: '启用中' } : { color: 'default', label: '已停用' };
+  return active
+    ? { color: 'green', label: translateCurrent('crawlerRules.statusActive') }
+    : { color: 'default', label: translateCurrent('crawlerRules.statusInactive') };
 }
 
 export function formatSuccessRate(value?: number | null) {

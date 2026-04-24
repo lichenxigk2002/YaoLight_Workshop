@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, Typography } from 'antd'
-import { ArrowLeftOutlined, BookOutlined, ClockCircleOutlined, CopyOutlined, DeleteOutlined, EyeOutlined, GlobalOutlined, KeyOutlined, LinkOutlined, LockOutlined, ReloadOutlined, StopOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { ApiOutlined, ArrowLeftOutlined, BookOutlined, BulbOutlined, ClockCircleOutlined, CopyOutlined, DeleteOutlined, EyeOutlined, GlobalOutlined, KeyOutlined, LinkOutlined, LockOutlined, ReloadOutlined, StopOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
@@ -19,6 +19,21 @@ import styles from './index.module.scss'
 
 const { Text, Title, Paragraph } = Typography
 
+type CanvasAPIInputNode = {
+  id: string
+  label: string
+  inputDataType?: string
+  inputData?: string
+}
+
+type CanvasAPIOutputNode = {
+  id: string
+  label: string
+  responsePath?: string
+  format?: string
+  destination?: string
+}
+
 function formatDateTime(value: string | undefined, language: string, fallback: string) {
   if (!value) return fallback
 
@@ -35,12 +50,12 @@ function stringifyExample(value: unknown) {
   return JSON.stringify(value, null, 2)
 }
 
-function parseJsonField(value: string | undefined, fieldLabel: string, emptyAsNull = false) {
+function parseJsonField(value: string | undefined, fieldLabel: string, emptyAsNull = false, invalidMessage = 'JSON format invalid') {
   if (!value || !value.trim()) return emptyAsNull ? null : undefined
   try {
     return JSON.parse(value)
   } catch {
-    throw new Error(`${fieldLabel} JSON 格式无效`)
+    throw new Error(`${fieldLabel} ${invalidMessage}`)
   }
 }
 
@@ -55,6 +70,77 @@ function parseNodeIds(value: string | undefined) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function tryParseJson(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
+}
+
+function buildSampleInput(nodes: CanvasAPIInputNode[], fallbackText: string) {
+  const node = nodes[0]
+  if (!node) {
+    return { data: fallbackText }
+  }
+
+  if (node.inputDataType === 'json') {
+    const parsed = tryParseJson(node.inputData)
+    if (parsed && typeof parsed === 'object') return parsed
+  }
+
+  if (node.inputDataType === 'number') {
+    const numberValue = Number(node.inputData)
+    return { data: Number.isFinite(numberValue) ? numberValue : 1 }
+  }
+
+  if (node.inputDataType === 'url') {
+    return { url: node.inputData || 'https://example.com' }
+  }
+
+  return { data: node.inputData || fallbackText }
+}
+
+function inferJsonSchema(value: unknown): any {
+  if (Array.isArray(value)) {
+    return {
+      type: 'array',
+      items: value.length > 0 ? inferJsonSchema(value[0]) : { type: 'any' },
+    }
+  }
+
+  if (value && typeof value === 'object') {
+    const properties: Record<string, any> = {}
+    const required: string[] = []
+    Object.entries(value as Record<string, unknown>).forEach(([key, childValue]) => {
+      properties[key] = inferJsonSchema(childValue)
+      required.push(key)
+    })
+    return {
+      type: 'object',
+      required,
+      properties,
+    }
+  }
+
+  if (typeof value === 'string') return { type: 'string' }
+  if (typeof value === 'number') return Number.isInteger(value) ? { type: 'integer' } : { type: 'number' }
+  if (typeof value === 'boolean') return { type: 'boolean' }
+  return { type: 'any' }
+}
+
+function buildIdentityMapping(value: unknown) {
+  if (!value || Array.isArray(value) || typeof value !== 'object') {
+    return { data: 'data' }
+  }
+
+  return Object.keys(value as Record<string, unknown>).reduce<Record<string, string>>((acc, key) => {
+    acc[key] = key
+    return acc
+  }, {})
 }
 
 function getOpenApiOrigin() {
@@ -103,13 +189,15 @@ export default function WorkflowApiPage() {
   const [canvasApiStatus, setCanvasApiStatus] = useState<{
     hasApiInput: boolean
     hasApiOutput: boolean
-    apiInputNodes: string[]
-    apiOutputNodes: Array<{ id: string; label: string; responsePath?: string }>
+    apiInputNodes: CanvasAPIInputNode[]
+    apiOutputNodes: CanvasAPIOutputNode[]
+    artifactOutputNodes: CanvasAPIOutputNode[]
   }>({
     hasApiInput: false,
     hasApiOutput: false,
     apiInputNodes: [],
     apiOutputNodes: [],
+    artifactOutputNodes: [],
   })
 
   const numericWorkflowId = Number(workflowId)
@@ -136,13 +224,29 @@ export default function WorkflowApiPage() {
       const nodes = workflowCanvas?.nodes || []
       const apiInputNodes = nodes
         .filter((node: any) => node.type === 'start' && node.data?.config?.inputMode === 'api_input')
-        .map((node: any) => node.data?.label || node.id)
+        .map((node: any) => ({
+          id: node.id,
+          label: node.data?.label || node.id,
+          inputDataType: node.data?.config?.inputDataType,
+          inputData: node.data?.config?.inputData,
+        }))
       const apiOutputNodes = nodes
         .filter((node: any) => node.type === 'output' && node.data?.config?.outputMode === 'api_output')
         .map((node: any) => ({
           id: node.id,
           label: node.data?.label || node.id,
           responsePath: node.data?.config?.responsePath,
+          format: node.data?.config?.format,
+          destination: node.data?.config?.destination,
+        }))
+      const artifactOutputNodes = nodes
+        .filter((node: any) => node.type === 'output')
+        .map((node: any) => ({
+          id: node.id,
+          label: node.data?.label || node.id,
+          responsePath: node.data?.config?.responsePath,
+          format: node.data?.config?.format,
+          destination: node.data?.config?.destination,
         }))
 
       setWorkflow(workflowData)
@@ -154,6 +258,7 @@ export default function WorkflowApiPage() {
         hasApiOutput: apiOutputNodes.length > 0,
         apiInputNodes,
         apiOutputNodes,
+        artifactOutputNodes,
       })
       form.setFieldsValue({
         name: endpointData.name,
@@ -189,14 +294,14 @@ export default function WorkflowApiPage() {
     try {
       const payload = {
         ...values,
-        requestSchema: parseJsonField(values.requestSchema, 'Request Schema', true),
-        inputMapping: parseJsonField(values.inputMapping, 'Input Mapping', true),
-        responseSchema: parseJsonField(values.responseSchema, 'Response Schema', true),
-        outputMapping: parseJsonField(values.outputMapping, 'Output Mapping', true),
+        requestSchema: parseJsonField(values.requestSchema, 'Request Schema', true, t('workflowApi.invalidJsonField')),
+        inputMapping: parseJsonField(values.inputMapping, 'Input Mapping', true, t('workflowApi.invalidJsonField')),
+        responseSchema: parseJsonField(values.responseSchema, 'Response Schema', true, t('workflowApi.invalidJsonField')),
+        outputMapping: parseJsonField(values.outputMapping, 'Output Mapping', true, t('workflowApi.invalidJsonField')),
         exposeArtifacts: values.exposeArtifacts || 'all',
         exposedArtifactNodeIds: parseNodeIds(values.exposedArtifactNodeIds),
-        requestExample: parseJsonField(values.requestExample, 'Request Example', true),
-        responseExample: parseJsonField(values.responseExample, 'Response Example', true),
+        requestExample: parseJsonField(values.requestExample, 'Request Example', true, t('workflowApi.invalidJsonField')),
+        responseExample: parseJsonField(values.responseExample, 'Response Example', true, t('workflowApi.invalidJsonField')),
       }
       const data = await workflowPublishApi.saveEndpoint(numericWorkflowId, payload)
       setEndpoint(data)
@@ -228,10 +333,10 @@ export default function WorkflowApiPage() {
     const nextStatus = item.status === 'active' ? 'inactive' : 'active'
     try {
       await workflowPublishApi.updateKey(numericWorkflowId, item.id, { status: nextStatus })
-      message.success(nextStatus === 'active' ? 'API Key 已启用' : 'API Key 已停用')
+      message.success(nextStatus === 'active' ? t('workflowApi.keyActivated') : t('workflowApi.keyDisabled'))
       void loadAll()
     } catch (error: any) {
-      message.error(error.message || '更新 API Key 状态失败')
+      message.error(error.message || t('workflowApi.keyStatusUpdateFailed'))
     }
   }
 
@@ -239,10 +344,10 @@ export default function WorkflowApiPage() {
     if (!numericWorkflowId) return
     try {
       await workflowPublishApi.deleteKey(numericWorkflowId, item.id)
-      message.success('API Key 已删除')
+      message.success(t('workflowApi.keyDeleted'))
       void loadAll()
     } catch (error: any) {
-      message.error(error.message || '删除 API Key 失败')
+      message.error(error.message || t('workflowApi.keyDeleteFailed'))
     }
   }
 
@@ -272,9 +377,9 @@ export default function WorkflowApiPage() {
   ]
 
   const exposeArtifactsOptions = [
-    { label: '全部暴露', value: 'all' },
-    { label: '不暴露', value: 'none' },
-    { label: '仅指定输出节点', value: 'selected' },
+    { label: t('workflowApi.exposeArtifactsAll'), value: 'all' },
+    { label: t('workflowApi.exposeArtifactsNone'), value: 'none' },
+    { label: t('workflowApi.exposeArtifactsSelected'), value: 'selected' },
   ]
 
   const endpointStatusMeta = useMemo(() => {
@@ -292,6 +397,45 @@ export default function WorkflowApiPage() {
   const latestInvocation = invocations[0]
   const invokeUrl = useMemo(() => buildOpenApiUrl(endpoint?.invokePath), [endpoint?.invokePath])
   const docsUrl = useMemo(() => buildOpenApiUrl(endpoint?.docsPath), [endpoint?.docsPath])
+  const contractSuggestions = useMemo(() => {
+    const sampleInput = buildSampleInput(canvasApiStatus.apiInputNodes, t('workflowApi.sampleInputText'))
+    const requestSchema = inferJsonSchema(sampleInput)
+    const inputMapping = buildIdentityMapping(sampleInput)
+    const outputMapping = {
+      data: 'result',
+      artifacts: 'artifacts',
+      taskId: 'taskId',
+      requestId: 'requestId',
+    }
+    const responseSchema = {
+      type: 'object',
+      properties: {
+        data: { type: 'any' },
+        artifacts: {
+          type: 'array',
+          items: { type: 'object' },
+        },
+        taskId: { type: 'integer' },
+        requestId: { type: 'string' },
+      },
+    }
+
+    return {
+      sampleInput,
+      requestExample: {
+        input: sampleInput,
+        responseMode: endpoint?.responseMode || 'wait',
+      },
+      requestSchema,
+      inputMapping,
+      outputMapping,
+      responseSchema,
+    }
+  }, [canvasApiStatus.apiInputNodes, endpoint?.responseMode, t])
+
+  const applyJsonSuggestion = (fieldName: string, value: unknown) => {
+    form.setFieldValue(fieldName, value == null ? '' : stringifyExample(value))
+  }
 
   const overviewMetrics = [
     {
@@ -355,7 +499,7 @@ export default function WorkflowApiPage() {
           <div className={styles.heroContent}>
             <div className={styles.heroBadgeRow}>
               <Button className={styles.backButton} type="text" size="small" icon={<ArrowLeftOutlined />} onClick={handleBack}>
-                返回
+                {t('workflowApi.back')}
               </Button>
               <Text className={styles.badge}>{t('workflowApi.heroBadge')}</Text>
               <Tag color={endpointStatusMeta.color}>{endpointStatusMeta.label}</Tag>
@@ -462,20 +606,22 @@ export default function WorkflowApiPage() {
                   style={{ marginBottom: 16 }}
                   type={canvasApiStatus.hasApiInput && canvasApiStatus.hasApiOutput ? 'success' : 'warning'}
                   showIcon
-                  message={canvasApiStatus.hasApiInput && canvasApiStatus.hasApiOutput ? '画布已具备 API 入口与出口' : '发布前还需要补齐 API 入口或出口'}
+                  message={canvasApiStatus.hasApiInput && canvasApiStatus.hasApiOutput ? t('workflowApi.canvasReady') : t('workflowApi.canvasIncomplete')}
                   description={
                     <Space direction="vertical" style={{ width: '100%' }}>
                       <Text>
-                        API 输入节点：
+                        {t('workflowApi.apiInputNodes')}:
                         {' '}
-                        {canvasApiStatus.hasApiInput ? canvasApiStatus.apiInputNodes.join(', ') : '未配置'}
+                        {canvasApiStatus.hasApiInput
+                          ? canvasApiStatus.apiInputNodes.map((item) => `${item.label}（${item.id}）`).join(', ')
+                          : t('workflowApi.notConfigured')}
                       </Text>
                       <Text>
-                        API 输出节点：
+                        {t('workflowApi.apiOutputNodes')}:
                         {' '}
                         {canvasApiStatus.hasApiOutput
                           ? canvasApiStatus.apiOutputNodes.map((item) => `${item.label}${item.responsePath ? ` -> ${item.responsePath}` : ''}`).join(', ')
-                          : '未配置'}
+                          : t('workflowApi.notConfigured')}
                       </Text>
                     </Space>
                   }
@@ -520,115 +666,207 @@ export default function WorkflowApiPage() {
                     <InputNumber min={1} max={600} style={{ width: '100%' }} />
                   </Form.Item>
 
-                  <Row gutter={16}>
-                    <Col span={12}>
-                      <Form.Item name="exposeArtifacts" label="Artifacts 暴露策略" rules={[{ required: true }]}>
-                        <Select options={exposeArtifactsOptions} />
+                  <div className={styles.contractPanel}>
+                    <div className={styles.contractPanelHeader}>
+                      <div>
+                        <div className={styles.contractEyebrow}>{t('workflowApi.contractEyebrow')}</div>
+                        <div className={styles.contractTitle}>{t('workflowApi.contractTitle')}</div>
+                      </div>
+                      <Tag icon={<BulbOutlined />} color="processing">{t('workflowApi.contractHintTag')}</Tag>
+                    </div>
+
+                    <div className={styles.contractGuideGrid}>
+                      <div className={styles.contractGuideCard}>
+                        <span className={styles.contractGuideLabel}>{t('workflowApi.contractInput')}</span>
+                        <span className={styles.contractGuideValue}>
+                          {canvasApiStatus.apiInputNodes.length
+                            ? canvasApiStatus.apiInputNodes.map((item) => item.label).join(', ')
+                            : t('workflowApi.noApiInputNode')}
+                        </span>
+                      </div>
+                      <div className={styles.contractGuideCard}>
+                        <span className={styles.contractGuideLabel}>{t('workflowApi.contractOutput')}</span>
+                        <span className={styles.contractGuideValue}>
+                          {canvasApiStatus.apiOutputNodes.length
+                            ? canvasApiStatus.apiOutputNodes.map((item) => item.label).join(', ')
+                            : t('workflowApi.noApiOutputNode')}
+                        </span>
+                      </div>
+                      <div className={styles.contractGuideCard}>
+                        <span className={styles.contractGuideLabel}>{t('workflowApi.contractArtifactNodes')}</span>
+                        <span className={styles.contractGuideValue}>
+                          {canvasApiStatus.artifactOutputNodes.length
+                            ? canvasApiStatus.artifactOutputNodes.map((item) => item.id).join(', ')
+                            : t('workflowApi.noOutputNodes')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className={styles.editorSection}>
+                      <div className={styles.editorHeader}>
+                        <div>
+                          <div className={styles.editorTitle}>{t('workflowApi.requestSchemaTitle')}</div>
+                          <div className={styles.editorHint}>{t('workflowApi.requestSchemaHint')}</div>
+                        </div>
+                        <Button size="small" icon={<ApiOutlined />} onClick={() => applyJsonSuggestion('requestSchema', contractSuggestions.requestSchema)}>
+                          {t('workflowApi.generateFromInput')}
+                        </Button>
+                      </div>
+                      <Form.Item name="requestSchema" noStyle>
+                        <JsonCodeEditor
+                          rows={8}
+                          placeholder={stringifyExample(contractSuggestions.requestSchema)}
+                        />
                       </Form.Item>
-                    </Col>
-                    <Col span={12}>
-                      <Form.Item name="exposedArtifactNodeIds" label="暴露的输出节点 ID">
-                        <Input placeholder="output-report, output-json" />
+                    </div>
+
+                    <div className={styles.editorSection}>
+                      <div className={styles.editorHeader}>
+                        <div>
+                          <div className={styles.editorTitle}>{t('workflowApi.inputMappingTitle')}</div>
+                          <div className={styles.editorHint}>{t('workflowApi.inputMappingHint')}</div>
+                        </div>
+                        <Space wrap>
+                          <Button size="small" onClick={() => applyJsonSuggestion('inputMapping', null)}>
+                            {t('workflowApi.leaveEmptyPassthrough')}
+                          </Button>
+                          <Button size="small" onClick={() => applyJsonSuggestion('inputMapping', contractSuggestions.inputMapping)}>
+                            {t('workflowApi.generateIdentityMapping')}
+                          </Button>
+                        </Space>
+                      </div>
+                      <Form.Item name="inputMapping" noStyle>
+                        <JsonCodeEditor
+                          rows={7}
+                          placeholder={t('workflowApi.inputMappingPlaceholder')}
+                        />
                       </Form.Item>
-                    </Col>
-                  </Row>
-
-                  <div className={styles.editorSection}>
-                    <div className={styles.editorHeader}>
-                      <div>
-                        <div className={styles.editorTitle}>Request Schema</div>
-                        <div className={styles.editorHint}>定义对外 input 的字段类型、必填项与结构。</div>
-                      </div>
                     </div>
-                    <Form.Item name="requestSchema" noStyle>
-                      <JsonCodeEditor rows={8} />
-                    </Form.Item>
-                  </div>
 
-                  <div className={styles.editorSection}>
-                    <div className={styles.editorHeader}>
-                      <div>
-                        <div className={styles.editorTitle}>Input Mapping</div>
-                        <div className={styles.editorHint}>把外部 input 映射到工作流运行时输入结构，键为目标路径，值为源路径或映射规则。</div>
+                    <div className={styles.editorSection}>
+                      <div className={styles.editorHeader}>
+                        <div>
+                          <div className={styles.editorTitle}>{t('workflowApi.requestExampleDisplayTitle')}</div>
+                          <div className={styles.editorHint}>{t('workflowApi.requestExampleDisplayHint')}</div>
+                        </div>
+                        <span className={styles.editorPill}>{endpoint?.responseMode === 'async' ? t('workflowApi.responseModeAsync') : t('workflowApi.responseModeWait')}</span>
                       </div>
+                      <div className={styles.editorActions}>
+                        <Button size="small" onClick={() => applyJsonSuggestion('requestExample', contractSuggestions.requestExample)}>
+                          {t('workflowApi.useCurrentInputExample')}
+                        </Button>
+                      </div>
+                      <Form.Item name="requestExample" noStyle>
+                        <JsonCodeEditor
+                          rows={8}
+                          placeholder={stringifyExample(contractSuggestions.requestExample)}
+                        />
+                      </Form.Item>
                     </div>
-                    <Form.Item name="inputMapping" noStyle>
-                      <JsonCodeEditor rows={8} />
-                    </Form.Item>
-                  </div>
 
-                  <div className={styles.editorSection}>
-                    <div className={styles.editorHeader}>
-                      <div>
-                        <div className={styles.editorTitle}>{t('workflowApi.requestExampleLabel')}</div>
-                        <div className={styles.editorHint}>{t('workflowApi.requestExampleHelp')}</div>
+                    <div className={styles.editorSection}>
+                      <div className={styles.editorHeader}>
+                        <div>
+                          <div className={styles.editorTitle}>{t('workflowApi.responseSchemaTitle')}</div>
+                          <div className={styles.editorHint}>{t('workflowApi.responseSchemaHint')}</div>
+                        </div>
+                        <Space wrap>
+                          <Button size="small" onClick={() => applyJsonSuggestion('responseSchema', null)}>
+                            {t('workflowApi.skipValidation')}
+                          </Button>
+                          <Button size="small" onClick={() => applyJsonSuggestion('responseSchema', contractSuggestions.responseSchema)}>
+                            {t('workflowApi.generateBaseSchema')}
+                          </Button>
+                        </Space>
                       </div>
-                      <span className={styles.editorPill}>{t('workflowApi.resultModeJson')}</span>
+                      <Form.Item name="responseSchema" noStyle>
+                        <JsonCodeEditor
+                          rows={8}
+                          placeholder={stringifyExample(contractSuggestions.responseSchema)}
+                        />
+                      </Form.Item>
                     </div>
-                    <Form.Item name="requestExample" noStyle>
-                      <JsonCodeEditor rows={8} />
-                    </Form.Item>
-                  </div>
 
-                  <div className={styles.editorSection}>
-                    <div className={styles.editorHeader}>
-                      <div>
-                        <div className={styles.editorTitle}>{t('workflowApi.responseExampleLabel')}</div>
-                        <div className={styles.editorHint}>{t('workflowApi.responseExampleHelp')}</div>
+                    <div className={styles.editorSection}>
+                      <div className={styles.editorHeader}>
+                        <div>
+                          <div className={styles.editorTitle}>{t('workflowApi.outputMappingTitle')}</div>
+                          <div className={styles.editorHint}>{t('workflowApi.outputMappingHint')}</div>
+                        </div>
+                        <Space wrap>
+                          <Button size="small" onClick={() => applyJsonSuggestion('outputMapping', null)}>
+                            {t('workflowApi.returnRawResult')}
+                          </Button>
+                          <Button size="small" onClick={() => applyJsonSuggestion('outputMapping', contractSuggestions.outputMapping)}>
+                            {t('workflowApi.generateCommonResponse')}
+                          </Button>
+                        </Space>
                       </div>
-                      <span className={styles.editorPill}>
-                        <ThunderboltOutlined />
-                        {endpoint?.responseMode === 'async' ? t('workflowApi.responseModeAsync') : t('workflowApi.responseModeWait')}
-                      </span>
+                      <Form.Item name="outputMapping" noStyle>
+                        <JsonCodeEditor
+                          rows={8}
+                          placeholder={t('workflowApi.outputMappingPlaceholder')}
+                        />
+                      </Form.Item>
                     </div>
-                    <Form.Item name="responseExample" noStyle>
-                      <JsonCodeEditor rows={8} />
-                    </Form.Item>
-                  </div>
 
-                  <div className={styles.editorSection}>
-                    <div className={styles.editorHeader}>
-                      <div>
-                        <div className={styles.editorTitle}>Response Schema</div>
-                        <div className={styles.editorHint}>约束最终返回的 result 结构；如果运行结果不满足，会把本次 API 调用标记为失败。</div>
+                    <div className={styles.editorSection}>
+                      <div className={styles.editorHeader}>
+                        <div>
+                          <div className={styles.editorTitle}>{t('workflowApi.responseExampleDisplayTitle')}</div>
+                          <div className={styles.editorHint}>{t('workflowApi.responseExampleDisplayHint')}</div>
+                        </div>
+                        <span className={styles.editorPill}>
+                          <ThunderboltOutlined />
+                          {endpoint?.responseMode === 'async' ? t('workflowApi.responseModeAsync') : t('workflowApi.responseModeWait')}
+                        </span>
                       </div>
+                      <Form.Item name="responseExample" noStyle>
+                        <JsonCodeEditor rows={8} />
+                      </Form.Item>
                     </div>
-                    <Form.Item name="responseSchema" noStyle>
-                      <JsonCodeEditor rows={8} />
-                    </Form.Item>
-                  </div>
 
-                  <div className={styles.editorSection}>
-                    <div className={styles.editorHeader}>
-                      <div>
-                        <div className={styles.editorTitle}>Output Mapping</div>
-                        <div className={styles.editorHint}>从工作流结果中抽取并重组对外返回值。可访问 `result.*`、`artifacts`、`taskId`、`status`、`requestId`。</div>
+                    <div className={styles.editorSection}>
+                      <div className={styles.editorHeader}>
+                        <div>
+                          <div className={styles.editorTitle}>{t('workflowApi.artifactAccessTitle')}</div>
+                          <div className={styles.editorHint}>{t('workflowApi.artifactAccessHint')}</div>
+                        </div>
                       </div>
+                      <Row gutter={16}>
+                        <Col xs={24} md={12}>
+                          <Form.Item name="exposeArtifacts" label={t('workflowApi.artifactAccessLabel')} rules={[{ required: true }]}>
+                            <Select options={exposeArtifactsOptions} />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} md={12}>
+                          <Form.Item name="exposedArtifactNodeIds" label={t('workflowApi.exposedArtifactNodeIdsLabel')}>
+                            <Input placeholder={canvasApiStatus.artifactOutputNodes.map((item) => item.id).join(', ') || 'output-report, output-json'} />
+                          </Form.Item>
+                        </Col>
+                      </Row>
                     </div>
-                    <Form.Item name="outputMapping" noStyle>
-                      <JsonCodeEditor rows={8} />
-                    </Form.Item>
                   </div>
 
                   <Alert
                     style={{ marginBottom: 16 }}
                     type="info"
                     showIcon
-                    message="API 返回预览"
+                    message={t('workflowApi.apiResponsePreview')}
                     description={
                       <Space direction="vertical" style={{ width: '100%' }}>
                         <Text>
-                          当前 API 会优先使用画布中的 `api_output` 节点作为返回出口。
+                          {t('workflowApi.apiResponsePreviewDesc')}
                         </Text>
                         {canvasApiStatus.apiOutputNodes.length > 0 ? (
                           canvasApiStatus.apiOutputNodes.map((item) => (
                             <Text key={item.id}>
                               {item.label}（{item.id}）
-                              {item.responsePath ? ` -> ${item.responsePath}` : ' -> 返回当前输入整体'}
+                              {item.responsePath ? ` -> ${item.responsePath}` : ` -> ${t('workflowApi.returnWholeInput')}`}
                             </Text>
                           ))
                         ) : (
-                          <Text>当前还没有配置 `api_output` 节点。</Text>
+                          <Text>{t('workflowApi.noApiOutputConfigured')}</Text>
                         )}
                       </Space>
                     }
@@ -746,7 +984,7 @@ export default function WorkflowApiPage() {
                           {t('workflowApi.lastUsedAt')}: {formatDateTime(item.lastUsedAt, i18n.language, t('workflowApi.neverUsed'))}
                         </Text>
                         <Text type="secondary">
-                          到期时间: {formatDateTime(item.expiresAt, i18n.language, '永不过期')}
+                          {t('workflowApi.expiresAt')}: {formatDateTime(item.expiresAt, i18n.language, t('workflowApi.neverExpires'))}
                         </Text>
                       </div>
                       <Space direction="vertical" align="end">
@@ -759,17 +997,17 @@ export default function WorkflowApiPage() {
                             icon={<StopOutlined />}
                             onClick={() => void handleToggleKeyStatus(item)}
                           >
-                            {item.status === 'active' ? '停用' : '启用'}
+                            {item.status === 'active' ? t('workflowApi.disable') : t('workflowApi.enable')}
                           </Button>
                           <Popconfirm
-                            title="删除这个 API Key？"
-                            description="删除后无法恢复，已发出的密钥会立即失效。"
-                            okText="删除"
-                            cancelText="取消"
+                            title={t('workflowApi.deleteKeyConfirmTitle')}
+                            description={t('workflowApi.deleteKeyConfirmDesc')}
+                            okText={t('workflowApi.delete')}
+                            cancelText={t('workflowApi.cancel')}
                             onConfirm={() => void handleDeleteKey(item)}
                           >
                             <Button size="small" danger icon={<DeleteOutlined />}>
-                              删除
+                              {t('workflowApi.delete')}
                             </Button>
                           </Popconfirm>
                         </Space>
@@ -788,11 +1026,11 @@ export default function WorkflowApiPage() {
             <Form.Item name="name" label={t('workflowApi.keyNameLabel')} rules={[{ required: true, message: t('workflowApi.keyNameRequired') }]}>
               <Input placeholder={t('workflowApi.keyNamePlaceholder')} />
             </Form.Item>
-            <Form.Item name="expiresAt" label="过期时间">
+            <Form.Item name="expiresAt" label={t('workflowApi.expiresAt')}>
               <DatePicker
                 showTime
                 style={{ width: '100%' }}
-                placeholder="可选，不填则永不过期"
+                placeholder={t('workflowApi.expiresAtPlaceholder')}
                 disabledDate={(current) => !!current && current < dayjs().startOf('day')}
               />
             </Form.Item>

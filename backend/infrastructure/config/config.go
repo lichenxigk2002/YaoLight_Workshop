@@ -54,6 +54,8 @@ var (
 	GrokProxyURL            string // Grok provider 专用代理
 	GeminiBaseURL           string // Gemini provider 默认 Base URL
 	OpenAIBaseURL           string // GPT/OpenAI provider 默认 Base URL
+	IPGeoAPIBaseURL         string // IP 归属地查询 API Base URL
+	IPGeoProxyURL           string // IP 归属地查询代理
 
 	// 文件上传配置
 	UploadPath string // 文件上传路径
@@ -185,6 +187,8 @@ func LoadConfig() error {
 	GrokProxyURL = strings.TrimSpace(getEnv("GROK_PROXY_URL", ""))
 	GeminiBaseURL = strings.TrimSpace(getEnv("GEMINI_BASE_URL", ""))
 	OpenAIBaseURL = strings.TrimSpace(getEnv("OPENAI_BASE_URL", ""))
+	IPGeoAPIBaseURL = strings.TrimSpace(getEnv("IP_GEO_API_BASE_URL", "http://ip-api.com/json"))
+	IPGeoProxyURL = strings.TrimSpace(getEnv("IP_GEO_PROXY_URL", ""))
 
 	// 文件上传配置
 	UploadPath = getEnv("UPLOAD_PATH", "./uploads")

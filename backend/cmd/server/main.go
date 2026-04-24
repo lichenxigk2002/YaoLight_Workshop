@@ -430,6 +430,11 @@ func main() {
 			adminAppLogs.DELETE("/:id", rbacMiddleware.RequirePermission("app_logs:edit"), adminAppLogController.DeleteByID)
 			adminAppLogs.DELETE("", rbacMiddleware.RequirePermission("app_logs:edit"), adminAppLogController.DeleteAll)
 
+			adminEmailDebugController := systemControllers.NewAdminEmailDebugController()
+			adminSystemConfigs := auth.Group("/admin/system-configs")
+			adminSystemConfigs.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminSystemConfigs.POST("/email/debug", rbacMiddleware.RequirePermission("system_configs:edit"), adminEmailDebugController.SendTestEmail)
+
 			adminNotifications := auth.Group("/admin/notifications")
 			adminNotifications.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
 			adminNotifications.GET(

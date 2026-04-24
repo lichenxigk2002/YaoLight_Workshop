@@ -1,10 +1,13 @@
 import TaskListCard from './TaskListCard';
+import { useI18n } from '@/i18n';
 
 export default function RunningTasksPage() {
+  const { t } = useI18n();
+
   return (
     <TaskListCard
-      title="运行中任务"
-      description="聚焦当前仍在执行的任务，便于排查长耗时、卡住或堆积的工作流。"
+      title={t('tasks.runningListTitle')}
+      description={t('tasks.runningListDescription')}
       mode="running"
     />
   );

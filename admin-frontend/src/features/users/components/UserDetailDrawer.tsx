@@ -35,6 +35,22 @@ export default function UserDetailDrawer({
     return value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : t('common.empty');
   }
 
+  function renderLastLoginLocation() {
+    const location = user?.last_login_location?.trim();
+    const rawIP = user?.last_login_ip?.trim();
+
+    if (!location && !rawIP) {
+      return t('common.empty');
+    }
+
+    return (
+      <div className={styles.locationBlock}>
+        <span>{location || t('users.locationUnknown')}</span>
+        {rawIP ? <Text type="secondary">{t('users.rawIpValue', { ip: rawIP })}</Text> : null}
+      </div>
+    );
+  }
+
   return (
     <Drawer title={t('users.drawerTitle')} placement="right" width={560} open={open} onClose={onClose} destroyOnClose>
       {!user && !loading ? (
@@ -119,7 +135,7 @@ export default function UserDetailDrawer({
               { key: 'has_password', label: t('users.fieldPassword'), children: user?.has_password ? t('users.fieldPasswordSet') : t('users.fieldPasswordUnset') },
               { key: 'login_count', label: t('users.fieldLoginCount'), children: user?.login_count ?? 0 },
               { key: 'last_login_at', label: t('users.fieldLastLogin'), children: formatDateTime(user?.last_login_at) },
-              { key: 'last_login_ip', label: t('users.fieldLastLoginIp'), children: user?.last_login_ip || t('common.empty') },
+              { key: 'last_login_location', label: t('users.fieldLastLoginLocation'), children: renderLastLoginLocation() },
               { key: 'created_at', label: t('users.fieldCreatedAt'), children: formatDateTime(user?.created_at) },
               { key: 'updated_at', label: t('users.fieldUpdatedAt'), children: formatDateTime(user?.updated_at) },
               {

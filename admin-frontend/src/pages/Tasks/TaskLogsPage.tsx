@@ -4,6 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useOutletContext } from 'react-router-dom';
 import { getAdminTaskLogs } from '@/api/tasks';
 import CodeViewer from '@/components/CodeViewer';
+import { useI18n } from '@/i18n';
 import type { AdminTaskLog } from '@/types/tasks';
 import type { TaskDetailOutletContext } from './TaskDetailLayout';
 import styles from './Tasks.module.scss';
@@ -27,6 +28,7 @@ function levelColor(level: AdminTaskLog['level']) {
 
 export default function TaskLogsPage() {
   const { message } = App.useApp();
+  const { t } = useI18n();
   const { detail } = useOutletContext<TaskDetailOutletContext>();
   const [logs, setLogs] = useState<AdminTaskLog[]>([]);
   const [total, setTotal] = useState(0);
@@ -50,30 +52,30 @@ export default function TaskLogsPage() {
         setTotal(payload.total);
       })
       .catch((error: unknown) => {
-        message.error(error instanceof Error ? error.message : '加载任务日志失败');
+        message.error(error instanceof Error ? error.message : t('tasks.loadLogsFailed'));
       })
       .finally(() => setLoading(false));
-  }, [detail.task.id, level, nodeId, page, pageSize, message]);
+  }, [detail.task.id, level, message, nodeId, page, pageSize, t]);
 
   const columns: ColumnsType<AdminTaskLog> = [
-    { title: '时间', dataIndex: 'createdAt', width: 180 },
+    { title: t('tasks.columnTime'), dataIndex: 'createdAt', width: 180 },
     {
-      title: '级别',
+      title: t('tasks.columnLevel'),
       dataIndex: 'level',
       width: 100,
       render: (value: AdminTaskLog['level']) => <Tag color={levelColor(value)}>{value}</Tag>,
     },
-    { title: '节点', dataIndex: 'nodeId', width: 160, render: (value?: string | null) => value || '-' },
-    { title: '消息', dataIndex: 'message' },
+    { title: t('tasks.columnNode'), dataIndex: 'nodeId', width: 160, render: (value?: string | null) => value || '-' },
+    { title: t('tasks.columnMessage'), dataIndex: 'message' },
   ];
 
   return (
     <div className={styles.page}>
-      <Card bordered={false} className={styles.card} title="任务日志">
+      <Card bordered={false} className={styles.card} title={t('tasks.logsTitle')}>
         <Space wrap className={styles.filterBar} style={{ marginBottom: 16 }}>
           <Select
             allowClear
-            placeholder="日志级别"
+            placeholder={t('tasks.logLevelPlaceholder')}
             value={level}
             onChange={(value) => {
               setPage(1);
@@ -83,7 +85,7 @@ export default function TaskLogsPage() {
             options={['debug', 'info', 'warn', 'error', 'fatal'].map((value) => ({ value, label: value }))}
           />
           <Input
-            placeholder="节点 ID"
+            placeholder={t('tasks.columnNodeId')}
             value={nodeIdInput}
             onChange={(event) => setNodeIdInput(event.target.value)}
             onPressEnter={() => {
@@ -99,7 +101,7 @@ export default function TaskLogsPage() {
               setNodeId(nodeIdInput.trim() || undefined);
             }}
           >
-            查询
+            {t('tasks.query')}
           </Button>
           <Button
             onClick={() => {
@@ -109,7 +111,7 @@ export default function TaskLogsPage() {
               setNodeId(undefined);
             }}
           >
-            重置
+            {t('tasks.reset')}
           </Button>
         </Space>
 
@@ -122,10 +124,10 @@ export default function TaskLogsPage() {
           expandable={{
             expandedRowRender: (record) => (
               <div className={styles.analysisGrid}>
-                <Card size="small" title="Metadata">
+                <Card size="small" title={t('tasks.metadata')}>
                   <CodeViewer value={record.metadata?.Data ?? record.metadata ?? null} maxHeight={300} />
                 </Card>
-                <Card size="small" title="Stack Trace">
+                <Card size="small" title={t('tasks.stackTrace')}>
                   <CodeViewer value={record.stackTrace} language="text" maxHeight={300} />
                 </Card>
               </div>
@@ -136,7 +138,7 @@ export default function TaskLogsPage() {
             pageSize,
             total,
             showSizeChanger: true,
-            showTotal: (value) => `共 ${value} 条`,
+            showTotal: (value) => t('tasks.paginationTotal', { total: value }),
             onChange: (nextPage, nextPageSize) => {
               setPage(nextPage);
               setPageSize(nextPageSize || 100);

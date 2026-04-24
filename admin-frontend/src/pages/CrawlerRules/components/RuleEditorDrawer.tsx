@@ -1,4 +1,5 @@
 import { Button, Col, Drawer, Form, Input, InputNumber, Row, Select, Space, Switch, Tabs } from 'antd';
+import { useI18n } from '@/i18n';
 import styles from '../CrawlerRules.module.scss';
 import type { RuleFormValues } from '../utils';
 import { DEFAULT_RULE_FORM } from '../utils';
@@ -22,18 +23,20 @@ export default function RuleEditorDrawer({
   onClose,
   onSave,
 }: RuleEditorDrawerProps) {
+  const { t } = useI18n();
+
   return (
     <Drawer
-      title={editingRuleId ? `编辑规则 #${editingRuleId}` : '新建规则'}
+      title={editingRuleId ? t('crawlerRules.drawerEditTitle', { id: editingRuleId }) : t('crawlerRules.drawerCreateTitle')}
       width={920}
       open={open}
       onClose={onClose}
       extra={
         <Space>
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>{t('crawlerRules.actionCancel')}</Button>
           {canEdit ? (
             <Button type="primary" loading={saving} onClick={() => void onSave()}>
-              保存
+              {t('crawlerRules.actionSave')}
             </Button>
           ) : null}
         </Space>
@@ -44,40 +47,40 @@ export default function RuleEditorDrawer({
           items={[
             {
               key: 'basic',
-              label: '基础信息',
+              label: t('crawlerRules.tabBasic'),
               children: (
                 <div className={styles.tabBlock}>
                   <Row gutter={16}>
                     <Col xs={24} md={12}>
-                      <Form.Item name="name" label="规则名称" rules={[{ required: true, message: '请输入规则名称' }]}>
-                        <Input placeholder="例如：新闻正文抽取规则" />
+                      <Form.Item name="name" label={t('crawlerRules.formName')} rules={[{ required: true, message: t('crawlerRules.formNameRequired') }]}>
+                        <Input placeholder={t('crawlerRules.formNamePlaceholder')} />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={12}>
-                      <Form.Item name="version" label="版本号">
+                      <Form.Item name="version" label={t('crawlerRules.formVersion')}>
                         <Input placeholder="1.0.0" />
                       </Form.Item>
                     </Col>
                   </Row>
-                  <Form.Item name="description" label="规则说明">
-                    <Input.TextArea rows={3} placeholder="说明这个规则适用于哪些站点、页面结构或采集目的。" />
+                  <Form.Item name="description" label={t('crawlerRules.formDescription')}>
+                    <Input.TextArea rows={3} placeholder={t('crawlerRules.formDescriptionPlaceholder')} />
                   </Form.Item>
-                  <Form.Item name="tutorial" label="使用教程">
-                    <Input.TextArea rows={10} placeholder={'建议包含：适用场景、操作步骤、常见失败原因、调参建议、示例 URL。'} />
+                  <Form.Item name="tutorial" label={t('crawlerRules.formTutorial')}>
+                    <Input.TextArea rows={10} placeholder={t('crawlerRules.formTutorialPlaceholder')} />
                   </Form.Item>
                   <Row gutter={16}>
                     <Col xs={24} md={14}>
-                      <Form.Item name="url_pattern" label="URL 模式" rules={[{ required: true, message: '请输入 URL 模式' }]}>
-                        <Input placeholder="例如：https://example.com/article/*" />
+                      <Form.Item name="url_pattern" label={t('crawlerRules.formUrlPattern')} rules={[{ required: true, message: t('crawlerRules.formUrlPatternRequired') }]}>
+                        <Input placeholder={t('crawlerRules.formUrlPatternPlaceholder')} />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={5}>
-                      <Form.Item name="url_pattern_type" label="模式类型">
+                      <Form.Item name="url_pattern_type" label={t('crawlerRules.formPatternType')}>
                         <Select options={[{ value: 'regex', label: 'regex' }, { value: 'glob', label: 'glob' }, { value: 'exact', label: 'exact' }]} />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={5}>
-                      <Form.Item name="method" label="请求方法">
+                      <Form.Item name="method" label={t('crawlerRules.formMethod')}>
                         <Select options={['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map((value) => ({ value, label: value }))} />
                       </Form.Item>
                     </Col>
@@ -87,65 +90,65 @@ export default function RuleEditorDrawer({
             },
             {
               key: 'runtime',
-              label: '运行参数',
+              label: t('crawlerRules.tabRuntime'),
               children: (
                 <div className={styles.tabBlock}>
                   <Row gutter={16}>
                     <Col xs={24} md={6}>
-                      <Form.Item name="timeout" label="超时（秒）">
+                      <Form.Item name="timeout" label={t('crawlerRules.formTimeout')}>
                         <InputNumber min={1} max={600} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={6}>
-                      <Form.Item name="retry_count" label="重试次数">
+                      <Form.Item name="retry_count" label={t('crawlerRules.formRetryCount')}>
                         <InputNumber min={0} max={20} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={6}>
-                      <Form.Item name="retry_delay" label="重试延迟（秒）">
+                      <Form.Item name="retry_delay" label={t('crawlerRules.formRetryDelay')}>
                         <InputNumber min={0} max={60} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={6}>
-                      <Form.Item name="wait_time" label="请求后等待（秒）">
+                      <Form.Item name="wait_time" label={t('crawlerRules.formWaitTime')}>
                         <InputNumber min={0} max={120} style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
                   </Row>
                   <Form.Item name="user_agent" label="User-Agent">
-                    <Input placeholder="留空则由后端使用默认 UA" />
+                    <Input placeholder={t('crawlerRules.formUserAgentPlaceholder')} />
                   </Form.Item>
                   <Row gutter={16}>
                     <Col xs={12} md={6}>
-                      <Form.Item name="follow_redirects" label="跟随重定向" valuePropName="checked">
+                      <Form.Item name="follow_redirects" label={t('crawlerRules.formFollowRedirects')} valuePropName="checked">
                         <Switch />
                       </Form.Item>
                     </Col>
                     <Col xs={12} md={6}>
-                      <Form.Item name="verify_ssl" label="校验证书" valuePropName="checked">
+                      <Form.Item name="verify_ssl" label={t('crawlerRules.formVerifySsl')} valuePropName="checked">
                         <Switch />
                       </Form.Item>
                     </Col>
                     <Col xs={12} md={6}>
-                      <Form.Item name="javascript_enabled" label="启用 Headless" valuePropName="checked">
+                      <Form.Item name="javascript_enabled" label={t('crawlerRules.formJavascriptEnabled')} valuePropName="checked">
                         <Switch />
                       </Form.Item>
                     </Col>
                     <Col xs={12} md={6}>
-                      <Form.Item name="screenshot" label="执行截图" valuePropName="checked">
+                      <Form.Item name="screenshot" label={t('crawlerRules.formScreenshot')} valuePropName="checked">
                         <Switch />
                       </Form.Item>
                     </Col>
                   </Row>
-                  <Form.Item name="is_active" label="规则启用" valuePropName="checked">
-                    <Switch checkedChildren="启用" unCheckedChildren="停用" />
+                  <Form.Item name="is_active" label={t('crawlerRules.formIsActive')} valuePropName="checked">
+                    <Switch checkedChildren={t('crawlerRules.enable')} unCheckedChildren={t('crawlerRules.disable')} />
                   </Form.Item>
                 </div>
               ),
             },
             {
               key: 'json',
-              label: 'JSON 配置',
+              label: t('crawlerRules.tabJson'),
               children: (
                 <div className={styles.tabBlock}>
                   <Row gutter={16}>
@@ -160,7 +163,7 @@ export default function RuleEditorDrawer({
                       </Form.Item>
                     </Col>
                   </Row>
-                  <Form.Item name="body_json" label="Body JSON / 文本">
+                  <Form.Item name="body_json" label={t('crawlerRules.formBodyJson')}>
                     <Input.TextArea rows={6} className={styles.codeArea} />
                   </Form.Item>
                   <Row gutter={16}>

@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { useOutletContext } from 'react-router-dom';
 import { downloadAdminTaskArtifact, getAdminTaskArtifacts } from '@/api/tasks';
 import CodeViewer from '@/components/CodeViewer';
+import { useI18n } from '@/i18n';
 import type { AdminTaskArtifact } from '@/types/tasks';
 import type { TaskDetailOutletContext } from './TaskDetailLayout';
 import styles from './Tasks.module.scss';
@@ -28,6 +29,7 @@ function formatBytes(size?: number) {
 
 export default function TaskOverviewPage() {
   const { message } = App.useApp();
+  const { t } = useI18n();
   const { detail } = useOutletContext<TaskDetailOutletContext>();
   const [artifacts, setArtifacts] = useState<AdminTaskArtifact[]>([]);
   const [artifactTotal, setArtifactTotal] = useState(0);
@@ -44,19 +46,19 @@ export default function TaskOverviewPage() {
         setArtifactTotal(payload.total);
       })
       .catch((error: unknown) => {
-        message.error(error instanceof Error ? error.message : '加载任务制品失败');
+        message.error(error instanceof Error ? error.message : t('tasks.loadArtifactsFailed'));
       })
       .finally(() => setLoadingArtifacts(false));
   }, [artifactPage, artifactPageSize, detail.task.id, message]);
 
   const artifactColumns: ColumnsType<AdminTaskArtifact> = [
-    { title: '名称', dataIndex: 'name' },
-    { title: '类型', dataIndex: 'kind', width: 120, render: (value: string) => <Tag>{value}</Tag> },
-    { title: '节点', dataIndex: 'node_id', width: 160, render: (value: string) => value || '-' },
-    { title: '大小', dataIndex: 'size', width: 120, render: (value: number) => formatBytes(value) },
-    { title: '创建时间', dataIndex: 'created_at', width: 180, render: (value: string) => formatDateTime(value) },
+    { title: t('tasks.columnName'), dataIndex: 'name' },
+    { title: t('tasks.columnType'), dataIndex: 'kind', width: 120, render: (value: string) => <Tag>{value}</Tag> },
+    { title: t('tasks.columnNode'), dataIndex: 'node_id', width: 160, render: (value: string) => value || '-' },
+    { title: t('tasks.columnSize'), dataIndex: 'size', width: 120, render: (value: number) => formatBytes(value) },
+    { title: t('tasks.columnCreatedAt'), dataIndex: 'created_at', width: 180, render: (value: string) => formatDateTime(value) },
     {
-      title: '操作',
+      title: t('tasks.columnActions'),
       key: 'actions',
       width: 120,
       render: (_, record) => (
@@ -66,11 +68,11 @@ export default function TaskOverviewPage() {
             try {
               await downloadAdminTaskArtifact(record.id, record.name);
             } catch (error: unknown) {
-              message.error(error instanceof Error ? error.message : '下载制品失败');
+              message.error(error instanceof Error ? error.message : t('tasks.downloadArtifactFailed'));
             }
           }}
         >
-          下载
+          {t('tasks.download')}
         </Button>
       ),
     },
@@ -80,32 +82,32 @@ export default function TaskOverviewPage() {
     <div className={styles.page}>
       <div className={styles.metrics}>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="进度" value={detail.task.progress} suffix="%" />
+          <Statistic title={t('tasks.overviewProgress')} value={detail.task.progress} suffix="%" />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="节点执行数" value={detail.node_execution_count} />
+          <Statistic title={t('tasks.overviewNodeExecutionCount')} value={detail.node_execution_count} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="日志数" value={detail.log_count} />
+          <Statistic title={t('tasks.overviewLogCount')} value={detail.log_count} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="制品数" value={detail.artifact_count} />
+          <Statistic title={t('tasks.overviewArtifactCount')} value={detail.artifact_count} />
         </Card>
       </div>
 
-      <Card bordered={false} className={styles.card} title="基础信息">
+      <Card bordered={false} className={styles.card} title={t('tasks.cardBasicInfo')}>
         <Descriptions bordered column={2}>
-          <Descriptions.Item label="任务 ID">{detail.task.id}</Descriptions.Item>
-          <Descriptions.Item label="状态">{detail.task.status}</Descriptions.Item>
-          <Descriptions.Item label="工作流">{detail.workflow.name}</Descriptions.Item>
-          <Descriptions.Item label="用户">{detail.user.username}</Descriptions.Item>
-          <Descriptions.Item label="优先级">{detail.task.priority}</Descriptions.Item>
-          <Descriptions.Item label="重试次数">{detail.task.retryCount}</Descriptions.Item>
-          <Descriptions.Item label="开始时间">{formatDateTime(detail.task.startedAt)}</Descriptions.Item>
-          <Descriptions.Item label="完成时间">{formatDateTime(detail.task.completedAt)}</Descriptions.Item>
-          <Descriptions.Item label="创建时间">{formatDateTime(detail.task.createdAt)}</Descriptions.Item>
-          <Descriptions.Item label="更新时间">{formatDateTime(detail.task.updatedAt)}</Descriptions.Item>
-          <Descriptions.Item label="错误信息" span={2}>
+          <Descriptions.Item label={t('tasks.fieldTaskId')}>{detail.task.id}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldStatus')}>{detail.task.status}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldWorkflow')}>{detail.workflow.name}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldUser')}>{detail.user.username}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldPriority')}>{detail.task.priority}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldRetryCount')}>{detail.task.retryCount}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldStartedAt')}>{formatDateTime(detail.task.startedAt)}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldCompletedAt')}>{formatDateTime(detail.task.completedAt)}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldCreatedAt')}>{formatDateTime(detail.task.createdAt)}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldUpdatedAt')}>{formatDateTime(detail.task.updatedAt)}</Descriptions.Item>
+          <Descriptions.Item label={t('tasks.fieldErrorMessage')} span={2}>
             {detail.task.errorMessage || '-'}
           </Descriptions.Item>
         </Descriptions>
@@ -113,7 +115,7 @@ export default function TaskOverviewPage() {
 
       <div className={styles.codePanels}>
         <div className={styles.codeSidebar}>
-          <Card bordered={false} className={styles.card} title="输入数据">
+          <Card bordered={false} className={styles.card} title={t('tasks.inputData')}>
             <CodeViewer value={detail.task.inputData?.Data ?? detail.task.inputData ?? null} maxHeight={320} />
           </Card>
 
@@ -121,7 +123,7 @@ export default function TaskOverviewPage() {
             <Card
               bordered={false}
               className={styles.card}
-              title="错误堆栈"
+              title={t('tasks.errorStack')}
               extra={
                 <Space size={4} className={styles.stackActions}>
                   <Button
@@ -130,16 +132,16 @@ export default function TaskOverviewPage() {
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(detail.task.errorStack ?? '');
-                        message.success('错误堆栈已复制');
+                        message.success(t('tasks.errorStackCopied'));
                       } catch {
-                        message.error('复制失败');
+                        message.error(t('tasks.copyFailed'));
                       }
                     }}
                   >
-                    复制
+                    {t('tasks.copy')}
                   </Button>
                   <Button size="small" type="text" onClick={() => setErrorStackExpanded((current) => !current)}>
-                    {errorStackExpanded ? '收起' : '展开'}
+                    {errorStackExpanded ? t('tasks.collapse') : t('tasks.expand')}
                   </Button>
                 </Space>
               }
@@ -147,22 +149,22 @@ export default function TaskOverviewPage() {
               {errorStackExpanded ? (
                 <CodeViewer value={detail.task.errorStack} language="text" maxHeight={280} />
               ) : (
-                <div className={styles.stackCollapsed}>默认折叠，点击“展开”查看完整错误堆栈。</div>
+                <div className={styles.stackCollapsed}>{t('tasks.stackCollapsedHint')}</div>
               )}
             </Card>
           ) : null}
         </div>
 
         <div className={styles.codeMain}>
-          <Card bordered={false} className={styles.card} title="结果数据">
+          <Card bordered={false} className={styles.card} title={t('tasks.resultData')}>
             <CodeViewer value={detail.task.result?.Data ?? detail.task.result ?? null} maxHeight={760} />
           </Card>
         </div>
       </div>
 
-      <Card bordered={false} className={styles.card} title="任务制品">
+      <Card bordered={false} className={styles.card} title={t('tasks.artifactsTitle')}>
         {artifactTotal === 0 && !loadingArtifacts ? (
-          <Empty description="当前任务暂无制品" />
+          <Empty description={t('tasks.artifactsEmpty')} />
         ) : (
           <Table<AdminTaskArtifact>
             rowKey="id"
@@ -175,7 +177,7 @@ export default function TaskOverviewPage() {
               pageSize: artifactPageSize,
               total: artifactTotal,
               showSizeChanger: true,
-              showTotal: (value) => `共 ${value} 条`,
+              showTotal: (value) => t('tasks.paginationTotal', { total: value }),
               onChange: (nextPage, nextPageSize) => {
                 setArtifactPage(nextPage);
                 setArtifactPageSize(nextPageSize || 10);

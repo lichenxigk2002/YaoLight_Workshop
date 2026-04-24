@@ -33,7 +33,7 @@ function formatDateTime(value?: string | null) {
 
 export default function TaskListCard({ title, description, mode = 'all' }: TaskListCardProps) {
   const { message } = App.useApp();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const navigate = useNavigate();
   const [loadingList, setLoadingList] = useState(false);
   const [tasks, setTasks] = useState<AdminTaskListItem[]>([]);
@@ -96,14 +96,14 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
         setTotal(payload.total);
       })
       .catch((error: unknown) => {
-        message.error(error instanceof Error ? error.message : '加载任务列表失败');
+        message.error(error instanceof Error ? error.message : t('tasks.loadListFailed'));
       })
       .finally(() => setLoadingList(false));
-  }, [errorKeyword, keyword, message, mode, nodeType, page, pageSize, refreshKey, startedFrom, startedTo, status, userId, workflowId]);
+  }, [errorKeyword, keyword, message, mode, nodeType, page, pageSize, refreshKey, startedFrom, startedTo, status, t, userId, workflowId]);
 
   const columns: ColumnsType<AdminTaskListItem> = [
     {
-      title: '任务 ID',
+      title: t('tasks.columnTaskId'),
       dataIndex: 'id',
       width: 100,
       render: (value: number, record) => (
@@ -113,29 +113,29 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
       ),
     },
     {
-      title: '工作流',
+      title: t('tasks.columnWorkflow'),
       dataIndex: 'workflow_name',
       render: (value: string, record) => (
         <div>
           <div>{value}</div>
-          <Text type="secondary">Workflow #{record.workflow_id}</Text>
+          <Text type="secondary">{t('tasks.workflowId', { id: record.workflow_id })}</Text>
         </div>
       ),
     },
     {
-      title: '用户',
+      title: t('tasks.columnUser'),
       dataIndex: 'username',
       render: (value: string, record) => (
         <div>
           <div>{value}</div>
           <Text type="secondary">
-            User #{record.user_id} / NO.{record.user_no}
+            {t('tasks.userIdAndNo', { id: record.user_id, userNo: record.user_no })}
           </Text>
         </div>
       ),
     },
     {
-      title: '状态',
+      title: t('tasks.columnStatus'),
       dataIndex: 'status',
       width: 120,
       render: (value: string) => {
@@ -148,25 +148,25 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
       },
     },
     {
-      title: '进度',
+      title: t('tasks.columnProgress'),
       dataIndex: 'progress',
       width: 90,
       render: (value: number) => `${value}%`,
     },
     {
-      title: '耗时',
+      title: t('tasks.columnDuration'),
       dataIndex: 'actual_duration',
       width: 120,
       render: (value?: number | null) => (value == null ? '-' : `${value} ms`),
     },
     {
-      title: '创建时间',
+      title: t('tasks.columnCreatedAt'),
       dataIndex: 'created_at',
       width: 180,
       render: (value: string) => formatDateTime(value),
     },
     {
-      title: '错误信息',
+      title: t('tasks.columnErrorMessage'),
       dataIndex: 'error_message',
       ellipsis: true,
       render: (value?: string | null) => value || '-',
@@ -181,14 +181,14 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
           <Paragraph className={styles.muted}>{description}</Paragraph>
         </div>
         <Space>
-          <Button onClick={() => setRefreshKey((current) => current + 1)}>刷新列表</Button>
+          <Button onClick={() => setRefreshKey((current) => current + 1)}>{t('tasks.refreshList')}</Button>
         </Space>
       </div>
 
       <div className={styles.filterBar} style={{ marginBottom: 16 }}>
         <Input
           allowClear
-          placeholder="任务名称 / 工作流名 / 用户名 / 错误信息"
+          placeholder={t('tasks.keywordPlaceholder')}
           value={keywordInput}
           onChange={(event) => setKeywordInput(event.target.value)}
           onPressEnter={() => {
@@ -200,7 +200,7 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
         {mode === 'all' ? (
           <Select
             allowClear
-            placeholder="状态"
+            placeholder={t('tasks.statusPlaceholder')}
             value={status}
             onChange={(value) => {
               setPage(1);
@@ -215,7 +215,7 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
         {mode === 'failures' ? (
           <Input
             allowClear
-            placeholder="节点类型"
+            placeholder={t('tasks.nodeTypePlaceholder')}
             value={nodeTypeInput}
             onChange={(event) => setNodeTypeInput(event.target.value)}
             onPressEnter={() => {
@@ -228,7 +228,7 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
         {mode === 'failures' ? (
           <Input
             allowClear
-            placeholder="错误关键字"
+            placeholder={t('tasks.errorKeywordPlaceholder')}
             value={errorKeywordInput}
             onChange={(event) => setErrorKeywordInput(event.target.value)}
             onPressEnter={() => {
@@ -239,13 +239,13 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
           />
         ) : null}
         <InputNumber
-          placeholder="用户 ID"
+          placeholder={t('tasks.userIdPlaceholder')}
           value={userIdInput}
           onChange={(value) => setUserIdInput(value)}
           style={{ width: 120 }}
         />
         <InputNumber
-          placeholder="工作流 ID"
+          placeholder={t('tasks.workflowIdPlaceholder')}
           value={workflowIdInput}
           onChange={(value) => setWorkflowIdInput(value)}
           style={{ width: 140 }}
@@ -275,7 +275,7 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
             }
           }}
         >
-          查询
+          {t('tasks.query')}
         </Button>
         <Button
           onClick={() => {
@@ -296,7 +296,7 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
             setPage(1);
           }}
         >
-          重置
+          {t('tasks.reset')}
         </Button>
       </div>
 
@@ -310,7 +310,7 @@ export default function TaskListCard({ title, description, mode = 'all' }: TaskL
           pageSize,
           total,
           showSizeChanger: true,
-          showTotal: (value) => `共 ${value} 条`,
+          showTotal: (value) => t('tasks.paginationTotal', { total: value }),
           onChange: (nextPage, nextPageSize) => {
             setPage(nextPage);
             setPageSize(nextPageSize || 20);

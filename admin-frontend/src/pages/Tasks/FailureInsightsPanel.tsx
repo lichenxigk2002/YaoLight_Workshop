@@ -3,6 +3,7 @@ import { App, Button, Card, DatePicker, Input, InputNumber, Space, Statistic, Ta
 import type { ColumnsType } from 'antd/es/table';
 import { type Dayjs } from 'dayjs';
 import { getAdminTaskFailureStats } from '@/api/tasks';
+import { useI18n } from '@/i18n';
 import type {
   AdminTaskFailureCountItem,
   AdminTaskFailureStats,
@@ -16,6 +17,7 @@ const { RangePicker } = DatePicker;
 
 function useFailureStats() {
   const { message } = App.useApp();
+  const { t } = useI18n();
   const [stats, setStats] = useState<AdminTaskFailureStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -43,10 +45,10 @@ function useFailureStats() {
     })
       .then(setStats)
       .catch((error: unknown) => {
-        message.error(error instanceof Error ? error.message : '加载失败分析失败');
+        message.error(error instanceof Error ? error.message : t('tasks.loadFailureStatsFailed'));
       })
       .finally(() => setLoading(false));
-  }, [errorKeyword, message, nodeType, refreshKey, startedFrom, startedTo, userId, workflowId]);
+  }, [errorKeyword, message, nodeType, refreshKey, startedFrom, startedTo, t, userId, workflowId]);
 
   return {
     stats,
@@ -87,6 +89,7 @@ function useFailureStats() {
 }
 
 export default function FailureInsightsPanel() {
+  const { t } = useI18n();
   const {
     stats,
     loading,
@@ -106,20 +109,20 @@ export default function FailureInsightsPanel() {
   } = useFailureStats();
 
   const countColumns: ColumnsType<AdminTaskFailureCountItem> = [
-    { title: '项目', dataIndex: 'label' },
-    { title: '次数', dataIndex: 'count', width: 100 },
+    { title: t('tasks.columnItem'), dataIndex: 'label' },
+    { title: t('tasks.columnCount'), dataIndex: 'count', width: 100 },
   ];
 
   const workflowColumns: ColumnsType<AdminTaskWorkflowFailureItem> = [
-    { title: '工作流', dataIndex: 'workflow_name' },
-    { title: 'ID', dataIndex: 'workflow_id', width: 90 },
-    { title: '失败数', dataIndex: 'count', width: 100 },
+    { title: t('tasks.columnWorkflow'), dataIndex: 'workflow_name' },
+    { title: t('tasks.columnWorkflowId'), dataIndex: 'workflow_id', width: 90 },
+    { title: t('tasks.columnFailureCount'), dataIndex: 'count', width: 100 },
   ];
 
   const trendColumns: ColumnsType<AdminTaskFailureTrendPoint> = [
-    { title: '日期', dataIndex: 'day' },
+    { title: t('tasks.columnDate'), dataIndex: 'day' },
     {
-      title: '失败数',
+      title: t('tasks.columnFailureCount'),
       dataIndex: 'count',
       width: 120,
       render: (value: number) => <Tag color={value > 0 ? 'red' : 'default'}>{value}</Tag>,
@@ -131,37 +134,37 @@ export default function FailureInsightsPanel() {
       <Card bordered={false} className={styles.card}>
         <div className={styles.toolbar}>
           <div>
-            <Paragraph className={styles.toolbarTitle}>失败原因分析</Paragraph>
-            <Paragraph className={styles.muted}>按时间、节点类型、错误关键字、用户和工作流聚合失败任务，快速锁定最集中的故障面。</Paragraph>
+            <Paragraph className={styles.toolbarTitle}>{t('tasks.failureTitle')}</Paragraph>
+            <Paragraph className={styles.muted}>{t('tasks.failureDescription')}</Paragraph>
           </div>
           <Space>
-            <Button onClick={refresh}>刷新分析</Button>
+            <Button onClick={refresh}>{t('tasks.refreshFailureAnalysis')}</Button>
           </Space>
         </div>
 
         <div className={styles.filterBar} style={{ marginBottom: 16 }}>
           <Input
             allowClear
-            placeholder="节点类型"
+            placeholder={t('tasks.nodeTypePlaceholder')}
             value={nodeTypeInput}
             onChange={(event) => setNodeTypeInput(event.target.value)}
             style={{ width: 160 }}
           />
           <Input
             allowClear
-            placeholder="错误关键字"
+            placeholder={t('tasks.errorKeywordPlaceholder')}
             value={errorKeywordInput}
             onChange={(event) => setErrorKeywordInput(event.target.value)}
             style={{ width: 180 }}
           />
           <InputNumber
-            placeholder="工作流 ID"
+            placeholder={t('tasks.workflowIdPlaceholder')}
             value={workflowIdInput}
             onChange={(value) => setWorkflowIdInput(value)}
             style={{ width: 140 }}
           />
           <InputNumber
-            placeholder="用户 ID"
+            placeholder={t('tasks.userIdPlaceholder')}
             value={userIdInput}
             onChange={(value) => setUserIdInput(value)}
             style={{ width: 120 }}
@@ -177,29 +180,29 @@ export default function FailureInsightsPanel() {
             }}
           />
           <Button type="primary" onClick={applyFilters}>
-            分析
+            {t('tasks.analyze')}
           </Button>
-          <Button onClick={resetFilters}>重置</Button>
+          <Button onClick={resetFilters}>{t('tasks.reset')}</Button>
         </div>
 
         <div className={styles.metrics}>
           <Card bordered={false} className={styles.card}>
-            <Statistic title="失败任务数" value={stats?.total_failures ?? 0} loading={loading} />
+            <Statistic title={t('tasks.metricFailureTasks')} value={stats?.total_failures ?? 0} loading={loading} />
           </Card>
           <Card bordered={false} className={styles.card}>
-            <Statistic title="超时数" value={stats?.timeout_count ?? 0} loading={loading} />
+            <Statistic title={t('tasks.metricTimeoutCount')} value={stats?.timeout_count ?? 0} loading={loading} />
           </Card>
           <Card bordered={false} className={styles.card}>
-            <Statistic title="涉及工作流" value={stats?.unique_workflows ?? 0} loading={loading} />
+            <Statistic title={t('tasks.metricUniqueWorkflows')} value={stats?.unique_workflows ?? 0} loading={loading} />
           </Card>
           <Card bordered={false} className={styles.card}>
-            <Statistic title="涉及用户" value={stats?.unique_users ?? 0} loading={loading} />
+            <Statistic title={t('tasks.metricUniqueUsers')} value={stats?.unique_users ?? 0} loading={loading} />
           </Card>
         </div>
       </Card>
 
       <div className={styles.analysisGrid}>
-        <Card bordered={false} className={styles.card} title="高频失败节点类型">
+        <Card bordered={false} className={styles.card} title={t('tasks.topNodeTypes')}>
           <Table<AdminTaskFailureCountItem>
             rowKey="label"
             loading={loading}
@@ -209,7 +212,7 @@ export default function FailureInsightsPanel() {
             size="small"
           />
         </Card>
-        <Card bordered={false} className={styles.card} title="高频失败工作流">
+        <Card bordered={false} className={styles.card} title={t('tasks.topWorkflows')}>
           <Table<AdminTaskWorkflowFailureItem>
             rowKey="workflow_id"
             loading={loading}
@@ -219,7 +222,7 @@ export default function FailureInsightsPanel() {
             size="small"
           />
         </Card>
-        <Card bordered={false} className={styles.card} title="高频错误信息">
+        <Card bordered={false} className={styles.card} title={t('tasks.topErrors')}>
           <Table<AdminTaskFailureCountItem>
             rowKey="label"
             loading={loading}
@@ -229,7 +232,7 @@ export default function FailureInsightsPanel() {
             size="small"
           />
         </Card>
-        <Card bordered={false} className={styles.card} title="最近失败趋势">
+        <Card bordered={false} className={styles.card} title={t('tasks.recentFailureTrend')}>
           <Table<AdminTaskFailureTrendPoint>
             rowKey="day"
             loading={loading}

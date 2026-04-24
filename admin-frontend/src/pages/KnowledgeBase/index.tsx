@@ -22,6 +22,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import PageHero from '@/components/PageHero';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
+import { useI18n } from '@/i18n';
 import {
   createKnowledge,
   deleteKnowledge,
@@ -64,11 +65,11 @@ interface SearchFormValues {
   limit: number;
 }
 
-const categoryOptions: Array<{ value: KnowledgeCategory; label: string; color: string }> = [
-  { value: 'node_usage', label: '节点用法', color: 'blue' },
-  { value: 'error_repair', label: '错误修复', color: 'red' },
-  { value: 'best_practice', label: '最佳实践', color: 'green' },
-  { value: 'scene_template', label: '场景模板', color: 'purple' },
+const categoryOptions: Array<{ value: KnowledgeCategory; labelKey: string; color: string }> = [
+  { value: 'node_usage', labelKey: 'knowledgeBase.categoryNodeUsage', color: 'blue' },
+  { value: 'error_repair', labelKey: 'knowledgeBase.categoryErrorRepair', color: 'red' },
+  { value: 'best_practice', labelKey: 'knowledgeBase.categoryBestPractice', color: 'green' },
+  { value: 'scene_template', labelKey: 'knowledgeBase.categorySceneTemplate', color: 'purple' },
 ];
 
 const DEFAULT_FORM_VALUES: KnowledgeFormValues = {
@@ -126,18 +127,9 @@ function getCategoryMeta(category: KnowledgeCategory) {
   return categoryOptions.find((item) => item.value === category) ?? categoryOptions[0];
 }
 
-function getScopeMeta(scope: KnowledgeScope) {
-  return scope === 'system'
-    ? { color: 'geekblue', label: '系统公共' }
-    : { color: 'gold', label: '用户私有' };
-}
-
-function getStatusMeta(active: boolean) {
-  return active ? { color: 'green', label: '启用中' } : { color: 'default', label: '已停用' };
-}
-
 export default function KnowledgeBasePage() {
   const { message } = App.useApp();
+  const { t } = useI18n();
   const { canEdit } = useAdminPermission('knowledge_base');
   const [form] = Form.useForm<KnowledgeFormValues>();
   const [searchForm] = Form.useForm<SearchFormValues>();
@@ -168,7 +160,7 @@ export default function KnowledgeBasePage() {
       const payload = await getKnowledgeSummary();
       setSummary(payload);
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '加载知识库概览失败');
+      message.error(error instanceof Error ? error.message : t('knowledgeBase.loadSummaryFailed'));
     } finally {
       setSummaryLoading(false);
     }
@@ -188,7 +180,7 @@ export default function KnowledgeBasePage() {
       setItems(payload.list);
       setTotal(payload.total);
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '加载知识条目失败');
+      message.error(error instanceof Error ? error.message : t('knowledgeBase.loadListFailed'));
     } finally {
       setLoading(false);
     }
@@ -233,7 +225,7 @@ export default function KnowledgeBasePage() {
       const detail = await getKnowledge(record.id);
       form.setFieldsValue(detailToFormValues(detail));
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '加载知识详情失败');
+      message.error(error instanceof Error ? error.message : t('knowledgeBase.loadDetailFailed'));
       setDrawerOpen(false);
     }
   };
@@ -245,10 +237,10 @@ export default function KnowledgeBasePage() {
       setSaving(true);
       if (editingId) {
         await updateKnowledge(editingId, payload);
-        message.success('知识条目已更新');
+        message.success(t('knowledgeBase.updateSuccess'));
       } else {
         await createKnowledge(payload);
-        message.success('知识条目已创建');
+        message.success(t('knowledgeBase.createSuccess'));
       }
       setDrawerOpen(false);
       setPage(1);
@@ -265,21 +257,21 @@ export default function KnowledgeBasePage() {
   const handleDelete = async (record: KnowledgeItem) => {
     try {
       await deleteKnowledge(record.id);
-      message.success('知识条目已删除');
+      message.success(t('knowledgeBase.deleteSuccess'));
       await reloadAll(page);
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '删除知识条目失败');
+      message.error(error instanceof Error ? error.message : t('knowledgeBase.deleteFailed'));
     }
   };
 
   const handleStatusChange = async (record: KnowledgeItem, checked: boolean) => {
     try {
       await setKnowledgeStatus(record.id, checked);
-      message.success(`知识条目已${checked ? '启用' : '停用'}`);
+      message.success(checked ? t('knowledgeBase.enableSuccess') : t('knowledgeBase.disableSuccess'));
       setItems((current) => current.map((item) => (item.id === record.id ? { ...item, is_active: checked } : item)));
       void loadSummary();
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '更新状态失败');
+      message.error(error instanceof Error ? error.message : t('knowledgeBase.updateStatusFailed'));
     }
   };
 
@@ -302,9 +294,19 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  const getScopeMeta = (scopeValue: KnowledgeScope) =>
+    scopeValue === 'system'
+      ? { color: 'geekblue', label: t('knowledgeBase.scopeSystem') }
+      : { color: 'gold', label: t('knowledgeBase.scopePrivate') };
+
+  const getStatusMeta = (active: boolean) =>
+    active
+      ? { color: 'green', label: t('knowledgeBase.statusActive') }
+      : { color: 'default', label: t('knowledgeBase.statusInactive') };
+
   const columns: ColumnsType<KnowledgeItem> = [
     {
-      title: '标题',
+      title: t('knowledgeBase.columnTitle'),
       dataIndex: 'title',
       render: (value: string, record) => (
         <Button type="link" onClick={() => void openEditDrawer(record)}>
@@ -313,22 +315,22 @@ export default function KnowledgeBasePage() {
       ),
     },
     {
-      title: '分类',
+      title: t('knowledgeBase.columnCategory'),
       dataIndex: 'category',
       width: 120,
       render: (value: KnowledgeCategory) => {
         const meta = getCategoryMeta(value);
-        return <Tag color={meta.color}>{meta.label}</Tag>;
+        return <Tag color={meta.color}>{t(meta.labelKey)}</Tag>;
       },
     },
     {
-      title: '目标',
+      title: t('knowledgeBase.columnTarget'),
       dataIndex: 'target',
       width: 140,
-      render: (value: string) => value || <Text type="secondary">通用</Text>,
+      render: (value: string) => value || <Text type="secondary">{t('knowledgeBase.targetGeneral')}</Text>,
     },
     {
-      title: '范围',
+      title: t('knowledgeBase.columnScope'),
       dataIndex: 'scope',
       width: 120,
       render: (value: KnowledgeScope, record) => {
@@ -336,18 +338,18 @@ export default function KnowledgeBasePage() {
         return (
           <Space direction="vertical" size={4}>
             <Tag color={meta.color}>{meta.label}</Tag>
-            {record.user_id ? <Text type="secondary">用户 #{record.user_id}</Text> : null}
+            {record.user_id ? <Text type="secondary">{t('knowledgeBase.userIdDisplay', { id: record.user_id })}</Text> : null}
           </Space>
         );
       },
     },
     {
-      title: '内容摘要',
+      title: t('knowledgeBase.columnExcerpt'),
       dataIndex: 'content_excerpt',
       render: (value: string) => <div className={styles.excerpt}>{value || '-'}</div>,
     },
     {
-      title: '标签',
+      title: t('knowledgeBase.columnTags'),
       dataIndex: 'tags',
       width: 220,
       render: (value: string[]) =>
@@ -363,7 +365,7 @@ export default function KnowledgeBasePage() {
         ),
     },
     {
-      title: '状态',
+      title: t('knowledgeBase.columnStatus'),
       key: 'status',
       width: 150,
       render: (_value, record) => {
@@ -377,27 +379,27 @@ export default function KnowledgeBasePage() {
       },
     },
     {
-      title: '更新时间',
+      title: t('knowledgeBase.columnUpdatedAt'),
       dataIndex: 'updated_at',
       width: 180,
     },
     {
-      title: '操作',
+      title: t('knowledgeBase.columnActions'),
       key: 'actions',
       width: 160,
       render: (_value, record) => (
         <Space wrap>
           <Button type="link" onClick={() => void openEditDrawer(record)}>
-            编辑
+            {t('knowledgeBase.actionEdit')}
           </Button>
           {canEdit ? (
             <Popconfirm
-              title="确认删除这个知识条目？"
-              description="删除后不会参与知识检索。"
+              title={t('knowledgeBase.deleteConfirmTitle')}
+              description={t('knowledgeBase.deleteConfirmDescription')}
               onConfirm={() => void handleDelete(record)}
             >
               <Button type="link" danger>
-                删除
+                {t('knowledgeBase.actionDelete')}
               </Button>
             </Popconfirm>
           ) : null}
@@ -409,51 +411,56 @@ export default function KnowledgeBasePage() {
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="知识库"
-        title="知识库管理"
-        description="集中维护平台知识内容，包括节点用法、问题处理、最佳实践和场景模板，并支持直接验证检索效果。"
-        tags={['公共知识', '用户私有知识', '检索验证', '运营维护']}
+        eyebrow={t('knowledgeBase.heroEyebrow')}
+        title={t('knowledgeBase.heroTitle')}
+        description={t('knowledgeBase.heroDescription')}
+        tags={[
+          t('knowledgeBase.heroTagPublic'),
+          t('knowledgeBase.heroTagPrivate'),
+          t('knowledgeBase.heroTagSearch'),
+          t('knowledgeBase.heroTagOps'),
+        ]}
         action={
           <Space>
-            <Button onClick={() => void reloadAll(page)}>刷新</Button>
+            <Button onClick={() => void reloadAll(page)}>{t('knowledgeBase.actionRefresh')}</Button>
             <Button onClick={() => {
               setSearchResult(null);
               searchForm.setFieldsValue(DEFAULT_SEARCH_VALUES);
               setSearchOpen(true);
             }}
             >
-              检索测试
+              {t('knowledgeBase.actionSearchTest')}
             </Button>
-            {canEdit ? <Button type="primary" onClick={openCreateDrawer}>新建知识</Button> : null}
+            {canEdit ? <Button type="primary" onClick={openCreateDrawer}>{t('knowledgeBase.actionCreate')}</Button> : null}
           </Space>
         }
       />
 
       <div className={styles.metrics}>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="知识条目总数" value={summary?.total ?? 0} loading={summaryLoading} />
+          <Statistic title={t('knowledgeBase.metricTotal')} value={summary?.total ?? 0} loading={summaryLoading} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="启用中" value={summary?.active ?? 0} loading={summaryLoading} />
+          <Statistic title={t('knowledgeBase.metricActive')} value={summary?.active ?? 0} loading={summaryLoading} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="系统公共知识" value={summary?.system_count ?? 0} loading={summaryLoading} />
+          <Statistic title={t('knowledgeBase.metricSystem')} value={summary?.system_count ?? 0} loading={summaryLoading} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="用户私有知识" value={summary?.private_count ?? 0} loading={summaryLoading} />
+          <Statistic title={t('knowledgeBase.metricPrivate')} value={summary?.private_count ?? 0} loading={summaryLoading} />
         </Card>
       </div>
 
       <Card bordered={false} className={styles.card}>
         <div className={styles.toolbar}>
           <div>
-            <Paragraph className={styles.toolbarTitle}>知识条目列表</Paragraph>
-            <Paragraph className={styles.muted}>按关键词、分类、范围和启停状态筛选，直接维护 Alkaid 的知识上下文。</Paragraph>
+            <Paragraph className={styles.toolbarTitle}>{t('knowledgeBase.listTitle')}</Paragraph>
+            <Paragraph className={styles.muted}>{t('knowledgeBase.listDescription')}</Paragraph>
           </div>
           <div className={styles.filterBar}>
             <Input
               allowClear
-              placeholder="搜索标题 / 内容 / target"
+              placeholder={t('knowledgeBase.keywordPlaceholder')}
               value={keywordInput}
               onChange={(event) => setKeywordInput(event.target.value)}
               onPressEnter={() => {
@@ -470,8 +477,8 @@ export default function KnowledgeBasePage() {
               }}
               style={{ width: 150 }}
               options={[
-                { value: 'all', label: '全部分类' },
-                ...categoryOptions.map((item) => ({ value: item.value, label: item.label })),
+                { value: 'all', label: t('knowledgeBase.allCategories') },
+                ...categoryOptions.map((item) => ({ value: item.value, label: t(item.labelKey) })),
               ]}
             />
             <Select
@@ -482,9 +489,9 @@ export default function KnowledgeBasePage() {
               }}
               style={{ width: 140 }}
               options={[
-                { value: 'all', label: '全部范围' },
-                { value: 'system', label: '系统公共' },
-                { value: 'private', label: '用户私有' },
+                { value: 'all', label: t('knowledgeBase.allScopes') },
+                { value: 'system', label: t('knowledgeBase.scopeSystem') },
+                { value: 'private', label: t('knowledgeBase.scopePrivate') },
               ]}
             />
             <Select<FilterStatus>
@@ -495,9 +502,9 @@ export default function KnowledgeBasePage() {
               }}
               style={{ width: 140 }}
               options={[
-                { value: 'all', label: '全部状态' },
-                { value: 'active', label: '仅启用' },
-                { value: 'inactive', label: '仅停用' },
+                { value: 'all', label: t('knowledgeBase.allStatuses') },
+                { value: 'active', label: t('knowledgeBase.onlyActive') },
+                { value: 'inactive', label: t('knowledgeBase.onlyInactive') },
               ]}
             />
             <Button
@@ -507,7 +514,7 @@ export default function KnowledgeBasePage() {
                 setKeyword(keywordInput.trim());
               }}
             >
-              查询
+              {t('knowledgeBase.actionQuery')}
             </Button>
             <Button
               onClick={() => {
@@ -519,7 +526,7 @@ export default function KnowledgeBasePage() {
                 setPage(1);
               }}
             >
-              重置
+              {t('knowledgeBase.actionReset')}
             </Button>
           </div>
         </div>
@@ -534,7 +541,7 @@ export default function KnowledgeBasePage() {
             pageSize,
             total,
             showSizeChanger: true,
-            showTotal: (value) => `共 ${value} 条`,
+            showTotal: (value) => t('knowledgeBase.paginationTotal', { total: value }),
             onChange: (nextPage, nextPageSize) => {
               setPage(nextPage);
               setPageSize(nextPageSize || 20);
@@ -544,14 +551,14 @@ export default function KnowledgeBasePage() {
       </Card>
 
       <Drawer
-        title={editingId ? `编辑知识 #${editingId}` : '新建知识'}
+        title={editingId ? t('knowledgeBase.drawerEditTitle', { id: editingId }) : t('knowledgeBase.drawerCreateTitle')}
         width={860}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         extra={
           <Space>
-            <Button onClick={() => setDrawerOpen(false)}>取消</Button>
-            {canEdit ? <Button type="primary" loading={saving} onClick={() => void handleSave()}>保存</Button> : null}
+            <Button onClick={() => setDrawerOpen(false)}>{t('knowledgeBase.actionCancel')}</Button>
+            {canEdit ? <Button type="primary" loading={saving} onClick={() => void handleSave()}>{t('knowledgeBase.actionSave')}</Button> : null}
           </Space>
         }
       >
@@ -559,54 +566,54 @@ export default function KnowledgeBasePage() {
           <div className={styles.formGrid}>
             <Row gutter={16}>
               <Col xs={24} md={8}>
-                <Form.Item name="scope" label="知识范围" rules={[{ required: true, message: '请选择知识范围' }]}>
+                <Form.Item name="scope" label={t('knowledgeBase.formScope')} rules={[{ required: true, message: t('knowledgeBase.formScopeRequired') }]}>
                   <Select
                     options={[
-                      { value: 'system', label: '系统公共' },
-                      { value: 'private', label: '用户私有' },
+                      { value: 'system', label: t('knowledgeBase.scopeSystem') },
+                      { value: 'private', label: t('knowledgeBase.scopePrivate') },
                     ]}
                   />
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
-                <Form.Item name="category" label="知识分类" rules={[{ required: true, message: '请选择知识分类' }]}>
-                  <Select options={categoryOptions.map((item) => ({ value: item.value, label: item.label }))} />
+                <Form.Item name="category" label={t('knowledgeBase.formCategory')} rules={[{ required: true, message: t('knowledgeBase.formCategoryRequired') }]}>
+                  <Select options={categoryOptions.map((item) => ({ value: item.value, label: t(item.labelKey) }))} />
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
                 <Form.Item
                   name="user_id"
-                  label="用户 ID"
+                  label={t('knowledgeBase.formUserId')}
                   rules={
                     scope === 'private'
-                      ? [{ required: true, message: '用户私有知识必须填写用户 ID' }]
+                      ? [{ required: true, message: t('knowledgeBase.formUserIdRequired') }]
                       : []
                   }
                 >
-                  <InputNumber min={1} style={{ width: '100%' }} placeholder="留空表示系统公共知识" />
+                  <InputNumber min={1} style={{ width: '100%' }} placeholder={t('knowledgeBase.formUserIdPlaceholder')} />
                 </Form.Item>
               </Col>
             </Row>
             <Row gutter={16}>
               <Col xs={24} md={10}>
-                <Form.Item name="target" label="Target">
-                  <Input placeholder="如 ai / crawler / output，可留空" />
+                <Form.Item name="target" label={t('knowledgeBase.formTarget')}>
+                  <Input placeholder={t('knowledgeBase.formTargetPlaceholder')} />
                 </Form.Item>
               </Col>
               <Col xs={24} md={14}>
-                <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-                  <Input placeholder="例如：AI 节点调试建议" />
+                <Form.Item name="title" label={t('knowledgeBase.formTitle')} rules={[{ required: true, message: t('knowledgeBase.formTitleRequired') }]}>
+                  <Input placeholder={t('knowledgeBase.formTitlePlaceholder')} />
                 </Form.Item>
               </Col>
             </Row>
-            <Form.Item name="content" label="内容" rules={[{ required: true, message: '请输入知识内容' }]}>
-              <Input.TextArea rows={14} placeholder="这里填写会被 RAG 检索和注入给 Alkaid 的知识正文。" />
+            <Form.Item name="content" label={t('knowledgeBase.formContent')} rules={[{ required: true, message: t('knowledgeBase.formContentRequired') }]}>
+              <Input.TextArea rows={14} placeholder={t('knowledgeBase.formContentPlaceholder')} />
             </Form.Item>
-            <Form.Item name="tags_text" label="标签">
-              <Input.TextArea rows={3} placeholder="用逗号或换行分隔，例如：AI节点, 排错, 最佳实践" />
+            <Form.Item name="tags_text" label={t('knowledgeBase.formTags')}>
+              <Input.TextArea rows={3} placeholder={t('knowledgeBase.formTagsPlaceholder')} />
             </Form.Item>
-            <Form.Item name="is_active" label="启用状态" valuePropName="checked">
-              <Switch checkedChildren="启用" unCheckedChildren="停用" />
+            <Form.Item name="is_active" label={t('knowledgeBase.formActiveStatus')} valuePropName="checked">
+              <Switch checkedChildren={t('knowledgeBase.enable')} unCheckedChildren={t('knowledgeBase.disable')} />
             </Form.Item>
           </div>
         </Form>
@@ -614,27 +621,27 @@ export default function KnowledgeBasePage() {
 
       <Modal
         open={searchOpen}
-        title="知识检索测试"
+        title={t('knowledgeBase.searchModalTitle')}
         width={960}
         onCancel={() => setSearchOpen(false)}
         onOk={() => void handleRunSearch()}
-        okText="执行检索"
+        okText={t('knowledgeBase.searchModalOk')}
         confirmLoading={searchLoading}
       >
         <Form form={searchForm} layout="vertical" initialValues={DEFAULT_SEARCH_VALUES}>
           <Row gutter={16}>
             <Col xs={24} md={14}>
-              <Form.Item name="query" label="测试查询" rules={[{ required: true, message: '请输入测试查询' }]}>
-                <Input placeholder="例如：AI 节点如何减少报错？" />
+              <Form.Item name="query" label={t('knowledgeBase.searchQuery')} rules={[{ required: true, message: t('knowledgeBase.searchQueryRequired') }]}>
+                <Input placeholder={t('knowledgeBase.searchQueryPlaceholder')} />
               </Form.Item>
             </Col>
             <Col xs={24} md={5}>
-              <Form.Item name="user_id" label="用户 ID">
-                <InputNumber min={1} style={{ width: '100%' }} placeholder="可选" />
+              <Form.Item name="user_id" label={t('knowledgeBase.formUserId')}>
+                <InputNumber min={1} style={{ width: '100%' }} placeholder={t('knowledgeBase.optional')} />
               </Form.Item>
             </Col>
             <Col xs={24} md={5}>
-              <Form.Item name="limit" label="返回条数">
+              <Form.Item name="limit" label={t('knowledgeBase.searchLimit')}>
                 <InputNumber min={1} max={10} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -644,7 +651,7 @@ export default function KnowledgeBasePage() {
         {searchResult ? (
           <>
             <div className={styles.searchSummary}>
-              查询词：<Text strong>{searchResult.query}</Text>，共召回 <Text strong>{searchResult.total}</Text> 条知识
+              {t('knowledgeBase.searchSummaryPrefix')}: <Text strong>{searchResult.query}</Text>, {t('knowledgeBase.searchSummaryTotal', { total: searchResult.total })}
             </div>
             <Table
               rowKey="id"
@@ -652,7 +659,7 @@ export default function KnowledgeBasePage() {
               dataSource={searchResult.list}
               columns={[
                 {
-                  title: '标题',
+                  title: t('knowledgeBase.columnTitle'),
                   dataIndex: 'title',
                   render: (value: string, record: KnowledgeSearchTestResult['list'][number]) => (
                     <div>
@@ -662,16 +669,16 @@ export default function KnowledgeBasePage() {
                   ),
                 },
                 {
-                  title: '分类',
+                  title: t('knowledgeBase.columnCategory'),
                   dataIndex: 'category',
                   width: 120,
                   render: (value: KnowledgeCategory) => {
                     const meta = getCategoryMeta(value);
-                    return <Tag color={meta.color}>{meta.label}</Tag>;
+                    return <Tag color={meta.color}>{t(meta.labelKey)}</Tag>;
                   },
                 },
                 {
-                  title: '范围',
+                  title: t('knowledgeBase.columnScope'),
                   dataIndex: 'scope',
                   width: 120,
                   render: (value: KnowledgeScope, record: KnowledgeSearchTestResult['list'][number]) => {
@@ -679,19 +686,19 @@ export default function KnowledgeBasePage() {
                     return (
                       <Space direction="vertical" size={4}>
                         <Tag color={meta.color}>{meta.label}</Tag>
-                        {record.user_id ? <Text type="secondary">用户 #{record.user_id}</Text> : null}
+                        {record.user_id ? <Text type="secondary">{t('knowledgeBase.userIdDisplay', { id: record.user_id })}</Text> : null}
                       </Space>
                     );
                   },
                 },
                 {
-                  title: 'Target',
+                  title: t('knowledgeBase.columnTarget'),
                   dataIndex: 'target',
                   width: 140,
-                  render: (value: string) => value || <Text type="secondary">通用</Text>,
+                  render: (value: string) => value || <Text type="secondary">{t('knowledgeBase.targetGeneral')}</Text>,
                 },
                 {
-                  title: '标签',
+                  title: t('knowledgeBase.columnTags'),
                   dataIndex: 'tags',
                   width: 220,
                   render: (value: string[]) =>

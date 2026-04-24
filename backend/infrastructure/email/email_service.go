@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"mime"
 	"net/smtp"
-	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"yaolight-workshop/backend/infrastructure/logx"
 )
 
 type EmailService struct {
@@ -123,6 +125,34 @@ func (s *EmailService) SendWithAttachments(to, subject, body string, attachments
 		return fmt.Errorf("邮件服务未配置")
 	}
 
+	isTencentSES := s.isTencentSES()
+	preparedAttachments := make([]Attachment, 0, len(attachments))
+	attachmentLog := make([]map[string]any, 0, len(attachments))
+	usedNames := make(map[string]int)
+	for index, att := range attachments {
+		prepared := att
+		if isTencentSES {
+			prepared.Filename = sanitizeTencentAttachmentFilename(att.Filename, att.MimeType, index+1)
+			prepared.Filename = dedupeAttachmentFilename(prepared.Filename, usedNames)
+		}
+		preparedAttachments = append(preparedAttachments, prepared)
+		attachmentLog = append(attachmentLog, map[string]any{
+			"original_filename": att.Filename,
+			"send_filename":     prepared.Filename,
+			"mime_type":         prepared.MimeType,
+			"size":              len(prepared.Data),
+		})
+	}
+
+	logx.WithContext(logx.LevelInfo, 7001, "准备发送附件邮件", map[string]any{
+		"to":               redactEmailList(to),
+		"host":             s.host,
+		"subject":          subject,
+		"attachment_count": len(preparedAttachments),
+		"attachments":      attachmentLog,
+		"tencent_ses":      isTencentSES,
+	})
+
 	boundary := s.randomBoundary()
 
 	var buf bytes.Buffer
@@ -140,23 +170,19 @@ func (s *EmailService) SendWithAttachments(to, subject, body string, attachments
 	buf.WriteString(encodeBase64(body))
 	buf.WriteString("\r\n")
 
-	for _, att := range attachments {
+	for _, att := range preparedAttachments {
 		buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 		mt := att.MimeType
 		if strings.TrimSpace(mt) == "" {
 			mt = "application/octet-stream"
 		}
 
-		encodedFilename := mime.BEncoding.Encode("UTF-8", att.Filename)
-		// 腾讯云SES要求附件名不能包含特殊字符，即便是Base64编码后的字符串也可能有问题
-		// 如果是腾讯云环境，尝试使用更保守的编码方式或简化文件名
-		if strings.Contains(s.host, "qcloud") || strings.Contains(s.host, "tencent") {
-			buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, encodedFilename))
+		if isTencentSES {
+			buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, att.Filename))
 			buf.WriteString("Content-Transfer-Encoding: base64\r\n")
-			// Content-Disposition 使用 filename*=UTF-8''... 格式，这是现代标准
-            // 同时保留 filename="..." 以兼容旧客户端
-			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"; filename*=UTF-8''%s\r\n", encodedFilename, url.PathEscape(att.Filename)))
+			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", att.Filename))
 		} else {
+			encodedFilename := mime.BEncoding.Encode("UTF-8", att.Filename)
 			buf.WriteString(fmt.Sprintf("Content-Type: %s; name=\"%s\"\r\n", mt, encodedFilename))
 			buf.WriteString("Content-Transfer-Encoding: base64\r\n")
 			buf.WriteString(fmt.Sprintf("Content-Disposition: attachment; filename=\"%s\"\r\n", encodedFilename))
@@ -168,7 +194,26 @@ func (s *EmailService) SendWithAttachments(to, subject, body string, attachments
 
 	buf.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
 
-	return s.sendRaw(to, buf.Bytes())
+	if err := s.sendRaw(to, buf.Bytes()); err != nil {
+		logx.WithContext(logx.LevelError, 7002, "附件邮件发送失败", map[string]any{
+			"to":               redactEmailList(to),
+			"host":             s.host,
+			"subject":          subject,
+			"attachment_count": len(preparedAttachments),
+			"attachments":      attachmentLog,
+			"error":            err.Error(),
+		})
+		return err
+	}
+
+	logx.WithContext(logx.LevelInfo, 7003, "附件邮件发送成功", map[string]any{
+		"to":               redactEmailList(to),
+		"host":             s.host,
+		"subject":          subject,
+		"attachment_count": len(preparedAttachments),
+		"attachments":      attachmentLog,
+	})
+	return nil
 }
 
 func (s *EmailService) sendRaw(to string, message []byte) error {
@@ -233,6 +278,144 @@ func (s *EmailService) randomBoundary() string {
 		return "mixed-boundary"
 	}
 	return "mixed-" + hex.EncodeToString(b)
+}
+
+func (s *EmailService) isTencentSES() bool {
+	host := strings.ToLower(strings.TrimSpace(s.host))
+	return strings.Contains(host, "qcloud") || strings.Contains(host, "tencent")
+}
+
+func sanitizeTencentAttachmentFilename(filename, mimeType string, index int) string {
+	base := strings.TrimSpace(filepath.Base(filename))
+	if base == "" || base == "." || base == string(filepath.Separator) {
+		base = fmt.Sprintf("attachment_%d", index)
+	}
+
+	ext := strings.ToLower(filepath.Ext(base))
+	if !isSafeExtension(ext) {
+		ext = extensionForMimeType(mimeType)
+	}
+
+	stem := strings.TrimSuffix(base, filepath.Ext(base))
+	stem = sanitizeASCIINamePart(stem)
+	if stem == "" {
+		stem = fmt.Sprintf("attachment_%d", index)
+	}
+	if len(stem) > 64 {
+		stem = strings.Trim(stem[:64], "._-")
+		if stem == "" {
+			stem = fmt.Sprintf("attachment_%d", index)
+		}
+	}
+	return stem + ext
+}
+
+func sanitizeASCIINamePart(value string) string {
+	var b strings.Builder
+	lastUnderscore := false
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastUnderscore = false
+		case r == '-' || r == '.':
+			b.WriteRune(r)
+			lastUnderscore = false
+		case r == '_' || r == ' ':
+			if !lastUnderscore {
+				b.WriteByte('_')
+				lastUnderscore = true
+			}
+		default:
+			if !lastUnderscore {
+				b.WriteByte('_')
+				lastUnderscore = true
+			}
+		}
+	}
+	return strings.Trim(b.String(), "._-")
+}
+
+func isSafeExtension(ext string) bool {
+	if len(ext) < 2 || len(ext) > 12 || ext[0] != '.' {
+		return false
+	}
+	for _, r := range ext[1:] {
+		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func extensionForMimeType(mimeType string) string {
+	switch strings.ToLower(strings.TrimSpace(strings.Split(mimeType, ";")[0])) {
+	case "application/pdf":
+		return ".pdf"
+	case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+		return ".docx"
+	case "application/json":
+		return ".json"
+	case "text/markdown":
+		return ".md"
+	case "text/plain":
+		return ".txt"
+	case "text/html":
+		return ".html"
+	case "image/svg+xml":
+		return ".svg"
+	case "image/png":
+		return ".png"
+	case "image/jpeg":
+		return ".jpg"
+	case "text/csv":
+		return ".csv"
+	default:
+		return ".bin"
+	}
+}
+
+func dedupeAttachmentFilename(filename string, used map[string]int) string {
+	key := strings.ToLower(filename)
+	count := used[key]
+	used[key] = count + 1
+	if count == 0 {
+		return filename
+	}
+	ext := filepath.Ext(filename)
+	stem := strings.TrimSuffix(filename, ext)
+	if stem == "" {
+		stem = "attachment"
+	}
+	return fmt.Sprintf("%s_%d%s", stem, count+1, ext)
+}
+
+func redactEmailList(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		email := strings.TrimSpace(part)
+		if email == "" {
+			continue
+		}
+		result = append(result, redactEmail(email))
+	}
+	return result
+}
+
+func redactEmail(value string) string {
+	parts := strings.SplitN(value, "@", 2)
+	if len(parts) != 2 {
+		return "***"
+	}
+	local := parts[0]
+	if len(local) == 0 {
+		return "***@" + parts[1]
+	}
+	if len(local) <= 2 {
+		return local[:1] + "***@" + parts[1]
+	}
+	return local[:2] + "***@" + parts[1]
 }
 
 func encodeBase64(s string) string {
