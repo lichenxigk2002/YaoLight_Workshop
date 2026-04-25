@@ -6,10 +6,13 @@ import http from '@/http';
 export interface StardustPackage {
   id: string;
   name: string;
+  nameEn?: string;
   price: number;
   stardust: number;
   tag?: string;
+  tagEn?: string;
   description?: string;
+  descriptionEn?: string;
 }
 
 /**
@@ -71,7 +74,7 @@ export const paymentApi = {
   /**
    * 获取充值套餐列表
    */
-  getPackages: () => http.get<StardustPackage[]>('/payment/packages'),
+  getPackages: (locale?: string) => http.get<StardustPackage[]>('/payment/packages', locale ? { locale } : undefined),
 
   /**
    * 创建支付订单
@@ -115,4 +118,3 @@ export const paymentApi = {
   mockPay: (orderId: string) =>
     http.post(`/payment/orders/${orderId}/mock-pay`),
 };
-
