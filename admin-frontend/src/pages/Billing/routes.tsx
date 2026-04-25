@@ -6,6 +6,7 @@ import AdminGrantPage from './AdminGrantPage';
 import QuotaLedgerPage from './QuotaLedgerPage';
 import OrdersPage from './OrdersPage';
 import TokenLedgerPage from './TokenLedgerPage';
+import PackagesPage from './PackagesPage';
 
 const billingRoutes = {
   path: 'billing',
@@ -14,6 +15,7 @@ const billingRoutes = {
     { index: true, element: <OverviewPage /> },
     { path: 'quota-recovery', element: <QuotaRecoveryPage /> },
     { path: 'admin-grant', element: <AdminGrantPage /> },
+    { path: 'packages', element: <PackagesPage /> },
     { path: 'ledger', element: <QuotaLedgerPage /> },
     { path: 'orders', element: <OrdersPage /> },
     { path: 'token-ledger', element: <TokenLedgerPage /> },

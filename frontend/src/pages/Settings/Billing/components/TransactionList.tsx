@@ -188,7 +188,7 @@ export default function TransactionList({
 
           if (!displayText) {
             if (record.type === 'chat' || (record.provider && !record.model_name)) {
-              displayText = 'YaoLight AI Assistant';
+              displayText = t('settings.assistant');
             } else {
               displayText = record.type || '-';
             }

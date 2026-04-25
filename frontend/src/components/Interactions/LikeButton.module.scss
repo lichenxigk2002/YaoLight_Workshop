@@ -1,0 +1,52 @@
+.likeButton {
+  display: inline-flex;
+  width: auto;
+  min-width: 48px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 999px;
+  background: var(--bg-primary);
+  box-shadow: 0 6px 18px var(--shadow-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+
+  :global(.anticon) {
+    color: currentColor;
+    font-size: 13px;
+  }
+
+  &:hover {
+    border-color: color-mix(in srgb, #ef3f1c 26%, var(--border-primary)) !important;
+    background: color-mix(in srgb, #ef3f1c 7%, var(--bg-primary)) !important;
+    color: #ef3f1c !important;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.count {
+  min-width: 7px;
+  text-align: left;
+}
+
+.liked {
+  border-color: color-mix(in srgb, #ef3f1c 32%, var(--border-primary));
+  background: color-mix(in srgb, #ef3f1c 10%, var(--bg-primary));
+  box-shadow: 0 8px 20px color-mix(in srgb, #ef3f1c 12%, transparent);
+  color: #ef3f1c;
+}

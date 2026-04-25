@@ -235,6 +235,9 @@ func (s *AdminWorkflowTemplateService) ListTemplates(query AdminWorkflowTemplate
 	if err != nil {
 		return nil, 0, err
 	}
+	if rows == nil {
+		rows = []row{}
+	}
 
 	items := make([]AdminWorkflowTemplateListItem, 0, len(rows))
 	templateSourcePairs := make(map[uint]uint)
@@ -320,6 +323,9 @@ func (s *AdminWorkflowTemplateService) ListSourceWorkflows(query AdminWorkflowTe
 		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
+	if rows == nil {
+		rows = []AdminWorkflowTemplateSourceWorkflowItem{}
+	}
 
 	return rows, nil
 }
@@ -358,6 +364,9 @@ func (s *AdminWorkflowTemplateService) GetTemplateDetail(id uint) (*AdminWorkflo
 		Order("count DESC, node_type ASC").
 		Scan(&nodeTypeRows).Error; err != nil {
 		return nil, err
+	}
+	if nodeTypeRows == nil {
+		nodeTypeRows = []AdminWorkflowTemplateNodeTypeStat{}
 	}
 
 	nodes, err := s.loadWorkflowNodes(id)
