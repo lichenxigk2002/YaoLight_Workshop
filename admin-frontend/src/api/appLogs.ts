@@ -27,8 +27,17 @@ export interface ListAdminAppLogsParams {
   page_size?: number;
 }
 
+function normalizeAppLogListResponse(payload: AdminAppLogListResponse | null | undefined): AdminAppLogListResponse {
+  return {
+    list: Array.isArray(payload?.list) ? payload.list : [],
+    total: payload?.total ?? 0,
+    page: payload?.page ?? 1,
+    page_size: payload?.page_size ?? 20,
+  };
+}
+
 export function listAdminAppLogs(params: ListAdminAppLogsParams) {
-  return unwrap<AdminAppLogListResponse>(http.get('/admin/app-logs', { params }));
+  return unwrap<AdminAppLogListResponse>(http.get('/admin/app-logs', { params })).then(normalizeAppLogListResponse);
 }
 
 export function getAdminAppLogDetail(id: number | string) {

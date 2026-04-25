@@ -76,6 +76,9 @@ func (r *AppLogRepository) List(query AdminAppLogListQuery) ([]AdminAppLogListIt
 	if err != nil {
 		return nil, 0, err
 	}
+	if items == nil {
+		items = []AdminAppLogListItem{}
+	}
 
 	return items, total, nil
 }

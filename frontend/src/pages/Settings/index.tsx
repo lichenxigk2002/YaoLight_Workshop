@@ -40,22 +40,22 @@ export default function Settings() {
         {
           key: 'orders',
           icon: <FileTextOutlined />,
-          label: t('settings.orders', '我的订单'),
+          label: t('settings.orders'),
         },
         {
           key: 'billing',
           icon: <FileTextOutlined />,
-          label: t('settings.billingOverview', '账单概览'),
+          label: t('settings.billingOverview'),
         },
         {
           key: 'token-transactions',
           icon: <FileTextOutlined />,
-          label: t('settings.tokenTransactionsTitle', 'Token 流水'),
+          label: t('settings.tokenTransactionsTitle'),
         },
         {
           key: 'invite',
           icon: <TeamOutlined />,
-          label: t('settings.inviteFriends', '邀请好友'),
+          label: t('settings.inviteFriends'),
         },
         {
           key: 'notifications',
@@ -82,7 +82,7 @@ export default function Settings() {
         {
           key: 'assistant',
           icon: <Sparkles size={16} />,
-          label: '瑶光 AI 助手',
+          label: t('settings.assistant'),
         },
       ],
     },
@@ -108,10 +108,7 @@ export default function Settings() {
           <span className={styles.eyebrow}>{t('settings.title')}</span>
           <div className={styles.pageTitle}>{t('settings.title')}</div>
           <div className={styles.pageSubtitle}>
-            {t(
-              'settings.pageSubtitle',
-              '账号、模型、账单和提醒都在这里，按需调整就好。',
-            )}
+            {t('settings.pageSubtitle')}
           </div>
         </div>
 
@@ -120,7 +117,7 @@ export default function Settings() {
             <div className={styles.sidebarPanel}>
               <div className={styles.sidebarTitle}>{t('settings.title')}</div>
               <div className={styles.sidebarHint}>
-                {t('settings.sidebarHint', '从这里调整账号、偏好与工作区配置。')}
+                {t('settings.sidebarHint')}
               </div>
               <Menu
                 mode="inline"

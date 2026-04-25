@@ -192,8 +192,8 @@ export default function AppLogsPage() {
       page_size: pageSize,
     })
       .then((result) => {
-        setRows(result.list);
-        setTotal(result.total);
+        setRows(Array.isArray(result.list) ? result.list : []);
+        setTotal(result.total ?? 0);
       })
       .catch((error) => {
         message.error(error instanceof Error ? error.message : '加载日志失败');

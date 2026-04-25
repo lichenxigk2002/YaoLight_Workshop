@@ -31,10 +31,11 @@ import (
 )
 
 var (
-	ErrPackageNotFound = errors.New("套餐不存在")
-	ErrOrderNotFound   = errors.New("订单不存在")
-	ErrOrderPaid       = errors.New("订单已支付")
-	ErrInvalidAmount   = errors.New("金额不匹配")
+	ErrPackageNotFound      = errors.New("套餐不存在")
+	ErrOrderNotFound        = errors.New("订单不存在")
+	ErrOrderPaid            = errors.New("订单已支付")
+	ErrInvalidAmount        = errors.New("金额不匹配")
+	ErrInvalidPackageStatus = errors.New("套餐状态无效")
 )
 
 // PaymentService 支付服务
@@ -51,9 +52,186 @@ func NewPaymentService() *PaymentService {
 	}
 }
 
-// GetPackages 获取套餐列表
-func (s *PaymentService) GetPackages() []paymentModels.StardustPackage {
-	return paymentModels.GetDefaultPackages()
+// GetPackages 获取用户端可购买套餐列表
+func (s *PaymentService) GetPackages(locale string) ([]paymentModels.StardustPackage, error) {
+	var packages []paymentModels.StardustPackage
+	if err := database.DB.
+		Where("status = ?", paymentModels.PackageStatusActive).
+		Order("sort_order ASC, created_at ASC").
+		Find(&packages).Error; err != nil {
+		return nil, err
+	}
+	localizePackages(packages, locale)
+	return packages, nil
+}
+
+type AdminPackageListResponse struct {
+	List []paymentModels.StardustPackage `json:"list"`
+}
+
+type SavePackageRequest struct {
+	ID            string  `json:"id" binding:"required"`
+	Name          string  `json:"name" binding:"required"`
+	NameEn        string  `json:"nameEn"`
+	Price         float64 `json:"price" binding:"required"`
+	Stardust      int64   `json:"stardust" binding:"required"`
+	Tag           string  `json:"tag"`
+	TagEn         string  `json:"tagEn"`
+	Description   string  `json:"description"`
+	DescriptionEn string  `json:"descriptionEn"`
+	Status        string  `json:"status"`
+	SortOrder     int     `json:"sortOrder"`
+}
+
+type UpdatePackageStatusRequest struct {
+	Status string `json:"status" binding:"required"`
+}
+
+func validatePackageStatus(status string, allowEmpty bool) (string, error) {
+	switch strings.TrimSpace(status) {
+	case paymentModels.PackageStatusActive:
+		return paymentModels.PackageStatusActive, nil
+	case paymentModels.PackageStatusInactive:
+		return paymentModels.PackageStatusInactive, nil
+	case "":
+		if allowEmpty {
+			return paymentModels.PackageStatusActive, nil
+		}
+	}
+	return "", ErrInvalidPackageStatus
+}
+
+func localizePackages(packages []paymentModels.StardustPackage, locale string) {
+	if !isEnglishLocale(locale) {
+		return
+	}
+	for i := range packages {
+		if strings.TrimSpace(packages[i].NameEn) != "" {
+			packages[i].Name = packages[i].NameEn
+		}
+		if strings.TrimSpace(packages[i].TagEn) != "" {
+			packages[i].Tag = packages[i].TagEn
+		}
+		if strings.TrimSpace(packages[i].DescriptionEn) != "" {
+			packages[i].Description = packages[i].DescriptionEn
+		}
+	}
+}
+
+func isEnglishLocale(locale string) bool {
+	locale = strings.ToLower(strings.TrimSpace(locale))
+	return strings.HasPrefix(locale, "en")
+}
+
+func (s *PaymentService) ListAdminPackages() (*AdminPackageListResponse, error) {
+	var packages []paymentModels.StardustPackage
+	if err := database.DB.Order("sort_order ASC, created_at ASC").Find(&packages).Error; err != nil {
+		return nil, err
+	}
+	return &AdminPackageListResponse{List: packages}, nil
+}
+
+func (s *PaymentService) getActivePackageByID(id string) (*paymentModels.StardustPackage, error) {
+	var pkg paymentModels.StardustPackage
+	err := database.DB.
+		Where("id = ? AND status = ?", strings.TrimSpace(id), paymentModels.PackageStatusActive).
+		First(&pkg).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrPackageNotFound
+		}
+		return nil, err
+	}
+	return &pkg, nil
+}
+
+func (s *PaymentService) CreatePackage(req SavePackageRequest) (*paymentModels.StardustPackage, error) {
+	if req.Price <= 0 || req.Stardust <= 0 {
+		return nil, errors.New("套餐价格和星尘数量必须大于 0")
+	}
+	status, err := validatePackageStatus(req.Status, true)
+	if err != nil {
+		return nil, err
+	}
+	pkg := paymentModels.StardustPackage{
+		ID:            strings.TrimSpace(req.ID),
+		Name:          strings.TrimSpace(req.Name),
+		NameEn:        strings.TrimSpace(req.NameEn),
+		Price:         req.Price,
+		Stardust:      req.Stardust,
+		Tag:           strings.TrimSpace(req.Tag),
+		TagEn:         strings.TrimSpace(req.TagEn),
+		Description:   strings.TrimSpace(req.Description),
+		DescriptionEn: strings.TrimSpace(req.DescriptionEn),
+		Status:        status,
+		SortOrder:     req.SortOrder,
+	}
+	if pkg.ID == "" || pkg.Name == "" {
+		return nil, errors.New("套餐 ID 和名称不能为空")
+	}
+	if err := database.DB.Create(&pkg).Error; err != nil {
+		return nil, err
+	}
+	return &pkg, nil
+}
+
+func (s *PaymentService) UpdatePackage(id string, req SavePackageRequest) (*paymentModels.StardustPackage, error) {
+	if req.Price <= 0 || req.Stardust <= 0 {
+		return nil, errors.New("套餐价格和星尘数量必须大于 0")
+	}
+	status, err := validatePackageStatus(req.Status, true)
+	if err != nil {
+		return nil, err
+	}
+
+	var pkg paymentModels.StardustPackage
+	if err := database.DB.First(&pkg, "id = ?", id).Error; err != nil {
+		return nil, ErrPackageNotFound
+	}
+	pkg.Name = strings.TrimSpace(req.Name)
+	pkg.NameEn = strings.TrimSpace(req.NameEn)
+	pkg.Price = req.Price
+	pkg.Stardust = req.Stardust
+	pkg.Tag = strings.TrimSpace(req.Tag)
+	pkg.TagEn = strings.TrimSpace(req.TagEn)
+	pkg.Description = strings.TrimSpace(req.Description)
+	pkg.DescriptionEn = strings.TrimSpace(req.DescriptionEn)
+	pkg.Status = status
+	pkg.SortOrder = req.SortOrder
+	if pkg.Name == "" {
+		return nil, errors.New("套餐名称不能为空")
+	}
+	if err := database.DB.Save(&pkg).Error; err != nil {
+		return nil, err
+	}
+	return &pkg, nil
+}
+
+func (s *PaymentService) UpdatePackageStatus(id string, status string) (*paymentModels.StardustPackage, error) {
+	normalizedStatus, err := validatePackageStatus(status, false)
+	if err != nil {
+		return nil, err
+	}
+	var pkg paymentModels.StardustPackage
+	if err := database.DB.First(&pkg, "id = ?", id).Error; err != nil {
+		return nil, ErrPackageNotFound
+	}
+	pkg.Status = normalizedStatus
+	if err := database.DB.Save(&pkg).Error; err != nil {
+		return nil, err
+	}
+	return &pkg, nil
+}
+
+func (s *PaymentService) DeletePackage(id string) error {
+	var paidOrderCount int64
+	if err := database.DB.Model(&paymentModels.Order{}).Where("package_id = ?", id).Count(&paidOrderCount).Error; err != nil {
+		return err
+	}
+	if paidOrderCount > 0 {
+		return errors.New("套餐已有订单记录，请改为下架")
+	}
+	return database.DB.Delete(&paymentModels.StardustPackage{}, "id = ?", id).Error
 }
 
 // CreateOrderRequest 创建订单请求
@@ -105,16 +283,9 @@ type UserOrderDetail struct {
 // CreateOrder 创建支付订单
 func (s *PaymentService) CreateOrder(userID uint, req *CreateOrderRequest) (*CreateOrderResponse, error) {
 	// 1. 查找套餐
-	packages := paymentModels.GetDefaultPackages()
-	var pkg *paymentModels.StardustPackage
-	for i := range packages {
-		if packages[i].ID == req.PackageID {
-			pkg = &packages[i]
-			break
-		}
-	}
-	if pkg == nil {
-		return nil, ErrPackageNotFound
+	pkg, err := s.getActivePackageByID(req.PackageID)
+	if err != nil {
+		return nil, err
 	}
 
 	// 2. 生成订单号

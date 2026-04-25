@@ -15,7 +15,7 @@ import ReactFlow, {
   ReactFlowInstance,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Button, Space, Dropdown, App, Modal, Input, List, Tag } from 'antd';
+import { Button, Space, Dropdown, App, Modal, Input, List, Tag, Spin, Empty } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {
   SaveOutlined,
@@ -55,6 +55,7 @@ import { PatchItem } from '@/components/Alkaid/types/progress';
 import { workflowApi } from '@/api/workflow';
 import { taskApi } from '@/api/task';
 import type { WorkflowTemplateLibraryItem } from '@/types/workflow';
+import { CommentPanel, LikeButton } from '@/components/Interactions';
 
 // 瀵煎叆鑷畾涔塇ooks
 import { useWorkflowNodes } from './hooks/useWorkflowNodes';
@@ -171,6 +172,12 @@ const WorkflowEditor: React.FC = () => {
   const [templateImportingId, setTemplateImportingId] = useState<number | null>(null);
   const [templateItems, setTemplateItems] = useState<WorkflowTemplateLibraryItem[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<number | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [templatePreviewLoading, setTemplatePreviewLoading] = useState(false);
+  const [templatePreviewNodes, setTemplatePreviewNodes] = useState<Node[]>([]);
+  const [templatePreviewEdges, setTemplatePreviewEdges] = useState<Edge[]>([]);
+  const templatePreviewRequestRef = useRef(0);
+  const templatePreviewFlowRef = useRef<ReactFlowInstance | null>(null);
 
   const [workflowPreviewMode, setWorkflowPreviewMode] = useState<'none' | 'workflow'>('none');
   const originalWorkflowRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null);
@@ -847,13 +854,83 @@ const WorkflowEditor: React.FC = () => {
         pageSize: 20,
         keyword: keyword.trim() || undefined,
       });
-      setTemplateItems(response?.list || []);
+      const list = response?.list || [];
+      setTemplateItems(list);
+      setSelectedTemplateId((current) => {
+        if (current && list.some((item) => item.id === current)) {
+          return current;
+        }
+        return list[0]?.id ?? null;
+      });
     } catch (error: any) {
       message.error(error.message || t('workflowEditor.templateLoadFailed'));
     } finally {
       setTemplateLoading(false);
     }
   }, [message, t]);
+
+  const loadTemplatePreview = useCallback(async (templateId: number) => {
+    const requestId = templatePreviewRequestRef.current + 1;
+    templatePreviewRequestRef.current = requestId;
+    try {
+      setTemplatePreviewLoading(true);
+      const response = await workflowApi.getPublishedTemplateNodes(templateId);
+      if (templatePreviewRequestRef.current !== requestId) {
+        return;
+      }
+      const previewNodes: Node[] = [];
+      if (response.nodes?.length) {
+        previewNodes.push(...transformNodesFromLoadFormat(response.nodes, getNodeLabel));
+      }
+      if (response.commentCards?.length) {
+        previewNodes.push(
+          ...transformCommentCardsFromLoadFormat(
+            response.commentCards.map((card) => ({ ...card, type: 'comment' }))
+          )
+        );
+      }
+      setTemplatePreviewNodes(previewNodes);
+      setTemplatePreviewEdges(transformEdgesFromLoadFormat(response.edges || []));
+    } catch (error: any) {
+      if (templatePreviewRequestRef.current !== requestId) {
+        return;
+      }
+      setTemplatePreviewNodes([]);
+      setTemplatePreviewEdges([]);
+      message.error(error.message || t('workflowEditor.templateLoadFailed'));
+    } finally {
+      if (templatePreviewRequestRef.current === requestId) {
+        setTemplatePreviewLoading(false);
+      }
+    }
+  }, [getNodeLabel, message, t]);
+
+  useEffect(() => {
+    if (!templateModalVisible || !selectedTemplateId) {
+      setTemplatePreviewNodes([]);
+      setTemplatePreviewEdges([]);
+      templatePreviewFlowRef.current = null;
+      return;
+    }
+    void loadTemplatePreview(selectedTemplateId);
+  }, [loadTemplatePreview, selectedTemplateId, templateModalVisible]);
+
+  useEffect(() => {
+    if (!templateModalVisible || templatePreviewNodes.length === 0) {
+      return;
+    }
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        templatePreviewFlowRef.current?.fitView({ padding: 0.18, duration: 0 });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [templateModalVisible, selectedTemplateId, templatePreviewNodes.length, templatePreviewEdges.length]);
 
   const applyTemplateImport = useCallback(async (templateId: number) => {
     try {
@@ -891,8 +968,10 @@ const WorkflowEditor: React.FC = () => {
     setTemplateModalVisible(true);
     if (templateItems.length === 0) {
       void loadTemplateLibrary();
+    } else if (!selectedTemplateId) {
+      setSelectedTemplateId(templateItems[0]?.id ?? null);
     }
-  }, [loadTemplateLibrary, templateItems.length]);
+  }, [loadTemplateLibrary, selectedTemplateId, templateItems]);
 
   const handleImportTemplate = useCallback((templateId: number) => {
     if (nodes.length > 0 || edges.length > 0) {
@@ -1309,49 +1388,122 @@ const WorkflowEditor: React.FC = () => {
         title={t('workflowEditor.importTemplate')}
         open={templateModalVisible}
         onCancel={() => setTemplateModalVisible(false)}
-        footer={null}
-        width={720}
+        footer={[
+          <Button key="cancel" onClick={() => setTemplateModalVisible(false)}>
+            {t('common.cancel')}
+          </Button>,
+          <Button
+            key="import"
+            type="primary"
+            disabled={!selectedTemplateId}
+            loading={selectedTemplateId ? templateImportingId === selectedTemplateId : false}
+            onClick={() => selectedTemplateId && handleImportTemplate(selectedTemplateId)}
+          >
+            导入此模板
+          </Button>,
+        ]}
+        width={1180}
         className={styles.templateModal}
         getContainer={false}
       >
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Space.Compact style={{ width: '100%' }}>
-            <Input
-              value={templateKeyword}
-              placeholder={t('workflowEditor.searchTemplate')}
-              onChange={(event) => setTemplateKeyword(event.target.value)}
-              onPressEnter={() => void loadTemplateLibrary(templateKeyword)}
+        <div className={styles.templatePreviewLayout}>
+          <aside className={styles.templateListPane}>
+            <Space.Compact style={{ width: '100%' }}>
+              <Input
+                value={templateKeyword}
+                placeholder={t('workflowEditor.searchTemplate')}
+                onChange={(event) => setTemplateKeyword(event.target.value)}
+                onPressEnter={() => void loadTemplateLibrary(templateKeyword)}
+              />
+              <Button onClick={() => void loadTemplateLibrary(templateKeyword)}>
+                {t('common.search', 'Search')}
+              </Button>
+            </Space.Compact>
+            <List
+              loading={templateLoading}
+              dataSource={templateItems}
+              locale={{ emptyText: t('workflowEditor.noTemplateFound') }}
+              renderItem={(item) => (
+                <button
+                  type="button"
+                  className={`${styles.templateListItem} ${selectedTemplateId === item.id ? styles.templateListItemActive : ''}`}
+                  onClick={() => setSelectedTemplateId(item.id)}
+                >
+                  <span className={styles.templateListTitle}>{item.name}</span>
+                  <span className={styles.templateListDesc}>{item.description || item.category || '-'}</span>
+                  <span className={styles.templateListTags}>
+                    <Tag color="success">已发布</Tag>
+                    <Tag>{t('workflowEditor.templateNodeCount', { count: item.nodeCount })}</Tag>
+                    <Tag>{t('workflowEditor.templateUsageCount', { count: item.usageCount })}</Tag>
+                  </span>
+                </button>
+              )}
             />
-            <Button onClick={() => void loadTemplateLibrary(templateKeyword)}>
-              {t('common.search', 'Search')}
-            </Button>
-          </Space.Compact>
-          <List
-            loading={templateLoading}
-            dataSource={templateItems}
-            locale={{ emptyText: t('workflowEditor.noTemplateFound') }}
-            renderItem={(item) => (
-              <List.Item
-                actions={[
-                  <Button
-                    key="import"
-                    type="link"
-                    loading={templateImportingId === item.id}
-                    onClick={() => handleImportTemplate(item.id)}
-                  >
-                    {t('workflowEditor.import')}
-                  </Button>,
-                ]}
-              >
-                <List.Item.Meta title={item.name} description={item.description || item.category || '-'} />
-                <Space size={8} wrap>
-                  <Tag>{t('workflowEditor.templateNodeCount', { count: item.nodeCount })}</Tag>
-                  <Tag>{t('workflowEditor.templateUsageCount', { count: item.usageCount })}</Tag>
-                </Space>
-              </List.Item>
+          </aside>
+
+          <section className={styles.templateCanvasPane}>
+            {selectedTemplateId ? (
+              <>
+                <div className={styles.templateCanvasHeader}>
+                  <div>
+                    <div className={styles.templateCanvasTitle}>
+                      {templateItems.find((item) => item.id === selectedTemplateId)?.name || '模板预览'}
+                    </div>
+                    <div className={styles.templateCanvasMeta}>
+                      只读预览，导入后会复制节点、连线和注释卡
+                    </div>
+                  </div>
+                  <LikeButton resourceType="workflow_template" resourceId={selectedTemplateId} />
+                </div>
+                <div className={styles.templateCanvasPreview}>
+                  <Spin spinning={templatePreviewLoading}>
+                    {templatePreviewNodes.length ? (
+                      <ReactFlow
+                        key={`template-preview-${selectedTemplateId}`}
+                        nodes={templatePreviewNodes}
+                        edges={templatePreviewEdges}
+                        nodeTypes={nodeTypes}
+                        fitView
+                        fitViewOptions={{ padding: 0.18 }}
+                        onInit={(instance) => {
+                          templatePreviewFlowRef.current = instance;
+                          window.requestAnimationFrame(() => {
+                            window.requestAnimationFrame(() => {
+                              instance.fitView({ padding: 0.18, duration: 0 });
+                            });
+                          });
+                        }}
+                        nodesDraggable={false}
+                        nodesConnectable={false}
+                        elementsSelectable={false}
+                        panOnDrag
+                        zoomOnScroll
+                      >
+                        <Background
+                          variant={BackgroundVariant.Dots}
+                          gap={18}
+                          size={1}
+                          color={theme === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(17, 17, 17, 0.08)'}
+                        />
+                        <Controls showInteractive={false} />
+                      </ReactFlow>
+                    ) : (
+                      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无可预览内容" />
+                    )}
+                  </Spin>
+                </div>
+              </>
+            ) : (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('workflowEditor.noTemplateFound')} />
             )}
-          />
-        </Space>
+          </section>
+
+          <aside className={styles.templateCommentPane}>
+            {selectedTemplateId ? (
+              <CommentPanel resourceType="workflow_template" resourceId={selectedTemplateId} compact />
+            ) : null}
+          </aside>
+        </div>
       </Modal>
 
       {contextMenu && (

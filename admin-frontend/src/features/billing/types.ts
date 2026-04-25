@@ -52,6 +52,38 @@ export interface QuotaSummary {
   user_count: number;
 }
 
+export type BillingPackageStatus = 'active' | 'inactive';
+
+export interface BillingPackage {
+  id: string;
+  name: string;
+  nameEn?: string;
+  price: number;
+  stardust: number;
+  tag?: string;
+  tagEn?: string;
+  description?: string;
+  descriptionEn?: string;
+  status: BillingPackageStatus;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BillingPackagePayload {
+  id: string;
+  name: string;
+  nameEn?: string;
+  price: number;
+  stardust: number;
+  tag?: string;
+  tagEn?: string;
+  description?: string;
+  descriptionEn?: string;
+  status: BillingPackageStatus;
+  sortOrder: number;
+}
+
 export interface BillingUserOption {
   id: number;
   user_no: number;

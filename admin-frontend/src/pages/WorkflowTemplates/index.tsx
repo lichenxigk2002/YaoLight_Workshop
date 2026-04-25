@@ -356,8 +356,8 @@ export default function WorkflowTemplatesPage() {
         page,
         page_size: pageSize,
       });
-      setItems(payload.list);
-      setTotal(payload.total);
+      setItems(Array.isArray(payload.list) ? payload.list : []);
+      setTotal(payload.total ?? 0);
     } catch (error) {
       message.error((error as Error).message);
     } finally {
@@ -369,7 +369,7 @@ export default function WorkflowTemplatesPage() {
     setSourceSearching(true);
     try {
       const payload = await searchSourceWorkflows(search);
-      setSourceOptions(payload.list);
+      setSourceOptions(Array.isArray(payload.list) ? payload.list : []);
     } catch (error) {
       message.error((error as Error).message);
     } finally {

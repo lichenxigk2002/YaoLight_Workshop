@@ -21,17 +21,14 @@ export default function TokenTransactions() {
   const handleClearFilter = () => {
     setFilterStartDate(undefined);
     setFilterEndDate(undefined);
-    message.success(t('settings.clearDateFilterSuccess', '已清除时间筛选'));
+    message.success(t('settings.clearDateFilterSuccess'));
   };
 
   return (
     <div className={styles.page}>
       <SettingsPageTitle
-        title={t('settings.tokenTransactionsTitle', 'Token 流水')}
-        desc={t(
-          'settings.tokenTransactionsDescription',
-          '按模型和供应商查看细粒度 Token 消耗记录，适合排查高消耗调用和做周期回溯。',
-        )}
+        title={t('settings.tokenTransactionsTitle')}
+        desc={t('settings.tokenTransactionsDescription')}
         icon={<HistoryOutlined />}
         style={{ marginBottom: 0 }}
       />
