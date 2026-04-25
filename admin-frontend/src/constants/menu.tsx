@@ -26,6 +26,7 @@ import {
   SafetyCertificateOutlined,
   ScheduleOutlined,
   SettingOutlined,
+  ApiOutlined,
   TableOutlined,
   TeamOutlined,
   WarningOutlined,
@@ -122,6 +123,13 @@ export const adminMenuItems: AdminMenuItem[] = [
     label: 'menu.systemConfigs',
     icon: <SettingOutlined />,
     permissionKey: 'system_configs',
+  },
+  {
+    key: 'mcp-access',
+    path: '/mcp-access',
+    label: 'menu.mcpAccess',
+    icon: <ApiOutlined />,
+    permissionKey: 'mcp_access',
   },
   {
     key: 'notifications',

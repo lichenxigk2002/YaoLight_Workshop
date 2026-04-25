@@ -437,3 +437,86 @@ Phase 1 可以用下面标准验收：
 ## 14. 一句话结论
 
 MCP 很适合 YaoLight，但第一阶段应从用户端入口和只读诊断能力开始。管理端负责治理，用户端负责接入，MCP Server 在 AI 工具本地运行，通过 HTTPS 调用 YaoLight API。
+
+## 15. 当前后端与 CLI 落地范围
+
+已先落地 Phase 1 的后端与 CLI 骨架：
+
+- 新增 MCP Token 数据表
+- 新增 MCP 调用日志数据表
+- 新增用户侧 MCP Token 创建、列表、吊销接口
+- 新增用户侧 MCP 调用日志查询接口
+- 新增用户端 `设置 -> AI 工具接入` 页面
+- 新增 MCP Token 专用鉴权中间件
+- 新增 8 个只读 MCP 工具 HTTP 端点
+- 新增 5 个诊断增强 MCP 工具 HTTP 端点
+- 新增 3 个受控执行 MCP 工具 HTTP 端点，要求 `confirmed=true`
+- 新增管理端 MCP 治理接口和页面
+- 新增 `yaolight mcp tokens create/list/revoke`
+- 新增 `yaolight mcp serve`，作为本地 stdio MCP Server
+- 新增 `packages/yaolight-mcp` npm launcher 包装入口
+
+后端接口：
+
+```text
+GET    /api/mcp/tokens
+POST   /api/mcp/tokens
+DELETE /api/mcp/tokens/:id
+GET    /api/mcp/call-logs
+
+GET    /api/mcp/tools
+GET    /api/mcp/tools/current-user
+GET    /api/mcp/tools/projects
+GET    /api/mcp/tools/projects/:id
+GET    /api/mcp/tools/workflows
+GET    /api/mcp/tools/workflows/:id
+GET    /api/mcp/tools/workflows/:id/nodes
+GET    /api/mcp/tools/tasks/:id
+GET    /api/mcp/tools/tasks/:id/logs
+GET    /api/mcp/tools/tasks/:id/node-executions
+GET    /api/mcp/tools/tasks/:id/artifacts
+GET    /api/mcp/tools/projects/:id/artifacts
+GET    /api/mcp/tools/projects/:id/knowledge/search
+GET    /api/mcp/tools/models
+POST   /api/mcp/tools/workflows/:id/run
+POST   /api/mcp/tools/tasks/:id/cancel
+POST   /api/mcp/tools/tasks/:id/retry
+```
+
+管理端接口：
+
+```text
+GET  /api/admin/mcp/settings
+PUT  /api/admin/mcp/settings
+GET  /api/admin/mcp/tokens
+POST /api/admin/mcp/tokens/:id/revoke
+POST /api/admin/mcp/users/:userId/revoke-tokens
+GET  /api/admin/mcp/call-logs
+```
+
+CLI 示例：
+
+```bash
+yaolight login --username admin --password admin123456 --base-url https://www.yaolight.site/api
+yaolight mcp tokens create --name "Codex" --expires-in-days 90
+
+YAOLIGHT_MCP_TOKEN=yl_mcp_xxx yaolight mcp serve
+YAOLIGHT_CLI=/absolute/path/to/yaolight npx ./packages/yaolight-mcp
+```
+
+AI 工具配置示例：
+
+```json
+{
+  "mcpServers": {
+    "yaolight": {
+      "command": "yaolight",
+      "args": ["mcp", "serve"],
+      "env": {
+        "YAOLIGHT_BASE_URL": "https://www.yaolight.site/api",
+        "YAOLIGHT_MCP_TOKEN": "yl_mcp_xxx"
+      }
+    }
+  }
+}
+```

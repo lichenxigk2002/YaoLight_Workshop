@@ -1,0 +1,13 @@
+{
+  "name": "yaolight-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "YaoLight local stdio MCP server launcher",
+  "bin": {
+    "yaolight-mcp": "bin/yaolight-mcp.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "license": "MIT"
+}

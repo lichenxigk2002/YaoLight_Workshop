@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -65,6 +66,8 @@ func run(args []string) error {
 		return runWorkflows(args[1:])
 	case "tasks":
 		return runTasks(args[1:])
+	case "mcp":
+		return runMCP(args[1:])
 	case "api":
 		return runAPI(args[1:])
 	default:
@@ -86,11 +89,16 @@ Usage:
   yaolight workflows get <id> [--nodes] [--json]
   yaolight tasks get <id> [--json]
   yaolight tasks logs <id> [--page 1 --limit 100 --level error --json]
+  yaolight mcp tokens create --name "Codex" [--expires-in-days 90] [--scopes projects:read,workflows:read,tasks:read,artifacts:read,knowledge:read,models:read]
+  yaolight mcp tokens list [--json]
+  yaolight mcp tokens revoke <id>
+  yaolight mcp serve
   yaolight api get /projects?page=1&pageSize=20
 
 Environment:
   YAOLIGHT_BASE_URL  Overrides saved base URL
   YAOLIGHT_TOKEN     Overrides saved token
+  YAOLIGHT_MCP_TOKEN Overrides token for mcp serve / mcp tool calls
   YAOLIGHT_CONFIG    Overrides config file path`)
 }
 
@@ -353,6 +361,124 @@ func runAPI(args []string) error {
 	}
 }
 
+func runMCP(args []string) error {
+	if len(args) == 0 {
+		return errors.New("mcp needs a subcommand: tokens, tools, or serve")
+	}
+	switch args[0] {
+	case "tokens":
+		return runMCPTokens(args[1:])
+	case "tools":
+		return runMCPTools(args[1:])
+	case "serve":
+		return runMCPServe(args[1:])
+	default:
+		return fmt.Errorf("unknown mcp subcommand %q", args[0])
+	}
+}
+
+func runMCPTokens(args []string) error {
+	if len(args) == 0 {
+		return errors.New("mcp tokens needs a subcommand: create, list, or revoke")
+	}
+	switch args[0] {
+	case "create":
+		fs := flag.NewFlagSet("mcp tokens create", flag.ContinueOnError)
+		name := fs.String("name", "YaoLight MCP Token", "token name")
+		expiresInDays := fs.Int("expires-in-days", 90, "token lifetime in days")
+		scopesRaw := fs.String("scopes", strings.Join([]string{"projects:read", "workflows:read", "tasks:read", "artifacts:read", "knowledge:read", "models:read"}, ","), "comma separated scopes")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		body := map[string]any{
+			"name":            *name,
+			"expires_in_days": *expiresInDays,
+			"scopes":          splitCSV(*scopesRaw),
+		}
+		c, err := configuredClient()
+		if err != nil {
+			return err
+		}
+		data, err := c.do(http.MethodPost, "/mcp/tokens", nil, body, true)
+		if err != nil {
+			return err
+		}
+		return printRawJSON(data)
+	case "list":
+		fs := flag.NewFlagSet("mcp tokens list", flag.ContinueOnError)
+		jsonOut := fs.Bool("json", false, "print JSON")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		data, err := configuredGet("/mcp/tokens", nil)
+		if err != nil {
+			return err
+		}
+		if *jsonOut {
+			return printRawJSON(data)
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal(data, &rows); err != nil {
+			return printRawJSON(data)
+		}
+		printTable(rows, []string{"id", "name", "token_prefix", "scopes", "expires_at", "revoked_at", "last_used_at"})
+		return nil
+	case "revoke":
+		fs := flag.NewFlagSet("mcp tokens revoke", flag.ContinueOnError)
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if fs.NArg() != 1 {
+			return errors.New("mcp tokens revoke requires an id")
+		}
+		c, err := configuredClient()
+		if err != nil {
+			return err
+		}
+		if _, err := c.do(http.MethodDelete, "/mcp/tokens/"+fs.Arg(0), nil, nil, true); err != nil {
+			return err
+		}
+		fmt.Println("revoked")
+		return nil
+	default:
+		return fmt.Errorf("unknown mcp tokens subcommand %q", args[0])
+	}
+}
+
+func runMCPTools(args []string) error {
+	if len(args) == 0 {
+		return errors.New("mcp tools needs a subcommand: list or call")
+	}
+	switch args[0] {
+	case "list":
+		data, err := configuredMCPGet("/mcp/tools", nil)
+		if err != nil {
+			return err
+		}
+		return printRawJSON(data)
+	case "call":
+		fs := flag.NewFlagSet("mcp tools call", flag.ContinueOnError)
+		argsJSON := fs.String("args", "{}", "tool arguments as JSON")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if fs.NArg() != 1 {
+			return errors.New("mcp tools call requires a tool name")
+		}
+		var arguments map[string]any
+		if err := json.Unmarshal([]byte(*argsJSON), &arguments); err != nil {
+			return err
+		}
+		data, err := callMCPTool(fs.Arg(0), arguments)
+		if err != nil {
+			return err
+		}
+		return printRawJSON(data)
+	default:
+		return fmt.Errorf("unknown mcp tools subcommand %q", args[0])
+	}
+}
+
 func getPage(path string, q url.Values, jsonOut bool, fields []string) error {
 	data, err := configuredGet(path, q)
 	if err != nil {
@@ -392,6 +518,28 @@ func configuredGet(path string, q url.Values) (json.RawMessage, error) {
 		return nil, err
 	}
 	return c.do(http.MethodGet, path, q, nil, true)
+}
+
+func configuredMCPGet(path string, q url.Values) (json.RawMessage, error) {
+	c, err := configuredClient()
+	if err != nil {
+		return nil, err
+	}
+	if token := strings.TrimSpace(os.Getenv("YAOLIGHT_MCP_TOKEN")); token != "" {
+		c.token = token
+	}
+	return c.do(http.MethodGet, path, q, nil, true)
+}
+
+func configuredMCPPost(path string, body any) (json.RawMessage, error) {
+	c, err := configuredClient()
+	if err != nil {
+		return nil, err
+	}
+	if token := strings.TrimSpace(os.Getenv("YAOLIGHT_MCP_TOKEN")); token != "" {
+		c.token = token
+	}
+	return c.do(http.MethodPost, path, nil, body, true)
 }
 
 func configuredClient() (*client, error) {
@@ -678,4 +826,373 @@ func valueString(value any) string {
 		}
 		return string(data)
 	}
+}
+
+func splitCSV(raw string) []string {
+	parts := strings.Split(raw, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			values = append(values, part)
+		}
+	}
+	return values
+}
+
+type rpcRequest struct {
+	JSONRPC string          `json:"jsonrpc"`
+	ID      json.RawMessage `json:"id,omitempty"`
+	Method  string          `json:"method"`
+	Params  json.RawMessage `json:"params,omitempty"`
+}
+
+type rpcResponse struct {
+	JSONRPC string    `json:"jsonrpc"`
+	ID      any       `json:"id,omitempty"`
+	Result  any       `json:"result,omitempty"`
+	Error   *rpcError `json:"error,omitempty"`
+}
+
+type rpcError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func runMCPServe(args []string) error {
+	fs := flag.NewFlagSet("mcp serve", flag.ContinueOnError)
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var req rpcRequest
+		if err := json.Unmarshal([]byte(line), &req); err != nil {
+			writeRPCError(nil, -32700, "parse error")
+			continue
+		}
+		if len(req.ID) == 0 {
+			continue
+		}
+		handleMCPRPC(req)
+	}
+	return scanner.Err()
+}
+
+func handleMCPRPC(req rpcRequest) {
+	switch req.Method {
+	case "initialize":
+		writeRPCResult(req.ID, map[string]any{
+			"protocolVersion": "2024-11-05",
+			"capabilities": map[string]any{
+				"tools": map[string]any{},
+			},
+			"serverInfo": map[string]any{
+				"name":    "yaolight-mcp",
+				"version": "0.1.0",
+			},
+		})
+	case "tools/list":
+		writeRPCResult(req.ID, map[string]any{"tools": mcpToolDefinitions()})
+	case "tools/call":
+		var params struct {
+			Name      string         `json:"name"`
+			Arguments map[string]any `json:"arguments"`
+		}
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			writeRPCError(req.ID, -32602, "invalid tool call params")
+			return
+		}
+		data, err := callMCPTool(params.Name, params.Arguments)
+		if err != nil {
+			writeRPCError(req.ID, -32000, err.Error())
+			return
+		}
+		writeRPCResult(req.ID, map[string]any{
+			"content": []map[string]string{
+				{"type": "text", "text": string(mustIndentJSON(data))},
+			},
+		})
+	default:
+		writeRPCError(req.ID, -32601, "method not found")
+	}
+}
+
+func callMCPTool(name string, arguments map[string]any) (json.RawMessage, error) {
+	switch name {
+	case "run_workflow":
+		id, err := requiredArg(arguments, "id")
+		if err != nil {
+			return nil, err
+		}
+		return configuredMCPPost("/mcp/tools/workflows/"+id+"/run", map[string]any{
+			"confirmed":    boolArg(arguments, "confirmed"),
+			"runtimeInput": arguments["runtimeInput"],
+		})
+	case "cancel_task":
+		id, err := requiredArg(arguments, "id")
+		if err != nil {
+			return nil, err
+		}
+		return configuredMCPPost("/mcp/tools/tasks/"+id+"/cancel", map[string]any{"confirmed": boolArg(arguments, "confirmed")})
+	case "retry_task":
+		id, err := requiredArg(arguments, "id")
+		if err != nil {
+			return nil, err
+		}
+		return configuredMCPPost("/mcp/tools/tasks/"+id+"/retry", map[string]any{"confirmed": boolArg(arguments, "confirmed")})
+	}
+	path, q, err := mcpToolPath(name, arguments)
+	if err != nil {
+		return nil, err
+	}
+	return configuredMCPGet(path, q)
+}
+
+func mcpToolPath(name string, arguments map[string]any) (string, url.Values, error) {
+	q := url.Values{}
+	switch name {
+	case "get_current_user":
+		return "/mcp/tools/current-user", q, nil
+	case "list_projects":
+		addPageArgs(q, arguments)
+		return "/mcp/tools/projects", q, nil
+	case "get_project":
+		id, err := requiredArg(arguments, "id")
+		return "/mcp/tools/projects/" + id, q, err
+	case "list_workflows":
+		addPageArgs(q, arguments)
+		if projectID := stringArg(arguments, "projectId"); projectID != "" {
+			q.Set("projectId", projectID)
+		}
+		return "/mcp/tools/workflows", q, nil
+	case "get_workflow":
+		id, err := requiredArg(arguments, "id")
+		return "/mcp/tools/workflows/" + id, q, err
+	case "get_workflow_nodes":
+		id, err := requiredArg(arguments, "id")
+		return "/mcp/tools/workflows/" + id + "/nodes", q, err
+	case "get_task":
+		id, err := requiredArg(arguments, "id")
+		return "/mcp/tools/tasks/" + id, q, err
+	case "get_task_logs":
+		id, err := requiredArg(arguments, "id")
+		addPageArgs(q, arguments)
+		if limit := stringArg(arguments, "limit"); limit != "" {
+			q.Set("limit", limit)
+		}
+		if level := stringArg(arguments, "level"); level != "" {
+			q.Set("level", level)
+		}
+		return "/mcp/tools/tasks/" + id + "/logs", q, err
+	case "get_task_node_executions":
+		id, err := requiredArg(arguments, "id")
+		return "/mcp/tools/tasks/" + id + "/node-executions", q, err
+	case "list_task_artifacts":
+		id, err := requiredArg(arguments, "id")
+		addPageArgs(q, arguments)
+		return "/mcp/tools/tasks/" + id + "/artifacts", q, err
+	case "list_project_artifacts":
+		id, err := requiredArg(arguments, "id")
+		addPageArgs(q, arguments)
+		if keyword := stringArg(arguments, "keyword"); keyword != "" {
+			q.Set("keyword", keyword)
+		}
+		if kind := stringArg(arguments, "kind"); kind != "" {
+			q.Set("kind", kind)
+		}
+		return "/mcp/tools/projects/" + id + "/artifacts", q, err
+	case "search_project_knowledge":
+		id, err := requiredArg(arguments, "id")
+		if query := stringArg(arguments, "query"); query != "" {
+			q.Set("query", query)
+		}
+		if limit := stringArg(arguments, "limit"); limit != "" {
+			q.Set("limit", limit)
+		}
+		return "/mcp/tools/projects/" + id + "/knowledge/search", q, err
+	case "list_available_models":
+		addPageArgs(q, arguments)
+		return "/mcp/tools/models", q, nil
+	default:
+		return "", nil, fmt.Errorf("unknown MCP tool %q", name)
+	}
+}
+
+func addPageArgs(q url.Values, arguments map[string]any) {
+	if page := stringArg(arguments, "page"); page != "" {
+		q.Set("page", page)
+	}
+	if pageSize := stringArg(arguments, "pageSize"); pageSize != "" {
+		q.Set("pageSize", pageSize)
+	}
+}
+
+func requiredArg(arguments map[string]any, key string) (string, error) {
+	value := stringArg(arguments, key)
+	if value == "" {
+		return "", fmt.Errorf("missing required argument %q", key)
+	}
+	return value, nil
+}
+
+func stringArg(arguments map[string]any, key string) string {
+	value, ok := arguments[key]
+	if !ok || value == nil {
+		return ""
+	}
+	return valueString(value)
+}
+
+func boolArg(arguments map[string]any, key string) bool {
+	value, ok := arguments[key]
+	if !ok || value == nil {
+		return false
+	}
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		parsed, _ := strconv.ParseBool(v)
+		return parsed
+	default:
+		return false
+	}
+}
+
+func mcpToolDefinitions() []map[string]any {
+	return []map[string]any{
+		toolDef("get_current_user", "Get the current YaoLight user.", map[string]any{}),
+		toolDef("list_projects", "List projects visible to the current user.", pagedSchema(nil)),
+		toolDef("get_project", "Get one project by id.", idSchema()),
+		toolDef("list_workflows", "List workflows visible to the current user.", pagedSchema(map[string]any{"projectId": stringProperty("Project id filter.")})),
+		toolDef("get_workflow", "Get one workflow by id.", idSchema()),
+		toolDef("get_workflow_nodes", "Get workflow nodes, edges, and comment cards.", idSchema()),
+		toolDef("get_task", "Get one task by id.", idSchema()),
+		toolDef("get_task_logs", "Get logs for a task.", pagedSchema(map[string]any{
+			"id":    stringProperty("Task id."),
+			"limit": stringProperty("Maximum logs to return."),
+			"level": stringProperty("Optional log level filter."),
+		})),
+		toolDef("get_task_node_executions", "Get node execution summaries for a task.", idSchema()),
+		toolDef("list_task_artifacts", "List artifacts generated by a task.", pagedSchema(map[string]any{
+			"id": stringProperty("Task id."),
+		})),
+		toolDef("list_project_artifacts", "List artifacts in a project.", pagedSchema(map[string]any{
+			"id":      stringProperty("Project id."),
+			"keyword": stringProperty("Optional artifact search keyword."),
+			"kind":    stringProperty("Optional artifact kind filter."),
+		})),
+		toolDef("search_project_knowledge", "Search active knowledge available to a project.", map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"id":    stringProperty("Project id."),
+				"query": stringProperty("Search text."),
+				"limit": stringProperty("Maximum results."),
+			},
+			"required": []string{"id", "query"},
+		}),
+		toolDef("list_available_models", "List current user's models and system preset models.", pagedSchema(nil)),
+		toolDef("run_workflow", "Run a workflow after explicit confirmation.", map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"id":           stringProperty("Workflow id."),
+				"confirmed":    booleanProperty("Must be true after the user confirms the workflow and input."),
+				"runtimeInput": map[string]any{"description": "Optional runtime input payload."},
+			},
+			"required": []string{"id", "confirmed"},
+		}),
+		toolDef("cancel_task", "Cancel a pending, queued, running, or paused task after explicit confirmation.", map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"id":        stringProperty("Task id."),
+				"confirmed": booleanProperty("Must be true after the user confirms cancellation."),
+			},
+			"required": []string{"id", "confirmed"},
+		}),
+		toolDef("retry_task", "Retry a failed, timed out, or cancelled task after explicit confirmation.", map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"id":        stringProperty("Task id."),
+				"confirmed": booleanProperty("Must be true after the user confirms retry."),
+			},
+			"required": []string{"id", "confirmed"},
+		}),
+	}
+}
+
+func toolDef(name, description string, inputSchema map[string]any) map[string]any {
+	return map[string]any{"name": name, "description": description, "inputSchema": inputSchema}
+}
+
+func idSchema() map[string]any {
+	return map[string]any{
+		"type":       "object",
+		"properties": map[string]any{"id": stringProperty("Resource id.")},
+		"required":   []string{"id"},
+	}
+}
+
+func pagedSchema(extra map[string]any) map[string]any {
+	properties := map[string]any{
+		"page":     stringProperty("Page number."),
+		"pageSize": stringProperty("Page size."),
+	}
+	required := []string{}
+	for key, value := range extra {
+		properties[key] = value
+		if key == "id" {
+			required = append(required, key)
+		}
+	}
+	return map[string]any{"type": "object", "properties": properties, "required": required}
+}
+
+func stringProperty(description string) map[string]any {
+	return map[string]any{"type": "string", "description": description}
+}
+
+func booleanProperty(description string) map[string]any {
+	return map[string]any{"type": "boolean", "description": description}
+}
+
+func writeRPCResult(id json.RawMessage, result any) {
+	writeRPC(rpcResponse{JSONRPC: "2.0", ID: rawID(id), Result: result})
+}
+
+func writeRPCError(id json.RawMessage, code int, message string) {
+	writeRPC(rpcResponse{JSONRPC: "2.0", ID: rawID(id), Error: &rpcError{Code: code, Message: message}})
+}
+
+func writeRPC(resp rpcResponse) {
+	data, _ := json.Marshal(resp)
+	fmt.Println(string(data))
+}
+
+func rawID(raw json.RawMessage) any {
+	if len(raw) == 0 {
+		return nil
+	}
+	var id any
+	if err := json.Unmarshal(raw, &id); err != nil {
+		return nil
+	}
+	return id
+}
+
+func mustIndentJSON(data []byte) []byte {
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
+		return data
+	}
+	pretty, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return data
+	}
+	return pretty
 }

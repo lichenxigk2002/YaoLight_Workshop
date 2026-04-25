@@ -37,6 +37,7 @@ var ResourceDefinitions = []ResourceDefinition{
 	{Key: "notifications.analytics", Description: "通知统计"},
 	{Key: "notifications.templates", Description: "通知模板"},
 	{Key: "content_comments", Description: "评论治理"},
+	{Key: "mcp_access", Description: "AI 工具接入"},
 	{Key: "operation_logs", Description: "操作日志"},
 	{Key: "app_logs", Description: "应用日志"},
 }

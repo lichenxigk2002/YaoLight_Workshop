@@ -21,6 +21,7 @@ import AssistantWorkspace from '../pages/AssistantWorkspace'
 import ConversationsPage from '../pages/Conversations'
 import AssistantSettings from '../pages/Settings/Assistant'
 import TokenTransactions from '../pages/Settings/TokenTransactions'
+import MCPAccessPage from '../pages/Settings/MCPAccess'
 
 const router = createBrowserRouter([
   {
@@ -144,6 +145,10 @@ const router = createBrowserRouter([
       {
         path: 'assistant',
         element: <AssistantSettings />,
+      },
+      {
+        path: 'ai-tools',
+        element: <MCPAccessPage />,
       },
     ],
   },

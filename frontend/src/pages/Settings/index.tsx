@@ -2,6 +2,7 @@ import { Layout, Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   BellOutlined,
+  ApiOutlined,
   CloudServerOutlined,
   CreditCardOutlined,
   FileTextOutlined,
@@ -83,6 +84,11 @@ export default function Settings() {
           key: 'assistant',
           icon: <Sparkles size={16} />,
           label: t('settings.assistant'),
+        },
+        {
+          key: 'ai-tools',
+          icon: <ApiOutlined />,
+          label: t('settings.mcpAccess'),
         },
       ],
     },
