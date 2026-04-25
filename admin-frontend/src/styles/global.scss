@@ -63,3 +63,16 @@ select {
   overflow: hidden;
 }
 
+.ant-tag.ant-tag-green,
+.ant-tag.ant-tag-success {
+  border-color: transparent !important;
+  background: #f6ffed !important;
+  color: #389e0d !important;
+}
+
+.ant-tag.ant-tag-green a,
+.ant-tag.ant-tag-success a,
+.ant-tag.ant-tag-green .anticon,
+.ant-tag.ant-tag-success .anticon {
+  color: #389e0d !important;
+}

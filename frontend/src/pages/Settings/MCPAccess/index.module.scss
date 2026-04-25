@@ -1,0 +1,201 @@
+@use '../theme' as settingsTheme;
+
+.container {
+  max-width: 1120px;
+
+  :global(.ant-table) {
+    background: transparent !important;
+  }
+
+  :global(.ant-table-thead > tr > th) {
+    background: var(--settings-table-head-bg) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--settings-card-border) !important;
+  }
+
+  :global(.ant-table-tbody > tr > td) {
+    background: var(--settings-table-row-bg) !important;
+    border-bottom-color: var(--settings-card-border) !important;
+    color: var(--settings-row-ink) !important;
+  }
+
+  :global(.ant-table-tbody > tr:hover > td) {
+    background: var(--settings-table-row-hover) !important;
+  }
+
+  :global(.ant-pagination) {
+    padding: 10px 12px 12px;
+  }
+
+  :global(.ant-tabs-tab) {
+    color: var(--text-secondary);
+  }
+
+  :global(.ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn) {
+    color: var(--text-primary);
+  }
+
+  :global(.ant-tabs-ink-bar) {
+    background: var(--primary);
+  }
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.summaryCard,
+.panel {
+  @include settingsTheme.panel(18px);
+}
+
+.summaryCard {
+  padding: 18px;
+}
+
+.summaryValue {
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.summaryLabel {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.panel {
+  margin-top: 14px;
+  padding: 18px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+
+  h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+
+  p {
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
+
+.tokenName {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.configAlert {
+  margin-bottom: 12px;
+}
+
+.secretBlock {
+  overflow: auto;
+  border: 1px solid var(--settings-card-border);
+  border-radius: 12px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.codeBlock {
+  margin: 0 0 12px;
+  border-color: var(--settings-card-border);
+  border-radius: 12px;
+}
+
+.secretBlock {
+  margin: 14px 0;
+  padding: 12px;
+  background: var(--settings-card-bg-soft);
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.tableShell {
+  overflow: hidden;
+  @include settingsTheme.table-shell(14px);
+}
+
+.scopeTag {
+  margin-inline-end: 0;
+  border: 1px solid var(--settings-card-border);
+  border-radius: 999px;
+  background: var(--settings-pill-bg);
+  color: var(--text-primary);
+
+  &[data-tone='write'],
+  &[data-tone='execute'] {
+    background: var(--settings-warning-bg);
+    color: var(--settings-warning-text);
+    border-color: rgba(255, 184, 77, 0.28);
+  }
+}
+
+.scopeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  width: 100%;
+
+  :global(.ant-checkbox-wrapper) {
+    margin: 0;
+    min-width: 0;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border: 1px solid var(--settings-card-border);
+    border-radius: 12px;
+    background: var(--settings-card-bg-soft);
+  }
+}
+
+.scopeOption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  span {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  small {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}
+
+@media (max-width: 900px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .panelHeader {
+    flex-direction: column;
+  }
+
+  .scopeGrid {
+    grid-template-columns: 1fr;
+  }
+}

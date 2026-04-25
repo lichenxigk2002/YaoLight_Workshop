@@ -21,6 +21,8 @@ import (
 	crawlerControllers "yaolight-workshop/backend/modules/crawler/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
 	interactionControllers "yaolight-workshop/backend/modules/interaction/controllers"
+	mcpControllers "yaolight-workshop/backend/modules/mcp/controllers"
+	mcpMiddleware "yaolight-workshop/backend/modules/mcp/middleware"
 	nodeControllers "yaolight-workshop/backend/modules/node/controllers"
 	notificationModule "yaolight-workshop/backend/modules/notification"
 	notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
@@ -205,6 +207,16 @@ func main() {
 			auth.GET("/users/oauth-bindings", authController.GetOAuthBindings)
 			auth.POST("/users/oauth-bindings/request", authController.RequestOAuthBind)
 			auth.DELETE("/users/oauth-bindings/:provider", authController.UnbindOAuth)
+
+			mcpTokenController := mcpControllers.NewTokenController(database.DB)
+			mcpCallLogController := mcpControllers.NewCallLogController(database.DB)
+			auth.GET("/mcp/settings", mcpTokenController.Settings)
+			auth.GET("/mcp/tokens", mcpTokenController.List)
+			auth.POST("/mcp/tokens", mcpTokenController.Create)
+			auth.DELETE("/mcp/tokens/:id", mcpTokenController.Revoke)
+			auth.DELETE("/mcp/tokens/:id/record", mcpTokenController.DeleteRecord)
+			auth.GET("/mcp/call-logs", mcpCallLogController.List)
+
 			// 邀请好友
 			invitationController := authControllers.NewInvitationController()
 			auth.GET("/users/invite/link", invitationController.GetInviteLink)
@@ -456,6 +468,16 @@ func main() {
 			adminSystemConfigs.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
 			adminSystemConfigs.POST("/email/debug", rbacMiddleware.RequirePermission("system_configs:edit"), adminEmailDebugController.SendTestEmail)
 
+			adminMCPController := mcpControllers.NewAdminController(database.DB)
+			adminMCP := auth.Group("/admin/mcp")
+			adminMCP.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminMCP.GET("/settings", rbacMiddleware.RequirePermission("mcp_access:view"), adminMCPController.GetSettings)
+			adminMCP.PUT("/settings", rbacMiddleware.RequirePermission("mcp_access:edit"), adminMCPController.UpdateSettings)
+			adminMCP.GET("/tokens", rbacMiddleware.RequirePermission("mcp_access:view"), adminMCPController.ListTokens)
+			adminMCP.POST("/tokens/:id/revoke", rbacMiddleware.RequirePermission("mcp_access:edit"), adminMCPController.RevokeToken)
+			adminMCP.POST("/users/:userId/revoke-tokens", rbacMiddleware.RequirePermission("mcp_access:edit"), adminMCPController.RevokeUserTokens)
+			adminMCP.GET("/call-logs", rbacMiddleware.RequirePermission("mcp_access:view"), adminMCPController.ListCallLogs)
+
 			adminNotifications := auth.Group("/admin/notifications")
 			adminNotifications.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
 			adminNotifications.GET(
@@ -534,6 +556,29 @@ func main() {
 			auth.POST("/notifications/:id/consent", notificationController.RespondConsent)
 			auth.PUT("/notifications/:id/read", notificationController.MarkRead)
 			auth.PUT("/notifications/read-all", notificationController.MarkAllRead)
+		}
+
+		mcpToolController := mcpControllers.NewToolController(database.DB)
+		mcpTools := api.Group("/mcp/tools")
+		mcpTools.Use(mcpMiddleware.MCPTokenAuthMiddleware(database.DB))
+		{
+			mcpTools.GET("", mcpToolController.ListTools)
+			mcpTools.GET("/current-user", mcpToolController.GetCurrentUser)
+			mcpTools.GET("/projects", mcpToolController.ListProjects)
+			mcpTools.GET("/projects/:id", mcpToolController.GetProject)
+			mcpTools.GET("/workflows", mcpToolController.ListWorkflows)
+			mcpTools.GET("/workflows/:id", mcpToolController.GetWorkflow)
+			mcpTools.GET("/workflows/:id/nodes", mcpToolController.GetWorkflowNodes)
+			mcpTools.GET("/tasks/:id", mcpToolController.GetTask)
+			mcpTools.GET("/tasks/:id/logs", mcpToolController.GetTaskLogs)
+			mcpTools.GET("/tasks/:id/node-executions", mcpToolController.GetTaskNodeExecutions)
+			mcpTools.GET("/tasks/:id/artifacts", mcpToolController.ListTaskArtifacts)
+			mcpTools.GET("/projects/:id/artifacts", mcpToolController.ListProjectArtifacts)
+			mcpTools.GET("/projects/:id/knowledge/search", mcpToolController.SearchProjectKnowledge)
+			mcpTools.GET("/models", mcpToolController.ListAvailableModels)
+			mcpTools.POST("/workflows/:id/run", mcpToolController.RunWorkflow)
+			mcpTools.POST("/tasks/:id/cancel", mcpToolController.CancelTask)
+			mcpTools.POST("/tasks/:id/retry", mcpToolController.RetryTask)
 		}
 	}
 

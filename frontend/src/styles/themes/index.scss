@@ -226,7 +226,11 @@ body {
     border-color: var(--primary);
 
     a {
-      color: #ffffff;
+      color: var(--bg-primary);
+    }
+
+    &:hover a {
+      color: var(--bg-primary);
     }
   }
 
@@ -234,12 +238,21 @@ body {
   .ant-pagination-next {
     background: var(--bg-primary);
     border-color: var(--border-primary);
+    color: var(--text-primary);
 
     .anticon {
       color: var(--text-primary);
     }
 
+    button {
+      color: var(--text-primary);
+    }
+
     &:hover .anticon {
+      color: var(--primary);
+    }
+
+    &:hover button {
       color: var(--primary);
     }
   }

@@ -1,0 +1,74 @@
+.page {
+  display: grid;
+  gap: 20px;
+}
+
+.card {
+  border-radius: 20px;
+  box-shadow: var(--admin-shadow);
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0 !important;
+}
+
+.settingsForm {
+  gap: 12px;
+}
+
+.switchRow {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.numberGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.numberGrid :global(.ant-input-number) {
+  width: 100%;
+}
+
+.scopeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 10px 14px;
+  width: 100%;
+}
+
+.scopeGroupTitle {
+  grid-column: 1 / -1;
+  color: var(--admin-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.scopeDivider {
+  grid-column: 1 / -1;
+  margin: 2px 0;
+}
+
+.tableHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+
+  h3 {
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .numberGrid,
+  .scopeGrid {
+    grid-template-columns: 1fr;
+  }
+}

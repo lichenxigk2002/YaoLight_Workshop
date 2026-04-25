@@ -23,6 +23,7 @@ import (
 	crawlerModels "yaolight-workshop/backend/modules/crawler/models"
 	fileModels "yaolight-workshop/backend/modules/file/models"
 	interactionModels "yaolight-workshop/backend/modules/interaction/models"
+	mcpModels "yaolight-workshop/backend/modules/mcp/models"
 	nodeModels "yaolight-workshop/backend/modules/node/models"
 	notificationModels "yaolight-workshop/backend/modules/notification/models"
 	paymentModels "yaolight-workshop/backend/modules/payment/models"
@@ -310,6 +311,8 @@ func AutoMigrate() error {
 		&interactionModels.ResourceLike{},
 		&interactionModels.ResourceComment{},
 		&interactionModels.CommentReaction{},
+		&mcpModels.MCPToken{},
+		&mcpModels.MCPCallLog{},
 		&taskModels.TaskNodeExecution{},
 		&taskModels.TaskLog{},
 		&alkaidModels.AlkaidSession{},

@@ -25,6 +25,9 @@ var compatibleMigrationChecksums = map[int]map[string]bool{
 	20: {
 		"85b9b519732e5b2de0c82fc4a668ce1a2cdd3fd247c53275b06688fd71ce0add": true,
 	},
+	24: {
+		"d344891da9f7b721784bba5d70d358cdf6daeba76b555e4faf6c7f375b0b6480": true,
+	},
 	26: {
 		"162ea99ca442d416170f0b70a463e1884d9fcbdca8b7a9ee1a49158358ed448b": true,
 	},

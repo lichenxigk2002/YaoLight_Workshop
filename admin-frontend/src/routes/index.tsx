@@ -8,6 +8,7 @@ import ContentCommentsPage from '@/pages/ContentComments';
 import DashboardPage from '@/pages/Dashboard';
 import LoginPage from '@/pages/Login';
 import KnowledgeBasePage from '@/pages/KnowledgeBase';
+import MCPAccessAdminPage from '@/pages/MCPAccess';
 import NodeTypesPage from '@/pages/NodeTypes';
 import NotFoundPage from '@/pages/NotFound';
 import OperationLogsPage from '@/pages/OperationLogs';
@@ -46,6 +47,7 @@ const router = createBrowserRouter(
         billingRoutes,
         notificationsRoutes,
         { path: 'system-configs', element: <SystemConfigsPage /> },
+        { path: 'mcp-access', element: <MCPAccessAdminPage /> },
         { path: 'app-logs', element: <Navigate to="/logs/app" replace /> },
         { path: 'operation-logs', element: <Navigate to="/logs/operation" replace /> },
         { path: 'logs/app', element: <AppLogsPage /> },
