@@ -2,6 +2,7 @@
 export * from './alkaid';
 export * from './notification';
 export * from './payment';
+export * from './mcp';
 export * from './task';
 export * from './user';
 export * from './workflow';

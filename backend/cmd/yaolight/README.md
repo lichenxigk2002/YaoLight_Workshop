@@ -25,6 +25,20 @@ export YAOLIGHT_BASE_URL=http://localhost:8080/api
 export YAOLIGHT_TOKEN=your-jwt-token
 ```
 
+For MCP client usage, use a dedicated MCP token:
+
+```bash
+export YAOLIGHT_BASE_URL=http://localhost:8080/api
+export YAOLIGHT_MCP_TOKEN=yl_mcp_xxx
+./yaolight mcp serve
+```
+
+If using the npm launcher package from this repository:
+
+```bash
+YAOLIGHT_CLI=/absolute/path/to/yaolight npx ./packages/yaolight-mcp
+```
+
 ## Commands
 
 ```bash
@@ -35,6 +49,9 @@ export YAOLIGHT_TOKEN=your-jwt-token
 ./yaolight workflows get 1 --nodes --json
 ./yaolight tasks get 1 --json
 ./yaolight tasks logs 1 --limit 100
+./yaolight mcp tokens create --name Codex
+./yaolight mcp tools list
+./yaolight mcp serve
 ./yaolight api get '/projects?page=1&pageSize=20'
 ```
 
