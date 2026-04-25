@@ -39,6 +39,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { projectApi } from '@/api/project';
 import { projectAssetsApi } from '@/api/projectAssets';
 import { taskApi } from '@/api/task';
+import { CodeBlock } from '@/components/CodeBlock';
 import { MarkdownRenderer } from '@/components/WorkflowEditor/utils/MarkdownRenderer';
 import { MermaidRenderer, looksLikeMermaid } from '@/components/WorkflowEditor/utils/MermaidRenderer';
 import http from '@/http';
@@ -636,7 +637,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
       return <MarkdownRenderer content={artifactPreviewContent} />;
     }
     if (lowerMime.includes('json')) {
-      return <pre className={styles.codeBlock}>{artifactPreviewContent}</pre>;
+      return <CodeBlock value={artifactPreviewContent} language="json" defaultExpanded collapsedLines={999} />;
     }
     return <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{artifactPreviewContent}</Paragraph>;
   };
@@ -1272,7 +1273,7 @@ export function ProjectAssetsContent({ embedded = false, projectId: providedProj
         onCancel={() => setSourceCheckOpen(false)}
         width={720}
       >
-        {sourceCheckData ? <pre className={styles.codeBlock}>{JSON.stringify(sourceCheckData, null, 2)}</pre> : null}
+        {sourceCheckData ? <CodeBlock value={sourceCheckData} language="json" defaultExpanded collapsedLines={999} /> : null}
       </Modal>
 
       <Modal title={artifactPreviewTitle} open={artifactPreviewOpen} footer={null} onCancel={() => setArtifactPreviewOpen(false)} width={860}>

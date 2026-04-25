@@ -444,12 +444,12 @@
 
 .templateModal {
   :global(.ant-modal-content) {
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--editor-border-soft);
     border-radius: 28px;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),
-      #f7f5f1;
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.08);
+      linear-gradient(180deg, var(--editor-bg-overlay), transparent),
+      var(--editor-bg);
+    box-shadow: var(--editor-shadow-panel);
   }
 
   :global(.ant-modal-header) {
@@ -459,7 +459,7 @@
   }
 
   :global(.ant-modal-title) {
-    color: #111111;
+    color: var(--editor-text);
     font-size: 18px;
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -469,18 +469,8 @@
     padding: 20px 24px 24px;
   }
 
-  [data-theme='dark'] & {
-    :global(.ant-modal-content) {
-      border-color: rgba(255, 255, 255, 0.06);
-      background:
-        linear-gradient(180deg, rgba(24, 24, 24, 0.96), rgba(24, 24, 24, 0.9)),
-        #171717;
-      box-shadow: 0 22px 48px rgba(0, 0, 0, 0.36);
-    }
-
-    :global(.ant-modal-title) {
-      color: #f2f2f2;
-    }
+  :global(.ant-modal-close) {
+    color: var(--editor-text-secondary);
   }
 }
 
@@ -646,6 +636,209 @@
   border-radius: 999px !important;
 }
 
+.templateModal {
+  :global(.ant-modal-content) {
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  :global(.ant-modal-body) {
+    padding: 0 20px 18px;
+  }
+}
+
+.templatePreviewLayout {
+  display: grid;
+  grid-template-columns: 280px minmax(420px, 1fr) 320px;
+  gap: 14px;
+  min-height: 620px;
+}
+
+.templateListPane,
+.templateCanvasPane,
+.templateCommentPane {
+  min-width: 0;
+  min-height: 0;
+}
+
+.templateListPane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-right: 1px solid var(--editor-border-soft);
+  padding-right: 14px;
+
+  :global(.ant-input) {
+    border-color: var(--editor-border-strong);
+    background: var(--editor-surface);
+    color: var(--editor-text);
+    box-shadow: none;
+
+    &::placeholder {
+      color: var(--editor-text-tertiary);
+    }
+
+    &:hover,
+    &:focus {
+      border-color: var(--editor-border-strong);
+      background: var(--editor-surface-strong);
+      box-shadow: none;
+    }
+  }
+
+  :global(.ant-btn) {
+    border-color: var(--editor-border-strong);
+    background: var(--editor-surface);
+    color: var(--editor-text);
+    box-shadow: none;
+
+    &:hover {
+      border-color: var(--editor-border-strong) !important;
+      background: var(--editor-surface-strong) !important;
+      color: var(--editor-text) !important;
+    }
+  }
+}
+
+.templateListPane :global(.ant-list) {
+  min-height: 0;
+  overflow: auto;
+}
+
+.templateListItem {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 9px;
+  padding: 12px;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--editor-surface) 86%, transparent);
+  color: var(--editor-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+
+  &:hover {
+    border-color: var(--editor-border-strong);
+    background: color-mix(in srgb, var(--editor-surface-strong) 92%, transparent);
+    box-shadow: 0 8px 18px var(--editor-shadow-soft);
+  }
+}
+
+.templateListItemActive {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--editor-border-strong));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 7%, transparent), transparent),
+    var(--editor-surface);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent),
+    0 10px 22px var(--editor-shadow-soft);
+}
+
+.templateListTitle {
+  color: var(--editor-text);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.templateListDesc {
+  color: var(--editor-text-tertiary);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.templateListTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+
+  :global(.ant-tag) {
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    margin-inline-end: 0;
+    border-color: var(--editor-border-soft);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--editor-surface-strong) 72%, transparent);
+    color: var(--editor-text-secondary);
+    font-size: 11px;
+    line-height: 20px;
+  }
+}
+
+.templateCanvasPane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.templateCanvasHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.templateCanvasTitle {
+  color: var(--editor-text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.templateCanvasMeta {
+  margin-top: 3px;
+  color: var(--editor-text-tertiary);
+  font-size: 12px;
+}
+
+.templateCanvasPreview {
+  flex: 1;
+  height: 560px;
+  min-height: 560px;
+  overflow: hidden;
+  border: 1px solid var(--editor-border-soft);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at top center, color-mix(in srgb, var(--editor-text) 4%, transparent), transparent 28%),
+    linear-gradient(180deg, var(--editor-bg-overlay), transparent 38%),
+    var(--editor-surface);
+
+  :global(.ant-spin-nested-loading),
+  :global(.ant-spin-container) {
+    width: 100%;
+    height: 100%;
+    min-height: 560px;
+  }
+
+  :global(.react-flow) {
+    width: 100%;
+    height: 100%;
+    min-height: 560px;
+    background: transparent;
+  }
+
+  :global(.ant-empty) {
+    margin-top: 180px;
+  }
+
+  :global(.ant-empty-description) {
+    color: var(--editor-text-tertiary);
+  }
+}
+
+.templateCommentPane {
+  overflow: hidden;
+  border-left: 1px solid var(--editor-border-soft);
+  padding-left: 14px;
+}
+
 @media (max-width: 900px) {
   .content {
     padding: 12px;
@@ -680,5 +873,19 @@
 
   .previewBanner {
     max-width: calc(100% - 28px);
+  }
+
+  .templatePreviewLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .templateListPane,
+  .templateCommentPane {
+    border: none;
+    padding: 0;
+  }
+
+  .templateCanvasPreview {
+    min-height: 380px;
   }
 }

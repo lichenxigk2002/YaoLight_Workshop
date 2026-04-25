@@ -18,6 +18,7 @@ import {
   FundProjectionScreenOutlined,
   GiftOutlined,
   LineChartOutlined,
+  MessageOutlined,
   MoneyCollectOutlined,
   PartitionOutlined,
   RadarChartOutlined,
@@ -57,6 +58,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   },
   { key: 'node-types', path: '/node-types', label: 'menu.nodeTypes', icon: <BranchesOutlined />, permissionKey: 'node_types' },
   { key: 'knowledge-base', path: '/knowledge-base', label: 'menu.knowledgeBase', icon: <BookOutlined />, permissionKey: 'knowledge_base' },
+  { key: 'content-comments', path: '/content-comments', label: 'menu.contentComments', icon: <MessageOutlined />, permissionKey: 'content_comments' },
   {
     key: 'crawler-rules',
     path: '/crawler-rules',
@@ -108,6 +110,7 @@ export const adminMenuItems: AdminMenuItem[] = [
       { key: 'billing-overview', path: '/billing', label: 'menu.billingOverview', icon: <WalletFilled />, permissionKey: 'billing.overview' },
       { key: 'billing-quota-recovery', path: '/billing/quota-recovery', label: 'menu.billingQuotaRecovery', icon: <BuildOutlined />, permissionKey: 'billing.quota_recovery' },
       { key: 'billing-admin-grant', path: '/billing/admin-grant', label: 'menu.billingAdminGrant', icon: <GiftOutlined />, permissionKey: 'billing.admin_grant' },
+      { key: 'billing-packages', path: '/billing/packages', label: 'menu.billingPackages', icon: <CreditCardOutlined />, permissionKey: 'billing.packages' },
       { key: 'billing-orders', path: '/billing/orders', label: 'menu.billingOrders', icon: <CreditCardOutlined />, permissionKey: 'billing.orders' },
       { key: 'billing-ledger', path: '/billing/ledger', label: 'menu.billingLedger', icon: <PartitionOutlined />, permissionKey: 'billing.ledger' },
       { key: 'billing-token-ledger', path: '/billing/token-ledger', label: 'menu.billingTokenLedger', icon: <MoneyCollectOutlined />, permissionKey: 'billing.token_ledger' },

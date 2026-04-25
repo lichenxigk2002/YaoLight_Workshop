@@ -1,0 +1,464 @@
+.panel {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--text-primary);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+
+  :global(.anticon) {
+    color: var(--text-secondary);
+    font-size: 15px;
+  }
+}
+
+.count {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.composer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+
+.inputShell {
+  flex: 1 1 auto;
+  min-width: 0;
+  position: relative;
+
+  :global(.ant-input) {
+    min-height: 38px;
+    padding: 9px 42px 9px 11px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    box-shadow: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+
+    &:focus,
+    &:focus-within {
+      border: 0;
+      background: var(--bg-secondary);
+      box-shadow: none;
+    }
+
+    &::placeholder {
+      color: var(--text-disabled);
+    }
+  }
+}
+
+.replying {
+  :global(.ant-input) {
+    padding-right: 72px;
+  }
+}
+
+.inputActions {
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.scrollArea {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+
+  :global(.ant-spin-nested-loading),
+  :global(.ant-spin-container) {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+.inlineAction {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  color: var(--text-tertiary);
+
+  svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+  }
+
+  &:hover {
+    background: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+  }
+}
+
+.sendButton {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  padding: 0;
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  box-shadow: 0 4px 14px var(--shadow-sm);
+  color: var(--text-primary);
+  line-height: 1;
+
+  svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  &:hover {
+    border-color: var(--border-primary) !important;
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+  }
+}
+
+.emojiPopover {
+  display: flex;
+  width: 272px;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.emojiTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.emojiTab {
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.emojiTabActive {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.emojiGrid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  max-height: 132px;
+  overflow: auto;
+}
+
+.emojiChoice {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--bg-secondary);
+  }
+}
+
+.list {
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  gap: 15px;
+  overflow: auto;
+  padding: 1px 5px 2px 0;
+}
+
+.comment {
+  display: flex;
+  position: relative;
+  gap: 10px;
+  min-width: 0;
+}
+
+.nestedComment {
+  gap: 8px;
+}
+
+.avatar {
+  flex: 0 0 auto;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.commentHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.commentTop {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 3px;
+  height: 3px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--border-primary);
+}
+
+.meta {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.metaItem {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  :global(.anticon) {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    font-size: 11px;
+  }
+}
+
+.content {
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-top: -3px;
+}
+
+.textAction {
+  height: 22px;
+  padding: 0 6px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 700;
+
+  &:hover {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+  }
+}
+
+.iconAction {
+  width: 22px;
+  height: 22px;
+  color: var(--error);
+
+  &:hover {
+    background: color-mix(in srgb, var(--error) 10%, transparent) !important;
+  }
+}
+
+.replies {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-top: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-secondary);
+}
+
+.empty {
+  padding: 24px 0;
+
+  :global(.ant-empty-description) {
+    color: var(--text-tertiary);
+  }
+}
+
+:global(.ant-popover) {
+  .emojiPopover {
+    padding: 2px;
+  }
+}
+
+.compact {
+  gap: 8px;
+
+  .header {
+    min-height: 28px;
+  }
+
+  .title {
+    font-size: 13px;
+  }
+
+  .inputShell {
+    :global(.ant-input) {
+      min-height: 36px;
+      padding: 8px 39px 8px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+  }
+
+  .replying {
+    :global(.ant-input) {
+      padding-right: 68px;
+    }
+  }
+
+  .inputActions {
+    right: 5px;
+    bottom: 4px;
+  }
+
+  .inlineAction {
+    width: 27px;
+    height: 27px;
+  }
+
+  .sendButton {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .list {
+    gap: 12px;
+    padding-right: 2px;
+  }
+
+  .comment {
+    gap: 7px;
+  }
+
+  .commentTop {
+    gap: 6px;
+  }
+
+  .name {
+    font-size: 12px;
+  }
+
+  .meta {
+    font-size: 10px;
+  }
+
+  .metaRow {
+    gap: 4px;
+    margin-top: 3px;
+    font-size: 9px;
+  }
+
+  .content {
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .actions {
+    gap: 1px;
+    margin-top: -4px;
+  }
+
+  .textAction,
+  .iconAction {
+    height: 21px;
+  }
+
+  .replies {
+    gap: 8px;
+    margin-top: 9px;
+    padding-left: 9px;
+  }
+
+  .empty {
+    padding: 36px 0 20px;
+
+    :global(.ant-empty-description) {
+      font-size: 12px;
+    }
+  }
+}

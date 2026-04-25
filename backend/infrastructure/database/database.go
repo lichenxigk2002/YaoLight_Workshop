@@ -22,6 +22,7 @@ import (
 	billingModels "yaolight-workshop/backend/modules/billing/models"
 	crawlerModels "yaolight-workshop/backend/modules/crawler/models"
 	fileModels "yaolight-workshop/backend/modules/file/models"
+	interactionModels "yaolight-workshop/backend/modules/interaction/models"
 	nodeModels "yaolight-workshop/backend/modules/node/models"
 	notificationModels "yaolight-workshop/backend/modules/notification/models"
 	paymentModels "yaolight-workshop/backend/modules/payment/models"
@@ -94,7 +95,6 @@ func InitDatabase() error {
 		{name: "model capability configs", fn: SeedModelCapabilityConfigs},
 		{name: "managed ai models", fn: SeedManagedAIModels},
 		{name: "pricing rules", fn: SeedPricingRulesFromConfigs},
-		{name: "crawler rules", fn: SeedCrawlerRules},
 	}
 
 	for _, seeder := range seeders {
@@ -277,6 +277,7 @@ func AutoMigrate() error {
 		&nodeModels.NodeType{},
 		&systemModels.SystemConfig{},
 		&systemModels.Statistics{},
+		&paymentModels.StardustPackage{},
 		&paymentModels.Order{},
 		&aiModels.ProviderTemplate{},
 		&aiModels.ModelPricingConfig{},
@@ -306,6 +307,9 @@ func AutoMigrate() error {
 		&workflowAPIModels.WorkflowAPIEndpoint{},
 		&workflowAPIModels.WorkflowAPIKey{},
 		&workflowAPIModels.WorkflowAPIInvocation{},
+		&interactionModels.ResourceLike{},
+		&interactionModels.ResourceComment{},
+		&interactionModels.CommentReaction{},
 		&taskModels.TaskNodeExecution{},
 		&taskModels.TaskLog{},
 		&alkaidModels.AlkaidSession{},

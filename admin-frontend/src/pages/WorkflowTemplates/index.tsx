@@ -356,8 +356,8 @@ export default function WorkflowTemplatesPage() {
         page,
         page_size: pageSize,
       });
-      setItems(payload.list);
-      setTotal(payload.total);
+      setItems(Array.isArray(payload.list) ? payload.list : []);
+      setTotal(payload.total ?? 0);
     } catch (error) {
       message.error((error as Error).message);
     } finally {
@@ -369,7 +369,7 @@ export default function WorkflowTemplatesPage() {
     setSourceSearching(true);
     try {
       const payload = await searchSourceWorkflows(search);
-      setSourceOptions(payload.list);
+      setSourceOptions(Array.isArray(payload.list) ? payload.list : []);
     } catch (error) {
       message.error((error as Error).message);
     } finally {
@@ -1194,10 +1194,10 @@ export default function WorkflowTemplatesPage() {
         open={sourcePreviewOpen}
         title={
           sourcePreviewTarget
-            ? `${locale === 'en-US' ? 'Workflow Preview' : '工作流预览'}: ${sourcePreviewTarget.name}`
+            ? `${locale === 'en-US' ? 'Template preview' : '模板预览'}: ${sourcePreviewTarget.name}`
             : locale === 'en-US'
-              ? 'Workflow Preview'
-              : '工作流预览'
+              ? 'Template preview'
+              : '模板预览'
         }
         width={980}
         footer={null}
@@ -1239,11 +1239,11 @@ export default function WorkflowTemplatesPage() {
                 description={
                   sourcePreviewLoading
                     ? locale === 'en-US'
-                      ? 'Loading workflow preview...'
-                      : '正在加载工作流预览...'
+                      ? 'Preparing preview...'
+                      : '正在准备预览...'
                     : locale === 'en-US'
-                      ? 'This workflow has no drawable canvas yet.'
-                      : '这个工作流目前还没有可预览的画布。'
+                      ? 'Nothing to preview yet.'
+                      : '暂时没有可预览内容。'
                 }
               />
             </div>

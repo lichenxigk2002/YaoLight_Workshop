@@ -351,7 +351,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		task.Progress = 100
 		task.CompletedAt = &completedAt
 		task.ActualDuration = &actualDuration
-		task.Result = collectTaskResultPayload(dataFlow, terminalNodes)
+		task.Result = collectTaskResultPayload(dataFlow, req.Nodes, terminalNodes, shouldPreferAPIOutputResults(req))
 		task.UpdatedAt = time.Now()
 		applyTaskFailure(task, message, stack)
 
@@ -561,6 +561,10 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 			nodeStatus[nodeID] = "completed"
 			saveNodeExecution(nodeID, nodeConfig.Type, result, executionTime, "")
 			emitNodeResult(result, "completed")
+		} else if isSkippedStartNodeResult(result) {
+			nodeStatus[nodeID] = "skipped"
+			saveNodeExecution(nodeID, nodeConfig.Type, result, executionTime, "skipped")
+			emitNodeResult(result, "skipped")
 		} else {
 			nodeStatus[nodeID] = "failed"
 			saveNodeExecution(nodeID, nodeConfig.Type, result, executionTime, "")
@@ -644,7 +648,7 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 		task.Progress = 100
 		task.CompletedAt = &completedAt
 		task.ActualDuration = &actualDuration
-		task.Result = collectTaskResultPayload(dataFlow, terminalNodes)
+		task.Result = collectTaskResultPayload(dataFlow, req.Nodes, terminalNodes, shouldPreferAPIOutputResults(req))
 		task.UpdatedAt = time.Now()
 
 		if workflowFailed {

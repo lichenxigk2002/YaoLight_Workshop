@@ -168,7 +168,7 @@ export default function Dashboard() {
 
   const sectionTitle = isZh ? '最近项目' : 'Recent projects';
   const sectionHint = isZh
-    ? '把常用项目留在眼前，方便继续推进。'
+    ? '上次停下的地方，可以从这里继续。'
     : 'Keep active work within easy reach.';
   const emptyTitle = isZh ? '还没有项目' : 'No projects yet';
   const emptyText = isZh
@@ -184,7 +184,7 @@ export default function Dashboard() {
         <h1 className={styles.title}>{greeting}</h1>
         <p className={styles.subtitle}>
           {isZh
-            ? `${user?.username || '你'} 的工作从这里开始。少一点打扰，多一点留白。`
+            ? `${user?.username || '你'}，欢迎回来。今天想先推进哪件事？`
             : `A quieter place for ${user?.username || 'you'} to begin. Less noise, more room to work.`}
         </p>
 

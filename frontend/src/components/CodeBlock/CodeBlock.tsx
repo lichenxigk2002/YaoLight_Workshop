@@ -14,6 +14,7 @@ export interface CodeBlockProps {
   collapsedLines?: number;
   defaultExpanded?: boolean;
   className?: string;
+  showHeader?: boolean;
 }
 
 const joinClassName = (...parts: Array<string | undefined | false>) =>
@@ -26,6 +27,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   collapsedLines = 16,
   defaultExpanded = true,
   className,
+  showHeader = true,
 }) => {
   const { theme } = useThemeStore();
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -61,6 +63,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         setCopied(false);
       }, 1500);
     } catch {
+      setCopied(false);
     }
   };
 
@@ -69,31 +72,49 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   };
 
   const headerLanguage = language.toUpperCase();
-  const syntaxTheme = isDark ? oneDark : oneLight;
+  const syntaxTheme = useMemo(() => {
+    if (!isDark) return oneLight;
+
+    const darkStyle = oneDark as Record<string, any>;
+    return {
+      ...darkStyle,
+      'pre[class*="language-"]': {
+        ...darkStyle['pre[class*="language-"]'],
+        background: 'transparent',
+      },
+      'code[class*="language-"]': {
+        ...darkStyle['code[class*="language-"]'],
+        background: 'transparent',
+        color: '#e7e7e7',
+      },
+    };
+  }, [isDark]);
 
   return (
     <div className={joinClassName(styles.wrapper, className)}>
-      <div className={styles.header}>
-        <div className={styles.left}>
-          <span className={styles.language}>{headerLanguage}</span>
-          <span className={styles.lineCount}>Ln {lineCount}</span>
-        </div>
-        <div className={styles.actions}>
-          {copied && <span className={styles.copied}>已复制</span>}
-          <button type="button" className={styles.actionButton} onClick={handleCopy}>
-            复制
-          </button>
-          {lineCount > collapsedLines && (
-            <button
-              type="button"
-              className={styles.actionButton}
-              onClick={toggleExpand}
-            >
-              {expanded ? '收起' : '展开'}
+      {showHeader ? (
+        <div className={styles.header}>
+          <div className={styles.left}>
+            <span className={styles.language}>{headerLanguage}</span>
+            <span className={styles.lineCount}>Ln {lineCount}</span>
+          </div>
+          <div className={styles.actions}>
+            {copied && <span className={styles.copied}>已复制</span>}
+            <button type="button" className={styles.actionButton} onClick={handleCopy}>
+              复制
             </button>
-          )}
+            {lineCount > collapsedLines && (
+              <button
+                type="button"
+                className={styles.actionButton}
+                onClick={toggleExpand}
+              >
+                {expanded ? '收起' : '展开'}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      ) : null}
       <div className={styles.body} data-expanded={expanded}>
         <SyntaxHighlighter
           language={language}
@@ -102,7 +123,10 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
           wrapLongLines
           customStyle={{
             margin: 0,
+            padding: '14px 16px',
             background: 'transparent',
+            fontSize: 13,
+            lineHeight: 1.65,
           }}
         >
           {displayText}
@@ -111,4 +135,3 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     </div>
   );
 };
-

@@ -1,53 +1,44 @@
 import type { AdminLocale } from '@/i18n/messages';
+import { translate } from '@/i18n/runtime';
 
 type TaskStatusMeta = {
   color: string;
   label: string;
 };
 
-const statusLabels: Record<AdminLocale, Record<string, string>> = {
-  'zh-CN': {
-    pending: '待处理',
-    queued: '排队中',
-    running: '运行中',
-    paused: '已暂停',
-    completed: '已完成',
-    failed: '失败',
-    cancelled: '已取消',
-    timeout: '超时',
-    skipped: '已跳过',
-  },
-  'en-US': {
-    pending: 'Pending',
-    queued: 'Queued',
-    running: 'Running',
-    paused: 'Paused',
-    completed: 'Completed',
-    failed: 'Failed',
-    cancelled: 'Cancelled',
-    timeout: 'Timed Out',
-    skipped: 'Skipped',
-  },
+const statusLabelKeys: Record<string, string> = {
+  pending: 'tasks.statusPending',
+  queued: 'tasks.statusQueued',
+  running: 'tasks.statusRunning',
+  paused: 'tasks.statusPaused',
+  completed: 'tasks.statusCompleted',
+  failed: 'tasks.statusFailed',
+  cancelled: 'tasks.statusCancelled',
+  timeout: 'tasks.statusTimeout',
+  skipped: 'tasks.statusSkipped',
 };
 
-export function getTaskStatusMeta(status: string, locale: AdminLocale): TaskStatusMeta {
-  const labels = statusLabels[locale];
+function getStatusLabel(status: string, locale: AdminLocale) {
+  const key = statusLabelKeys[status];
+  return key ? translate(locale, key) : status;
+}
 
+export function getTaskStatusMeta(status: string, locale: AdminLocale): TaskStatusMeta {
   switch (status) {
     case 'completed':
-      return { color: 'green', label: labels.completed };
+      return { color: 'green', label: getStatusLabel(status, locale) };
     case 'running':
     case 'queued':
     case 'pending':
     case 'paused':
-      return { color: 'blue', label: labels[status] ?? status };
+      return { color: 'blue', label: getStatusLabel(status, locale) };
     case 'failed':
     case 'timeout':
-      return { color: 'red', label: labels[status] ?? status };
+      return { color: 'red', label: getStatusLabel(status, locale) };
     case 'cancelled':
-      return { color: 'default', label: labels.cancelled };
+      return { color: 'default', label: getStatusLabel(status, locale) };
     case 'skipped':
-      return { color: 'orange', label: labels.skipped };
+      return { color: 'orange', label: getStatusLabel(status, locale) };
     default:
       return { color: 'default', label: status };
   }

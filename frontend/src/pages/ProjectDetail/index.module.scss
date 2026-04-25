@@ -2,7 +2,7 @@
   position: relative;
   height: 100%;
   overflow: auto;
-  padding: 32px 24px 56px;
+  padding: 18px 24px 24px;
   background:
     radial-gradient(circle at top center, rgba(0, 0, 0, 0.04), transparent 26%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.72)),
@@ -18,10 +18,10 @@
 
 .glow {
   position: absolute;
-  top: 72px;
+  top: 48px;
   left: 50%;
   width: min(820px, calc(100vw - 64px));
-  height: 240px;
+  height: 170px;
   transform: translateX(-50%);
   background: radial-gradient(circle, rgba(0, 0, 0, 0.05), transparent 72%);
   filter: blur(24px);
@@ -41,11 +41,11 @@
 }
 
 .heroSection {
-  margin-top: 24px;
+  margin-top: 8px;
 }
 
 .breadcrumbWrap {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 
   :global(.ant-breadcrumb) {
     font-size: 13px;
@@ -72,8 +72,8 @@
 .heroHeader {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px;
+  align-items: flex-start;
+  gap: 18px;
 }
 
 .heroCopy {
@@ -84,8 +84,8 @@
 .sideEyebrow {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 28px;
+  padding: 0 11px;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
@@ -102,9 +102,9 @@
 }
 
 .title {
-  margin: 20px 0 0;
+  margin: 10px 0 0;
   color: var(--text-primary);
-  font-size: clamp(30px, 4.6vw, 46px);
+  font-size: clamp(30px, 3.4vw, 40px);
   font-weight: 500;
   line-height: 1.16;
   letter-spacing: -0.03em;
@@ -112,10 +112,10 @@
 
 .subtitle {
   max-width: 620px;
-  margin: 14px 0 0;
+  margin: 8px 0 0;
   color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.85;
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .heroActions,
@@ -128,11 +128,12 @@
 .heroActions {
   flex-wrap: wrap;
   justify-content: flex-end;
+  padding-top: 4px;
 }
 
 .primaryButton,
 .softButton {
-  height: 42px !important;
+  height: 38px !important;
   border-radius: 999px !important;
   box-shadow: none !important;
   font-weight: 600;
@@ -161,14 +162,37 @@
   }
 }
 
-.metaGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 28px;
+.heroStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
-.metaCard,
+.heroStat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--text-tertiary);
+  font-size: 12px;
+
+  strong {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.025);
+  }
+}
+
 .surface,
 .sideCard,
 .loadingShell,
@@ -185,29 +209,11 @@
   }
 }
 
-.metaCard {
-  padding: 18px 20px;
-}
-
-.metaLabel {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.metaValue {
-  margin-top: 8px;
-  color: var(--text-primary);
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-
 .workspaceSection {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 20px;
-  margin-top: 28px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  margin-top: 16px;
   align-items: start;
 }
 
@@ -217,14 +223,14 @@
 }
 
 .surface {
-  padding: 22px 22px 26px;
+  padding: 16px 16px 18px;
 
   :global(.ant-tabs-nav) {
-    margin-bottom: 22px !important;
+    margin-bottom: 12px !important;
   }
 
   :global(.ant-tabs-tab) {
-    padding: 10px 0 !important;
+    padding: 8px 0 !important;
     font-weight: 600;
   }
 
@@ -244,13 +250,13 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 20px;
-  margin-bottom: 18px;
+  gap: 16px;
+  margin-bottom: 12px;
 }
 
 .panelTitle {
   color: var(--text-primary);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.03em;
 }
@@ -263,8 +269,8 @@
 .emptyText,
 .sideText {
   color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.8;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .panelMeta,
@@ -277,15 +283,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .searchInput {
   max-width: 320px;
 
   :global(.ant-input-affix-wrapper) {
-    min-height: 42px;
+    min-height: 38px;
     border-radius: 999px;
     border-color: rgba(0, 0, 0, 0.08);
     background: rgba(255, 255, 255, 0.62);
@@ -300,17 +306,17 @@
 
 .workflowGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
 }
 
 .createCard,
 .workflowCard {
   position: relative;
-  min-height: 232px;
-  padding: 22px;
+  min-height: 168px;
+  padding: 16px;
   border: 1px solid rgba(0, 0, 0, 0.07);
-  border-radius: 26px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.74);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.03);
   transition:
@@ -340,14 +346,14 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 7px;
   text-align: left;
   cursor: pointer;
 }
 
 .createIcon {
   color: var(--text-primary);
-  font-size: 24px;
+  font-size: 22px;
 }
 
 .createTitle,
@@ -360,7 +366,7 @@
 
 .createTitle,
 .emptyTitle {
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 500;
 }
 
@@ -378,8 +384,8 @@
 .statusPill {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 12px;
+  min-height: 25px;
+  padding: 0 10px;
   border-radius: 999px;
   border: 1px solid transparent;
   font-size: 12px;
@@ -411,23 +417,23 @@
 }
 
 .cardTitle {
-  margin-top: 18px;
-  font-size: 21px;
+  margin-top: 12px;
+  font-size: 19px;
   font-weight: 500;
   line-height: 1.35;
 }
 
 .cardDescription {
-  margin-top: 12px;
+  margin-top: 7px;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .cardMeta {
   margin-top: auto;
-  padding-top: 18px;
+  padding-top: 10px;
 }
 
 .metaText {
@@ -439,13 +445,13 @@
 .cardFooter {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 12px;
+  gap: 4px;
+  margin-top: 8px;
 }
 
 .cardAction {
-  width: 34px !important;
-  height: 34px !important;
+  width: 30px !important;
+  height: 30px !important;
   border-radius: 999px !important;
   color: var(--text-secondary) !important;
 
@@ -486,8 +492,8 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  min-height: 260px;
-  padding: 32px;
+  min-height: 220px;
+  padding: 28px;
   text-align: center;
 }
 
@@ -499,15 +505,16 @@
 .paginationWrap {
   display: flex;
   justify-content: center;
-  margin-top: 24px;
+  margin-top: 14px;
 }
 
 .sideCard {
-  padding: 22px;
+  padding: 16px;
+  border-radius: 20px;
 }
 
 .sideCard + .sideCard {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .sideEyebrow {
@@ -517,37 +524,37 @@
 }
 
 .sideTitle {
-  margin-top: 16px;
-  font-size: 22px;
+  margin-top: 12px;
+  font-size: 19px;
   font-weight: 500;
   line-height: 1.35;
 }
 
 .sideText {
-  margin-top: 10px;
+  margin-top: 7px;
 }
 
 .sideActionStack {
   flex-direction: column;
-  margin-top: 18px;
+  margin-top: 12px;
 }
 
 .sideInfoList {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 9px;
+  margin-top: 12px;
 }
 
 .sideInfoRow {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 9px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   color: var(--text-secondary);
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.45;
 
   span:last-child {
     color: var(--text-primary);
@@ -589,10 +596,6 @@
     align-items: stretch;
   }
 
-  .metaGrid {
-    grid-template-columns: 1fr;
-  }
-
   .searchInput {
     max-width: none;
   }
@@ -607,8 +610,7 @@
   }
 
   .surface,
-  .sideCard,
-  .metaCard {
+  .sideCard {
     border-radius: 24px;
   }
 }

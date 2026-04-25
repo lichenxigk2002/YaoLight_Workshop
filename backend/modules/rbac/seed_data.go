@@ -26,6 +26,7 @@ var ResourceDefinitions = []ResourceDefinition{
 	{Key: "billing.overview", Description: "计费概览"},
 	{Key: "billing.quota_recovery", Description: "补救配额"},
 	{Key: "billing.admin_grant", Description: "管理员赠送"},
+	{Key: "billing.packages", Description: "充值套餐"},
 	{Key: "billing.orders", Description: "订单列表"},
 	{Key: "billing.ledger", Description: "配额流水"},
 	{Key: "billing.token_ledger", Description: "Token 流水"},
@@ -35,6 +36,7 @@ var ResourceDefinitions = []ResourceDefinition{
 	{Key: "notifications.log", Description: "通知明细"},
 	{Key: "notifications.analytics", Description: "通知统计"},
 	{Key: "notifications.templates", Description: "通知模板"},
+	{Key: "content_comments", Description: "评论治理"},
 	{Key: "operation_logs", Description: "操作日志"},
 	{Key: "app_logs", Description: "应用日志"},
 }

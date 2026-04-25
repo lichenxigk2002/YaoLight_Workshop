@@ -143,7 +143,7 @@ function getTimelineBarClassName(status: string) {
 
 export default function TaskNodesPage() {
   const { message } = App.useApp();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const { detail } = useOutletContext<TaskDetailOutletContext>();
   const [executions, setExecutions] = useState<AdminTaskNodeExecution[]>([]);
   const [loading, setLoading] = useState(false);
@@ -156,10 +156,10 @@ export default function TaskNodesPage() {
     getAdminTaskNodeExecutions(detail.task.id)
       .then((payload) => setExecutions(payload.executions))
       .catch((error: unknown) => {
-        message.error(error instanceof Error ? error.message : '加载节点执行失败');
+        message.error(error instanceof Error ? error.message : t('tasks.loadNodesFailed'));
       })
       .finally(() => setLoading(false));
-  }, [detail.task.id, message]);
+  }, [detail.task.id, message, t]);
 
   const timelineSummary = buildConcurrentTimeline(executions);
   const timelineRows = timelineSummary.timeline;
@@ -173,7 +173,7 @@ export default function TaskNodesPage() {
       const payload = await getAdminTaskNodeExecutionDetail(detail.task.id, execution.id);
       setExecutionDetails((current) => ({ ...current, [execution.id]: payload.execution }));
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '加载节点执行详情失败');
+      message.error(error instanceof Error ? error.message : t('tasks.loadNodeDetailFailed'));
     } finally {
       setDetailLoadingIds((current) => {
         const next = { ...current };
@@ -184,10 +184,10 @@ export default function TaskNodesPage() {
   };
 
   const columns: ColumnsType<TimelineNodeExecution> = [
-    { title: '节点 ID', dataIndex: 'nodeId', width: 180 },
-    { title: '类型', dataIndex: 'nodeType', width: 120 },
+    { title: t('tasks.columnNodeId'), dataIndex: 'nodeId', width: 180 },
+    { title: t('tasks.columnNodeType'), dataIndex: 'nodeType', width: 120 },
     {
-      title: '状态',
+      title: t('tasks.columnStatus'),
       dataIndex: 'status',
       width: 120,
       render: (value: string) => {
@@ -196,13 +196,13 @@ export default function TaskNodesPage() {
       },
     },
     {
-      title: '并发泳道',
+      title: t('tasks.columnLane'),
       dataIndex: 'lane',
       width: 100,
-      render: (value: number) => <Tag bordered={false}>Lane {value + 1}</Tag>,
+      render: (value: number) => <Tag bordered={false}>{t('tasks.laneLabel', { lane: value + 1 })}</Tag>,
     },
     {
-      title: '时间带',
+      title: t('tasks.columnTimeline'),
       key: 'timeline',
       width: 320,
       render: (_, record) => (
@@ -225,15 +225,15 @@ export default function TaskNodesPage() {
       ),
     },
     {
-      title: '耗时',
+      title: t('tasks.columnDuration'),
       dataIndex: 'executionTime',
       width: 120,
       render: (value?: number | null) => (value == null ? '-' : formatDuration(value)),
     },
-    { title: '开始时间', dataIndex: 'startedAt', width: 180, render: formatDateTime },
-    { title: '完成时间', dataIndex: 'completedAt', width: 180, render: formatDateTime },
+    { title: t('tasks.columnStartedAt'), dataIndex: 'startedAt', width: 180, render: formatDateTime },
+    { title: t('tasks.columnCompletedAt'), dataIndex: 'completedAt', width: 180, render: formatDateTime },
     {
-      title: '错误信息',
+      title: t('tasks.columnErrorMessage'),
       dataIndex: 'errorMessage',
       ellipsis: true,
       render: (value?: string | null) => value || '-',
@@ -244,39 +244,39 @@ export default function TaskNodesPage() {
     <div className={styles.page}>
       <div className={styles.metrics}>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="峰值并发" value={timelineSummary.peakConcurrency} suffix="节点" />
+          <Statistic title={t('tasks.metricPeakConcurrency')} value={timelineSummary.peakConcurrency} suffix={t('tasks.suffixNodes')} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="时间泳道" value={timelineSummary.laneCount} suffix="条" />
+          <Statistic title={t('tasks.metricLaneCount')} value={timelineSummary.laneCount} suffix={t('tasks.suffixLanes')} />
         </Card>
         <Card bordered={false} className={styles.card}>
           <Statistic
-            title="墙钟耗时"
+            title={t('tasks.metricWallClock')}
             value={timelineSummary.totalDuration ? formatDuration(timelineSummary.totalDuration) : '-'}
           />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="调度模式" value={timelineSummary.peakConcurrency > 1 ? '并发执行' : '单通道'} />
+          <Statistic title={t('tasks.metricScheduleMode')} value={timelineSummary.peakConcurrency > 1 ? t('tasks.scheduleConcurrent') : t('tasks.scheduleSingle')} />
         </Card>
       </div>
 
       <Card
         bordered={false}
         className={styles.card}
-        title="并发执行时间线"
-        extra={<Text className={styles.muted}>条形重叠越明显，说明并发越充分</Text>}
+        title={t('tasks.timelineTitle')}
+        extra={<Text className={styles.muted}>{t('tasks.timelineHint')}</Text>}
       >
         {timelineRows.length === 0 ? (
-          <Empty description="当前任务暂无节点执行记录" />
+          <Empty description={t('tasks.nodesEmpty')} />
         ) : (
           <>
             <div className={styles.timelineMiniMapSection}>
               <div className={styles.timelineMiniMapHeader}>
                 <div>
-                  <Text strong>全量缩略总览</Text>
-                  <div className={styles.muted}>纵轴仍然是节点，横轴仍然是时间，只保留更细的执行条带用于整体观察。</div>
+                  <Text strong>{t('tasks.minimapTitle')}</Text>
+                  <div className={styles.muted}>{t('tasks.minimapDescription')}</div>
                 </div>
-                <Tag bordered={false}>{timelineRows.length} 节点</Tag>
+                <Tag bordered={false}>{t('tasks.nodesCount', { count: timelineRows.length })}</Tag>
               </div>
               <div className={styles.timelineMiniMap}>
                 {timelineRows.map((record) => (
@@ -322,7 +322,7 @@ export default function TaskNodesPage() {
         )}
       </Card>
 
-      <Card bordered={false} className={styles.card} title="节点执行明细">
+      <Card bordered={false} className={styles.card} title={t('tasks.nodeDetailsTitle')}>
         <Table<TimelineNodeExecution>
           rowKey="id"
           loading={loading}
@@ -344,14 +344,14 @@ export default function TaskNodesPage() {
               const isLoadingDetail = !!detailLoadingIds[record.id];
               return (
               <div className={styles.analysisGrid}>
-                <Card size="small" title="输入数据">
+                <Card size="small" title={t('tasks.inputData')}>
                   {isLoadingDetail && !detailedRecord.inputData ? (
                     <Spin />
                   ) : (
                     <CodeViewer value={detailedRecord.inputData?.Data ?? detailedRecord.inputData ?? null} maxHeight={320} />
                   )}
                 </Card>
-                <Card size="small" title="输出数据">
+                <Card size="small" title={t('tasks.outputData')}>
                   {isLoadingDetail && !detailedRecord.outputData ? (
                     <Spin />
                   ) : (

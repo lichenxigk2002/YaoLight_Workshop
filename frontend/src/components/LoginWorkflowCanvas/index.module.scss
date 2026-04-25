@@ -1,4 +1,15 @@
 .canvasContainer {
+  --editor-bg: #171717;
+  --editor-bg-overlay: rgba(255, 255, 255, 0.04);
+  --editor-surface: rgba(255, 255, 255, 0.04);
+  --editor-surface-strong: rgba(255, 255, 255, 0.06);
+  --editor-surface-soft: rgba(255, 255, 255, 0.03);
+  --editor-surface-muted: rgba(255, 255, 255, 0.025);
+  --editor-border-soft: rgba(255, 255, 255, 0.06);
+  --editor-border-strong: rgba(255, 255, 255, 0.1);
+  --editor-text: #f2f2f2;
+  --editor-text-secondary: rgba(255, 255, 255, 0.72);
+  --editor-text-tertiary: rgba(255, 255, 255, 0.48);
   width: 100%;
   height: 100%;
   position: relative;

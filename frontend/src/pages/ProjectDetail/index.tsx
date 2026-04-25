@@ -231,7 +231,7 @@ export default function ProjectDetail() {
     return styles.statusDraft;
   };
 
-  const pageDescription = project?.description || (isZh ? '保持页面安静，把当前项目需要继续推进的内容留在眼前。' : 'Keep this space quiet and leave the next useful action within reach.');
+  const pageDescription = project?.description || (isZh ? '流程、资产和自动化都围绕这个项目展开。' : 'Workflows, assets, and automation stay together here.');
 
   const heroMetaItems = [
     {
@@ -460,6 +460,14 @@ export default function ProjectDetail() {
             <span className={styles.eyebrow}>{isZh ? '项目空间' : 'Project space'}</span>
             <h1 className={styles.title}>{project?.name || t('dashboard.projectDetail')}</h1>
             <p className={styles.subtitle}>{projectLoading ? (isZh ? '正在加载项目内容…' : 'Loading project details...') : pageDescription}</p>
+            <div className={styles.heroStats}>
+              {heroMetaItems.map((item) => (
+                <span key={item.label} className={styles.heroStat}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className={styles.heroActions}>
@@ -481,15 +489,6 @@ export default function ProjectDetail() {
                   : t('projectDetail.workflowsTab')}
               </Button>
           </div>
-        </div>
-
-        <div className={styles.metaGrid}>
-          {heroMetaItems.map((item) => (
-            <div key={item.label} className={styles.metaCard}>
-              <div className={styles.metaLabel}>{item.label}</div>
-              <div className={styles.metaValue}>{item.value}</div>
-            </div>
-          ))}
         </div>
       </section>
 

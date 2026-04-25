@@ -109,6 +109,58 @@ func (c *WorkflowAPIController) CreateKey(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": data})
 }
 
+func (c *WorkflowAPIController) UpdateKey(ctx *gin.Context) {
+	userID, ok := ctx.Get("userID")
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "unauthorized", "data": nil})
+		return
+	}
+	workflowID, valid := parseUintParam(ctx.Param("id"))
+	if !valid {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid workflow id", "data": nil})
+		return
+	}
+	keyID, valid := parseUintParam(ctx.Param("keyId"))
+	if !valid {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid key id", "data": nil})
+		return
+	}
+	var req workflowAPIServices.UpdateAPIKeyRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	data, err := c.service.UpdateKey(userID.(uint), workflowID, keyID, req)
+	if err != nil {
+		c.writeError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": data})
+}
+
+func (c *WorkflowAPIController) DeleteKey(ctx *gin.Context) {
+	userID, ok := ctx.Get("userID")
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "unauthorized", "data": nil})
+		return
+	}
+	workflowID, valid := parseUintParam(ctx.Param("id"))
+	if !valid {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid workflow id", "data": nil})
+		return
+	}
+	keyID, valid := parseUintParam(ctx.Param("keyId"))
+	if !valid {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid key id", "data": nil})
+		return
+	}
+	if err := c.service.DeleteKey(userID.(uint), workflowID, keyID); err != nil {
+		c.writeError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": gin.H{"deleted": true}})
+}
+
 func (c *WorkflowAPIController) ListInvocations(ctx *gin.Context) {
 	userID, ok := ctx.Get("userID")
 	if !ok {
@@ -198,6 +250,8 @@ func (c *WorkflowAPIController) writeError(ctx *gin.Context, err error) {
 	switch {
 	case errors.Is(err, workflowAPIServices.ErrWorkflowNotFound), errors.Is(err, workflowAPIServices.ErrEndpointNotFound), errors.Is(err, workflowAPIServices.ErrInvocationNotFound):
 		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": err.Error(), "data": nil})
+	case errors.Is(err, workflowAPIServices.ErrInvalidKeyStatus), errors.Is(err, workflowAPIServices.ErrInvalidKeyExpiry), errors.Is(err, workflowAPIServices.ErrValidationFailed):
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
 	case errors.Is(err, workflowAPIServices.ErrAPIKeyInvalid):
 		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error(), "data": nil})
 	default:

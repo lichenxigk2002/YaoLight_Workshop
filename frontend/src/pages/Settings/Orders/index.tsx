@@ -22,17 +22,10 @@ const statusColorMap: Record<UserOrderItem['status'], string> = {
   failed: 'red',
 };
 
-const statusLabelMap: Record<UserOrderItem['status'], string> = {
-  pending: '待支付',
-  paid: '已支付',
-  cancelled: '已取消',
-  failed: '支付失败',
-};
-
-function formatDateTime(value?: string) {
+function formatDateTime(value?: string, locale = 'zh-CN') {
   if (!value) return '-';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString(locale);
 }
 
 function formatCurrency(value?: number) {
@@ -40,8 +33,12 @@ function formatCurrency(value?: number) {
 }
 
 export default function OrdersPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { message } = App.useApp();
+  const locale = i18n.language === 'en-US' ? 'en-US' : 'zh-CN';
+  const getStatusLabel = useCallback((status: UserOrderItem['status']) => {
+    return t(`settings.orderStatus.${status}`, status);
+  }, [t]);
 
   const [loading, setLoading] = useState(false);
   const [orders, setOrders] = useState<UserOrderItem[]>([]);
@@ -79,12 +76,12 @@ export default function OrdersPage() {
       const orderDetail = await paymentApi.getOrderDetail(orderId);
       setDetail(orderDetail);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '获取订单详情失败');
+      message.error(error instanceof Error ? error.message : t('settings.getOrderDetailFailed'));
       setDetailVisible(false);
     } finally {
       setDetailLoading(false);
     }
-  }, [message]);
+  }, [message, t]);
 
   useEffect(() => {
     const unsubscribe = subscribePaymentEvents((event) => {
@@ -103,11 +100,11 @@ export default function OrdersPage() {
     try {
       setActionLoading(true);
       await paymentApi.cancelOrder(detail.orderId);
-      message.success('订单已取消');
+      message.success(t('settings.orderCancelled'));
       setDetail({ ...detail, status: 'cancelled' });
       void fetchOrders(page, pageSize);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '取消失败');
+      message.error(error instanceof Error ? error.message : t('settings.cancelOrderFailed'));
     } finally {
       setActionLoading(false);
     }
@@ -118,11 +115,11 @@ export default function OrdersPage() {
     try {
       setActionLoading(true);
       await paymentApi.deleteOrder(detail.orderId);
-      message.success('订单已删除');
+      message.success(t('settings.orderDeleted'));
       setDetailVisible(false);
       void fetchOrders(page, pageSize);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '删除失败');
+      message.error(error instanceof Error ? error.message : t('settings.deleteOrderFailed'));
     } finally {
       setActionLoading(false);
     }
@@ -136,70 +133,70 @@ export default function OrdersPage() {
   const columns = useMemo<ColumnsType<UserOrderItem>>(
     () => [
       {
-        title: t('settings.orderId', '订单号'),
+        title: t('settings.orderId'),
         dataIndex: 'orderId',
         key: 'orderId',
         width: 240,
         ellipsis: true,
       },
       {
-        title: t('settings.packageName', '套餐'),
+        title: t('settings.packageName'),
         dataIndex: 'packageName',
         key: 'packageName',
         ellipsis: true,
       },
       {
-        title: t('settings.amount', '金额'),
+        title: t('settings.amount'),
         dataIndex: 'amount',
         key: 'amount',
         width: 140,
         render: (value: number) => formatCurrency(value),
       },
       {
-        title: t('settings.stardust', '星尘'),
+        title: t('settings.stardust'),
         dataIndex: 'stardust',
         key: 'stardust',
         width: 130,
         render: (value: number) => value.toLocaleString(),
       },
       {
-        title: t('settings.status', '状态'),
+        title: t('settings.status'),
         dataIndex: 'status',
         key: 'status',
         width: 130,
         render: (status: UserOrderItem['status']) => (
           <Tag color={statusColorMap[status]} className={styles.statusTag}>
-            {statusLabelMap[status] ?? status}
+            {getStatusLabel(status)}
           </Tag>
         ),
       },
       {
-        title: t('settings.createdAt', '创建时间'),
+        title: t('settings.createdAt'),
         dataIndex: 'createdAt',
         key: 'createdAt',
         width: 190,
-        render: (value: string) => formatDateTime(value),
+        render: (value: string) => formatDateTime(value, locale),
       },
       {
-        title: t('settings.paidAt', '支付时间'),
+        title: t('settings.paidAt'),
         dataIndex: 'paidAt',
         key: 'paidAt',
         width: 190,
-        render: (value?: string) => formatDateTime(value),
+        render: (value?: string) => formatDateTime(value, locale),
       },
       {
-        title: t('settings.actions', '操作'),
+        title: t('settings.actions'),
         key: 'actions',
         width: 120,
         fixed: 'right',
         render: (_, record) => (
           <Button type="link" size="small" onClick={() => openDetail(record.orderId)}>
-            {t('settings.viewDetail', '查看详情')}
+            {t('settings.viewDetail')}
           </Button>
         ),
       },
     ],
-    [openDetail, t],
+    [getStatusLabel, locale, openDetail, t],
   );
 
   const visiblePendingCount = orders.filter((order) => order.status === 'pending').length;
@@ -213,11 +210,8 @@ export default function OrdersPage() {
       <section className={styles.heroSection}>
         <div className={styles.heroMain}>
           <SettingsPageTitle
-            title={t('settings.orders', '我的订单')}
-            desc={t(
-              'settings.ordersDescription',
-              '查看充值订单的支付状态、支付时间和获取的星尘数量，需要继续支付或处理异常时也能在这里完成。',
-            )}
+            title={t('settings.orders')}
+            desc={t('settings.ordersDescription')}
             icon={<FileTextOutlined />}
             style={{ marginBottom: 0 }}
           />
@@ -225,30 +219,27 @@ export default function OrdersPage() {
           <div className={styles.noticeCard}>
             <ClockCircleOutlined />
             <span>
-              {t(
-                'settings.ordersNotice',
-                '如果第三方支付已经完成但状态还没刷新，可以重新进入详情页或稍后刷新本页。',
-              )}
+              {t('settings.ordersNotice')}
             </span>
           </div>
         </div>
 
         <aside className={styles.metricRail}>
           <div className={styles.metricCard}>
-            <div className={styles.metricLabel}>{t('settings.orders', '我的订单')}</div>
+            <div className={styles.metricLabel}>{t('settings.orders')}</div>
             <div className={styles.metricValue}>{total.toLocaleString()}</div>
-            <div className={styles.metricHint}>{`共 ${total.toLocaleString()} 条`}</div>
+            <div className={styles.metricHint}>{t('settings.totalRecords', { total: total.toLocaleString() })}</div>
           </div>
           <div className={styles.metricCard}>
-            <div className={styles.metricLabel}>{t('settings.pendingOrders', '当前页待支付')}</div>
+            <div className={styles.metricLabel}>{t('settings.pendingOrders')}</div>
             <div className={styles.metricValue}>{visiblePendingCount}</div>
-            <div className={styles.metricHint}>{t('settings.requireActionHint', '适合继续支付或取消处理')}</div>
+            <div className={styles.metricHint}>{t('settings.requireActionHint')}</div>
           </div>
           <div className={styles.metricCard}>
-            <div className={styles.metricLabel}>{t('settings.visibleStardust', '当前页星尘')}</div>
+            <div className={styles.metricLabel}>{t('settings.visibleStardust')}</div>
             <div className={styles.metricValue}>{visibleStardust.toLocaleString()}</div>
             <div className={styles.metricHint}>
-              {t('settings.visiblePaidAmount', '已支付金额')}
+              {t('settings.visiblePaidAmount')}
               {' '}
               {formatCurrency(visiblePaidAmount)}
             </div>
@@ -258,13 +249,10 @@ export default function OrdersPage() {
 
       <section className={styles.tableSection}>
         <div className={styles.tableHeader}>
-          <div className={styles.tableEyebrow}>{t('settings.orders', '我的订单')}</div>
-          <h2 className={styles.tableTitle}>{t('settings.orderHistory', '订单记录')}</h2>
+          <div className={styles.tableEyebrow}>{t('settings.orders')}</div>
+          <h2 className={styles.tableTitle}>{t('settings.orderHistory')}</h2>
           <p className={styles.tableDesc}>
-            {t(
-              'settings.orderHistoryDesc',
-              '按时间查看支付状态、金额和到账星尘，右侧可进入单条订单详情继续处理。',
-            )}
+            {t('settings.orderHistoryDesc')}
           </p>
         </div>
 
@@ -279,7 +267,7 @@ export default function OrdersPage() {
               emptyText: (
                 <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={t('settings.noOrdersYet', '暂时还没有订单记录')}
+                  description={t('settings.noOrdersYet')}
                 />
               ),
             }}
@@ -300,7 +288,7 @@ export default function OrdersPage() {
       </section>
 
       <Modal
-        title={t('settings.orderDetail', '订单详情')}
+        title={t('settings.orderDetail')}
         open={detailVisible}
         onCancel={() => setDetailVisible(false)}
         footer={null}
@@ -323,26 +311,26 @@ export default function OrdersPage() {
                 </div>
               </div>
               <Tag color={statusColorMap[detail.status]} className={styles.statusTag}>
-                {statusLabelMap[detail.status] ?? detail.status}
+                {getStatusLabel(detail.status)}
               </Tag>
             </div>
 
             <Descriptions column={1} size="small" className={styles.detailDescriptions}>
-              <Descriptions.Item label={t('settings.amount', '金额')}>
+              <Descriptions.Item label={t('settings.amount')}>
                 {formatCurrency(detail.amount)}
               </Descriptions.Item>
-              <Descriptions.Item label={t('settings.stardust', '星尘')}>
+              <Descriptions.Item label={t('settings.stardust')}>
                 {detail.stardust.toLocaleString()}
               </Descriptions.Item>
-              <Descriptions.Item label={t('settings.createdAt', '创建时间')}>
-                {formatDateTime(detail.createdAt)}
+              <Descriptions.Item label={t('settings.createdAt')}>
+                {formatDateTime(detail.createdAt, locale)}
               </Descriptions.Item>
-              <Descriptions.Item label={t('settings.paidAt', '支付时间')}>
-                {formatDateTime(detail.paidAt)}
+              <Descriptions.Item label={t('settings.paidAt')}>
+                {formatDateTime(detail.paidAt, locale)}
               </Descriptions.Item>
               {detail.expiresAt ? (
-                <Descriptions.Item label={t('settings.expiresAt', '过期时间')}>
-                  {formatDateTime(detail.expiresAt)}
+                <Descriptions.Item label={t('settings.expiresAt')}>
+                  {formatDateTime(detail.expiresAt, locale)}
                 </Descriptions.Item>
               ) : null}
             </Descriptions>
@@ -350,26 +338,23 @@ export default function OrdersPage() {
             <div className={styles.detailActions}>
               {detail.status === 'pending' && detail.payUrl && (
                 <Button type="primary" icon={<CheckCircleOutlined />} onClick={handleContinuePay} loading={actionLoading}>
-                  {t('settings.continuePay', '继续支付')}
+                  {t('settings.continuePay')}
                 </Button>
               )}
               {detail.status === 'pending' && (
                 <Button onClick={handleCancelOrder} loading={actionLoading}>
-                  {t('settings.cancelOrder', '取消订单')}
+                  {t('settings.cancelOrder')}
                 </Button>
               )}
               {(detail.status === 'pending' || detail.status === 'cancelled') && (
                 <Button danger onClick={handleDeleteOrder} loading={actionLoading}>
-                  {t('settings.deleteOrder', '删除订单')}
+                  {t('settings.deleteOrder')}
                 </Button>
               )}
             </div>
 
             <Text className={styles.detailFootnote}>
-              {t(
-                'settings.orderDetailFootnote',
-                '订单删除后不会影响已经到账的星尘，只会从个人订单列表中移除该记录。',
-              )}
+              {t('settings.orderDetailFootnote')}
             </Text>
           </div>
         ) : null}

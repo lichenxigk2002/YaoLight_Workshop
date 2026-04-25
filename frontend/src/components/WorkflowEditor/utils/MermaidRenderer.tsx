@@ -209,7 +209,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({
         </div>
       )}
       {error && (
-        <pre style={{ padding: 12, background: '#fff2f0', borderRadius: 6, fontSize: 12 }}>{error}</pre>
+        <div style={{ padding: 12, background: '#fff2f0', borderRadius: 6, fontSize: 12, whiteSpace: 'pre-wrap' }}>{error}</div>
       )}
       <div ref={containerRef} style={{ overflow: 'auto', minHeight: 80 }} />
       {showSavePng && !loading && !error && svgElement && (

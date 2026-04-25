@@ -16,6 +16,7 @@ export default function BillingLayout() {
           t('billing.layoutTagInvite'),
           t('billing.layoutTagOrders'),
           t('billing.layoutTagTokenLedger'),
+          t('billing.layoutTagPackages'),
           t('billing.layoutTagQuotaAdjust'),
           t('billing.layoutTagQuotaRecovery'),
           t('billing.layoutTagAdminGrant'),

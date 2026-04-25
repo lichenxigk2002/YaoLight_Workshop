@@ -34,12 +34,94 @@ func NewPaymentController() *PaymentController {
 // @Success 200 {object} map[string]interface{} "套餐列表"
 // @Router /api/payment/packages [get]
 func (c *PaymentController) GetPackages(ctx *gin.Context) {
-	packages := c.paymentService.GetPackages()
+	packages, err := c.paymentService.GetPackages(packageLocale(ctx))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "获取套餐列表失败: " + err.Error(),
+			"data":    nil,
+		})
+		return
+	}
 	ctx.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "success",
 		"data":    packages,
 	})
+}
+
+func packageLocale(ctx *gin.Context) string {
+	if locale := strings.TrimSpace(ctx.Query("locale")); locale != "" {
+		return locale
+	}
+	return strings.TrimSpace(ctx.GetHeader("Accept-Language"))
+}
+
+func (c *PaymentController) AdminListPackages(ctx *gin.Context) {
+	result, err := c.paymentService.ListAdminPackages()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取套餐列表失败: " + err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "success", "data": result})
+}
+
+func (c *PaymentController) AdminCreatePackage(ctx *gin.Context) {
+	var req services.SavePackageRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	pkg, err := c.paymentService.CreatePackage(req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "创建套餐失败: " + err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "success", "data": pkg})
+}
+
+func (c *PaymentController) AdminUpdatePackage(ctx *gin.Context) {
+	var req services.SavePackageRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	pkg, err := c.paymentService.UpdatePackage(ctx.Param("id"), req)
+	if err != nil {
+		status := http.StatusBadRequest
+		if err == services.ErrPackageNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"code": status, "message": "更新套餐失败: " + err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "success", "data": pkg})
+}
+
+func (c *PaymentController) AdminUpdatePackageStatus(ctx *gin.Context) {
+	var req services.UpdatePackageStatusRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请求参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	pkg, err := c.paymentService.UpdatePackageStatus(ctx.Param("id"), req.Status)
+	if err != nil {
+		status := http.StatusBadRequest
+		if err == services.ErrPackageNotFound {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"code": status, "message": "更新套餐状态失败: " + err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "success", "data": pkg})
+}
+
+func (c *PaymentController) AdminDeletePackage(ctx *gin.Context) {
+	if err := c.paymentService.DeletePackage(ctx.Param("id")); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "删除套餐失败: " + err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "success", "data": gin.H{"id": ctx.Param("id")}})
 }
 
 // CreateOrderRequest 创建订单请求

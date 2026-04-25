@@ -1,5 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Input } from 'antd';
+import { useTranslation } from 'react-i18next';
+import { CodeBlock } from '@/components/CodeBlock';
 import { useThemeStore } from '@/store/theme';
 
 const { TextArea } = Input;
@@ -15,15 +17,21 @@ interface JsonCodeEditorProps {
 export const JsonCodeEditor: React.FC<JsonCodeEditorProps> = ({
   value = '',
   onChange,
-  placeholder = '输入JSON数据...',
+  placeholder,
   rows = 8,
   disabled = false,
 }) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useTranslation();
   const { theme } = useThemeStore();
   const isDark = theme === 'dark';
+  const [editing, setEditing] = useState(!value);
 
-  // JSON格式化函数
+  useEffect(() => {
+    if (!value) {
+      setEditing(true);
+    }
+  }, [value]);
+
   const formatJson = () => {
     if (!value) return;
     try {
@@ -32,14 +40,13 @@ export const JsonCodeEditor: React.FC<JsonCodeEditorProps> = ({
       if (onChange) {
         onChange(formatted);
       }
-    } catch (e) {
-      // JSON无效，不格式化
+    } catch {
+      // Ignore invalid JSON when formatting.
     }
   };
 
-  // 验证JSON
   const validateJson = (text: string): boolean => {
-    if (!text.trim()) return true; // 空字符串视为有效
+    if (!text.trim()) return true;
     try {
       JSON.parse(text);
       return true;
@@ -49,31 +56,45 @@ export const JsonCodeEditor: React.FC<JsonCodeEditorProps> = ({
   };
 
   const isValid = validateJson(value || '');
+  const previewValue = useMemo(() => {
+    if (!value || !isValid) return value;
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }, [isValid, value]);
+  const borderColor = isValid
+    ? (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)')
+    : (isDark ? 'rgba(255, 77, 79, 0.45)' : 'rgba(255, 77, 79, 0.32)');
+  const surfaceBackground = isValid
+    ? (isDark
+      ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)), rgba(18, 18, 18, 0.94)'
+      : 'linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 248, 246, 0.72)), rgba(255, 255, 255, 0.72)')
+    : (isDark
+      ? 'linear-gradient(180deg, rgba(255, 77, 79, 0.1), rgba(255, 255, 255, 0.018)), rgba(18, 18, 18, 0.94)'
+      : 'linear-gradient(180deg, rgba(255, 242, 240, 0.96), rgba(255, 255, 255, 0.78)), rgba(255, 255, 255, 0.72)');
 
   return (
     <div style={{
       position: 'relative',
-      border: `1px solid ${isValid
-        ? (isDark ? '#434343' : '#d9d9d9')
-        : (isDark ? '#58191c' : '#ffccc7')}`,
-      borderRadius: '4px',
-      backgroundColor: isValid
-        ? (isDark ? '#1e1e1e' : '#fafafa')
-        : (isDark ? '#2a1215' : '#fff2f0'),
+      border: `1px solid ${borderColor}`,
+      borderRadius: 16,
+      background: surfaceBackground,
+      boxShadow: isDark ? 'inset 0 1px 0 rgba(255, 255, 255, 0.04)' : 'inset 0 1px 0 rgba(255, 255, 255, 0.72)',
       overflow: 'hidden',
     }}>
-      {/* 代码编辑器样式头部 */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '6px 12px',
-        backgroundColor: isDark ? '#252526' : '#f5f5f5',
-        borderBottom: `1px solid ${isDark ? '#3e3e42' : '#e8e8e8'}`,
+        padding: '8px 12px',
+        background: isDark ? 'rgba(255, 255, 255, 0.035)' : 'rgba(255, 255, 255, 0.5)',
+        borderBottom: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.07)'}`,
         fontSize: 12,
-        color: isDark ? '#cccccc' : '#666666',
+        color: isDark ? 'rgba(255, 255, 255, 0.72)' : 'rgba(0, 0, 0, 0.62)',
       }}>
-        <span style={{ fontFamily: 'Consolas, Monaco, "Courier New", monospace' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
           JSON
         </span>
         {value && (
@@ -83,58 +104,99 @@ export const JsonCodeEditor: React.FC<JsonCodeEditorProps> = ({
                 color: '#ff4d4f',
                 fontSize: 11,
               }}>
-                ⚠ 格式无效
+                {t('jsonCodeEditor.invalid')}
               </span>
+            )}
+            {value && isValid && (
+              <button
+                type="button"
+                onClick={() => setEditing((prev) => !prev)}
+                style={{
+                  padding: '2px 8px',
+                  fontSize: 11,
+                  background: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                  color: isDark ? '#f2f2f2' : '#111',
+                  border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
+                  borderRadius: 999,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {editing ? t('jsonCodeEditor.preview') : t('jsonCodeEditor.edit')}
+              </button>
             )}
             <button
               type="button"
-              onClick={formatJson}
+              onClick={() => {
+                formatJson();
+                if (isValid) setEditing(false);
+              }}
               style={{
                 padding: '2px 8px',
                 fontSize: 11,
-                background: '#1890ff',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 3,
+                background: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                color: isDark ? '#f2f2f2' : '#111',
+                border: `1px solid ${isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
+                borderRadius: 999,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
               }}
               onMouseOver={(e) => {
-                e.currentTarget.style.background = '#40a9ff';
+                e.currentTarget.style.background = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
               }}
               onMouseOut={(e) => {
-                e.currentTarget.style.background = '#1890ff';
+                e.currentTarget.style.background = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)';
               }}
             >
-              格式化
+              {t('jsonCodeEditor.format')}
             </button>
           </div>
         )}
       </div>
-      <TextArea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => {
-          if (onChange) {
-            onChange(e.target.value);
-          }
-        }}
-        placeholder={placeholder}
-        rows={rows}
-        disabled={disabled}
-        bordered={false}
-        style={{
-          fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-          fontSize: 14,
-          lineHeight: 1.8,
-          backgroundColor: 'transparent',
-          color: isDark ? '#d4d4d4' : '#24292e',
-          padding: '12px',
-          resize: 'vertical',
-        }}
-        autoSize={false}
-      />
+      {!editing && value && isValid ? (
+        <div
+          onClick={() => {
+            if (!disabled) setEditing(true);
+          }}
+          style={{ cursor: disabled ? 'default' : 'text' }}
+        >
+          <CodeBlock
+            value={previewValue}
+            language="json"
+            showHeader={false}
+            defaultExpanded
+            collapsedLines={999}
+          />
+        </div>
+      ) : (
+        <TextArea
+          value={value}
+          onChange={(e) => {
+            if (onChange) {
+              onChange(e.target.value);
+            }
+          }}
+          onBlur={() => {
+            if (value && isValid) {
+              setEditing(false);
+            }
+          }}
+          placeholder={placeholder || t('jsonCodeEditor.placeholder')}
+          rows={rows}
+          disabled={disabled}
+          bordered={false}
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 13,
+            lineHeight: 1.65,
+            backgroundColor: 'transparent',
+            color: isDark ? '#e7e7e7' : '#24292e',
+            padding: '14px 16px',
+            resize: 'vertical',
+          }}
+          autoSize={false}
+        />
+      )}
     </div>
   );
 };
-

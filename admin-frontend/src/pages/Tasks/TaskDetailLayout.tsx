@@ -4,6 +4,7 @@ import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
 import { cancelAdminTask, getAdminTaskDetail, retryAdminTask } from '@/api/tasks';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
+import { useI18n } from '@/i18n';
 import type { AdminTaskDetail } from '@/types/tasks';
 import styles from './Tasks.module.scss';
 
@@ -32,6 +33,7 @@ function canRetry(status: string) {
 
 export default function TaskDetailLayout() {
   const { message } = App.useApp();
+  const { t } = useI18n();
   const { canEdit } = useAdminPermission('tasks.detail');
   const { id } = useParams();
   const navigate = useNavigate();
@@ -46,7 +48,7 @@ export default function TaskDetailLayout() {
       const payload = await getAdminTaskDetail(id);
       setDetail(payload);
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '加载任务详情失败');
+      message.error(error instanceof Error ? error.message : t('tasks.loadDetailFailed'));
       setDetail(null);
     }
   };
@@ -60,51 +62,51 @@ export default function TaskDetailLayout() {
   }
 
   if (!detail) {
-    return <Empty description="任务不存在" />;
+    return <Empty description={t('tasks.taskNotFound')} />;
   }
 
   const actions = (
     <Space wrap>
       {canEdit && canRetry(detail.task.status) ? (
         <Popconfirm
-          title="确认重试这个任务？"
-          okText="重试"
-          cancelText="取消"
+          title={t('tasks.retryConfirmTitle')}
+          okText={t('tasks.retry')}
+          cancelText={t('tasks.cancelBack')}
           onConfirm={async () => {
             try {
               setRetryLoading(true);
               const payload = await retryAdminTask(detail.task.id);
-              message.success(payload.message || '已发起重试');
+              message.success(payload.message || t('tasks.retryStarted'));
             } catch (error: unknown) {
-              message.error(error instanceof Error ? error.message : '重试任务失败');
+              message.error(error instanceof Error ? error.message : t('tasks.retryFailed'));
             } finally {
               setRetryLoading(false);
             }
           }}
         >
-          <Button loading={retryLoading}>重试任务</Button>
+          <Button loading={retryLoading}>{t('tasks.retryTask')}</Button>
         </Popconfirm>
       ) : null}
       {canEdit && canCancel(detail.task.status) ? (
         <Popconfirm
-          title="确认取消这个任务？"
-          okText="取消任务"
-          cancelText="返回"
+          title={t('tasks.cancelTaskConfirmTitle')}
+          okText={t('tasks.cancelTask')}
+          cancelText={t('tasks.cancelBack')}
           onConfirm={async () => {
             try {
               setCancelLoading(true);
               const payload = await cancelAdminTask(detail.task.id);
-              message.success(payload.message || '任务已取消');
+              message.success(payload.message || t('tasks.taskCancelled'));
               await refresh();
             } catch (error: unknown) {
-              message.error(error instanceof Error ? error.message : '取消任务失败');
+              message.error(error instanceof Error ? error.message : t('tasks.cancelTaskFailed'));
             } finally {
               setCancelLoading(false);
             }
           }}
         >
           <Button danger loading={cancelLoading}>
-            取消任务
+            {t('tasks.cancelTask')}
           </Button>
         </Popconfirm>
       ) : null}
@@ -114,9 +116,9 @@ export default function TaskDetailLayout() {
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="Task Detail"
-        title={`任务 #${detail.task.id}`}
-        description={`查看工作流“${detail.workflow.name}”的执行现场，支持下钻节点、日志和制品。`}
+        eyebrow={t('tasks.detailEyebrow')}
+        title={t('tasks.detailTitle', { id: detail.task.id })}
+        description={t('tasks.detailDescription', { workflow: detail.workflow.name })}
         tags={[detail.task.status, detail.user.username, detail.workflow.name]}
         action={actions}
       />
@@ -126,9 +128,9 @@ export default function TaskDetailLayout() {
           activeKey={activeTaskTab(location.pathname, id)}
           onChange={(key) => navigate(key)}
           items={[
-            { key: `/tasks/${id}`, label: '概览' },
-            { key: `/tasks/${id}/nodes`, label: '节点执行' },
-            { key: `/tasks/${id}/logs`, label: '任务日志' },
+            { key: `/tasks/${id}`, label: t('tasks.tabOverview') },
+            { key: `/tasks/${id}/nodes`, label: t('tasks.tabNodes') },
+            { key: `/tasks/${id}/logs`, label: t('tasks.tabLogs') },
           ]}
         />
       </Card>

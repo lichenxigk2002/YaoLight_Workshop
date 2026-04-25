@@ -11,17 +11,18 @@ import {
   LinkOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/store/theme';
+import { ICP_ICON_URL, ICP_NUMBER, ICP_URL } from '@/config/legal';
 import NotificationBell from './NotificationBell';
 import styles from './index.module.scss';
 
 const GITHUB_URL = 'https://github.com/lichenxigk2002/YaoLight_Workshop';
 const BLOG_URL = 'https://www.gfbzsblog.site/';
 
-const { Header, Content } = AntLayout;
+const { Header, Content, Footer } = AntLayout;
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,10 +30,12 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuthStore();
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useThemeStore();
   const isZh = i18n.language === 'zh-CN';
+  const showLegalFooter = !/^\/projects\/[^/]+\/workflows\/[^/]+\/edit/.test(location.pathname);
 
   const handleLogoClick = () => {
     navigate('/');
@@ -199,8 +202,21 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </Header>
-      <Content className={styles.content}>
-        {children}
+      <Content className={`${styles.content} ${showLegalFooter ? styles.contentNatural : ''}`}>
+        {showLegalFooter ? (
+          <div className={styles.contentBody}>
+            <div className={styles.pageSlot}>
+              {children}
+            </div>
+            <Footer className={styles.legalFooter}>
+              <span>{t('common.copyright')}</span>
+              <a href={ICP_URL} target="_blank" rel="noreferrer" className={styles.legalLink}>
+                <img src={ICP_ICON_URL} alt="" className={styles.legalIcon} aria-hidden="true" />
+                {ICP_NUMBER}
+              </a>
+            </Footer>
+          </div>
+        ) : children}
       </Content>
     </AntLayout>
   );

@@ -14,6 +14,8 @@ import {
   Space,
   Spin,
   Switch,
+  TimePicker,
+  Tooltip,
   Typography,
 } from 'antd';
 import {
@@ -21,18 +23,29 @@ import {
   CloseOutlined,
   CopyOutlined,
   EditOutlined,
+  ExclamationCircleOutlined,
   PlayCircleOutlined,
   PlusOutlined,
   ReloadOutlined,
   StopOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { taskScheduleApi } from '@/api/taskSchedule';
+import { CodeBlock } from '@/components/CodeBlock';
+import { JsonCodeEditor } from '../utils/JsonCodeEditor';
 import type { TaskSchedule, TaskScheduleRun } from '@/types/taskSchedule';
 import styles from './AutomationPanel.module.scss';
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
+
+const InfoHint: React.FC<{ title: React.ReactNode }> = ({ title }) => (
+  <Tooltip title={title}>
+    <ExclamationCircleOutlined className={styles.hintIcon} />
+  </Tooltip>
+);
 
 interface AutomationPanelProps {
   visible: boolean;
@@ -45,6 +58,10 @@ interface AutomationFormValues {
   description?: string;
   triggerType: 'cron' | 'webhook';
   cronExpression?: string;
+  scheduleFrequency: 'daily' | 'weekly' | 'monthly';
+  scheduleTime?: Dayjs;
+  scheduleWeekdays?: number[];
+  scheduleMonthDay?: number | null;
   timezone: string;
   isActive: boolean;
   inputTemplateText?: string;
@@ -61,6 +78,10 @@ const defaultFormValues: AutomationFormValues = {
   description: '',
   triggerType: 'cron',
   cronExpression: '0 8 * * *',
+  scheduleFrequency: 'daily',
+  scheduleTime: dayjs().hour(8).minute(0).second(0).millisecond(0),
+  scheduleWeekdays: [1],
+  scheduleMonthDay: 1,
   timezone: 'Asia/Shanghai',
   isActive: true,
   inputTemplateText: '',
@@ -79,6 +100,109 @@ const timezoneOptions = [
   { label: 'America/Los_Angeles', value: 'America/Los_Angeles' },
 ];
 
+const weekdayOptions = [
+  { label: '周日', value: 0 },
+  { label: '周一', value: 1 },
+  { label: '周二', value: 2 },
+  { label: '周三', value: 3 },
+  { label: '周四', value: 4 },
+  { label: '周五', value: 5 },
+  { label: '周六', value: 6 },
+];
+
+function dayjsFromTime(value?: string) {
+  const [hourText, minuteText] = (value || '08:00').split(':');
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  return dayjs()
+    .hour(Number.isFinite(hour) ? hour : 8)
+    .minute(Number.isFinite(minute) ? minute : 0)
+    .second(0)
+    .millisecond(0);
+}
+
+function parseSchedulePlan(schedule: TaskSchedule) {
+  if (schedule.schedulePlan) {
+    return {
+      scheduleFrequency: schedule.schedulePlan.frequency,
+      scheduleTime: dayjsFromTime(schedule.schedulePlan.time),
+      scheduleWeekdays: schedule.schedulePlan.weekdays?.length ? schedule.schedulePlan.weekdays : [1],
+      scheduleMonthDay: schedule.schedulePlan.monthDay || 1,
+    };
+  }
+
+  const parts = (schedule.cronExpression || '').trim().split(/\s+/);
+  if (parts.length !== 5) {
+    return {
+      scheduleFrequency: defaultFormValues.scheduleFrequency,
+      scheduleTime: defaultFormValues.scheduleTime,
+      scheduleWeekdays: defaultFormValues.scheduleWeekdays,
+      scheduleMonthDay: defaultFormValues.scheduleMonthDay,
+    };
+  }
+
+  const time = dayjsFromTime(`${parts[1].padStart(2, '0')}:${parts[0].padStart(2, '0')}`);
+  if (parts[2] !== '*' && parts[3] === '*' && parts[4] === '*') {
+    return {
+      scheduleFrequency: 'monthly' as const,
+      scheduleTime: time,
+      scheduleWeekdays: defaultFormValues.scheduleWeekdays,
+      scheduleMonthDay: Number(parts[2]) || 1,
+    };
+  }
+  if (parts[2] === '*' && parts[3] === '*' && parts[4] !== '*') {
+    return {
+      scheduleFrequency: 'weekly' as const,
+      scheduleTime: time,
+      scheduleWeekdays: parts[4].split(',').map((item) => Number(item)).filter((item) => item >= 0 && item <= 6),
+      scheduleMonthDay: defaultFormValues.scheduleMonthDay,
+    };
+  }
+  return {
+    scheduleFrequency: 'daily' as const,
+    scheduleTime: time,
+    scheduleWeekdays: defaultFormValues.scheduleWeekdays,
+    scheduleMonthDay: defaultFormValues.scheduleMonthDay,
+  };
+}
+
+function buildSchedulePlan(values: AutomationFormValues) {
+  const time = values.scheduleTime || defaultFormValues.scheduleTime;
+  const timeText = time ? time.format('HH:mm') : '08:00';
+  if (values.scheduleFrequency === 'weekly') {
+    return {
+      frequency: 'weekly',
+      time: timeText,
+      weekdays: values.scheduleWeekdays?.length ? values.scheduleWeekdays : [1],
+    };
+  }
+  if (values.scheduleFrequency === 'monthly') {
+    return {
+      frequency: 'monthly',
+      time: timeText,
+      monthDay: values.scheduleMonthDay || 1,
+    };
+  }
+  return {
+    frequency: 'daily',
+    time: timeText,
+  };
+}
+
+function cronExpressionFromForm(values: AutomationFormValues) {
+  const time = values.scheduleTime || defaultFormValues.scheduleTime;
+  const minute = time ? time.minute() : 0;
+  const hour = time ? time.hour() : 8;
+  if (values.scheduleFrequency === 'weekly') {
+    const weekdays = values.scheduleWeekdays?.length ? values.scheduleWeekdays : [1];
+    return `${minute} ${hour} * * ${weekdays.join(',')}`;
+  }
+  if (values.scheduleFrequency === 'monthly') {
+    return `${minute} ${hour} ${values.scheduleMonthDay || 1} * *`;
+  }
+  return `${minute} ${hour} * * *`;
+}
+
 const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, onClose }) => {
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
@@ -93,6 +217,7 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
   const [latestWebhookSecret, setLatestWebhookSecret] = useState<string | null>(null);
   const watchedTriggerType = Form.useWatch('triggerType', form) ?? defaultFormValues.triggerType;
   const watchedRetryMode = Form.useWatch('retryMode', form) ?? defaultFormValues.retryMode;
+  const watchedScheduleFrequency = Form.useWatch('scheduleFrequency', form) ?? defaultFormValues.scheduleFrequency;
 
   const a = (key: string, defaultValue: string, options?: Record<string, any>) =>
     t(`workflowEditor.automation.${key}`, { defaultValue, ...options });
@@ -145,9 +270,25 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
   const formatDateTime = (value?: string) =>
     value ? new Date(value).toLocaleString(locale) : a('notScheduled', 'Not scheduled');
 
+  const formatSchedulePlanText = (schedule: TaskSchedule) => {
+    const plan = parseSchedulePlan(schedule);
+    const timeText = plan.scheduleTime ? plan.scheduleTime.format('HH:mm') : '08:00';
+    if (plan.scheduleFrequency === 'weekly') {
+      const labels = (plan.scheduleWeekdays || [1])
+        .map((day) => weekdayOptions.find((item) => item.value === day)?.label)
+        .filter(Boolean)
+        .join('、');
+      return `每周 ${labels} ${timeText}`;
+    }
+    if (plan.scheduleFrequency === 'monthly') {
+      return `每月 ${plan.scheduleMonthDay || 1} 日 ${timeText}`;
+    }
+    return `每天 ${timeText}`;
+  };
+
   const formatTriggerText = (schedule: TaskSchedule) =>
     schedule.triggerType === 'cron'
-      ? `${schedule.cronExpression || a('cronUnset', 'Cron not set')} · ${schedule.timezone}`
+      ? `${formatSchedulePlanText(schedule)} · ${schedule.timezone}`
       : a('triggerWebhookSummary', 'Triggered by external systems through webhook');
 
   const formatRetryText = (schedule: TaskSchedule) => {
@@ -227,11 +368,13 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
   const openEditModal = (schedule: TaskSchedule) => {
     setEditingSchedule(schedule);
     setLatestWebhookSecret(null);
+    const schedulePlanFields = parseSchedulePlan(schedule);
     form.setFieldsValue({
       name: schedule.name,
       description: schedule.description || '',
       triggerType: schedule.triggerType,
       cronExpression: schedule.cronExpression || defaultFormValues.cronExpression,
+      ...schedulePlanFields,
       timezone: schedule.timezone || defaultFormValues.timezone,
       isActive: schedule.isActive,
       inputTemplateText: schedule.inputTemplate ? JSON.stringify(schedule.inputTemplate, null, 2) : '',
@@ -262,7 +405,8 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
       name: values.name.trim(),
       description: values.description?.trim() || undefined,
       triggerType: values.triggerType,
-      cronExpression: values.triggerType === 'cron' ? values.cronExpression?.trim() || '' : '',
+      cronExpression: values.triggerType === 'cron' ? cronExpressionFromForm(values) : '',
+      schedulePlan: values.triggerType === 'cron' ? buildSchedulePlan(values) : undefined,
       timezone: values.timezone.trim() || 'UTC',
       isActive: values.isActive,
       maxRuns: values.maxRuns || undefined,
@@ -361,7 +505,7 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                 <div className={styles.emptyEyebrow}>{a('emptyEyebrow', 'Automation is not enabled yet')}</div>
                 <div className={styles.emptyTitle}>{a('emptyTitle', 'Give this workflow an always-on entry point')}</div>
                 <Paragraph className={styles.emptyDescription}>
-                  {a('emptyDescription', 'Create a cron plan or a dedicated webhook endpoint so this workflow can run without manual clicks.')}
+                  {a('emptyDescription', 'Create a scheduled plan or a dedicated webhook endpoint so this workflow can run without manual clicks.')}
                 </Paragraph>
                 <Button type="primary" size="large" icon={<PlusOutlined />} onClick={openCreateModal}>
                   {a('createFirst', 'Create first plan')}
@@ -376,7 +520,7 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                   <div className={styles.overviewTitle}>{a('overviewTitle', '{{count}} automation plans', { count: overview.total })}</div>
                   <div className={styles.metricRow}>
                     <div className={styles.metricChip}><span className={styles.metricValue}>{overview.active}</span><span className={styles.metricLabel}>{a('activeCount', 'Active')}</span></div>
-                    <div className={styles.metricChip}><span className={styles.metricValue}>{overview.cron}</span><span className={styles.metricLabel}>Cron</span></div>
+                    <div className={styles.metricChip}><span className={styles.metricValue}>{overview.cron}</span><span className={styles.metricLabel}>定时</span></div>
                     <div className={styles.metricChip}><span className={styles.metricValue}>{overview.webhook}</span><span className={styles.metricLabel}>Webhook</span></div>
                   </div>
                   <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>{a('addPlan', 'Add plan')}</Button>
@@ -451,7 +595,7 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                       <div className={styles.heroMetrics}>
                         <div className={styles.heroMetricCard}>
                           <div className={styles.heroMetricLabel}>{a('triggerType', 'Trigger type')}</div>
-                          <div className={styles.heroMetricValue}>{selectedSchedule.triggerType === 'cron' ? 'Cron' : 'Webhook'}</div>
+                          <div className={styles.heroMetricValue}>{selectedSchedule.triggerType === 'cron' ? '定时执行' : 'Webhook'}</div>
                           <div className={styles.heroMetricHint}>{formatTriggerText(selectedSchedule)}</div>
                         </div>
                         <div className={styles.heroMetricCard}>
@@ -463,6 +607,30 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                           <div className={styles.heroMetricLabel}>{a('runSummary', 'Run summary')}</div>
                           <div className={styles.heroMetricValue}>{a('runCountValue', '{{count}} runs', { count: selectedSchedule.runCount })}</div>
                           <div className={styles.heroMetricHint}>{a('recentStatus', 'Recent status {{status}}', { status: getStatusMeta(selectedSchedule.lastRunStatus).label })}</div>
+                        </div>
+                      </div>
+
+                      <div className={styles.quickFacts}>
+                        <div className={styles.quickFact}>
+                          <span className={styles.quickFactLabel}>
+                            {a('timezone', 'Timezone')}
+                            <InfoHint title={a('timezoneHint', '定时计划会按这个时区计算下一次执行时间。')} />
+                          </span>
+                          <span className={styles.quickFactValue}>{selectedSchedule.timezone}</span>
+                        </div>
+                        <div className={styles.quickFact}>
+                          <span className={styles.quickFactLabel}>
+                            {a('retryPolicy', 'Retry policy')}
+                            <InfoHint title={a('retryDelayHint', 'Base delay {{delay}} sec, max delay {{max}} sec', { delay: selectedSchedule.retryPolicy?.delaySeconds ?? 15, max: selectedSchedule.retryPolicy?.maxDelaySeconds ?? 300 })} />
+                          </span>
+                          <span className={styles.quickFactValue}>{formatRetryText(selectedSchedule)}</span>
+                        </div>
+                        <div className={styles.quickFact}>
+                          <span className={styles.quickFactLabel}>
+                            {a('runLimit', 'Run limit')}
+                            <InfoHint title={a('runLimitHint', 'Already executed {{count}} times', { count: selectedSchedule.runCount })} />
+                          </span>
+                          <span className={styles.quickFactValue}>{selectedSchedule.maxRuns ? a('runLimitValue', '{{count}} times', { count: selectedSchedule.maxRuns }) : a('unlimited', 'Unlimited')}</span>
                         </div>
                       </div>
                     </div>
@@ -480,36 +648,18 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                           <div className={styles.webhookGrid}>
                             <div className={styles.webhookCard}>
                               <div className={styles.fieldLabel}>{a('webhookUrl', 'Webhook URL')}</div>
-                              <div className={styles.codeBlock}>{selectedSchedule.webhookUrl || '-'}</div>
+                              <CodeBlock value={selectedSchedule.webhookUrl || '-'} language="text" className={styles.webhookCodeBlock} showHeader={false} defaultExpanded />
                               <Button icon={<CopyOutlined />} onClick={() => void copyText(selectedSchedule.webhookUrl)}>{a('copyUrl', 'Copy URL')}</Button>
                             </div>
                             <div className={styles.webhookCard}>
                               <div className={styles.fieldLabel}>{a('latestSecret', 'Latest secret')}</div>
-                              <div className={styles.codeBlock}>{latestWebhookSecret || a('secretPlaceholder', 'It will be shown once after creation or regeneration.')}</div>
+                              <CodeBlock value={latestWebhookSecret || a('secretPlaceholder', 'It will be shown once after creation or regeneration.')} language="text" className={styles.webhookCodeBlock} showHeader={false} defaultExpanded />
                               <Button icon={<CopyOutlined />} onClick={() => void copyText(latestWebhookSecret || undefined)} disabled={!latestWebhookSecret}>{a('copySecret', 'Copy secret')}</Button>
                             </div>
                           </div>
                           <Alert type="info" showIcon className={styles.inlineAlert} message={a('webhookSecurityTip', 'Store the secret safely and combine it with Request ID and IP allowlist for better protection.')} />
                         </div>
                       ) : null}
-
-                      <div className={styles.configGrid}>
-                        <div className={styles.configCard}>
-                          <div className={styles.fieldLabel}>{a('timezone', 'Timezone')}</div>
-                          <div className={styles.configValue}>{selectedSchedule.timezone}</div>
-                          <div className={styles.configHint}>{a('timezoneHint', 'Cron parsing and next-run calculation follow this timezone.')}</div>
-                        </div>
-                        <div className={styles.configCard}>
-                          <div className={styles.fieldLabel}>{a('retryPolicy', 'Retry policy')}</div>
-                          <div className={styles.configValue}>{formatRetryText(selectedSchedule)}</div>
-                          <div className={styles.configHint}>{a('retryDelayHint', 'Base delay {{delay}} sec, max delay {{max}} sec', { delay: selectedSchedule.retryPolicy?.delaySeconds ?? 15, max: selectedSchedule.retryPolicy?.maxDelaySeconds ?? 300 })}</div>
-                        </div>
-                        <div className={styles.configCard}>
-                          <div className={styles.fieldLabel}>{a('runLimit', 'Run limit')}</div>
-                          <div className={styles.configValue}>{selectedSchedule.maxRuns ? a('runLimitValue', '{{count}} times', { count: selectedSchedule.maxRuns }) : a('unlimited', 'Unlimited')}</div>
-                          <div className={styles.configHint}>{a('runLimitHint', 'Already executed {{count}} times', { count: selectedSchedule.runCount })}</div>
-                        </div>
-                      </div>
 
                       <div className={styles.infoCard}>
                         <div className={styles.sectionHeader}>
@@ -602,7 +752,7 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                 </Form.Item>
                 <Form.Item name="triggerType" label={a('triggerMode', 'Trigger mode')}>
                   <Radio.Group optionType="button" buttonStyle="solid" className={styles.modeGroup}>
-                    <Radio.Button value="cron">Cron</Radio.Button>
+                    <Radio.Button value="cron">定时执行</Radio.Button>
                     <Radio.Button value="webhook">Webhook</Radio.Button>
                   </Radio.Group>
                 </Form.Item>
@@ -611,11 +761,36 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                 </Form.Item>
               </div>
               {watchedTriggerType === 'cron' ? (
-                <div className={styles.formGridTwo}>
-                  <Form.Item name="cronExpression" label={a('cronExpression', 'Cron expression')} rules={[{ required: true, message: a('cronRequired', 'Please enter a cron expression') }]} className={styles.fieldSpanFull}>
-                    <Input placeholder="0 8 * * *" />
+                <div className={styles.scheduleDesigner}>
+                  <Form.Item name="scheduleFrequency" label="执行频率" rules={[{ required: true, message: '请选择执行频率' }]}>
+                    <Select
+                      options={[
+                        { label: '每天', value: 'daily' },
+                        { label: '每周', value: 'weekly' },
+                        { label: '每月', value: 'monthly' },
+                      ]}
+                    />
                   </Form.Item>
-                  <div className={`${styles.fieldHint} ${styles.fieldSpanFull}`}>{a('cronHint', 'Example: 0 8 * * * means the task runs every day at 8:00 AM.')}</div>
+                  <Form.Item name="scheduleTime" label="执行时间" rules={[{ required: true, message: '请选择执行时间' }]}>
+                    <TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
+                  </Form.Item>
+                  {watchedScheduleFrequency === 'weekly' ? (
+                    <Form.Item name="scheduleWeekdays" label="执行星期" rules={[{ required: true, message: '请选择执行星期' }]}>
+                      <Select mode="multiple" options={weekdayOptions} placeholder="选择每周哪几天执行" />
+                    </Form.Item>
+                  ) : null}
+                  {watchedScheduleFrequency === 'monthly' ? (
+                    <Form.Item name="scheduleMonthDay" label="每月几号" rules={[{ required: true, message: '请选择每月几号执行' }]}>
+                      <InputNumber min={1} max={31} style={{ width: '100%' }} />
+                    </Form.Item>
+                  ) : null}
+                  <div className={styles.schedulePreview}>
+                    {watchedScheduleFrequency === 'weekly'
+                      ? '将按所选星期和时间自动运行。'
+                      : watchedScheduleFrequency === 'monthly'
+                        ? '将按每月指定日期和时间自动运行。'
+                        : '将每天按所选时间自动运行。'}
+                  </div>
                 </div>
               ) : (
                 <Alert type="info" showIcon className={styles.inlineAlert} message={a('webhookGeneratedHint', 'Webhook mode generates a unique URL and secret after saving. The secret is shown only once when created or reset.')} />
@@ -640,7 +815,7 @@ const AutomationPanel: React.FC<AutomationPanelProps> = ({ visible, workflowId, 
                 <div className={styles.formSectionHint}>{a('inputAndSecurityHint', 'Prepare default input for the start node and optionally restrict who can call it.')}</div>
               </div>
               <div className={styles.formGridTwo}>
-                <Form.Item name="inputTemplateText" label={a('inputTemplate', 'Input template JSON')}><TextArea rows={4} className={styles.jsonEditor} placeholder='{"source":"schedule"}' /></Form.Item>
+                <Form.Item name="inputTemplateText" label={a('inputTemplate', 'Input template JSON')}><JsonCodeEditor rows={4} placeholder='{"source":"schedule"}' /></Form.Item>
                 <Form.Item name="ipWhitelistText" label={a('ipWhitelist', 'IP allowlist')}><TextArea rows={4} placeholder={a('ipWhitelistPlaceholder', 'One IP or CIDR per line, for example:\n127.0.0.1\n10.0.0.0/24')} /></Form.Item>
               </div>
             </div>

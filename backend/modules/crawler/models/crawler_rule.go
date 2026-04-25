@@ -12,6 +12,7 @@ type CrawlerRule struct {
 	ID                uint           `gorm:"primaryKey" json:"id"`
 	Name              string         `gorm:"type:varchar(200);not null;index" json:"name"`
 	Description       *string        `gorm:"type:text" json:"description"`
+	Tutorial          *string        `gorm:"type:text" json:"tutorial"`
 	Version           string         `gorm:"type:varchar(20);default:'1.0.0'" json:"version"`
 	URLPattern        *string        `gorm:"type:varchar(500)" json:"url_pattern"`
 	URLPatternType    string         `gorm:"type:varchar(20);default:'regex';check:url_pattern_type IN ('regex','glob','exact')" json:"url_pattern_type"`
@@ -31,7 +32,7 @@ type CrawlerRule struct {
 	FollowRedirects   bool           `gorm:"default:true" json:"follow_redirects"`
 	VerifySSL         bool           `gorm:"default:true" json:"verify_ssl"`
 	WaitTime          int            `gorm:"default:0" json:"wait_time"`
-	JavaScriptEnabled bool           `gorm:"default:false" json:"javascript_enabled"`
+	JavaScriptEnabled bool           `gorm:"column:javascript_enabled;default:false" json:"javascript_enabled"`
 	Screenshot        bool           `gorm:"default:false" json:"screenshot"`
 	IsActive          bool           `gorm:"default:true;index" json:"is_active"`
 	UsageCount        int            `gorm:"default:0" json:"usage_count"`

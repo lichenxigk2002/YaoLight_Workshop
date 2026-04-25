@@ -1,0 +1,45 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.searchInput {
+  width: min(320px, 100%);
+}
+
+.filterSelect {
+  width: 160px;
+}
+
+.commentCell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.commentText {
+  color: rgba(17, 17, 17, 0.82);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.meta {
+  color: rgba(17, 17, 17, 0.48);
+  font-size: 12px;
+}
+
+.resource {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resourceTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

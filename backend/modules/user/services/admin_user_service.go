@@ -73,13 +73,14 @@ type AdminUserStats struct {
 
 type AdminUserDetail struct {
 	AdminUserListItem
-	Phone       *string           `json:"phone"`
-	RealName    *string           `json:"real_name"`
-	LastLoginIP *string           `json:"last_login_ip"`
-	UpdatedAt   time.Time         `json:"updated_at"`
-	HasPassword bool              `json:"has_password"`
-	Inviter     *AdminUserInviter `json:"inviter"`
-	Stats       AdminUserStats    `json:"stats"`
+	Phone             *string           `json:"phone"`
+	RealName          *string           `json:"real_name"`
+	LastLoginIP       *string           `json:"last_login_ip"`
+	LastLoginLocation string            `json:"last_login_location"`
+	UpdatedAt         time.Time         `json:"updated_at"`
+	HasPassword       bool              `json:"has_password"`
+	Inviter           *AdminUserInviter `json:"inviter"`
+	Stats             AdminUserStats    `json:"stats"`
 }
 
 func NewAdminUserService(db *gorm.DB) *AdminUserService {
@@ -144,6 +145,7 @@ func (s *AdminUserService) GetUserDetail(userID uint) (*AdminUserDetail, error) 
 		Phone:             user.Phone,
 		RealName:          user.RealName,
 		LastLoginIP:       user.LastLoginIP,
+		LastLoginLocation: resolveIPLocation(ptrString(user.LastLoginIP)),
 		UpdatedAt:         user.UpdatedAt,
 		HasPassword:       strings.TrimSpace(user.Password) != "",
 		Stats:             stats,
@@ -161,6 +163,13 @@ func (s *AdminUserService) GetUserDetail(userID uint) (*AdminUserDetail, error) 
 	}
 
 	return detail, nil
+}
+
+func ptrString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func (s *AdminUserService) UpdateUserStatus(operatorID, userID uint, status string) (*AdminUserListItem, error) {

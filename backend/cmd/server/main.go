@@ -20,6 +20,7 @@ import (
 	billingControllers "yaolight-workshop/backend/modules/billing/controllers"
 	crawlerControllers "yaolight-workshop/backend/modules/crawler/controllers"
 	fileControllers "yaolight-workshop/backend/modules/file/controllers"
+	interactionControllers "yaolight-workshop/backend/modules/interaction/controllers"
 	nodeControllers "yaolight-workshop/backend/modules/node/controllers"
 	notificationModule "yaolight-workshop/backend/modules/notification"
 	notificationControllers "yaolight-workshop/backend/modules/notification/controllers"
@@ -245,6 +246,7 @@ func main() {
 
 			// 工作流相关路由
 			workflowController := workflowControllers.NewWorkflowController()
+			interactionController := interactionControllers.NewInteractionController()
 			auth.GET("/workflows", workflowController.GetWorkflowList)
 			auth.GET("/workflows/templates", workflowController.ListPublishedTemplates)
 			auth.GET("/workflows/templates/:id/nodes", workflowController.GetPublishedTemplateNodes)
@@ -259,10 +261,25 @@ func main() {
 			auth.POST("/workflows/:id/api", workflowAPIController.UpsertEndpoint)
 			auth.GET("/workflows/:id/api/keys", workflowAPIController.ListKeys)
 			auth.POST("/workflows/:id/api/keys", workflowAPIController.CreateKey)
+			auth.PATCH("/workflows/:id/api/keys/:keyId", workflowAPIController.UpdateKey)
+			auth.DELETE("/workflows/:id/api/keys/:keyId", workflowAPIController.DeleteKey)
 			auth.GET("/workflows/:id/api/invocations", workflowAPIController.ListInvocations)
 			auth.POST("/workflows/execute", workflowController.ExecuteWorkflow)
 			auth.POST("/workflows/execute/stream", workflowController.ExecuteWorkflowStream)
 			auth.GET("/crawler-rules/options", crawlerControllers.NewAdminCrawlerRuleController().ListActiveRuleOptions)
+
+			// 通用互动能力：点赞、评论、评论表情
+			auth.GET("/interactions/resources/:resourceType/:resourceId/like", interactionController.GetLikeSummary)
+			auth.POST("/interactions/resources/:resourceType/:resourceId/like", interactionController.ToggleLike)
+			auth.GET("/interactions/resources/:resourceType/:resourceId/comments", interactionController.ListComments)
+			auth.POST("/interactions/resources/:resourceType/:resourceId/comments", interactionController.CreateComment)
+			auth.DELETE("/interactions/comments/:id", interactionController.DeleteComment)
+			auth.POST("/interactions/comments/:id/reactions", interactionController.ToggleCommentReaction)
+
+			adminComments := auth.Group("/admin/content-comments")
+			adminComments.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminComments.GET("", rbacMiddleware.RequirePermission("content_comments:view"), interactionController.AdminListComments)
+			adminComments.PATCH("/:id/moderation", rbacMiddleware.RequirePermission("content_comments:edit"), interactionController.AdminModerateComment)
 
 			// 任务相关路由
 			taskController := taskControllers.NewTaskController()
@@ -342,6 +359,7 @@ func main() {
 			// 计费运营：补救配额、管理员赠送、配额流水、订单与 Token 流水
 			adminQuotaController := billingControllers.NewAdminQuotaController()
 			adminBillingController := billingControllers.NewAdminBillingController()
+			adminPaymentController := paymentControllers.NewPaymentController()
 			adminBilling := auth.Group("/admin/billing")
 			adminBilling.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
 			adminBilling.GET("/users/options", rbacMiddleware.RequireAnyPermission("billing.quota_recovery:edit", "billing.admin_grant:edit"), adminBillingController.ListUserOptions)
@@ -349,6 +367,11 @@ func main() {
 			adminBilling.POST("/quotas/grant", rbacMiddleware.RequirePermission("billing.admin_grant:edit"), adminQuotaController.GrantQuota)
 			adminBilling.GET("/quotas/ledger", rbacMiddleware.RequirePermission("billing.ledger:view"), adminQuotaController.GetQuotaLedger)
 			adminBilling.GET("/quotas/summary", rbacMiddleware.RequirePermission("billing.overview:view"), adminQuotaController.GetQuotaSummary)
+			adminBilling.GET("/packages", rbacMiddleware.RequirePermission("billing.packages:view"), adminPaymentController.AdminListPackages)
+			adminBilling.POST("/packages", rbacMiddleware.RequirePermission("billing.packages:edit"), adminPaymentController.AdminCreatePackage)
+			adminBilling.PUT("/packages/:id", rbacMiddleware.RequirePermission("billing.packages:edit"), adminPaymentController.AdminUpdatePackage)
+			adminBilling.PATCH("/packages/:id/status", rbacMiddleware.RequirePermission("billing.packages:edit"), adminPaymentController.AdminUpdatePackageStatus)
+			adminBilling.DELETE("/packages/:id", rbacMiddleware.RequirePermission("billing.packages:edit"), adminPaymentController.AdminDeletePackage)
 			adminBilling.GET("/orders", rbacMiddleware.RequirePermission("billing.orders:view"), adminBillingController.ListOrders)
 			adminBilling.GET("/token-transactions", rbacMiddleware.RequirePermission("billing.token_ledger:view"), adminBillingController.ListTokenTransactions)
 
@@ -427,6 +450,11 @@ func main() {
 			adminAppLogs.GET("/:id", rbacMiddleware.RequirePermission("app_logs:view"), adminAppLogController.GetByID)
 			adminAppLogs.DELETE("/:id", rbacMiddleware.RequirePermission("app_logs:edit"), adminAppLogController.DeleteByID)
 			adminAppLogs.DELETE("", rbacMiddleware.RequirePermission("app_logs:edit"), adminAppLogController.DeleteAll)
+
+			adminEmailDebugController := systemControllers.NewAdminEmailDebugController()
+			adminSystemConfigs := auth.Group("/admin/system-configs")
+			adminSystemConfigs.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())
+			adminSystemConfigs.POST("/email/debug", rbacMiddleware.RequirePermission("system_configs:edit"), adminEmailDebugController.SendTestEmail)
 
 			adminNotifications := auth.Group("/admin/notifications")
 			adminNotifications.Use(middleware.AdminOnlyMiddleware(), middleware.AdminOperationLogMiddleware())

@@ -237,6 +237,9 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 	format := getString(node.Config, "format", "json")
 	destination := getString(node.Config, "destination", "file")
 	fileName := getString(node.Config, "fileName", "")
+	outputMode := getString(node.Config, "outputMode", "artifact_export")
+	responsePath := getString(node.Config, "responsePath", "")
+	effectiveResponsePath := effectiveOutputResponsePath(outputMode, responsePath)
 	if strings.Contains(fileName, "{{") {
 		resolved, err := variableContext.ResolveTemplate(fileName)
 		if err != nil {
@@ -277,6 +280,19 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 
 	// 统一导出：将输入数据通过 provider 生成文件，再落为 artifact
 	payload := ExtractPayload(inputData)
+	responsePayload, responseErr := resolveOutputResponsePayload(payload, effectiveResponsePath)
+	if responseErr != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "output",
+			Success: false,
+			Error:   responseErr.Error(),
+			Data: map[string]interface{}{
+				"outputMode":   outputMode,
+				"responsePath": effectiveResponsePath,
+			},
+		}
+	}
 	exportInput := payload
 
 	// 文本类导出：优先从对象结构里抽取正文（避免导出成整包 JSON）
@@ -411,9 +427,31 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 
 	if sendEmail && meta.UserID > 0 && len(emailAttachments) > 0 {
 		go func(userID uint, nodeID string, fmtStr string, files []email.Attachment, payload interface{}, workflowID *uint) {
+			log.WithContext(log.LevelInfo, 4012, "输出节点开始发送邮件", map[string]any{
+				"user_id":     userID,
+				"node_id":     nodeID,
+				"format":      fmtStr,
+				"workflow_id": workflowID,
+				"attachments": summarizeOutputEmailAttachments(files),
+			})
 			if err := sendOutputEmailForUser(userID, nodeID, fmtStr, files, payload, workflowID); err != nil {
-				log.Printf("发送输出节点邮件失败: %v", err)
+				log.WithContext(log.LevelError, 4012, "输出节点邮件发送失败", map[string]any{
+					"user_id":     userID,
+					"node_id":     nodeID,
+					"format":      fmtStr,
+					"workflow_id": workflowID,
+					"attachments": summarizeOutputEmailAttachments(files),
+					"error":       err.Error(),
+				})
+				return
 			}
+			log.WithContext(log.LevelInfo, 4012, "输出节点邮件发送完成", map[string]any{
+				"user_id":     userID,
+				"node_id":     nodeID,
+				"format":      fmtStr,
+				"workflow_id": workflowID,
+				"attachments": summarizeOutputEmailAttachments(files),
+			})
 		}(meta.UserID, node.ID, format, emailAttachments, payload, meta.WorkflowID)
 	}
 
@@ -422,15 +460,46 @@ func (e *WorkflowExecutor) executeOutputNode(node NodeConfig, dataFlow *DataFlow
 		Type:    "output",
 		Success: true,
 		Data: map[string]interface{}{
-			"format":      format,
-			"destination": destination,
-			"artifacts":   artifacts,
-			"taskId":      meta.TaskID,
-			"workflowId":  meta.WorkflowID,
+			"outputMode":   outputMode,
+			"responsePath": effectiveResponsePath,
+			"format":       format,
+			"destination":  destination,
+			"artifacts":    artifacts,
+			"taskId":       meta.TaskID,
+			"workflowId":   meta.WorkflowID,
+			"response":     responsePayload,
 			// 保留 data：便于站内调试/预览；未来可通过 config 控制是否返回
 			"data": payload,
 		},
 	}
+}
+
+func effectiveOutputResponsePath(outputMode string, responsePath string) string {
+	if getNormalizedOutputMode(outputMode) != "api_output" {
+		return ""
+	}
+	return strings.TrimSpace(responsePath)
+}
+
+func getNormalizedOutputMode(outputMode string) string {
+	if strings.TrimSpace(outputMode) == "api_output" {
+		return "api_output"
+	}
+	return "artifact_export"
+}
+
+func resolveOutputResponsePayload(payload interface{}, responsePath string) (interface{}, error) {
+	if strings.TrimSpace(responsePath) == "" {
+		return payload, nil
+	}
+	value, found, err := TryGetDataByPath(payload, responsePath)
+	if err != nil {
+		return nil, fmt.Errorf("解析 API 返回路径失败: %v", err)
+	}
+	if !found {
+		return nil, fmt.Errorf("API 返回路径未命中: %s", responsePath)
+	}
+	return value, nil
 }
 
 func sendOutputEmailForUser(userID uint, nodeID, format string, attachments []email.Attachment, payload interface{}, workflowID *uint) error {
@@ -479,4 +548,16 @@ func sendOutputEmailForUser(userID uint, nodeID, format string, attachments []em
 	}
 
 	return email.SendWorkflowOutputEmail(emailAddr, subject, title, markdownBody, attachments)
+}
+
+func summarizeOutputEmailAttachments(attachments []email.Attachment) []map[string]any {
+	result := make([]map[string]any, 0, len(attachments))
+	for _, att := range attachments {
+		result = append(result, map[string]any{
+			"filename":  att.Filename,
+			"mime_type": att.MimeType,
+			"size":      len(att.Data),
+		})
+	}
+	return result
 }

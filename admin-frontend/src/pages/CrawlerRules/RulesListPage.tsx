@@ -4,6 +4,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
 import PageHero from '@/components/PageHero';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
+import { useI18n } from '@/i18n';
 import {
   cloneCrawlerRule,
   createCrawlerRule,
@@ -22,6 +23,7 @@ const { Paragraph, Text } = Typography;
 
 export default function RulesListPage() {
   const { message } = App.useApp();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { canEdit } = useAdminPermission('crawler_rules');
   const [form] = Form.useForm<RuleFormValues>();
@@ -54,7 +56,7 @@ export default function RulesListPage() {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          message.error(error instanceof Error ? error.message : '加载规则列表失败');
+          message.error(error instanceof Error ? error.message : t('crawlerRules.loadListFailed'));
         }
       })
       .finally(() => {
@@ -66,7 +68,7 @@ export default function RulesListPage() {
     return () => {
       cancelled = true;
     };
-  }, [keyword, status, page, pageSize, message]);
+  }, [keyword, status, page, pageSize, message, t]);
 
   const openCreateDrawer = () => {
     setEditingRuleId(null);
@@ -82,7 +84,7 @@ export default function RulesListPage() {
       const detail = await getCrawlerRule(record.id);
       form.setFieldsValue(detailToFormValues(detail));
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '加载规则详情失败');
+      message.error(error instanceof Error ? error.message : t('crawlerRules.loadDetailFailed'));
       setDrawerOpen(false);
     }
   };
@@ -105,10 +107,10 @@ export default function RulesListPage() {
       setSaving(true);
       if (editingRuleId) {
         await updateCrawlerRule(editingRuleId, payload);
-        message.success('规则已更新');
+        message.success(t('crawlerRules.updateSuccess'));
       } else {
         await createCrawlerRule(payload);
-        message.success('规则已创建');
+        message.success(t('crawlerRules.createSuccess'));
       }
       setDrawerOpen(false);
       setPage(1);
@@ -125,31 +127,31 @@ export default function RulesListPage() {
   const handleDeleteRule = async (record: CrawlerRuleListItem) => {
     try {
       await deleteCrawlerRule(record.id);
-      message.success('规则已删除');
+      message.success(t('crawlerRules.deleteSuccess'));
       await reloadRules(page);
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '删除规则失败');
+      message.error(error instanceof Error ? error.message : t('crawlerRules.deleteFailed'));
     }
   };
 
   const handleToggleStatus = async (record: CrawlerRuleListItem, checked: boolean) => {
     try {
       await setCrawlerRuleStatus(record.id, checked);
-      message.success(`规则已${checked ? '启用' : '停用'}`);
+      message.success(checked ? t('crawlerRules.enableSuccess') : t('crawlerRules.disableSuccess'));
       setRules((current) => current.map((item) => (item.id === record.id ? { ...item, is_active: checked } : item)));
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '更新状态失败');
+      message.error(error instanceof Error ? error.message : t('crawlerRules.updateStatusFailed'));
     }
   };
 
   const handleCloneRule = async (record: CrawlerRuleListItem) => {
     try {
       await cloneCrawlerRule(record.id);
-      message.success('规则已复制');
+      message.success(t('crawlerRules.cloneSuccess'));
       setPage(1);
       await reloadRules(1);
     } catch (error: unknown) {
-      message.error(error instanceof Error ? error.message : '复制规则失败');
+      message.error(error instanceof Error ? error.message : t('crawlerRules.cloneFailed'));
     }
   };
 
@@ -159,28 +161,37 @@ export default function RulesListPage() {
 
   const columns: ColumnsType<CrawlerRuleListItem> = [
     {
-      title: '规则名称',
+      title: t('crawlerRules.columnName'),
       dataIndex: 'name',
+      width: 260,
       render: (value: string, record) => (
-        <Button type="link" onClick={() => navigate(`/crawler-rules/${record.id}`)}>
+        <Button className={styles.ruleNameButton} type="link" onClick={() => navigate(`/crawler-rules/${record.id}`)}>
           {value}
         </Button>
       ),
     },
-    { title: '版本', dataIndex: 'version', width: 120 },
     {
-      title: 'URL 模式',
+      title: t('crawlerRules.columnVersion'),
+      dataIndex: 'version',
+      width: 100,
+      render: (value: string) => <span className={styles.nowrapCell}>{value}</span>,
+    },
+    {
+      title: t('crawlerRules.columnUrlPattern'),
       dataIndex: 'url_pattern',
+      width: 220,
       ellipsis: true,
       render: (value: string | null | undefined, record) => (
-        <div>
-          <div>{value || '-'}</div>
-          <Text type="secondary">{record.url_pattern_type}</Text>
+        <div className={styles.urlPatternCell}>
+          <div className={styles.urlPatternValue} title={value || '-'}>
+            {value || '-'}
+          </div>
+          <Text className={styles.nowrapCell} type="secondary">{record.url_pattern_type}</Text>
         </div>
       ),
     },
     {
-      title: '状态',
+      title: t('crawlerRules.columnStatus'),
       key: 'status',
       width: 160,
       render: (_value, record) => {
@@ -193,45 +204,45 @@ export default function RulesListPage() {
         );
       },
     },
-    { title: '使用次数', dataIndex: 'usage_count', width: 120 },
+    { title: t('crawlerRules.columnUsageCount'), dataIndex: 'usage_count', width: 120 },
     {
-      title: '成功率',
+      title: t('crawlerRules.columnSuccessRate'),
       dataIndex: 'success_rate',
       width: 120,
       render: (value: number | null | undefined) => formatSuccessRate(value),
     },
-    { title: '更新时间', dataIndex: 'updated_at', width: 180 },
+    { title: t('crawlerRules.columnUpdatedAt'), dataIndex: 'updated_at', width: 180 },
     {
-      title: '操作',
+      title: t('crawlerRules.columnActions'),
       key: 'actions',
       width: 320,
       render: (_value, record) => (
         <Space wrap>
           <Button type="link" onClick={() => navigate(`/crawler-rules/${record.id}`)}>
-            详情
+            {t('crawlerRules.actionDetail')}
           </Button>
           {canEdit ? (
             <Button type="link" onClick={() => void openEditDrawer(record)}>
-              编辑
+              {t('crawlerRules.actionEdit')}
             </Button>
           ) : null}
           {canEdit ? (
             <Button type="link" onClick={() => navigate(`/crawler-rules/${record.id}/test`)}>
-              测试
+              {t('crawlerRules.actionTest')}
             </Button>
           ) : null}
           <Button type="link" onClick={() => navigate(`/crawler-rules/${record.id}/usages`)}>
-            引用
+            {t('crawlerRules.actionUsages')}
           </Button>
           {canEdit ? (
             <Button type="link" onClick={() => void handleCloneRule(record)}>
-              复制
+              {t('crawlerRules.actionClone')}
             </Button>
           ) : null}
           {canEdit ? (
-            <Popconfirm title="确认删除这个规则？" description="规则会被软删除，已引用工作流请同步检查。" onConfirm={() => void handleDeleteRule(record)}>
+            <Popconfirm title={t('crawlerRules.deleteConfirmTitle')} description={t('crawlerRules.deleteConfirmDescription')} onConfirm={() => void handleDeleteRule(record)}>
               <Button type="link" danger>
-                删除
+                {t('crawlerRules.actionDelete')}
               </Button>
             </Popconfirm>
           ) : null}
@@ -243,43 +254,48 @@ export default function RulesListPage() {
   return (
     <div className={styles.page}>
       <PageHero
-        eyebrow="采集规则"
-        title="采集规则中心"
-        description="集中管理可复用的采集规则模板，并提供详情、测试和引用关系查看，便于统一维护和复用。"
-        tags={['规则模板', '测试验证', '工作流复用', '统一维护']}
+        eyebrow={t('crawlerRules.heroEyebrow')}
+        title={t('crawlerRules.heroTitle')}
+        description={t('crawlerRules.heroDescription')}
+        tags={[
+          t('crawlerRules.heroTagTemplate'),
+          t('crawlerRules.heroTagTest'),
+          t('crawlerRules.heroTagReuse'),
+          t('crawlerRules.heroTagMaintenance'),
+        ]}
         action={
           <Space>
-            <Button onClick={() => void reloadRules(page)}>刷新</Button>
-            {canEdit ? <Button type="primary" onClick={openCreateDrawer}>新建规则</Button> : null}
+            <Button onClick={() => void reloadRules(page)}>{t('crawlerRules.actionRefresh')}</Button>
+            {canEdit ? <Button type="primary" onClick={openCreateDrawer}>{t('crawlerRules.actionCreate')}</Button> : null}
           </Space>
         }
       />
 
       <div className={styles.metrics}>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="当前页规则数" value={rules.length} />
+          <Statistic title={t('crawlerRules.metricCurrentPage')} value={rules.length} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="启用中" value={enabledCount} />
+          <Statistic title={t('crawlerRules.metricActive')} value={enabledCount} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="累计使用次数" value={usageTotal} />
+          <Statistic title={t('crawlerRules.metricUsageTotal')} value={usageTotal} />
         </Card>
         <Card bordered={false} className={styles.card}>
-          <Statistic title="平均成功率" value={avgSuccessRate} precision={2} suffix="%" />
+          <Statistic title={t('crawlerRules.metricAvgSuccessRate')} value={avgSuccessRate} precision={2} suffix="%" />
         </Card>
       </div>
 
       <Card bordered={false} className={styles.card}>
         <div className={styles.toolbar}>
           <div>
-            <Paragraph className={styles.toolbarTitle}>规则列表</Paragraph>
-            <Paragraph className={styles.muted}>列表页只保留检索和管理动作，详细信息进入子页面查看。</Paragraph>
+            <Paragraph className={styles.toolbarTitle}>{t('crawlerRules.listTitle')}</Paragraph>
+            <Paragraph className={styles.muted}>{t('crawlerRules.listDescription')}</Paragraph>
           </div>
           <div className={styles.filterBar}>
             <Input
               allowClear
-              placeholder="搜索名称 / 描述 / URL 模式"
+              placeholder={t('crawlerRules.keywordPlaceholder')}
               value={keywordInput}
               onChange={(event) => setKeywordInput(event.target.value)}
               onPressEnter={() => {
@@ -295,17 +311,17 @@ export default function RulesListPage() {
                 setStatus(value);
               }}
               options={[
-                { value: 'all', label: '全部状态' },
-                { value: 'active', label: '仅启用' },
-                { value: 'inactive', label: '仅停用' },
+                { value: 'all', label: t('crawlerRules.allStatuses') },
+                { value: 'active', label: t('crawlerRules.onlyActive') },
+                { value: 'inactive', label: t('crawlerRules.onlyInactive') },
               ]}
               style={{ width: 140 }}
             />
             <Button type="primary" onClick={() => { setPage(1); setKeyword(keywordInput.trim()); }}>
-              查询
+              {t('crawlerRules.actionQuery')}
             </Button>
             <Button onClick={() => { setKeywordInput(''); setKeyword(''); setStatus('all'); setPage(1); }}>
-              重置
+              {t('crawlerRules.actionReset')}
             </Button>
           </div>
         </div>
@@ -315,12 +331,14 @@ export default function RulesListPage() {
           loading={loading}
           dataSource={rules}
           columns={columns}
+          tableLayout="fixed"
+          scroll={{ x: 1360 }}
           pagination={{
             current: page,
             pageSize,
             total,
             showSizeChanger: true,
-            showTotal: (value) => `共 ${value} 条`,
+            showTotal: (value) => t('crawlerRules.paginationTotal', { total: value }),
             onChange: (nextPage, nextPageSize) => {
               setPage(nextPage);
               setPageSize(nextPageSize || 20);

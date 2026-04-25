@@ -48,7 +48,15 @@ func collectTerminalNodes(nodes []NodeConfig, edges []EdgeConfig) []NodeConfig {
 	return terminalNodes
 }
 
-func collectTaskResultPayload(dataFlow *DataFlow, terminalNodes []NodeConfig) *shared.JSONB {
+func collectTaskResultPayload(dataFlow *DataFlow, nodes []NodeConfig, terminalNodes []NodeConfig, preferAPIOutputs bool) *shared.JSONB {
+	apiOutputs := collectAPIOutputPayloads(dataFlow, nodes, preferAPIOutputs)
+	if len(apiOutputs) > 0 {
+		if len(apiOutputs) == 1 {
+			return jsonbFromPayload(apiOutputs[0])
+		}
+		return jsonbFromPayload(apiOutputs)
+	}
+
 	if len(terminalNodes) == 0 {
 		return nil
 	}
@@ -72,6 +80,42 @@ func collectTaskResultPayload(dataFlow *DataFlow, terminalNodes []NodeConfig) *s
 	}
 
 	return jsonbFromPayload(resultsByNode)
+}
+
+func collectAPIOutputPayloads(dataFlow *DataFlow, nodes []NodeConfig, enabled bool) []interface{} {
+	if !enabled {
+		return nil
+	}
+	items := make([]interface{}, 0)
+	for _, node := range nodes {
+		if node.Type != "output" {
+			continue
+		}
+		if getString(node.Config, "outputMode", "artifact_export") != "api_output" {
+			continue
+		}
+		output := dataFlow.GetNodeOutput(node.ID)
+		if output == nil || output.Payload == nil {
+			continue
+		}
+		if payloadMap, ok := output.Payload.(map[string]interface{}); ok {
+			if response, exists := payloadMap["response"]; exists {
+				items = append(items, response)
+				continue
+			}
+			if data, exists := payloadMap["data"]; exists {
+				items = append(items, data)
+				continue
+			}
+		}
+		items = append(items, output.Payload)
+	}
+	return items
+}
+
+func shouldPreferAPIOutputResults(req ExecutionRequest) bool {
+	source, _ := req.RuntimeMeta["source"].(string)
+	return source == "open_api"
 }
 
 // ExecuteAINodeStream 流式执行AI节点
@@ -903,7 +947,9 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 		nodeCompletedTime := time.Now()
 
 		status := "completed"
-		if !result.Success {
+		if isSkippedStartNodeResult(result) {
+			status = "skipped"
+		} else if !result.Success {
 			// 检查错误信息是否包含 context canceled（手动中止的标志）
 			isContextCanceled := false
 			if result.Error != "" {
@@ -1045,6 +1091,9 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 
 			// 发送节点执行成功的事件，包含完整结果数据
 			// 使用特殊的contentType "node_result" 来标识这是节点结果事件
+			resultJSON, _ := json.Marshal(result)
+			callback(nodeConfig.ID, string(resultJSON), false, "node_result", nil)
+		} else if isSkippedStartNodeResult(result) {
 			resultJSON, _ := json.Marshal(result)
 			callback(nodeConfig.ID, string(resultJSON), false, "node_result", nil)
 		} else {
@@ -1314,6 +1363,7 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 		}
 
 		// 如果是AI节点，检查是否启用流式输出
+		shouldSkipDownstream := false
 		if nodeConfig.Type == "ai" {
 			// 获取模型配置以判断是否启用流式
 			// 如果 modelMode 为空字符串，也使用默认值 "system"（确保测试工作流时能正确计费）
@@ -1412,6 +1462,10 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 					variableContext.SetNodeOutput(nodeConfig.ID, nodeData)
 					resultJSON, _ := json.Marshal(result)
 					callback(nodeConfig.ID, string(resultJSON), false, "node_result", nil)
+				} else if isSkippedStartNodeResult(result) {
+					resultJSON, _ := json.Marshal(result)
+					callback(nodeConfig.ID, string(resultJSON), false, "node_result", nil)
+					shouldSkipDownstream = true
 				} else {
 					resultJSON, _ := json.Marshal(result)
 					callback(nodeConfig.ID, string(resultJSON), false, "node_result", fmt.Errorf("节点执行失败: %s", result.Error))
@@ -1442,6 +1496,10 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 				variableContext.SetNodeOutput(nodeConfig.ID, nodeData)
 				resultJSON, _ := json.Marshal(result)
 				callback(nodeConfig.ID, string(resultJSON), false, "node_result", nil)
+			} else if isSkippedStartNodeResult(result) {
+				resultJSON, _ := json.Marshal(result)
+				callback(nodeConfig.ID, string(resultJSON), false, "node_result", nil)
+				shouldSkipDownstream = true
 			} else {
 				resultJSON, _ := json.Marshal(result)
 				callback(nodeConfig.ID, string(resultJSON), false, "node_result", fmt.Errorf("节点执行失败: %s", result.Error))
@@ -1449,6 +1507,9 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 		}
 
 		executed[nodeConfig.ID] = true
+		if shouldSkipDownstream {
+			continue
+		}
 
 		// 如果是条件节点，需要根据条件结果选择正确的分支
 		if nodeConfig.Type == "condition" {
@@ -1540,7 +1601,7 @@ func (e *WorkflowExecutor) executeWorkflowStreamLegacy(
 		task.Progress = 100
 		task.CompletedAt = &completedAt
 		task.ActualDuration = &actualDuration
-		task.Result = collectTaskResultPayload(dataFlow, terminalNodes)
+		task.Result = collectTaskResultPayload(dataFlow, req.Nodes, terminalNodes, shouldPreferAPIOutputResults(req))
 		task.UpdatedAt = time.Now()
 
 		if err := taskRepo.UpdateTask(task); err != nil {

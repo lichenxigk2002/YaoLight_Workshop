@@ -23,6 +23,7 @@ const PERMISSION_RESOURCE_LABEL_KEY_MAP: Record<string, string> = {
   'billing.overview': 'menu.billingOverview',
   'billing.quota_recovery': 'menu.billingQuotaRecovery',
   'billing.admin_grant': 'menu.billingAdminGrant',
+  'billing.packages': 'menu.billingPackages',
   'billing.orders': 'menu.billingOrders',
   'billing.ledger': 'menu.billingLedger',
   'billing.token_ledger': 'menu.billingTokenLedger',

@@ -4,6 +4,8 @@ import type {
   GrantQuotaPayload,
   AdminOrder,
   AdminOrderQuery,
+  BillingPackage,
+  BillingPackagePayload,
   AdminTokenTransaction,
   AdminTokenTxQuery,
   BillingUserOption,
@@ -101,6 +103,54 @@ export async function getQuotaSummary(): Promise<QuotaSummary> {
   }
 
   return data.data;
+}
+
+export async function getBillingPackages(): Promise<BillingPackage[]> {
+  const { data } = await http.get<ApiEnvelope<{ list: BillingPackage[] }>>('/admin/billing/packages');
+
+  if (data.code !== 200 || !data.data) {
+    throw new Error(data.message || translateCurrent('billing.errorPackagesFailed'));
+  }
+
+  return data.data.list ?? [];
+}
+
+export async function createBillingPackage(payload: BillingPackagePayload): Promise<BillingPackage> {
+  const { data } = await http.post<ApiEnvelope<BillingPackage>>('/admin/billing/packages', payload);
+
+  if (data.code !== 200 || !data.data) {
+    throw new Error(data.message || translateCurrent('billing.errorPackageSaveFailed'));
+  }
+
+  return data.data;
+}
+
+export async function updateBillingPackage(id: string, payload: BillingPackagePayload): Promise<BillingPackage> {
+  const { data } = await http.put<ApiEnvelope<BillingPackage>>(`/admin/billing/packages/${id}`, payload);
+
+  if (data.code !== 200 || !data.data) {
+    throw new Error(data.message || translateCurrent('billing.errorPackageSaveFailed'));
+  }
+
+  return data.data;
+}
+
+export async function updateBillingPackageStatus(id: string, status: BillingPackage['status']): Promise<BillingPackage> {
+  const { data } = await http.patch<ApiEnvelope<BillingPackage>>(`/admin/billing/packages/${id}/status`, { status });
+
+  if (data.code !== 200 || !data.data) {
+    throw new Error(data.message || translateCurrent('billing.errorPackageStatusFailed'));
+  }
+
+  return data.data;
+}
+
+export async function deleteBillingPackage(id: string): Promise<void> {
+  const { data } = await http.delete<ApiEnvelope<{ id: string }>>(`/admin/billing/packages/${id}`);
+
+  if (data.code !== 200) {
+    throw new Error(data.message || translateCurrent('billing.errorPackageDeleteFailed'));
+  }
 }
 
 export async function searchBillingUsers(keyword?: string, limit = 20): Promise<BillingUserOption[]> {

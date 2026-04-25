@@ -96,13 +96,10 @@ export default function Statistics() {
   return (
     <div className={styles.container}>
       <div>
-        <div className={styles.eyebrow}>{t('settings.usageStatistics', '用量统计')}</div>
-        <h2 className={styles.title}>{t('settings.usageStatistics', '用量统计')}</h2>
+        <div className={styles.eyebrow}>{t('settings.usageStatistics')}</div>
+        <h2 className={styles.title}>{t('settings.usageStatistics')}</h2>
         <p className={styles.desc}>
-          {t(
-            'settings.usageStatisticsDesc',
-            '把今天与累计的输入、输出和总 Token 使用情况放到一起，方便追踪整体消耗。',
-          )}
+          {t('settings.usageStatisticsDesc')}
         </p>
       </div>
 
@@ -148,10 +145,7 @@ export default function Statistics() {
         <div className={styles.tableHeader}>
           <div className={styles.tableTitle}>{t('settings.modelAnalytics')}</div>
           <div className={styles.tableDesc}>
-            {t(
-              'settings.modelAnalyticsDesc',
-              '按模型拆分查看今天与累计消耗，适合判断高频模型和长期成本。',
-            )}
+            {t('settings.modelAnalyticsDesc')}
           </div>
         </div>
         <div className={styles.tableShell}>

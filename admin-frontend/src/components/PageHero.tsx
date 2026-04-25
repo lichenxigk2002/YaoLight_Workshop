@@ -10,18 +10,41 @@ interface PageHeroProps {
   description: string;
   tags?: string[];
   action?: ReactNode;
+  descriptionRows?: number;
+  contentClassName?: string;
 }
 
-export default function PageHero({ eyebrow, title, description, tags = [], action }: PageHeroProps) {
+export default function PageHero({
+  eyebrow,
+  title,
+  description,
+  tags = [],
+  action,
+  descriptionRows,
+  contentClassName,
+}: PageHeroProps) {
   return (
     <Card className={styles.hero} bordered={false}>
       <div className={styles.content}>
-        <div>
+        <div className={[styles.main, contentClassName].filter(Boolean).join(' ')}>
           {eyebrow ? <div className={styles.eyebrow}>{eyebrow}</div> : null}
           <Title level={2} className={styles.title}>
             {title}
           </Title>
-          <Paragraph className={styles.description}>{description}</Paragraph>
+          <Paragraph
+            className={styles.description}
+            ellipsis={
+              descriptionRows
+                ? {
+                    rows: descriptionRows,
+                    expandable: 'collapsible',
+                    symbol: (expanded) => (expanded ? '收起' : '展开更多'),
+                  }
+                : undefined
+            }
+          >
+            {description}
+          </Paragraph>
           {tags.length > 0 ? (
             <Space wrap>
               {tags.map((tag) => (

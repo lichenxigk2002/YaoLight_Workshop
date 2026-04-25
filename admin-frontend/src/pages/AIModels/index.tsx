@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, Col, Row, Skeleton, Statistic, Tag, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import ProviderIcon from '@/components/Icons/ProviderIcon';
+import AIIcon from '@/components/Icons/AIIcon';
 import PageHero from '@/components/PageHero';
 import { getAIPricingRules, getAIOverviewModels, getAIProviders, getAIUsage } from '@/api/aiModels';
 import { useAdminPermission } from '@/hooks/useAdminPermission';
@@ -193,9 +193,9 @@ export default function AIModelsHomePage() {
                   <Card size="small" className={styles.resourceCard}>
                     <div className={styles.resourceMeta}>
                       <div className={styles.providerHeading}>
-                        <ProviderIcon provider={provider.key} size={24} />
+                        <AIIcon iconKey={provider.icon} fallbackProvider={provider.key} size={24} />
                         <div className={styles.providerTextBlock}>
-                          <Title level={5}>{getAIProviderLabel(provider.key, t)}</Title>
+                          <Title level={5}>{provider.name || getAIProviderLabel(provider.key, t)}</Title>
                           <Paragraph className={styles.muted}>{provider.description}</Paragraph>
                         </div>
                       </div>

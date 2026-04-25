@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Card, Descriptions, Form, Space, Spin, Tabs, Tag, Typography } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getCrawlerRule, updateCrawlerRule } from '@/api/crawlerRules';
@@ -10,6 +10,71 @@ import { detailToFormValues, formatSuccessRate, getStatusMeta, prettyJson, type 
 
 const { Paragraph, Text, Title } = Typography;
 
+interface TutorialSection {
+  heading: string;
+  items: string[];
+}
+
+function parseTutorial(raw?: string | null) {
+  const lines = (raw || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return { summary: '', sections: [] as TutorialSection[] };
+
+  const summaryLine = lines[0].startsWith('适用场景') ? lines[0] : '';
+  const contentLines = summaryLine ? lines.slice(1) : lines;
+  const sections: TutorialSection[] = [];
+  let current: TutorialSection | null = null;
+
+  contentLines.forEach((line) => {
+    if (line.endsWith('：')) {
+      current = { heading: line.slice(0, -1), items: [] };
+      sections.push(current);
+      return;
+    }
+
+    if (!current) {
+      current = { heading: '说明', items: [] };
+      sections.push(current);
+    }
+    current.items.push(line);
+  });
+
+  return { summary: summaryLine, sections };
+}
+
+function renderTutorial(raw?: string | null, expanded = false) {
+  const parsed = parseTutorial(raw);
+
+  if (!parsed.summary && parsed.sections.length === 0) {
+    return <Paragraph className={styles.muted}>当前规则还没有配套教程。</Paragraph>;
+  }
+
+  const visibleSections = expanded ? parsed.sections : parsed.sections.slice(0, 4);
+
+  return (
+    <div className={styles.tutorialPanel}>
+      {parsed.summary ? <Paragraph className={styles.tutorialSummary}>{parsed.summary}</Paragraph> : null}
+      <div className={styles.tutorialGrid}>
+        {visibleSections.map((section) => (
+          <div key={section.heading} className={styles.tutorialSection}>
+            <Text strong className={styles.tutorialSectionTitle}>{section.heading}</Text>
+            <div className={styles.tutorialBlock}>
+              {section.items.map((line, index) => (
+                <Paragraph key={`${section.heading}-${index}-${line.slice(0, 12)}`} className={styles.tutorialLine}>
+                  {line}
+                </Paragraph>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function RuleDetailPage() {
   const { message } = App.useApp();
   const navigate = useNavigate();
@@ -20,6 +85,7 @@ export default function RuleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [tutorialExpanded, setTutorialExpanded] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -74,6 +140,8 @@ export default function RuleDetailPage() {
   }
 
   const statusMeta = getStatusMeta(rule.is_active);
+  const tutorialMeta = useMemo(() => parseTutorial(rule.tutorial), [rule.tutorial]);
+  const hasTutorialOverflow = tutorialMeta.sections.length > 4;
 
   return (
     <div className={styles.page}>
@@ -112,6 +180,18 @@ export default function RuleDetailPage() {
           <Descriptions.Item label="Headless">{rule.javascript_enabled ? '启用' : '关闭'}</Descriptions.Item>
           <Descriptions.Item label="执行截图">{rule.screenshot ? '启用' : '关闭'}</Descriptions.Item>
         </Descriptions>
+      </Card>
+
+      <Card bordered={false} className={styles.card}>
+        <div className={styles.sectionHeader}>
+          <Title level={4} className={styles.sectionTitle}>使用教程</Title>
+          {hasTutorialOverflow ? (
+            <Button type="link" className={styles.inlineLink} onClick={() => setTutorialExpanded((value) => !value)}>
+              {tutorialExpanded ? '收起教程' : '展开完整教程'}
+            </Button>
+          ) : null}
+        </div>
+        {renderTutorial(rule.tutorial, tutorialExpanded)}
       </Card>
 
       <Card bordered={false} className={styles.card}>

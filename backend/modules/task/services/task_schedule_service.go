@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 	log "yaolight-workshop/backend/infrastructure/logx"
@@ -55,38 +57,47 @@ type TaskScheduleListQuery struct {
 	PageSize    int
 }
 
+type TaskSchedulePlan struct {
+	Frequency string `json:"frequency"`
+	Time      string `json:"time"`
+	Weekdays  []int  `json:"weekdays"`
+	MonthDay  *int   `json:"monthDay"`
+}
+
 type CreateTaskScheduleRequest struct {
-	WorkflowID         uint        `json:"workflowId"`
-	Name               string      `json:"name"`
-	Description        *string     `json:"description"`
-	TriggerType        string      `json:"triggerType"`
-	CronExpression     string      `json:"cronExpression"`
-	Timezone           string      `json:"timezone"`
-	IsActive           *bool       `json:"isActive"`
-	StartDate          *time.Time  `json:"startDate"`
-	EndDate            *time.Time  `json:"endDate"`
-	MaxRuns            *int        `json:"maxRuns"`
-	Config             interface{} `json:"config"`
-	NotificationConfig interface{} `json:"notificationConfig"`
-	RetryPolicy        interface{} `json:"retryPolicy"`
-	InputTemplate      interface{} `json:"inputTemplate"`
+	WorkflowID         uint              `json:"workflowId"`
+	Name               string            `json:"name"`
+	Description        *string           `json:"description"`
+	TriggerType        string            `json:"triggerType"`
+	CronExpression     string            `json:"cronExpression"`
+	SchedulePlan       *TaskSchedulePlan `json:"schedulePlan"`
+	Timezone           string            `json:"timezone"`
+	IsActive           *bool             `json:"isActive"`
+	StartDate          *time.Time        `json:"startDate"`
+	EndDate            *time.Time        `json:"endDate"`
+	MaxRuns            *int              `json:"maxRuns"`
+	Config             interface{}       `json:"config"`
+	NotificationConfig interface{}       `json:"notificationConfig"`
+	RetryPolicy        interface{}       `json:"retryPolicy"`
+	InputTemplate      interface{}       `json:"inputTemplate"`
 }
 
 type UpdateTaskScheduleRequest struct {
-	Name                *string     `json:"name"`
-	Description         *string     `json:"description"`
-	TriggerType         *string     `json:"triggerType"`
-	CronExpression      *string     `json:"cronExpression"`
-	Timezone            *string     `json:"timezone"`
-	IsActive            *bool       `json:"isActive"`
-	StartDate           *time.Time  `json:"startDate"`
-	EndDate             *time.Time  `json:"endDate"`
-	MaxRuns             *int        `json:"maxRuns"`
-	Config              interface{} `json:"config"`
-	NotificationConfig  interface{} `json:"notificationConfig"`
-	RetryPolicy         interface{} `json:"retryPolicy"`
-	InputTemplate       interface{} `json:"inputTemplate"`
-	RotateWebhookSecret bool        `json:"rotateWebhookSecret"`
+	Name                *string           `json:"name"`
+	Description         *string           `json:"description"`
+	TriggerType         *string           `json:"triggerType"`
+	CronExpression      *string           `json:"cronExpression"`
+	SchedulePlan        *TaskSchedulePlan `json:"schedulePlan"`
+	Timezone            *string           `json:"timezone"`
+	IsActive            *bool             `json:"isActive"`
+	StartDate           *time.Time        `json:"startDate"`
+	EndDate             *time.Time        `json:"endDate"`
+	MaxRuns             *int              `json:"maxRuns"`
+	Config              interface{}       `json:"config"`
+	NotificationConfig  interface{}       `json:"notificationConfig"`
+	RetryPolicy         interface{}       `json:"retryPolicy"`
+	InputTemplate       interface{}       `json:"inputTemplate"`
+	RotateWebhookSecret bool              `json:"rotateWebhookSecret"`
 }
 
 type TriggerNowRequest struct {
@@ -95,34 +106,35 @@ type TriggerNowRequest struct {
 }
 
 type TaskScheduleResponse struct {
-	ID                   uint        `json:"id"`
-	WorkflowID           uint        `json:"workflowId"`
-	WorkflowName         *string     `json:"workflowName,omitempty"`
-	ProjectID            *uint       `json:"projectId,omitempty"`
-	UserID               uint        `json:"userId"`
-	Name                 string      `json:"name"`
-	Description          *string     `json:"description,omitempty"`
-	TriggerType          string      `json:"triggerType"`
-	CronExpression       string      `json:"cronExpression"`
-	Timezone             string      `json:"timezone"`
-	IsActive             bool        `json:"isActive"`
-	StartDate            *time.Time  `json:"startDate,omitempty"`
-	EndDate              *time.Time  `json:"endDate,omitempty"`
-	MaxRuns              *int        `json:"maxRuns,omitempty"`
-	RunCount             int         `json:"runCount"`
-	NextRunAt            *time.Time  `json:"nextRunAt,omitempty"`
-	LastRunAt            *time.Time  `json:"lastRunAt,omitempty"`
-	LastRunStatus        *string     `json:"lastRunStatus,omitempty"`
-	LastErrorMessage     *string     `json:"lastErrorMessage,omitempty"`
-	LastTriggerRequestID *string     `json:"lastTriggerRequestId,omitempty"`
-	WebhookToken         *string     `json:"webhookToken,omitempty"`
-	WebhookURL           *string     `json:"webhookUrl,omitempty"`
-	Config               interface{} `json:"config,omitempty"`
-	NotificationConfig   interface{} `json:"notificationConfig,omitempty"`
-	RetryPolicy          interface{} `json:"retryPolicy,omitempty"`
-	InputTemplate        interface{} `json:"inputTemplate,omitempty"`
-	CreatedAt            time.Time   `json:"createdAt"`
-	UpdatedAt            time.Time   `json:"updatedAt"`
+	ID                   uint              `json:"id"`
+	WorkflowID           uint              `json:"workflowId"`
+	WorkflowName         *string           `json:"workflowName,omitempty"`
+	ProjectID            *uint             `json:"projectId,omitempty"`
+	UserID               uint              `json:"userId"`
+	Name                 string            `json:"name"`
+	Description          *string           `json:"description,omitempty"`
+	TriggerType          string            `json:"triggerType"`
+	CronExpression       string            `json:"cronExpression"`
+	SchedulePlan         *TaskSchedulePlan `json:"schedulePlan,omitempty"`
+	Timezone             string            `json:"timezone"`
+	IsActive             bool              `json:"isActive"`
+	StartDate            *time.Time        `json:"startDate,omitempty"`
+	EndDate              *time.Time        `json:"endDate,omitempty"`
+	MaxRuns              *int              `json:"maxRuns,omitempty"`
+	RunCount             int               `json:"runCount"`
+	NextRunAt            *time.Time        `json:"nextRunAt,omitempty"`
+	LastRunAt            *time.Time        `json:"lastRunAt,omitempty"`
+	LastRunStatus        *string           `json:"lastRunStatus,omitempty"`
+	LastErrorMessage     *string           `json:"lastErrorMessage,omitempty"`
+	LastTriggerRequestID *string           `json:"lastTriggerRequestId,omitempty"`
+	WebhookToken         *string           `json:"webhookToken,omitempty"`
+	WebhookURL           *string           `json:"webhookUrl,omitempty"`
+	Config               interface{}       `json:"config,omitempty"`
+	NotificationConfig   interface{}       `json:"notificationConfig,omitempty"`
+	RetryPolicy          interface{}       `json:"retryPolicy,omitempty"`
+	InputTemplate        interface{}       `json:"inputTemplate,omitempty"`
+	CreatedAt            time.Time         `json:"createdAt"`
+	UpdatedAt            time.Time         `json:"updatedAt"`
 }
 
 type TaskScheduleRunResponse struct {
@@ -895,6 +907,13 @@ func (s *TaskScheduleService) applyScheduleConfig(schedule *taskModels.TaskSched
 	case CreateTaskScheduleRequest:
 		triggerType = normalizeTriggerType(req.TriggerType)
 		cronExpression = strings.TrimSpace(req.CronExpression)
+		if req.SchedulePlan != nil {
+			derivedCron, err := cronExpressionFromSchedulePlan(req.SchedulePlan)
+			if err != nil {
+				return nil, err
+			}
+			cronExpression = derivedCron
+		}
 		timezone = normalizeTimezone(req.Timezone)
 		if req.IsActive == nil {
 			isActive = true
@@ -920,6 +939,13 @@ func (s *TaskScheduleService) applyScheduleConfig(schedule *taskModels.TaskSched
 		}
 		if req.CronExpression != nil {
 			cronExpression = strings.TrimSpace(*req.CronExpression)
+		}
+		if req.SchedulePlan != nil {
+			derivedCron, err := cronExpressionFromSchedulePlan(req.SchedulePlan)
+			if err != nil {
+				return nil, err
+			}
+			cronExpression = derivedCron
 		}
 		if req.Timezone != nil {
 			timezone = normalizeTimezone(*req.Timezone)
@@ -1052,6 +1078,7 @@ func (s *TaskScheduleService) toScheduleResponse(schedule *taskModels.TaskSchedu
 		Description:          schedule.Description,
 		TriggerType:          schedule.TriggerType,
 		CronExpression:       schedule.CronExpression,
+		SchedulePlan:         schedulePlanFromCronExpression(schedule.CronExpression),
 		Timezone:             schedule.Timezone,
 		IsActive:             schedule.IsActive,
 		StartDate:            schedule.StartDate,
@@ -1142,6 +1169,95 @@ func normalizeTimezone(value string) string {
 		return "UTC"
 	}
 	return value
+}
+
+func cronExpressionFromSchedulePlan(plan *TaskSchedulePlan) (string, error) {
+	if plan == nil {
+		return "", fmt.Errorf("schedulePlan is required")
+	}
+
+	parts := strings.Split(strings.TrimSpace(plan.Time), ":")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("schedulePlan.time must be HH:mm")
+	}
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil || hour < 0 || hour > 23 {
+		return "", fmt.Errorf("schedulePlan.time hour must be between 0 and 23")
+	}
+	minute, err := strconv.Atoi(parts[1])
+	if err != nil || minute < 0 || minute > 59 {
+		return "", fmt.Errorf("schedulePlan.time minute must be between 0 and 59")
+	}
+
+	switch strings.ToLower(strings.TrimSpace(plan.Frequency)) {
+	case "daily", "":
+		return fmt.Sprintf("%d %d * * *", minute, hour), nil
+	case "weekly":
+		if len(plan.Weekdays) == 0 {
+			return "", fmt.Errorf("schedulePlan.weekdays is required for weekly plans")
+		}
+		seen := map[int]bool{}
+		weekdays := make([]string, 0, len(plan.Weekdays))
+		for _, day := range plan.Weekdays {
+			if day < 0 || day > 6 {
+				return "", fmt.Errorf("schedulePlan.weekdays must be between 0 and 6")
+			}
+			if seen[day] {
+				continue
+			}
+			seen[day] = true
+			weekdays = append(weekdays, strconv.Itoa(day))
+		}
+		sort.Strings(weekdays)
+		return fmt.Sprintf("%d %d * * %s", minute, hour, strings.Join(weekdays, ",")), nil
+	case "monthly":
+		day := 1
+		if plan.MonthDay != nil {
+			day = *plan.MonthDay
+		}
+		if day < 1 || day > 31 {
+			return "", fmt.Errorf("schedulePlan.monthDay must be between 1 and 31")
+		}
+		return fmt.Sprintf("%d %d %d * *", minute, hour, day), nil
+	default:
+		return "", fmt.Errorf("unsupported schedulePlan.frequency")
+	}
+}
+
+func schedulePlanFromCronExpression(expression string) *TaskSchedulePlan {
+	fields := strings.Fields(strings.TrimSpace(expression))
+	if len(fields) != 5 {
+		return nil
+	}
+	minute, errMinute := strconv.Atoi(fields[0])
+	hour, errHour := strconv.Atoi(fields[1])
+	if errMinute != nil || errHour != nil || minute < 0 || minute > 59 || hour < 0 || hour > 23 {
+		return nil
+	}
+	timeValue := fmt.Sprintf("%02d:%02d", hour, minute)
+	if fields[2] == "*" && fields[3] == "*" && fields[4] == "*" {
+		return &TaskSchedulePlan{Frequency: "daily", Time: timeValue}
+	}
+	if fields[2] == "*" && fields[3] == "*" && fields[4] != "*" {
+		rawWeekdays := strings.Split(fields[4], ",")
+		weekdays := make([]int, 0, len(rawWeekdays))
+		for _, raw := range rawWeekdays {
+			day, err := strconv.Atoi(strings.TrimSpace(raw))
+			if err != nil || day < 0 || day > 6 {
+				return nil
+			}
+			weekdays = append(weekdays, day)
+		}
+		return &TaskSchedulePlan{Frequency: "weekly", Time: timeValue, Weekdays: weekdays}
+	}
+	if fields[2] != "*" && fields[3] == "*" && fields[4] == "*" {
+		day, err := strconv.Atoi(fields[2])
+		if err != nil || day < 1 || day > 31 {
+			return nil
+		}
+		return &TaskSchedulePlan{Frequency: "monthly", Time: timeValue, MonthDay: &day}
+	}
+	return nil
 }
 
 func normalizePositiveIntPtr(value *int) *int {

@@ -188,7 +188,9 @@ export function ProjectAutomationContent({
           </div>
           <Space size={8} wrap>
             <Tag color={schedule.triggerType === 'cron' ? 'gold' : 'blue'}>
-              {schedule.triggerType === 'cron' ? 'Cron' : 'Webhook'}
+              {schedule.triggerType === 'cron'
+                ? pa('scheduledTrigger', isZh ? '定时计划' : 'Scheduled')
+                : 'Webhook'}
             </Tag>
             <Tag color={schedule.isActive ? 'green' : 'default'}>
               {schedule.isActive
@@ -298,7 +300,7 @@ export function ProjectAutomationContent({
           <div className={styles.metricValue}>{metrics.activeCount}</div>
         </div>
         <div className={styles.metricCard}>
-          <div className={styles.metricLabel}>{pa('cronPlans', isZh ? 'Cron 任务' : 'Cron')}</div>
+          <div className={styles.metricLabel}>{pa('cronPlans', isZh ? '定时任务' : 'Scheduled')}</div>
           <div className={styles.metricValue}>{metrics.cronCount}</div>
         </div>
         <div className={styles.metricCard}>
@@ -322,7 +324,7 @@ export function ProjectAutomationContent({
             className={styles.filterSelect}
             placeholder={pa('triggerFilter', isZh ? '触发类型' : 'Trigger type')}
             options={[
-              { label: 'Cron', value: 'cron' },
+              { label: pa('scheduledTrigger', isZh ? '定时计划' : 'Scheduled'), value: 'cron' },
               { label: 'Webhook', value: 'webhook' },
             ]}
           />

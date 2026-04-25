@@ -248,7 +248,7 @@ const LoginWorkflowCanvas: React.FC = () => {
   }, [fitPreview, i18n.language]);
 
   return (
-    <div ref={containerRef} className={styles.canvasContainer}>
+    <div ref={containerRef} className={styles.canvasContainer} data-theme="dark">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -287,4 +287,3 @@ const LoginWorkflowCanvas: React.FC = () => {
 };
 
 export default LoginWorkflowCanvas;
-
