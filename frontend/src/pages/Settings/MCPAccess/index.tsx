@@ -13,6 +13,8 @@ const { Paragraph, Text } = Typography;
 
 const DEFAULT_SCOPES = ['projects:read', 'workflows:read', 'tasks:read', 'artifacts:read', 'knowledge:read', 'models:read'];
 const ALL_SCOPES = [...DEFAULT_SCOPES, 'workflows:execute', 'tasks:write'];
+type ClientConfigTabKey = 'codex' | 'json';
+
 const DEFAULT_SETTINGS: MCPAccessSettings = {
   enabled: true,
   allowExecutionTools: false,
@@ -41,37 +43,47 @@ function formatDateTime(value: string | null | undefined, fallback: string) {
   return date.toLocaleString();
 }
 
-function apiBaseURL() {
-  const explicit = import.meta.env.VITE_BASE_URL;
-  if (explicit) return explicit.replace(/\/$/, '');
-  if (typeof window === 'undefined') return '/api';
+function fallbackApiBaseURL() {
+  const explicit = import.meta.env.VITE_BASE_URL?.trim();
+  if (typeof window === 'undefined') return explicit?.replace(/\/$/, '') || '/api';
+  if (explicit) {
+    if (/^https?:\/\//i.test(explicit)) return explicit.replace(/\/$/, '');
+    if (explicit.startsWith('/')) return `${window.location.origin}${explicit}`.replace(/\/$/, '');
+    return new URL(explicit, `${window.location.origin}/`).toString().replace(/\/$/, '');
+  }
   if (['3000', '5173'].includes(window.location.port)) return 'http://localhost:8080/api';
   return `${window.location.origin}/api`;
+}
+
+function resolveApiBaseURL(explicit?: string | null) {
+  const normalized = explicit?.trim();
+  if (normalized) return normalized.replace(/\/$/, '');
+  return fallbackApiBaseURL();
 }
 
 function cliCommand() {
   return import.meta.env.VITE_YAOLIGHT_CLI_COMMAND || 'yaolight';
 }
 
-function buildCodexCommand(token: string) {
+function buildCodexCommand(token: string, baseURL: string) {
   return [
     'codex mcp remove yaolight',
     '',
     'codex mcp add yaolight \\',
-    `  --env YAOLIGHT_BASE_URL=${apiBaseURL()} \\`,
+    `  --env YAOLIGHT_BASE_URL=${baseURL} \\`,
     `  --env YAOLIGHT_MCP_TOKEN=${token} \\`,
     `  -- ${cliCommand()} mcp serve`,
   ].join('\n');
 }
 
-function buildGenericMCPConfig(token: string) {
+function buildGenericMCPConfig(token: string, baseURL: string) {
   return JSON.stringify({
     mcpServers: {
       yaolight: {
         command: cliCommand(),
         args: ['mcp', 'serve'],
         env: {
-          YAOLIGHT_BASE_URL: apiBaseURL(),
+          YAOLIGHT_BASE_URL: baseURL,
           YAOLIGHT_MCP_TOKEN: token,
         },
       },
@@ -97,6 +109,8 @@ export default function MCPAccessPage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createdToken, setCreatedToken] = useState<CreatedMCPToken | null>(null);
+  const [clientConfigTab, setClientConfigTab] = useState<ClientConfigTabKey>('codex');
+  const [createdTokenConfigTab, setCreatedTokenConfigTab] = useState<ClientConfigTabKey>('codex');
 
   const loadTokens = useCallback(async () => {
     setLoading(true);
@@ -147,6 +161,17 @@ export default function MCPAccessPage() {
     () => tokens.filter((token) => !token.revoked_at && !isTokenExpired(token)).length,
     [tokens],
   );
+  const publicApiBaseURL = useMemo(() => resolveApiBaseURL(settings.publicApiBaseUrl), [settings.publicApiBaseUrl]);
+  const previewCodexCommand = useMemo(() => buildCodexCommand('yl_mcp_xxx', publicApiBaseURL), [publicApiBaseURL]);
+  const previewGenericConfig = useMemo(() => buildGenericMCPConfig('yl_mcp_xxx', publicApiBaseURL), [publicApiBaseURL]);
+  const createdTokenCodexCommand = useMemo(
+    () => createdToken ? buildCodexCommand(createdToken.token, publicApiBaseURL) : '',
+    [createdToken, publicApiBaseURL],
+  );
+  const createdTokenGenericConfig = useMemo(
+    () => createdToken ? buildGenericMCPConfig(createdToken.token, publicApiBaseURL) : '',
+    [createdToken, publicApiBaseURL],
+  );
 
   const scopeLabel = useCallback((scope: string) => t(SCOPE_META[scope]?.labelKey || scope, scope), [t]);
   const scopeDesc = useCallback((scope: string) => t(SCOPE_META[scope]?.descKey || scope, ''), [t]);
@@ -158,6 +183,7 @@ export default function MCPAccessPage() {
         expires_in_days: values.expires_in_days,
         scopes: values.scopes?.length ? values.scopes : DEFAULT_SCOPES,
       });
+      setCreatedTokenConfigTab('codex');
       setCreatedToken(created);
       setCreateOpen(false);
       form.resetFields();
@@ -377,13 +403,15 @@ export default function MCPAccessPage() {
           className={styles.configAlert}
         />
         <Tabs
+          activeKey={clientConfigTab}
+          onChange={(key) => setClientConfigTab(key as ClientConfigTabKey)}
           items={[
             {
               key: 'codex',
               label: t('settings.mcpCodexConfig'),
               children: (
                 <>
-                  <CodeBlock value={buildCodexCommand('yl_mcp_xxx')} language="bash" className={styles.codeBlock} defaultExpanded collapsedLines={999} />
+                  <CodeBlock value={previewCodexCommand} language="bash" className={styles.codeBlock} defaultExpanded collapsedLines={999} />
                 </>
               ),
             },
@@ -392,7 +420,7 @@ export default function MCPAccessPage() {
               label: t('settings.mcpJsonConfig'),
               children: (
                 <>
-                  <CodeBlock value={buildGenericMCPConfig('yl_mcp_xxx')} language="json" className={styles.codeBlock} defaultExpanded collapsedLines={999} />
+                  <CodeBlock value={previewGenericConfig} language="json" className={styles.codeBlock} defaultExpanded collapsedLines={999} />
                 </>
               ),
             },
@@ -468,13 +496,21 @@ export default function MCPAccessPage() {
       <Modal
         title={t('settings.mcpTokenCreated')}
         open={Boolean(createdToken)}
-        onCancel={() => setCreatedToken(null)}
+        onCancel={() => {
+          setCreatedToken(null);
+          setCreatedTokenConfigTab('codex');
+        }}
         footer={[
           <Button key="copy-token" icon={<CopyOutlined />} onClick={() => createdToken && void handleCopy(createdToken.token, t('settings.mcpTokenCopied'))}>
             {t('settings.mcpCopyToken')}
           </Button>,
-          <Button key="copy-config" type="primary" icon={<CopyOutlined />} onClick={() => createdToken && void handleCopy(buildCodexCommand(createdToken.token), t('settings.mcpCopied'))}>
-            {t('settings.mcpCopyCodexConfig')}
+          <Button
+            key="copy-config"
+            type="primary"
+            icon={<CopyOutlined />}
+            onClick={() => void handleCopy(createdTokenConfigTab === 'json' ? createdTokenGenericConfig : createdTokenCodexCommand, t('settings.mcpCopied'))}
+          >
+            {createdTokenConfigTab === 'json' ? t('settings.mcpCopyJsonConfig') : t('settings.mcpCopyCodexConfig')}
           </Button>,
         ]}
       >
@@ -485,16 +521,18 @@ export default function MCPAccessPage() {
               {createdToken.token}
             </Paragraph>
             <Tabs
+              activeKey={createdTokenConfigTab}
+              onChange={(key) => setCreatedTokenConfigTab(key as ClientConfigTabKey)}
               items={[
                 {
                   key: 'codex',
                   label: t('settings.mcpCodexConfig'),
-                  children: <CodeBlock value={buildCodexCommand(createdToken.token)} language="bash" className={styles.codeBlock} defaultExpanded collapsedLines={999} />,
+                  children: <CodeBlock value={createdTokenCodexCommand} language="bash" className={styles.codeBlock} defaultExpanded collapsedLines={999} />,
                 },
                 {
                   key: 'json',
                   label: t('settings.mcpJsonConfig'),
-                  children: <CodeBlock value={buildGenericMCPConfig(createdToken.token)} language="json" className={styles.codeBlock} defaultExpanded collapsedLines={999} />,
+                  children: <CodeBlock value={createdTokenGenericConfig} language="json" className={styles.codeBlock} defaultExpanded collapsedLines={999} />,
                 },
               ]}
             />

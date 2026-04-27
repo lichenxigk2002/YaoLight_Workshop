@@ -370,6 +370,7 @@
     "mcpCodexConfig": "Codex",
     "mcpJsonConfig": "Cursor / Claude Desktop",
     "mcpCopyCodexConfig": "Copy Codex Command",
+    "mcpCopyJsonConfig": "Copy Cursor / Claude Desktop Config",
     "mcpCopyConfigTemplate": "Copy Config Template",
     "mcpCopyConfig": "Copy Full Config",
     "mcpCopyToken": "Copy Token",

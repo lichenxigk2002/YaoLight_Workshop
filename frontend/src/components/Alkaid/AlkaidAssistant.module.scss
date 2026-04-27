@@ -434,6 +434,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .progressDock {
@@ -572,8 +573,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--alkaid-stroke-0);
+  background: transparent;
+  border: none;
+  color: var(--alkaid-text-2);
 }
 
 .bubbleWrap {
@@ -589,8 +591,17 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+.assistant .bubble {
+  border: none;
+  background: transparent;
+  padding: 4px 0;
+  box-shadow: none;
+}
+
 .user .bubble {
-  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  background: var(--alkaid-surface-0);
+  box-shadow: none;
 }
 
 .user .assistantMark {
@@ -609,9 +620,9 @@
 }
 
 .toolBtn {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
   border: 1px solid var(--alkaid-stroke-0);
   background: var(--alkaid-surface-0);
   color: var(--alkaid-text-1);
@@ -633,16 +644,50 @@
     color: var(--alkaid-text-0);
 
     :global([class*='paragraph']) {
-      margin: 6px 0 !important;
+      margin: 4px 0 !important;
     }
-    :global([class*='heading1']),
+    :global([class*='markdownCodeBlock']) {
+      margin: 8px 0 !important;
+    }
+    :global([class*='inlineCode']) {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      color: inherit !important;
+      font-size: 1em !important;
+      line-height: inherit !important;
+      vertical-align: baseline !important;
+    }
+    :global([class*='heading1']) {
+      margin: 10px 0 6px !important;
+      font-size: 17px !important;
+      font-weight: 600 !important;
+      border-bottom: none !important;
+    }
     :global([class*='heading2']) {
-      border-bottom: 1px solid var(--alkaid-stroke-0) !important;
+      margin: 8px 0 5px !important;
+      font-size: 15px !important;
+      font-weight: 600 !important;
+      border-bottom: none !important;
+    }
+    :global([class*='heading3']) {
+      margin: 7px 0 4px !important;
+      font-size: 14px !important;
+      font-weight: 600 !important;
+    }
+    :global([class*='heading4']),
+    :global([class*='heading5']),
+    :global([class*='heading6']) {
+      margin: 6px 0 4px !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
     }
     :global([class*='pre']) {
-      background: var(--alkaid-surface-0) !important;
-      border: 1px solid var(--alkaid-stroke-0) !important;
-      border-radius: 12px !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
     }
   }
 }
@@ -699,11 +744,10 @@
 }
 
 .pendingBar {
-  padding: 10px 12px;
-  border-top: 1px solid var(--alkaid-stroke-0);
-  background: rgba(255, 255, 255, 0.02);
+  flex-shrink: 0;
+  padding: 2px 12px 8px;
   display: flex;
-  flex-direction: row;
+  justify-content: flex-end;
   gap: 8px;
   align-items: center;
 }

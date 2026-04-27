@@ -79,6 +79,7 @@ var (
 	GitHubClientID     string
 	GitHubClientSecret string
 	FrontendURL        string // 登录成功后重定向的前端地址，如 http://localhost:3000
+	PublicAPIBaseURL   string // 可选：覆盖 FRONTEND_URL 推导出的对外 API 根地址，如 https://api.example.com/v1
 	OpenAPIKeyPepper   string
 
 	// 支付宝支付配置
@@ -216,6 +217,7 @@ func LoadConfig() error {
 	GitHubClientID = getEnv("GITHUB_CLIENT_ID", "")
 	GitHubClientSecret = getEnv("GITHUB_CLIENT_SECRET", "")
 	FrontendURL = getEnv("FRONTEND_URL", "http://localhost:3000")
+	PublicAPIBaseURL = getEnv("PUBLIC_API_BASE_URL", "")
 	OpenAPIKeyPepper = getEnv("OPEN_API_KEY_PEPPER", "")
 
 	// 支付宝支付配置

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Popover, Space, Badge } from 'antd';
+import { Button, Popover, Space, Badge, Tooltip } from 'antd';
 import { UploadOutlined, BranchesOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { WorkflowExportData } from '../types';
@@ -21,6 +21,14 @@ const AlkaidPendingWorkflow = ({
 }: AlkaidPendingWorkflowProps) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const handleDiscard = () => {
+    setOpen(false);
+    onDiscard();
+  };
+  const handleApply = () => {
+    setOpen(false);
+    onApply();
+  };
 
   const content = (
     <div className={styles.popoverContent}>
@@ -30,14 +38,14 @@ const AlkaidPendingWorkflow = ({
         {summary.edgeCount} {t('workflowEditor.edges', '边')}
       </div>
       <Space size={8} style={{ width: '100%', justifyContent: 'flex-end' }}>
-        <Button size="small" onClick={onDiscard} disabled={loading}>
+        <Button size="small" onClick={handleDiscard} disabled={loading}>
           {t('workflowEditor.alkaid.discard', '放弃')}
         </Button>
         <Button
           type="primary"
           size="small"
           icon={<UploadOutlined />}
-          onClick={onApply}
+          onClick={handleApply}
           loading={loading}
         >
           {t('workflowEditor.alkaid.applyToCanvas', '应用到画布')}
@@ -47,19 +55,23 @@ const AlkaidPendingWorkflow = ({
   );
 
   return (
-    <Popover
-      content={content}
-      trigger="click"
-      open={open}
-      onOpenChange={setOpen}
-      placement="topLeft"
-    >
-      <Badge dot offset={[-2, 2]} color="blue">
-        <Button className={styles.triggerButton} icon={<BranchesOutlined />}>
-          {t('workflowEditor.alkaid.workflow', '工作流')} ({summary.nodeCount})
-        </Button>
-      </Badge>
-    </Popover>
+    <Tooltip title={`${t('workflowEditor.alkaid.pendingWorkflow', '待确认工作流')} · ${summary.nodeCount} ${t('workflowEditor.nodes', '节点')}`}>
+      <Popover
+        content={content}
+        trigger="click"
+        open={open}
+        onOpenChange={setOpen}
+        placement="topLeft"
+      >
+        <Badge dot offset={[-1, 2]} color="blue">
+          <Button
+            className={styles.triggerButton}
+            icon={<BranchesOutlined />}
+            aria-label={t('workflowEditor.alkaid.pendingWorkflow', '待确认工作流')}
+          />
+        </Badge>
+      </Popover>
+    </Tooltip>
   );
 };
 
