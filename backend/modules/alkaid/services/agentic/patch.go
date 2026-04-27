@@ -3,7 +3,9 @@ package agentic
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
+	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 	workflowSvc "yaolight-workshop/backend/modules/workflow/services"
 )
 
@@ -104,6 +106,56 @@ func ComputeWorkflowDiff(current *workflowSvc.SaveWorkflowNodesRequest, proposed
 	}
 
 	return patch, nil
+}
+
+func SummarizePatchItems(patch []map[string]interface{}) *alkaidModels.PendingPatchSummary {
+	if len(patch) == 0 {
+		return nil
+	}
+
+	addedNodeIDs := make(map[string]struct{})
+	removedNodeIDs := make(map[string]struct{})
+	updatedNodeIDs := make(map[string]struct{})
+	edgesChanged := false
+
+	for _, item := range patch {
+		op, _ := item["op"].(string)
+		switch op {
+		case PatchOpAdd:
+			if nodeID, _ := toMap(item["node"])["id"].(string); nodeID != "" {
+				addedNodeIDs[nodeID] = struct{}{}
+			}
+		case PatchOpRemove:
+			if nodeID, _ := item["nodeId"].(string); nodeID != "" {
+				removedNodeIDs[nodeID] = struct{}{}
+			}
+		case PatchOpSet:
+			if nodeID, _ := item["nodeId"].(string); nodeID != "" {
+				updatedNodeIDs[nodeID] = struct{}{}
+			}
+		case PatchOpSetEdges:
+			edgesChanged = true
+		}
+	}
+
+	return &alkaidModels.PendingPatchSummary{
+		AddedNodeIDs:   sortedPatchNodeIDs(addedNodeIDs),
+		RemovedNodeIDs: sortedPatchNodeIDs(removedNodeIDs),
+		UpdatedNodeIDs: sortedPatchNodeIDs(updatedNodeIDs),
+		EdgesChanged:   edgesChanged,
+	}
+}
+
+func sortedPatchNodeIDs(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	nodeIDs := make([]string, 0, len(values))
+	for nodeID := range values {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	sort.Strings(nodeIDs)
+	return nodeIDs
 }
 
 func toMap(v interface{}) map[string]interface{} {

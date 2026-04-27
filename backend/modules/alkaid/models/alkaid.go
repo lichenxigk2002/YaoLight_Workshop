@@ -18,6 +18,7 @@ type AlkaidSession struct {
 	Status     string `gorm:"type:varchar(20);default:'active'" json:"status"`
 
 	// Agentic 增强：当前阶段、工具步、待确认工作流/补丁（仅新流使用，旧流为空）
+	CurrentTaskMode     string       `gorm:"type:varchar(32);default:''" json:"currentTaskMode,omitempty"`
 	CurrentPhase        string       `gorm:"type:varchar(32);default:''" json:"currentPhase,omitempty"`
 	ToolStepsJSON       shared.JSONB `gorm:"type:jsonb" json:"toolSteps,omitempty"`       // []AgentToolStep，最近 N 条
 	PlanStepsJSON       shared.JSONB `gorm:"type:jsonb" json:"planSteps,omitempty"`       // []AgentPlanStep，最近 N 条

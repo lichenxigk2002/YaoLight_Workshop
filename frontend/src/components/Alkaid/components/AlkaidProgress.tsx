@@ -83,6 +83,106 @@ function toolNameToI18nKey(toolName: string): string {
   return `workflowEditor.alkaid.${key}`;
 }
 
+function getToolDisplayLabel(t: any, tool: AgentToolStep): string {
+  const fallback = tool.toolName.replaceAll('_', ' ');
+  const labels: Record<string, { running: string; success: string; error: string; idle: string }> = {
+    search_knowledge: {
+      running: '正在检索相关知识',
+      success: '已检索相关知识',
+      error: '知识检索失败',
+      idle: '知识检索',
+    },
+    list_project_website_sources: {
+      running: '正在读取项目网站源',
+      success: '已读取项目网站源',
+      error: '网站源读取失败',
+      idle: '项目网站源',
+    },
+    get_capabilities: {
+      running: '正在读取平台能力说明',
+      success: '已读取平台能力说明',
+      error: '能力说明读取失败',
+      idle: '平台能力说明',
+    },
+    get_workflow: {
+      running: '正在读取当前工作流',
+      success: '已读取当前工作流',
+      error: '当前工作流读取失败',
+      idle: '当前工作流',
+    },
+    get_node_spec: {
+      running: '正在读取节点规格',
+      success: '已读取节点规格',
+      error: '节点规格读取失败',
+      idle: '节点规格',
+    },
+    list_workflows: {
+      running: '正在读取工作流列表',
+      success: '已读取工作流列表',
+      error: '工作流列表读取失败',
+      idle: '工作流列表',
+    },
+    get_available_models: {
+      running: '正在检查可用模型',
+      success: '已检查可用模型',
+      error: '可用模型检查失败',
+      idle: '可用模型',
+    },
+    get_user_constraints: {
+      running: '正在读取用户约束',
+      success: '已读取用户约束',
+      error: '用户约束读取失败',
+      idle: '用户约束',
+    },
+    validate_workflow: {
+      running: '正在校验工作流',
+      success: '已完成工作流校验',
+      error: '工作流校验失败',
+      idle: '工作流校验',
+    },
+    run_workflow_trial: {
+      running: '正在试跑工作流',
+      success: '已完成试跑',
+      error: '试跑失败',
+      idle: '工作流试跑',
+    },
+    propose_workflow: {
+      running: '正在整理待确认工作流',
+      success: '已生成待确认工作流',
+      error: '待确认工作流整理失败',
+      idle: '待确认工作流',
+    },
+    propose_patch: {
+      running: '正在整理待确认补丁',
+      success: '已生成待确认补丁',
+      error: '待确认补丁整理失败',
+      idle: '待确认补丁',
+    },
+    check_url_accessibility: {
+      running: '正在检查网页可访问性',
+      success: '已完成网页可访问性检查',
+      error: '网页可访问性检查失败',
+      idle: '网页可访问性检查',
+    },
+    draft_workflow: {
+      running: '正在组织回答内容',
+      success: '已整理回答内容',
+      error: '回答内容整理失败',
+      idle: '回答内容整理',
+    },
+  };
+
+  const matched = labels[tool.toolName];
+  if (!matched) {
+    return t(toolNameToI18nKey(tool.toolName), fallback);
+  }
+
+  if (tool.status === 'running') return matched.running;
+  if (tool.status === 'success') return matched.success;
+  if (tool.status === 'error') return matched.error;
+  return matched.idle;
+}
+
 function getLatestRoundMessageId(planSteps: AgentPlanStep[], toolSteps: AgentToolStep[]): number | null {
   const ids = [
     ...planSteps.map((step) => step.userMessageId),
@@ -454,7 +554,7 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
                         )}
                       </div>
                       <div className={styles.subStepContent}>
-                        <div className={styles.subStepTitle}>{t(toolNameToI18nKey(tool.toolName), tool.toolName)}</div>
+                        <div className={styles.subStepTitle}>{getToolDisplayLabel(t, tool)}</div>
                         {renderTextBlock(tool.resultSummary, `synthetic-tool-result-${tool.stepId}`, 'result')}
                         {tool.errorMessage && renderTextBlock(tool.errorMessage, `synthetic-tool-error-${tool.stepId}`, 'error')}
                       </div>
@@ -551,7 +651,7 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
                             )}
                           </div>
                           <div className={styles.subStepContent}>
-                            <div className={styles.subStepTitle}>{t(toolNameToI18nKey(tool.toolName), tool.toolName)}</div>
+                            <div className={styles.subStepTitle}>{getToolDisplayLabel(t, tool)}</div>
                             {renderTextBlock(tool.resultSummary, `tool-result-${tool.stepId}`, 'result')}
                             {tool.errorMessage && renderTextBlock(tool.errorMessage, `tool-error-${tool.stepId}`, 'error')}
                           </div>
@@ -710,7 +810,7 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
                                 )}
                               </div>
                               <div className={styles.subStepContent}>
-                                <div className={styles.subStepTitle}>{t(toolNameToI18nKey(tool.toolName), tool.toolName)}</div>
+                                <div className={styles.subStepTitle}>{getToolDisplayLabel(t, tool)}</div>
                                 {renderTextBlock(tool.resultSummary, `legacy-tool-result-${tool.stepId}`, 'result')}
                                 {tool.errorMessage && renderTextBlock(tool.errorMessage, `legacy-tool-error-${tool.stepId}`, 'error')}
                               </div>

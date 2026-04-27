@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"yaolight-workshop/backend/infrastructure/config"
+	aiServices "yaolight-workshop/backend/modules/ai/services"
 	"yaolight-workshop/backend/modules/ai/services/providers"
-	"yaolight-workshop/backend/modules/ai/services/providers/deepseek"
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 	alkaidRepos "yaolight-workshop/backend/modules/alkaid/repositories"
 	userServices "yaolight-workshop/backend/modules/user/services"
@@ -29,9 +29,17 @@ func NewAlkaidService() *AlkaidService {
 		capabilitiesService: NewCapabilitiesService(),
 		knowledgeService:    &KnowledgeService{},
 		intentAnalyzer:      NewIntentAnalyzer(),
-		aiProvider:          deepseek.NewDeepSeekProvider(),
+		aiProvider:          mustDefaultAlkaidAIProvider(),
 		transactionService:  userServices.NewTransactionService(),
 	}
+}
+
+func mustDefaultAlkaidAIProvider() providers.AIProvider {
+	provider, err := aiServices.NewProviderFactory().GetProvider("gpt")
+	if err != nil {
+		panic(err)
+	}
+	return provider
 }
 
 // CreateSessionRequest 创建会话请求
@@ -408,20 +416,36 @@ func (s *AlkaidService) GetCapabilities() (*WorkflowCapabilities, error) {
 	return s.capabilitiesService.GetCapabilities()
 }
 
-// buildAIConfig 构建AI配置（使用 deepseek 系统预设）
+// buildAIConfig 构建AI配置（默认使用 OpenRouter GPT 系统预设）
 func (s *AlkaidService) buildAIConfig(userID uint) (*providers.AIModelConfig, error) {
-	if config.DeepSeekAPIKey == "" {
-		return nil, fmt.Errorf("系统未配置DeepSeek API Key，请在.env中配置DEEPSEEK_API_KEY")
+	apiKey := strings.TrimSpace(config.OpenRouterAPIKey)
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(config.OpenAIAPIKey)
+	}
+	if apiKey == "" {
+		return nil, fmt.Errorf("系统未配置 OpenRouter API Key，请在.env中配置 OPENROUTER_API_KEY")
+	}
+	baseURL := strings.TrimSpace(config.OpenAIBaseURL)
+	if baseURL == "" {
+		baseURL = "https://openrouter.ai/api/v1"
+	}
+	modelName := strings.TrimSpace(config.OpenAIChatModel)
+	if modelName == "" {
+		modelName = "openai/gpt-5.4"
+	}
+	maxTokens := config.OpenAIMaxOutputTokens
+	if maxTokens <= 0 {
+		maxTokens = 8192
 	}
 
 	return &providers.AIModelConfig{
-		Provider:              "deepseek",
-		ModelName:             "deepseek-chat",
-		APIKey:                config.DeepSeekAPIKey,
-		BaseURL:               "https://api.deepseek.com",
+		Provider:              "gpt",
+		ModelName:             modelName,
+		APIKey:                apiKey,
+		BaseURL:               baseURL,
 		Temperature:           floatPtr(0.7),
-		MaxTokens:             intPtr(8192), // 增大maxTokens以支持长上下文
-		SystemPrompt:          "",           // SystemPrompt在调用时传入
+		MaxTokens:             intPtr(maxTokens), // 增大maxTokens以支持长上下文
+		SystemPrompt:          "",                // SystemPrompt在调用时传入
 		RequestTimeoutSeconds: config.AIRequestTimeoutSeconds,
 	}, nil
 }
@@ -497,10 +521,12 @@ func (s *AlkaidService) buildGeneralChatPrompt() string {
 2. **回答问题**：如果用户询问功能使用方法、技术问题等，给出清晰的回答
 3. **提供建议**：如果用户询问如何实现某个功能，可以提供建议和指导
 4. **工作流相关**：如果用户想要生成工作流，可以引导他们描述具体需求
+5. **工具使用**：必要时可以调用只读平台工具来补充事实，例如知识检索、节点规格、当前工作流、项目网站源、工作流列表和可用模型
 
 ## 注意事项
 
 - 不要生成工作流JSON（除非用户明确要求）
+- 不要假装已经修改、校验或试跑了工作流，除非相关模式真的执行了这些动作
 - 保持对话的自然和流畅
 - 根据用户的问题提供有用的信息`
 }

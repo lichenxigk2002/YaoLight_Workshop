@@ -8,7 +8,7 @@ import (
 
 // toolRunWorkflowTrial 占位（无 Runner 时使用）
 func toolRunWorkflowTrial(params map[string]interface{}, sessionID uint) (result interface{}, resultSummary string, err error) {
-	return map[string]interface{}{"placeholder": true}, "试跑占位", nil
+	return map[string]interface{}{"success": true, "level": "quick", "placeholder": true, "summary": "试跑占位"}, "试跑占位", nil
 }
 
 // runRunWorkflowTrial 将 workflow 转为 ExecutionRequest 并调用执行器试跑
@@ -18,17 +18,70 @@ func (r *Registry) runRunWorkflowTrial(params map[string]interface{}, sessionID 
 	}
 	workflow, ok := params["workflow"].(map[string]interface{})
 	if !ok {
-		return map[string]interface{}{"success": false, "error": "缺少 workflow"}, "参数错误", nil
+		return map[string]interface{}{"success": false, "level": trialLevel(params), "error": "缺少 workflow", "summary": "参数错误"}, "参数错误", nil
 	}
+	level := trialLevel(params)
 	req := workflowToExecutionRequest(workflow, sessionID)
 	res, err := r.runner.Executor.Execute(req)
 	if err != nil {
-		return map[string]interface{}{"success": false, "error": err.Error()}, "试跑失败: " + err.Error(), nil
+		summary := "试跑失败: " + err.Error()
+		return map[string]interface{}{"success": false, "level": level, "error": err.Error(), "summary": summary, "costEstimate": trialCostEstimate(level)}, summary, nil
 	}
 	if !res.Success {
-		return map[string]interface{}{"success": false, "results": res.Results, "error": res.Error}, "试跑未完全成功", nil
+		failedNodeID, failedNodeLabel, failedReason := firstFailedNode(res.Results)
+		summary := "试跑未完全成功"
+		if failedNodeID != "" {
+			summary = fmt.Sprintf("试跑失败，失败节点: %s", failedNodeID)
+		}
+		if failedReason == "" {
+			failedReason = res.Error
+		}
+		return map[string]interface{}{
+			"success":         false,
+			"level":           level,
+			"results":         res.Results,
+			"error":           res.Error,
+			"failedNodeId":    failedNodeID,
+			"failedNodeLabel": failedNodeLabel,
+			"failedStage":     "node_execution",
+			"reason":          failedReason,
+			"summary":         summary,
+			"costEstimate":    trialCostEstimate(level),
+		}, summary, nil
 	}
-	return map[string]interface{}{"success": true, "results": res.Results}, fmt.Sprintf("试跑成功，%d 个节点执行完成", len(res.Results)), nil
+	summary := fmt.Sprintf("试跑成功，%d 个节点执行完成", len(res.Results))
+	return map[string]interface{}{"success": true, "level": level, "results": res.Results, "summary": summary, "costEstimate": trialCostEstimate(level)}, summary, nil
+}
+
+func trialLevel(params map[string]interface{}) string {
+	level, _ := params["level"].(string)
+	switch level {
+	case "quick", "standard", "full":
+		return level
+	default:
+		return "quick"
+	}
+}
+
+func trialCostEstimate(level string) string {
+	switch level {
+	case "full":
+		return "high"
+	case "standard":
+		return "medium"
+	default:
+		return "low"
+	}
+}
+
+func firstFailedNode(results []workflowSvc.NodeExecutionResult) (nodeID string, nodeLabel string, reason string) {
+	for _, result := range results {
+		if result.Success {
+			continue
+		}
+		return result.NodeID, result.Type, result.Error
+	}
+	return "", "", ""
 }
 
 func workflowToExecutionRequest(workflow map[string]interface{}, userID uint) workflowSvc.ExecutionRequest {

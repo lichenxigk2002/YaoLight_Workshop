@@ -6,7 +6,7 @@ import type {
   GetSessionsResponse,
   GetMessagesResponse,
 } from '@/types/alkaid';
-import type { AgentPlanStep, InteractionMode, PendingPatchSummary } from '@/components/Alkaid/types';
+import type { AgentPlanStep, DebugReport, ExplainReport, InteractionMode, PendingPatchSummary } from '@/components/Alkaid/types';
 import { createSSEReader } from '@/utils/sseUtils';
 
 /**
@@ -146,6 +146,8 @@ export const alkaidApi = {
       onToolStepFinished?: (data: { stepId: string; status: string; resultSummary?: string; errorMessage?: string }) => void;
       onPendingWorkflow?: (data: { summary: { nodeCount: number; edgeCount: number } }) => void;
       onPendingPatch?: (data: { patchCount: number; summary?: PendingPatchSummary }) => void;
+      onDebugReport?: (data: DebugReport) => void;
+      onExplainReport?: (data: ExplainReport) => void;
       onDone?: () => void;
       onError?: (message: string) => void;
     },
@@ -201,6 +203,8 @@ export const alkaidApi = {
                   else if (eventType === 'tool_step_finished') callbacks.onToolStepFinished?.(data);
                   else if (eventType === 'pending_workflow') callbacks.onPendingWorkflow?.(data);
                   else if (eventType === 'pending_patch') callbacks.onPendingPatch?.(data);
+                  else if (eventType === 'debug_report') callbacks.onDebugReport?.(data);
+                  else if (eventType === 'explain_report') callbacks.onExplainReport?.(data);
                   else if (eventType === 'done') callbacks.onDone?.();
                   else if (eventType === 'interrupted') callbacks.onDone?.(); // 打断视为结束，与 onDone 一致清理状态
                   else if (eventType === 'error') callbacks.onError?.(data.message ?? '');
@@ -230,4 +234,7 @@ export const alkaidApi = {
 
   discardPending: (sessionId: number, type: 'workflow' | 'patch') =>
     http.post<{ code: number; message: string }>('/alkaid/discard-pending', { sessionId, type }),
+
+  interruptSession: (sessionId: number) =>
+    http.post<{ code: number; message: string }>('/alkaid/sessions/interrupt', { sessionId }),
 };

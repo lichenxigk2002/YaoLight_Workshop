@@ -6,8 +6,8 @@ import { alkaidApi } from '@/api'
 import { AlkaidIcon } from '@/components/Icons'
 import { MarkdownRenderer } from '@/components/WorkflowEditor/utils/MarkdownRenderer'
 import ProcessLoader, { type ProcessStep } from './ProcessLoader'
-import { AlkaidPendingBar, AlkaidProgress, AlkaidProgressDock } from './components'
-import type { InteractionMode, Phase, AgentPlanStep, AgentToolStep, PatchItem, PendingPatchSummary } from './types'
+import { AlkaidPendingBar, AlkaidProgress, AlkaidProgressDock, DebugReportCard, ExplainReportCard } from './components'
+import type { DebugReport, ExplainReport, InteractionMode, Phase, AgentPlanStep, AgentToolStep, PatchItem, PendingPatchSummary } from './types'
 import { extractWorkflowJSON, hasWorkflowJSONBlock, parseWorkflowJSON, stripDSMLToolCallsFromText, stripWorkflowJSONFromText } from './utils'
 import { useAssistantUIStore } from '@/store/assistantUi'
 import {
@@ -33,6 +33,7 @@ interface MessageItem {
   id: string
   role: 'user' | 'assistant'
   content: string
+  rawData?: Record<string, any>
   timestamp: Date
 }
 
@@ -42,6 +43,10 @@ interface SessionItem {
   createdAt: string
   updatedAt: string
 }
+
+type AgenticReportAttachment =
+  | { messageId: string; type: 'debug'; report: DebugReport }
+  | { messageId: string; type: 'explain'; report: ExplainReport }
 
 function summarizePatchList(patchList: PatchItem[]): PendingPatchSummary {
   const addedNodeIds = new Set<string>()
@@ -88,6 +93,14 @@ function summarizePendingWorkflow(workflow: any): { nodeCount: number; edgeCount
 export type AlkaidPanelView = 'chat' | 'conversations' | 'settings'
 export type AlkaidPanelVariant = 'floating' | 'page'
 
+interface SlashCommand {
+  key: string
+  label: string
+  description: string
+  prompt: string
+  keywords: string[]
+}
+
 export interface AlkaidPanelProps {
   workflowId?: string
   onWorkflowGenerated?: (workflow: any) => void
@@ -128,7 +141,7 @@ export default function AlkaidPanel({
 }: AlkaidPanelProps) {
   const { t } = useTranslation()
   const { user } = useAuthStore()
-  const { density, accent, reduceMotion } = useAssistantUIStore()
+  const { density, accent, reduceMotion, allowKnowledgeTools, allowWebsiteSourceTools } = useAssistantUIStore()
 
   const getUserAvatar = () => {
     if (!user) return undefined
@@ -171,15 +184,76 @@ export default function AlkaidPanel({
   const [agenticPendingSummary, setAgenticPendingSummary] = useState<{ nodeCount: number; edgeCount: number } | null>(null)
   const [agenticPendingPatchCount, setAgenticPendingPatchCount] = useState<number | null>(null)
   const [agenticPendingPatchSummary, setAgenticPendingPatchSummary] = useState<PendingPatchSummary | null>(null)
+  const [agenticReports, setAgenticReports] = useState<AgenticReportAttachment[]>([])
   const [applyLoading, setApplyLoading] = useState(false)
   const [applyPatchLoading, setApplyPatchLoading] = useState(false)
+  const [sessionStatus, setSessionStatus] = useState<string>('active')
 
   const [convQuery, setConvQuery] = useState('')
   const [convSelected, setConvSelected] = useState<Record<number, boolean>>({})
   const [convBulkMode, setConvBulkMode] = useState(false)
+  const [selectedSlashCommandIndex, setSelectedSlashCommandIndex] = useState(0)
+  const [composerFocused, setComposerFocused] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' })
+  }
+
+  const slashCommands = useMemo<SlashCommand[]>(() => {
+    if (!workflowId && !getCurrentWorkflow) return []
+
+    return [
+      {
+        key: 'explain-current-workflow',
+        label: '/解释当前工作流',
+        description: t('workflowEditor.alkaid.modeExplain', '解释') + t('workflowEditor.currentWorkflow', '当前工作流'),
+        prompt: '请解释当前工作流的结构、节点作用和变量流转',
+        keywords: ['explain', 'jieshi', '解释', '当前工作流', 'workflow'],
+      },
+      {
+        key: 'debug-current-workflow',
+        label: '/调试当前工作流',
+        description: t('workflowEditor.alkaid.modeTrialDebug', '调试') + t('workflowEditor.currentWorkflow', '当前工作流'),
+        prompt: '请试跑并定位当前工作流的报错和高概率原因',
+        keywords: ['debug', 'tiaoshi', '调试', '报错', '当前工作流', 'workflow'],
+      },
+      {
+        key: 'repair-current-workflow',
+        label: '/修复当前工作流',
+        description: t('workflowEditor.alkaid.modeRepair', '修复') + t('workflowEditor.currentWorkflow', '当前工作流'),
+        prompt: '请修复当前工作流里最关键的问题，并给我一个可应用补丁',
+        keywords: ['repair', 'fix', 'xiufu', '修复', '补丁', '当前工作流', 'workflow'],
+      },
+    ]
+  }, [getCurrentWorkflow, t, workflowId])
+
+  const slashQuery = useMemo(() => {
+    const trimmed = inputValue.trimStart()
+    if (!trimmed.startsWith('/')) return null
+    return trimmed.slice(1).trim().toLowerCase()
+  }, [inputValue])
+
+  const filteredSlashCommands = useMemo(() => {
+    if (slashQuery == null) return []
+    if (!slashQuery) return slashCommands
+
+    return slashCommands.filter((command) => {
+      const haystacks = [command.label, command.description, ...command.keywords].map((item) => item.toLowerCase())
+      return haystacks.some((item) => item.includes(slashQuery))
+    })
+  }, [slashCommands, slashQuery])
+
+  const showSlashMenu = composerFocused && filteredSlashCommands.length > 0
+
+  useEffect(() => {
+    setSelectedSlashCommandIndex(0)
+  }, [slashQuery])
+
+  const getLatestAssistantMessageId = (list: MessageItem[]) => {
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      if (list[i].role === 'assistant') return list[i].id
+    }
+    return null
   }
 
   const extractPendingPatchList = (session: any): PatchItem[] => {
@@ -217,12 +291,14 @@ export default function AlkaidPanel({
       setAgenticPendingSummary(null)
       setAgenticPendingPatchCount(null)
       setAgenticPendingPatchSummary(null)
+      setAgenticReports([])
     } else {
       setMessages([])
       setAgenticPlanSteps([])
       setAgenticPendingSummary(null)
       setAgenticPendingPatchCount(null)
       setAgenticPendingPatchSummary(null)
+      setAgenticReports([])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
@@ -266,9 +342,12 @@ export default function AlkaidPanel({
         id: msg.id.toString(),
         role: msg.role,
         content: msg.content,
+        rawData: msg.rawData,
         timestamp: new Date(msg.createdAt),
       }))
       setMessages(formatted)
+      setSessionStatus(session.status || 'active')
+      setAgenticMode((session.currentTaskMode as InteractionMode) || null)
       setAgenticPhase((session.currentPhase as Phase) || 'idle')
       setAgenticPlanSteps(planSteps)
       setAgenticToolSteps(toolSteps)
@@ -281,6 +360,25 @@ export default function AlkaidPanel({
         setAgenticPendingPatchCount(null)
         setAgenticPendingPatchSummary(null)
       }
+      if (!cancelStream) {
+        const latestAssistantMessageId = getLatestAssistantMessageId(formatted)
+        const isSessionRunning = session.status === 'running'
+        setLoading(isSessionRunning)
+        setCurrentLoadingMessageId(isSessionRunning ? latestAssistantMessageId : null)
+      }
+      setAgenticReports(
+        formatted.flatMap((msg) => {
+          if (msg.role !== 'assistant' || !msg.rawData) return []
+          const items: AgenticReportAttachment[] = []
+          if (msg.rawData.debugReport) {
+            items.push({ messageId: msg.id, type: 'debug', report: msg.rawData.debugReport as DebugReport })
+          }
+          if (msg.rawData.explainReport) {
+            items.push({ messageId: msg.id, type: 'explain', report: msg.rawData.explainReport as ExplainReport })
+          }
+          return items
+        }),
+      )
     } catch (e) {
       console.error('Load messages error:', e)
     }
@@ -364,7 +462,29 @@ export default function AlkaidPanel({
   }
 
   const handleStop = () => {
-    if (!loading) return
+    if (!loading && sessionStatus !== 'running') return
+    if (useAgentic && sessionId) {
+      alkaidApi.interruptSession(sessionId)
+        .then(() => {
+          if (cancelStream) {
+            cancelStream()
+            setCancelStream(null)
+          }
+          setSessionStatus('active')
+          setLoading(false)
+          setCurrentLoadingMessageId(null)
+          isSendingFirstMessage.current = false
+          isSendingMessage.current = false
+          accumulatedContentRef.current = ''
+          setAgenticPhase('idle')
+          void loadMessages(sessionId)
+        })
+        .catch((error: any) => {
+          message.error(error?.message || t('alkaid.importFailed') || '停止失败')
+        })
+      return
+    }
+
     if (cancelStream) {
       cancelStream()
       setCancelStream(null)
@@ -387,11 +507,20 @@ export default function AlkaidPanel({
     }
   }
 
-  const handleSend = async () => {
-    if (!inputValue.trim()) return
-    if (loading && useAgentic) {
+  const handleSend = async (messageOverride?: string) => {
+    const nextMessage = (messageOverride ?? inputValue).trim()
+    if (!nextMessage) return
+    if ((loading || sessionStatus === 'running') && useAgentic) {
+      if (sessionId) {
+        try {
+          await alkaidApi.interruptSession(sessionId)
+        } catch (error) {
+          console.error('Failed to interrupt existing session run:', error)
+        }
+      }
       if (cancelStream) cancelStream()
       setCancelStream(null)
+      setSessionStatus('active')
       setLoading(false)
       setCurrentLoadingMessageId(null)
       setAgenticPhase('idle')
@@ -411,12 +540,14 @@ export default function AlkaidPanel({
     const userMessage: MessageItem = {
       id: `user-${now}-${Math.random().toString(36).slice(2, 11)}`,
       role: 'user',
-      content: inputValue.trim(),
+      content: nextMessage,
       timestamp: new Date(),
     }
     setMessages((prev) => [...prev, userMessage])
-    const messageContent = inputValue.trim()
-    setInputValue('')
+    const messageContent = nextMessage
+    if (messageOverride == null) {
+      setInputValue('')
+    }
     setLoading(true)
     needsWorkflowRef.current = null
     setProcessSteps([])
@@ -453,6 +584,8 @@ export default function AlkaidPanel({
             console.error('Failed to get current workflow context:', e)
           }
         }
+        context.allowKnowledgeTools = allowKnowledgeTools
+        context.allowWebsiteSourceTools = allowWebsiteSourceTools
         const cancel = alkaidApi.sessionStreamAgentic(
           currentSessionId,
           messageContent,
@@ -588,7 +721,20 @@ export default function AlkaidPanel({
               setAgenticPendingPatchCount(data.patchCount ?? 0)
               setAgenticPendingPatchSummary(data.summary ?? null)
             },
+            onDebugReport: (data) => {
+              setAgenticReports((prev) => [
+                ...prev.filter((item) => !(item.messageId === assistantMsgId && item.type === 'debug')),
+                { messageId: assistantMsgId, type: 'debug', report: data },
+              ])
+            },
+            onExplainReport: (data) => {
+              setAgenticReports((prev) => [
+                ...prev.filter((item) => !(item.messageId === assistantMsgId && item.type === 'explain')),
+                { messageId: assistantMsgId, type: 'explain', report: data },
+              ])
+            },
             onDone: () => {
+              setSessionStatus('active')
               setLoading(false)
               setCancelStream(null)
               setCurrentLoadingMessageId(null)
@@ -598,7 +744,11 @@ export default function AlkaidPanel({
               setAgenticPhase('idle')
             },
             onError: (errMsg) => {
+              setSessionStatus('active')
               message.error((t('alkaid.sendMessageFailed') || '发送消息失败: ') + errMsg)
+              setMessages((prev) =>
+                prev.filter((msg) => !(msg.id === assistantMsgId && !msg.content.trim())),
+              )
               setLoading(false)
               setCancelStream(null)
               setCurrentLoadingMessageId(null)
@@ -610,6 +760,7 @@ export default function AlkaidPanel({
           context,
         )
         setCancelStream(() => cancel)
+        setSessionStatus('running')
         return
       }
 
@@ -731,6 +882,36 @@ export default function AlkaidPanel({
 
   const effectivePendingSummary = agenticPendingSummary ?? streamedPendingSummary
 
+  const handleDiscardWorkflow = async () => {
+    if (!sessionId) {
+      setAgenticPendingSummary(null)
+      return
+    }
+    try {
+      await alkaidApi.discardPending(sessionId, 'workflow')
+      setAgenticPendingSummary(null)
+      message.success(t('alkaid.pendingDiscarded', '已放弃待确认内容'))
+    } catch (error: any) {
+      message.error(error?.message || t('alkaid.importFailed') || '操作失败')
+    }
+  }
+
+  const handleDiscardPatch = async () => {
+    if (!sessionId) {
+      setAgenticPendingPatchCount(null)
+      setAgenticPendingPatchSummary(null)
+      return
+    }
+    try {
+      await alkaidApi.discardPending(sessionId, 'patch')
+      setAgenticPendingPatchCount(null)
+      setAgenticPendingPatchSummary(null)
+      message.success(t('alkaid.pendingDiscarded', '已放弃待确认内容'))
+    } catch (error: any) {
+      message.error(error?.message || t('alkaid.importFailed') || '操作失败')
+    }
+  }
+
   const handleImportWorkflow = (workflowJSON: string) => {
     const workflow = parseWorkflowJSON(workflowJSON)
     if (!workflow) {
@@ -800,20 +981,34 @@ export default function AlkaidPanel({
         const pendingWorkflow = (session as any).pendingWorkflow
         if (pendingWorkflow && typeof pendingWorkflow === 'object') {
           onWorkflowGenerated(pendingWorkflow)
+          try {
+            await Promise.all([
+              alkaidApi.discardPending(sessionId, 'workflow'),
+              alkaidApi.discardPending(sessionId, 'patch'),
+            ])
+          } catch (err) {
+            console.error('Failed to discard pending workflow artifacts:', err)
+          }
           message.success(t('alkaid.workflowImported') || '工作流已载入预览，请在画布中确认是否保存')
           setAgenticPendingSummary(null)
+          setAgenticPendingPatchCount(null)
+          setAgenticPendingPatchSummary(null)
           previewHandled = true
         }
       }
       if (!previewHandled && latestStreamedWorkflowJSON) {
         handleImportWorkflow(latestStreamedWorkflowJSON)
         setAgenticPendingSummary(null)
+        setAgenticPendingPatchCount(null)
+        setAgenticPendingPatchSummary(null)
         previewHandled = true
       }
       if (!previewHandled) {
         await alkaidApi.applyWorkflow(sessionId, workflowId ? parseInt(workflowId, 10) : undefined)
         message.success(t('alkaid.workflowImported') || '工作流已应用到画布')
         setAgenticPendingSummary(null)
+        setAgenticPendingPatchCount(null)
+        setAgenticPendingPatchSummary(null)
         onWorkflowApplied?.()
       }
     } catch (e: any) {
@@ -837,7 +1032,11 @@ export default function AlkaidPanel({
         if (patchList.length > 0) {
           onPatchGenerated(patchList, async () => {
             try {
-              await alkaidApi.discardPending(sessionId, 'patch')
+              await Promise.all([
+                alkaidApi.discardPending(sessionId, 'patch'),
+                alkaidApi.discardPending(sessionId, 'workflow'),
+              ])
+              setAgenticPendingSummary(null)
               setAgenticPendingPatchCount(null)
               setAgenticPendingPatchSummary(null)
             } catch (err) {
@@ -845,6 +1044,7 @@ export default function AlkaidPanel({
             }
           })
           message.success(t('alkaid.patchPreview', '已进入补丁预览模式') || '已进入补丁预览模式')
+          setAgenticPendingSummary(null)
           setAgenticPendingPatchCount(null)
           setAgenticPendingPatchSummary(null)
           previewHandled = true
@@ -853,6 +1053,7 @@ export default function AlkaidPanel({
       if (!previewHandled) {
         await alkaidApi.applyPatch(sessionId, workflowId ? parseInt(workflowId, 10) : undefined)
         message.success(t('alkaid.patchApplied', '补丁已应用') || '补丁已应用')
+        setAgenticPendingSummary(null)
         setAgenticPendingPatchCount(null)
         setAgenticPendingPatchSummary(null)
         onWorkflowApplied?.()
@@ -1127,7 +1328,8 @@ export default function AlkaidPanel({
       useAgentic &&
       loading &&
       !!currentLoadingMessageId &&
-      agenticMode === 'act' &&
+      !!agenticMode &&
+      ['act', 'generate', 'repair', 'trial_debug'].includes(agenticMode) &&
       (hasActLikePhase || hasActLikePlanStep || hasActLikeToolStep || hasPendingAgenticOutput)
     const showLegacySteps = !useAgentic && loading && processSteps.length > 0
 
@@ -1204,6 +1406,7 @@ export default function AlkaidPanel({
   const renderMessageBubble = (msg: MessageItem) => {
     const parsed = parseMessageContent(msg.content)
     const canCopy = !!parsed.text
+    const reports = msg.role === 'assistant' ? agenticReports.filter((item) => item.messageId === msg.id) : []
 
     return (
       <div key={msg.id} className={[styles.messageRow, styles[msg.role]].join(' ')}>
@@ -1219,6 +1422,11 @@ export default function AlkaidPanel({
             {parsed.text && (
               <div className={styles.markdownContent}>
                 <MarkdownRenderer content={parsed.text} className={styles.alkaidMarkdown} />
+              </div>
+            )}
+            {!parsed.text && msg.role === 'assistant' && (msg.id === currentLoadingMessageId || sessionStatus === 'running') && (
+              <div className={styles.workflowSub}>
+                <Spin size="small" />
               </div>
             )}
 
@@ -1244,6 +1452,14 @@ export default function AlkaidPanel({
                   )}
                 </div>
               </div>
+            )}
+
+            {reports.map((item) =>
+              item.type === 'debug' ? (
+                <DebugReportCard key={`${item.messageId}-debug`} report={item.report} />
+              ) : (
+                <ExplainReportCard key={`${item.messageId}-explain`} report={item.report} />
+              ),
             )}
           </div>
 
@@ -1308,35 +1524,68 @@ export default function AlkaidPanel({
         applyLoading={applyLoading}
         applyPatchLoading={applyPatchLoading}
         onApplyWorkflow={handleApplyWorkflow}
-        onDiscardWorkflow={() => setAgenticPendingSummary(null)}
+        onDiscardWorkflow={handleDiscardWorkflow}
         onApplyPatch={handleApplyPatch}
-        onDiscardPatch={() => {
-          setAgenticPendingPatchCount(null)
-          setAgenticPendingPatchSummary(null)
-        }}
+        onDiscardPatch={handleDiscardPatch}
       />
 
       <div className={styles.composer}>
         <div className={styles.composerInner}>
-          <TextArea
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
-            placeholder={t('alkaid.inputPlaceholder', '输入你的需求...')}
-            autoSize={{ minRows: 1, maxRows: 8 }}
-            disabled={loading}
-            className={styles.input}
-          />
+          <div className={styles.inputShell}>
+            <TextArea
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => {
+                window.setTimeout(() => setComposerFocused(false), 100)
+              }}
+              onKeyDown={(e) => {
+                if (showSlashMenu && e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setSelectedSlashCommandIndex((prev) => (prev + 1) % filteredSlashCommands.length)
+                  return
+                }
+                if (showSlashMenu && e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setSelectedSlashCommandIndex((prev) => (prev - 1 + filteredSlashCommands.length) % filteredSlashCommands.length)
+                  return
+                }
+                if (showSlashMenu && e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  const command = filteredSlashCommands[selectedSlashCommandIndex]
+                  if (command) {
+                    setInputValue('')
+                    void handleSend(command.prompt)
+                  }
+                  return
+                }
+                if (showSlashMenu && e.key === 'Escape') {
+                  e.preventDefault()
+                  setInputValue('')
+                  return
+                }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              placeholder={t('alkaid.inputPlaceholder', '输入你的需求...')}
+              autoSize={{ minRows: 1, maxRows: 8 }}
+              disabled={loading}
+              className={styles.input}
+            />
+          </div>
           <div className={styles.composerRight}>
             <button
               className={styles.sendBtn}
-              onClick={loading ? handleStop : handleSend}
+              onClick={() => {
+                if (loading) {
+                  handleStop()
+                  return
+                }
+                void handleSend()
+              }}
               disabled={!loading && !inputValue.trim()}
               type="button"
               aria-label={loading ? t('alkaid.stop', '中止') : t('alkaid.send', '发送')}
@@ -1345,8 +1594,28 @@ export default function AlkaidPanel({
             </button>
           </div>
         </div>
+        {showSlashMenu ? (
+          <div className={styles.slashMenu}>
+            {filteredSlashCommands.map((command, index) => (
+              <button
+                key={command.key}
+                type="button"
+                className={[styles.slashItem, index === selectedSlashCommandIndex ? styles.slashItemActive : ''].join(' ')}
+                onMouseEnter={() => setSelectedSlashCommandIndex(index)}
+                onClick={() => {
+                  setInputValue('')
+                  void handleSend(command.prompt)
+                }}
+              >
+                <span className={styles.slashLabel}>{command.label}</span>
+                <span className={styles.slashDesc}>{command.description}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className={styles.composerHint}>
           <span>{t('alkaid.enterSend', 'Enter 发送')}</span>
+          {slashCommands.length > 0 ? <span>{t('alkaid.slashMenuHint', '输入 / 可快速选择工作方式')}</span> : null}
           <span>{t('alkaid.shiftEnterLine', 'Shift+Enter 换行')}</span>
           {loading ? (
             <button type="button" className={styles.linkBtn} onClick={handleStop}>
@@ -1503,6 +1772,30 @@ export default function AlkaidPanel({
             ]}
           />
         </div>
+        <div className={styles.settingCard}>
+          <div className={styles.settingLabel}>{t('alkaid.allowKnowledgeTools', '允许查阅知识库')}</div>
+          <div className={styles.settingDesc}>{t('alkaid.allowKnowledgeToolsDesc', '关闭后，助手不会调用用户知识库或系统知识检索工具。')}</div>
+          <Segmented
+            value={allowKnowledgeTools ? 'on' : 'off'}
+            onChange={(v) => useAssistantUIStore.getState().setAllowKnowledgeTools(v === 'on')}
+            options={[
+              { label: t('alkaid.accentOn', '开启'), value: 'on' },
+              { label: t('alkaid.accentOff', '关闭'), value: 'off' },
+            ]}
+          />
+        </div>
+        <div className={styles.settingCard}>
+          <div className={styles.settingLabel}>{t('alkaid.allowWebsiteSourceTools', '允许查阅网站源')}</div>
+          <div className={styles.settingDesc}>{t('alkaid.allowWebsiteSourceToolsDesc', '关闭后，助手不会调用项目网站源查询工具。')}</div>
+          <Segmented
+            value={allowWebsiteSourceTools ? 'on' : 'off'}
+            onChange={(v) => useAssistantUIStore.getState().setAllowWebsiteSourceTools(v === 'on')}
+            options={[
+              { label: t('alkaid.accentOn', '开启'), value: 'on' },
+              { label: t('alkaid.accentOff', '关闭'), value: 'off' },
+            ]}
+          />
+        </div>
       </div>
 
       <div className={styles.settingsFooter}>
@@ -1524,6 +1817,16 @@ export default function AlkaidPanel({
     if (view === 'settings') return renderSettingsView()
     return renderChatView()
   }
+
+  useEffect(() => {
+    if (!sessionId || cancelStream || sessionStatus !== 'running') return
+
+    const timer = window.setInterval(() => {
+      void loadMessages(sessionId)
+    }, 2000)
+
+    return () => window.clearInterval(timer)
+  }, [cancelStream, sessionId, sessionStatus])
 
   const title = (
     <div className={styles.topBar}>

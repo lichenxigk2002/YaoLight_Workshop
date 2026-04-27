@@ -358,8 +358,8 @@ func (pb *PromptBuilder) writeExampleTemplate(builder *strings.Builder) {
         "config": {
           "contentVariable": "{{node-3.cleaned}}",
           "prompt": "请总结以下内容",
-          "provider": "deepseek",
-          "modelName": "deepseek-chat",
+          "provider": "gpt",
+          "modelName": "openai/gpt-5.4",
           "temperature": 0.2
         }
       }

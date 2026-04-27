@@ -535,6 +535,7 @@ func main() {
 			auth.POST("/alkaid/messages", alkaidController.SendMessage)
 			auth.POST("/alkaid/messages/stream", alkaidController.SendMessageStream) // 原有流式接口
 			auth.POST("/alkaid/sessions/:id/stream", alkaidController.SessionStream) // Agentic 流式接口（SSE 进度事件）
+			auth.POST("/alkaid/sessions/interrupt", alkaidController.InterruptSession)
 			auth.POST("/alkaid/apply-workflow", alkaidController.ApplyWorkflow)
 			auth.POST("/alkaid/apply-patch", alkaidController.ApplyPatch)
 			auth.POST("/alkaid/discard-pending", alkaidController.DiscardPending)
