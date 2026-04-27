@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,6 +39,10 @@ var (
 
 	// AI预设模型配置（从.env读取，系统级别的共享配置）
 	DeepSeekAPIKey          string // DeepSeek预设API Key
+	OpenRouterAPIKey        string // OpenRouter 预设 API Key
+	OpenAIAPIKey            string // OpenAI/OpenRouter 兼容 API Key
+	OpenAIChatModel         string // GPT/OpenAI provider 默认聊天模型
+	OpenAIMaxOutputTokens   int    // GPT/OpenAI provider 默认最大输出 token
 	DoubaoAPIKey            string // 豆包预设API Key
 	QwenAPIKey              string // 通义千问预设API Key
 	ZhipuaiAPIKey           string // 智谱AI预设API Key
@@ -171,24 +176,28 @@ func LoadConfig() error {
 
 	// AI预设模型配置（可选，如果未配置则用户需要自己配置）
 	DeepSeekAPIKey = getEnv("DEEPSEEK_API_KEY", "")
+	OpenRouterAPIKey = strings.TrimSpace(getEnv("OPENROUTER_API_KEY", ""))
+	OpenAIAPIKey = strings.TrimSpace(getEnv("OPENAI_API_KEY", ""))
+	OpenAIChatModel = strings.TrimSpace(getEnv("OPENAI_CHAT_MODEL", "openai/gpt-5.4"))
+	OpenAIMaxOutputTokens = getEnvInt("OPENAI_MAX_OUTPUT_TOKENS", 8192)
 	DoubaoAPIKey = getEnv("DOUBAO_API_KEY", "")
 	QwenAPIKey = getEnv("QWEN_API_KEY", "")
 	ZhipuaiAPIKey = getEnv("ZHIPUAI_API_KEY", "")
 	MoonshotAPIKey = getEnv("MOONSHOT_API_KEY", "")
-	GeminiAPIKey = getEnv("OPENROUTER_API_KEY", "")
+	GeminiAPIKey = OpenRouterAPIKey
 	SparkAPIKey = getEnv("SPARK_API_PASSWORD", "")
 	HunyuanAPIKey = strings.TrimSpace(getEnv("TOKENHUB_API_KEY", ""))
 	AIRequestTimeoutSeconds = getEnvInt("AI_REQUEST_TIMEOUT_SECONDS", 90)
-	AIHTTPProxyURL = strings.TrimSpace(getEnv("AI_HTTP_PROXY_URL", ""))
-	OpenRouterProxyURL = strings.TrimSpace(getEnv("OPENROUTER_PROXY_URL", ""))
-	GPTProxyURL = strings.TrimSpace(getEnv("GPT_PROXY_URL", ""))
-	ClaudeProxyURL = strings.TrimSpace(getEnv("CLAUDE_PROXY_URL", ""))
-	GeminiProxyURL = strings.TrimSpace(getEnv("GEMINI_PROXY_URL", ""))
-	GrokProxyURL = strings.TrimSpace(getEnv("GROK_PROXY_URL", ""))
+	AIHTTPProxyURL = strings.TrimSpace(getEnvFirst([]string{"AI_HTTP_PROXY_URL", "HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy"}, ""))
+	OpenRouterProxyURL = strings.TrimSpace(getEnvFirst([]string{"OPENROUTER_PROXY_URL"}, AIHTTPProxyURL))
+	GPTProxyURL = strings.TrimSpace(getEnvFirst([]string{"GPT_PROXY_URL"}, OpenRouterProxyURL))
+	ClaudeProxyURL = strings.TrimSpace(getEnvFirst([]string{"CLAUDE_PROXY_URL"}, AIHTTPProxyURL))
+	GeminiProxyURL = strings.TrimSpace(getEnvFirst([]string{"GEMINI_PROXY_URL"}, AIHTTPProxyURL))
+	GrokProxyURL = strings.TrimSpace(getEnvFirst([]string{"GROK_PROXY_URL"}, AIHTTPProxyURL))
 	GeminiBaseURL = strings.TrimSpace(getEnv("GEMINI_BASE_URL", ""))
 	OpenAIBaseURL = strings.TrimSpace(getEnv("OPENAI_BASE_URL", ""))
 	IPGeoAPIBaseURL = strings.TrimSpace(getEnv("IP_GEO_API_BASE_URL", "http://ip-api.com/json"))
-	IPGeoProxyURL = strings.TrimSpace(getEnv("IP_GEO_PROXY_URL", ""))
+	IPGeoProxyURL = strings.TrimSpace(getEnvFirst([]string{"IP_GEO_PROXY_URL"}, AIHTTPProxyURL))
 
 	// 文件上传配置
 	UploadPath = getEnv("UPLOAD_PATH", "./uploads")
@@ -266,6 +275,7 @@ func LoadConfig() error {
 		log.Println("⚠️  PublicKey为空！")
 	}
 	log.Println("====================")
+	log.Printf("AI proxy resolved: AI_HTTP_PROXY_URL=%s OPENROUTER_PROXY_URL=%s GPT_PROXY_URL=%s", summarizeProxyValue(AIHTTPProxyURL), summarizeProxyValue(OpenRouterProxyURL), summarizeProxyValue(GPTProxyURL))
 
 	return nil
 }
@@ -274,6 +284,15 @@ func LoadConfig() error {
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
+	}
+	return defaultValue
+}
+
+func getEnvFirst(keys []string, defaultValue string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
 	}
 	return defaultValue
 }
@@ -289,6 +308,20 @@ func getEnvInt(key string, defaultValue int) int {
 		return defaultValue
 	}
 	return result
+}
+
+func summarizeProxyValue(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return "<empty>"
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "<invalid>"
+	}
+	if parsed.Host != "" {
+		return parsed.Scheme + "://" + parsed.Host
+	}
+	return "<configured>"
 }
 
 // loadEnvFileManually 手动加载 .env 文件（处理多行值和特殊字符）

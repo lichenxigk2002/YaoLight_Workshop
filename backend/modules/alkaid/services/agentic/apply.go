@@ -80,6 +80,7 @@ func ApplyWorkflow(req ApplyWorkflowRequest) error {
 	}
 
 	session.PendingWorkflowJSON.Data = nil
+	session.PendingPatchJSON.Data = nil
 	return repo.UpdateSession(session)
 }
 
@@ -121,7 +122,7 @@ type ApplyPatchRequest struct {
 	WorkflowID uint
 }
 
-// ApplyPatch 将会话的 pendingPatch 应用到画布并清空 pending（简化：仅清空 pending，实际应用 patch 可后续对接）
+// ApplyPatch 将会话的 pendingPatch 应用到画布并清空 pending
 func ApplyPatch(req ApplyPatchRequest) error {
 	repo := alkaidRepos.NewAlkaidRepository()
 	session, err := repo.GetSessionByID(req.SessionID)
@@ -170,6 +171,7 @@ func ApplyPatch(req ApplyPatchRequest) error {
 	}
 
 	session.PendingPatchJSON.Data = nil
+	session.PendingWorkflowJSON.Data = nil
 	return repo.UpdateSession(session)
 }
 

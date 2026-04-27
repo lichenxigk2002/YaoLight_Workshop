@@ -7,16 +7,22 @@ interface AssistantUIState {
   density: AssistantDensity
   accent: boolean
   reduceMotion: boolean
+  allowKnowledgeTools: boolean
+  allowWebsiteSourceTools: boolean
   setDensity: (density: AssistantDensity) => void
   setAccent: (accent: boolean) => void
   setReduceMotion: (reduceMotion: boolean) => void
+  setAllowKnowledgeTools: (allow: boolean) => void
+  setAllowWebsiteSourceTools: (allow: boolean) => void
   reset: () => void
 }
 
-const DEFAULT_STATE: Pick<AssistantUIState, 'density' | 'accent' | 'reduceMotion'> = {
+const DEFAULT_STATE: Pick<AssistantUIState, 'density' | 'accent' | 'reduceMotion' | 'allowKnowledgeTools' | 'allowWebsiteSourceTools'> = {
   density: 'comfortable',
   accent: true,
   reduceMotion: false,
+  allowKnowledgeTools: true,
+  allowWebsiteSourceTools: true,
 }
 
 export const useAssistantUIStore = create<AssistantUIState>()(
@@ -26,6 +32,8 @@ export const useAssistantUIStore = create<AssistantUIState>()(
       setDensity: (density) => set({ density }),
       setAccent: (accent) => set({ accent }),
       setReduceMotion: (reduceMotion) => set({ reduceMotion }),
+      setAllowKnowledgeTools: (allowKnowledgeTools) => set({ allowKnowledgeTools }),
+      setAllowWebsiteSourceTools: (allowWebsiteSourceTools) => set({ allowWebsiteSourceTools }),
       reset: () => set({ ...DEFAULT_STATE }),
     }),
     {
@@ -34,4 +42,3 @@ export const useAssistantUIStore = create<AssistantUIState>()(
     },
   ),
 )
-

@@ -171,6 +171,51 @@ func TestDecideRoute(t *testing.T) {
 	}
 }
 
+func TestDecideRouteTaskMode(t *testing.T) {
+	cases := []struct {
+		name string
+		msg  string
+		want TaskMode
+	}{
+		{
+			name: "plain chat",
+			msg:  "你好，你是谁？",
+			want: TaskChat,
+		},
+		{
+			name: "explain current workflow",
+			msg:  "帮我看看当前工作流哪里有问题",
+			want: TaskExplain,
+		},
+		{
+			name: "repair current workflow",
+			msg:  "把当前画布里的节点整理一下，顺便优化连线",
+			want: TaskRepair,
+		},
+		{
+			name: "generate workflow",
+			msg:  "帮我生成一个新闻摘要工作流",
+			want: TaskGenerate,
+		},
+		{
+			name: "trial debug workflow",
+			msg:  "试跑一下当前工作流看看哪里报错",
+			want: TaskTrialDebug,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := DecideRoute(TurnContext{
+				Request: RunStreamRequest{Message: tc.msg},
+			})
+			if got.TaskMode != tc.want {
+				t.Fatalf("DecideRoute(%q) taskMode = %s, want %s", tc.msg, got.TaskMode, tc.want)
+			}
+		})
+	}
+}
+
 func TestProcessDirectChatStreamChunkStripsTaggedMarkers(t *testing.T) {
 	var fullContent strings.Builder
 	var fullReasoning strings.Builder
@@ -319,7 +364,7 @@ func TestBuildToolContentForLLMFallsBackToSummaryForLargeNonWorkflowResult(t *te
 }
 
 func TestBuildAnalyzeUserPromptConstrainsAnalyzeMode(t *testing.T) {
-	got := buildAnalyzeUserPrompt("帮我看看当前工作流", "用户：之前的上下文")
+	got := buildAnalyzeUserPrompt("帮我看看当前工作流", "用户：之前的上下文", nil)
 	if !strings.Contains(got, "workflow analyze mode") {
 		t.Fatalf("expected analyze mode marker in prompt, got %q", got)
 	}

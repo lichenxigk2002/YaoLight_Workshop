@@ -3,6 +3,7 @@ package agentic
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,14 +16,19 @@ type SSEWriter struct {
 	flush              func() error
 	closed             bool
 	sessionID          uint
+	currentTaskMode    string
 	currentPhase       string
 	userMessageID      uint
 	userMessageContent string
+	assistantMessageID uint
+	assistantContent   strings.Builder
+	debugReport        *alkaidModels.TrialReport
+	explainReport      *alkaidModels.ExplainReport
 	toolSteps          []alkaidModels.AgentToolStep
 	planSteps          []alkaidModels.AgentPlanStep
 }
 
-func NewSSEWriter(ctx *gin.Context, sessionID uint, userMessageID uint, userMessageContent string) *SSEWriter {
+func NewSSEWriter(ctx *gin.Context, sessionID uint, userMessageID uint, userMessageContent string, assistantMessageID uint) *SSEWriter {
 	ctx.Header("Content-Type", "text/event-stream")
 	ctx.Header("Cache-Control", "no-cache")
 	ctx.Header("Connection", "keep-alive")
@@ -41,6 +47,7 @@ func NewSSEWriter(ctx *gin.Context, sessionID uint, userMessageID uint, userMess
 		sessionID:          sessionID,
 		userMessageID:      userMessageID,
 		userMessageContent: userMessageContent,
+		assistantMessageID: assistantMessageID,
 		toolSteps:          make([]alkaidModels.AgentToolStep, 0, 50),
 		planSteps:          make([]alkaidModels.AgentPlanStep, 0, 12),
 	}
@@ -60,11 +67,16 @@ func (w *SSEWriter) writeEvent(event string, data interface{}) error {
 }
 
 func (w *SSEWriter) WriteContent(delta string) error {
+	if delta != "" {
+		w.assistantContent.WriteString(delta)
+		_ = w.persistAssistantMessage("streaming")
+	}
 	return w.writeEvent("content", alkaidModels.SSEContent{Delta: delta})
 }
 
 func (w *SSEWriter) WritePhaseChanged(phase string) error {
 	w.currentPhase = phase
+	_ = w.SaveProgressToSession()
 	return w.writeEvent("phase_changed", alkaidModels.SSEPhaseChanged{
 		Phase: phase,
 		At:    time.Now().UTC().Format(time.RFC3339Nano),
@@ -72,6 +84,8 @@ func (w *SSEWriter) WritePhaseChanged(phase string) error {
 }
 
 func (w *SSEWriter) WriteInteractionMode(mode, reason string, showProgress bool) error {
+	w.currentTaskMode = mode
+	_ = w.SaveProgressToSession()
 	return w.writeEvent("interaction_mode", alkaidModels.SSEInteractionMode{
 		Mode:         mode,
 		Reason:       reason,
@@ -82,6 +96,7 @@ func (w *SSEWriter) WriteInteractionMode(mode, reason string, showProgress bool)
 
 func (w *SSEWriter) WritePlanCreated(steps []alkaidModels.AgentPlanStep) error {
 	w.planSteps = append([]alkaidModels.AgentPlanStep(nil), steps...)
+	_ = w.SaveProgressToSession()
 	return w.writeEvent("plan_created", alkaidModels.SSEPlanCreated{Steps: steps})
 }
 
@@ -103,6 +118,7 @@ func (w *SSEWriter) WritePlanStepStarted(step alkaidModels.AgentPlanStep) error 
 	if !found {
 		w.planSteps = append(w.planSteps, step)
 	}
+	_ = w.SaveProgressToSession()
 
 	return w.writeEvent("plan_step_started", alkaidModels.SSEPlanStepStarted{
 		PlanStepID:         step.PlanStepID,
@@ -176,6 +192,7 @@ func (w *SSEWriter) WritePlanStepUpdated(step alkaidModels.AgentPlanStep) error 
 		}
 		w.planSteps = append(w.planSteps, step)
 	}
+	_ = w.SaveProgressToSession()
 
 	return w.writeEvent("plan_step_updated", alkaidModels.SSEPlanStepUpdated{
 		PlanStepID:     step.PlanStepID,
@@ -203,6 +220,7 @@ func (w *SSEWriter) WritePlanStepFinished(planStepID, status, resultSummary, err
 			break
 		}
 	}
+	_ = w.SaveProgressToSession()
 	return w.writeEvent("plan_step_finished", alkaidModels.SSEPlanStepFinished{
 		PlanStepID:    planStepID,
 		Status:        status,
@@ -229,6 +247,7 @@ func (w *SSEWriter) WriteToolStepStartedWithPlan(stepID, toolName, phase, planSt
 		StartedAt:          now,
 	}
 	w.toolSteps = append(w.toolSteps, step)
+	_ = w.SaveProgressToSession()
 
 	return w.writeEvent("tool_step_started", alkaidModels.SSEToolStepStarted{
 		StepID:             stepID,
@@ -254,6 +273,7 @@ func (w *SSEWriter) WriteToolStepFinished(stepID, status, resultSummary, errorMe
 			break
 		}
 	}
+	_ = w.SaveProgressToSession()
 	return w.writeEvent("tool_step_finished", alkaidModels.SSEToolStepFinished{
 		StepID:        stepID,
 		Status:        status,
@@ -270,19 +290,43 @@ func (w *SSEWriter) WritePendingWorkflow(nodeCount, edgeCount int) error {
 	return w.writeEvent("pending_workflow", data)
 }
 
-func (w *SSEWriter) WritePendingPatch(patchCount int) error {
-	return w.writeEvent("pending_patch", alkaidModels.SSEPendingPatch{PatchCount: patchCount})
+func (w *SSEWriter) WritePendingPatch(patchCount int, summary *alkaidModels.PendingPatchSummary) error {
+	return w.writeEvent("pending_patch", alkaidModels.SSEPendingPatch{
+		PatchCount: patchCount,
+		Summary:    summary,
+	})
+}
+
+func (w *SSEWriter) WriteDebugReport(report alkaidModels.TrialReport) error {
+	w.debugReport = &report
+	_ = w.persistAssistantMessage("text")
+	return w.writeEvent("debug_report", report)
+}
+
+func (w *SSEWriter) WriteExplainReport(report alkaidModels.ExplainReport) error {
+	w.explainReport = &report
+	_ = w.persistAssistantMessage("text")
+	return w.writeEvent("explain_report", report)
 }
 
 func (w *SSEWriter) WriteDone() error {
+	_ = w.persistAssistantMessage("text")
 	return w.writeEvent("done", alkaidModels.SSEDone{})
 }
 
 func (w *SSEWriter) WriteError(message string) error {
+	if w.assistantContent.Len() == 0 && message != "" {
+		w.assistantContent.WriteString(message)
+		_ = w.persistAssistantMessage("error")
+	}
 	return w.writeEvent("error", alkaidModels.SSEError{Message: message})
 }
 
 func (w *SSEWriter) WriteInterrupted() error {
+	if w.assistantContent.Len() == 0 {
+		w.assistantContent.WriteString("本次生成已中断。")
+	}
+	_ = w.persistAssistantMessage("text")
 	return w.writeEvent("interrupted", alkaidModels.SSEInterrupted{
 		At: time.Now().UTC().Format(time.RFC3339Nano),
 	})
@@ -299,49 +343,129 @@ func (w *SSEWriter) SaveProgressToSession() error {
 		return err
 	}
 
-	var existingToolSteps []alkaidModels.AgentToolStep
-	if session.ToolStepsJSON.Data != nil {
-		if stepsData, ok := session.ToolStepsJSON.Data.([]interface{}); ok {
-			for _, raw := range stepsData {
-				if stepMap, ok := raw.(map[string]interface{}); ok {
-					existingToolSteps = append(existingToolSteps, mapToAgentToolStep(stepMap))
-				}
-			}
-		}
-	}
-
 	if len(w.toolSteps) > 0 {
-		allToolSteps := append(existingToolSteps, w.toolSteps...)
-		if len(allToolSteps) > 100 {
-			allToolSteps = allToolSteps[len(allToolSteps)-100:]
-		}
-		session.ToolStepsJSON.Data = allToolSteps
-	}
-
-	var existingPlanSteps []alkaidModels.AgentPlanStep
-	if session.PlanStepsJSON.Data != nil {
-		if stepsData, ok := session.PlanStepsJSON.Data.([]interface{}); ok {
-			for _, raw := range stepsData {
-				if stepMap, ok := raw.(map[string]interface{}); ok {
-					existingPlanSteps = append(existingPlanSteps, mapToAgentPlanStep(stepMap))
-				}
-			}
-		}
+		session.ToolStepsJSON.Data = mergeToolSteps(session.ToolStepsJSON.Data, w.toolSteps)
 	}
 
 	if len(w.planSteps) > 0 {
-		allPlanSteps := append(existingPlanSteps, w.planSteps...)
-		if len(allPlanSteps) > 100 {
-			allPlanSteps = allPlanSteps[len(allPlanSteps)-100:]
-		}
-		session.PlanStepsJSON.Data = allPlanSteps
+		session.PlanStepsJSON.Data = mergePlanSteps(session.PlanStepsJSON.Data, w.planSteps)
 	}
 
 	if w.currentPhase != "" {
 		session.CurrentPhase = w.currentPhase
 	}
+	if w.currentTaskMode != "" {
+		session.CurrentTaskMode = w.currentTaskMode
+	}
 
 	return repo.UpdateSession(session)
+}
+
+func (w *SSEWriter) persistAssistantMessage(msgType string) error {
+	if w.assistantMessageID == 0 {
+		return nil
+	}
+	repo := alkaidRepos.NewAlkaidRepository()
+	if err := repo.UpdateMessageContent(w.assistantMessageID, w.assistantContent.String(), msgType); err != nil {
+		return err
+	}
+	return repo.UpdateMessageRawData(w.assistantMessageID, w.buildAssistantRawData())
+}
+
+func (w *SSEWriter) buildAssistantRawData() map[string]interface{} {
+	rawData := make(map[string]interface{})
+	if w.debugReport != nil {
+		rawData["debugReport"] = w.debugReport
+	}
+	if w.explainReport != nil {
+		rawData["explainReport"] = w.explainReport
+	}
+	if len(rawData) == 0 {
+		return nil
+	}
+	return rawData
+}
+
+func mergeToolSteps(existing interface{}, incoming []alkaidModels.AgentToolStep) []alkaidModels.AgentToolStep {
+	stepByID := make(map[string]alkaidModels.AgentToolStep, len(incoming))
+	order := make([]string, 0, len(incoming))
+
+	if existingSteps, ok := existing.([]interface{}); ok {
+		for _, raw := range existingSteps {
+			stepMap, ok := raw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			step := mapToAgentToolStep(stepMap)
+			if step.StepID == "" {
+				continue
+			}
+			stepByID[step.StepID] = step
+			order = append(order, step.StepID)
+		}
+	}
+
+	for _, step := range incoming {
+		if step.StepID == "" {
+			continue
+		}
+		if _, exists := stepByID[step.StepID]; !exists {
+			order = append(order, step.StepID)
+		}
+		stepByID[step.StepID] = step
+	}
+
+	merged := make([]alkaidModels.AgentToolStep, 0, len(order))
+	for _, stepID := range order {
+		if step, exists := stepByID[stepID]; exists {
+			merged = append(merged, step)
+		}
+	}
+	if len(merged) > 100 {
+		merged = merged[len(merged)-100:]
+	}
+	return merged
+}
+
+func mergePlanSteps(existing interface{}, incoming []alkaidModels.AgentPlanStep) []alkaidModels.AgentPlanStep {
+	stepByID := make(map[string]alkaidModels.AgentPlanStep, len(incoming))
+	order := make([]string, 0, len(incoming))
+
+	if existingSteps, ok := existing.([]interface{}); ok {
+		for _, raw := range existingSteps {
+			stepMap, ok := raw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			step := mapToAgentPlanStep(stepMap)
+			if step.PlanStepID == "" {
+				continue
+			}
+			stepByID[step.PlanStepID] = step
+			order = append(order, step.PlanStepID)
+		}
+	}
+
+	for _, step := range incoming {
+		if step.PlanStepID == "" {
+			continue
+		}
+		if _, exists := stepByID[step.PlanStepID]; !exists {
+			order = append(order, step.PlanStepID)
+		}
+		stepByID[step.PlanStepID] = step
+	}
+
+	merged := make([]alkaidModels.AgentPlanStep, 0, len(order))
+	for _, stepID := range order {
+		if step, exists := stepByID[stepID]; exists {
+			merged = append(merged, step)
+		}
+	}
+	if len(merged) > 100 {
+		merged = merged[len(merged)-100:]
+	}
+	return merged
 }
 
 func mapToAgentToolStep(m map[string]interface{}) alkaidModels.AgentToolStep {

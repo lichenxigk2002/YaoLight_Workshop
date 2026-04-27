@@ -38,32 +38,121 @@ type actPipelineContext struct {
 }
 
 func runActWorkflowPipeline(ctx *actPipelineContext) (bool, error) {
-	workflowJSON, finalized, err := extractWorkflowJSONWithFallback(ctx)
+	draft, finalized, err := draftArtifact(ctx)
 	if err != nil || finalized {
 		return finalized, err
 	}
-	if workflowJSON == "" {
+	if draft == nil {
 		return false, nil
 	}
 
-	workflowJSON, _, validationErrors, finalized, err := validateWorkflowAndURLsWithRetry(ctx, workflowJSON, true)
+	draft, _, validationErrors, finalized, err := validateArtifact(ctx, draft)
 	if err != nil || finalized {
 		return finalized, err
 	}
 
-	workflowJSON, finalized, err = runWorkflowTrialAndRepair(ctx, workflowJSON, validationErrors)
+	draft, _, finalized, err = trialArtifact(ctx, draft, validationErrors)
 	if err != nil || finalized {
 		return finalized, err
 	}
 
-	if err := proposeWorkflowResult(ctx, workflowJSON); err != nil {
+	if err := proposeArtifact(ctx, draft); err != nil {
 		return true, err
 	}
 	return false, nil
 }
 
+func draftArtifact(ctx *actPipelineContext) (*alkaidModels.WorkflowDraft, bool, error) {
+	workflowJSON, finalized, err := extractWorkflowJSONWithFallback(ctx)
+	if err != nil || finalized || workflowJSON == "" {
+		return nil, finalized, err
+	}
+	draft, buildErr := BuildWorkflowDraft(workflowJSON, "已生成工作流草稿", string(ctx.reqMode()))
+	if buildErr != nil {
+		_ = ctx.sw.WritePhaseChanged(alkaidModels.PhaseError)
+		_ = ctx.sw.WriteError("工作流草稿格式无效: " + buildErr.Error())
+		_ = ctx.sw.WriteDone()
+		return nil, true, nil
+	}
+	return draft, false, nil
+}
+
+func validateArtifact(ctx *actPipelineContext, draft *alkaidModels.WorkflowDraft) (*alkaidModels.WorkflowDraft, *alkaidModels.ValidationReport, []interface{}, bool, error) {
+	workflowJSON, _, validationErrors, finalized, err := validateWorkflowAndURLsWithRetry(ctx, draft.WorkflowJSON, true)
+	if err != nil || finalized {
+		return draft, nil, validationErrors, finalized, err
+	}
+	if workflowJSON == "" {
+		return nil, nil, validationErrors, true, nil
+	}
+	draft.WorkflowJSON = workflowJSON
+	draft.ValidationPass = true
+	report := BuildValidationReport(true, nil, interfaceErrorsToStrings(validationErrors), "工作流结构校验通过")
+	return draft, &report, validationErrors, false, nil
+}
+
+func trialArtifact(ctx *actPipelineContext, draft *alkaidModels.WorkflowDraft, validationErrors []interface{}) (*alkaidModels.WorkflowDraft, *alkaidModels.TrialReport, bool, error) {
+	workflowJSON, finalized, err := runWorkflowTrialAndRepair(ctx, draft.WorkflowJSON, validationErrors)
+	if err != nil || finalized {
+		return draft, nil, finalized, err
+	}
+	draft.TrialPass = workflowJSON == draft.WorkflowJSON
+	if workflowJSON != draft.WorkflowJSON {
+		draft.WorkflowJSON = workflowJSON
+		draft.TrialPass = true
+		draft.Summary = "工作流试跑后已自动修复并通过校验"
+	}
+	report := BuildTrialReport(draft.TrialPass, "", nil, "工作流试跑阶段已完成")
+	return draft, &report, false, nil
+}
+
+func proposeArtifact(ctx *actPipelineContext, draft *alkaidModels.WorkflowDraft) error {
+	if ctx.reqMode() == TaskRepair {
+		patch, summary, ok := buildRepairPatchArtifact(ctx, draft.WorkflowJSON)
+		if ok {
+			return proposePatchResult(ctx, patch, summary)
+		}
+	}
+	return proposeWorkflowResult(ctx, draft)
+}
+
+func (ctx *actPipelineContext) reqMode() TaskMode {
+	if ctx == nil {
+		return TaskGenerate
+	}
+	return taskModeFromRequest(ctx.req, TaskGenerate)
+}
+
+func (ctx *actPipelineContext) executeTool(name string, params string) (interface{}, string, error) {
+	return ctx.registry.ExecuteToolForMode(string(ctx.reqMode()), name, params, ctx.req.SessionID)
+}
+
 func extractWorkflowJSONWithFallback(ctx *actPipelineContext) (string, bool, error) {
 	workflowJSON := extractWorkflowJSON(ctx.assistantContent)
+	if workflowJSON == "" && (ctx.reqMode() == TaskGenerate || ctx.reqMode() == TaskRepair) {
+		_ = ctx.sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
+		_ = ctx.sw.WriteContent("\n\n我正在把方案整理成可直接应用的工作流，请稍候。\n")
+
+		forcedContent, forcedErr := forceWorkflowDelivery(
+			ctx.reqCtx,
+			ctx.aiProvider,
+			buildWorkflowFallbackConfig(ctx.aiConfig),
+			ctx.systemPrompt,
+			ctx.messages,
+			ctx.assistantContent,
+			ctx.reqMode(),
+		)
+		if ctx.reqCtx.Err() != nil {
+			_ = ctx.sw.WriteInterrupted()
+			return "", true, nil
+		}
+		if forcedErr == nil && forcedContent != "" {
+			workflowJSON = extractWorkflowJSON(forcedContent)
+			if workflowJSON != "" {
+				ctx.assistantContent = strings.TrimSpace(forcedContent)
+			}
+		}
+	}
 	if workflowJSON == "" && shouldAttemptWorkflowFallback(ctx.req.Message, ctx.assistantContent) {
 		_ = ctx.sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
 		_ = ctx.sw.WriteContent("\n\n主回复较长，我正在单独整理结构化工作流，请稍候。\n")
@@ -92,6 +181,13 @@ func extractWorkflowJSONWithFallback(ctx *actPipelineContext) (string, bool, err
 				_ = ctx.sw.WriteContent("结构化工作流仍不完整，本轮先保留文本方案。\n")
 			}
 		}
+	}
+	if workflowJSON == "" && (ctx.reqMode() == TaskGenerate || ctx.reqMode() == TaskRepair) {
+		errMsg := "这次回复没有产出可直接应用的工作流，我已中止这轮回答。请重试，或把需求说得更明确一些。"
+		_ = ctx.sw.WritePhaseChanged(alkaidModels.PhaseError)
+		_ = ctx.sw.WriteError(errMsg)
+		_ = ctx.sw.WriteDone()
+		return "", true, nil
 	}
 	return workflowJSON, false, nil
 }
@@ -182,7 +278,7 @@ func validateWorkflowAndURLs(ctx *actPipelineContext, workflowJSON string) (stri
 	ctx.callbacks.start(validatePlanStep)
 	_ = ctx.sw.WriteToolStepStartedWithPlan("step-validate", "validate_workflow", alkaidModels.PhaseValidating, validatePlanStep.PlanStepID)
 	params := fmt.Sprintf(`{"workflow":%s}`, workflowJSON)
-	valResult, valSummary, valErr := ctx.registry.ExecuteTool("validate_workflow", params, ctx.req.SessionID)
+	valResult, valSummary, valErr := ctx.executeTool("validate_workflow", params)
 
 	var valid bool
 	var validationErrors []interface{}
@@ -260,7 +356,7 @@ func inspectWorkflowURLCandidatesWithProgress(ctx *actPipelineContext, planStepI
 		if planStepID != "" {
 			_ = ctx.sw.WriteToolStepStartedWithPlan(urlStepID, "check_url_accessibility", alkaidModels.PhaseValidating, planStepID)
 		}
-		result, resultSummary, toolErr := ctx.registry.ExecuteTool("check_url_accessibility", fmt.Sprintf(`{"url":%q}`, rawURL), ctx.req.SessionID)
+		result, resultSummary, toolErr := ctx.executeTool("check_url_accessibility", fmt.Sprintf(`{"url":%q}`, rawURL))
 		status := alkaidModels.ToolStepSuccess
 		errMsg := ""
 		if toolErr != nil {
@@ -382,8 +478,8 @@ func runWorkflowTrialAndRepair(ctx *actPipelineContext, workflowJSON string, val
 	)
 	ctx.callbacks.start(trialPlanStep)
 	_ = ctx.sw.WriteToolStepStartedWithPlan("step-trial", "run_workflow_trial", alkaidModels.PhaseRunningTrial, trialPlanStep.PlanStepID)
-	params := fmt.Sprintf(`{"workflow":%s}`, workflowJSON)
-	trialResult, trialSummary, trialErr := ctx.registry.ExecuteTool("run_workflow_trial", params, ctx.req.SessionID)
+	params := fmt.Sprintf(`{"workflow":%s,"level":"quick"}`, workflowJSON)
+	trialResult, trialSummary, trialErr := ctx.executeTool("run_workflow_trial", params)
 
 	var trialSuccess bool
 	var trialErrorMsg string
@@ -498,7 +594,7 @@ func runWorkflowTrialAndRepair(ctx *actPipelineContext, workflowJSON string, val
 	)
 	ctx.callbacks.start(repairValidatePlanStep)
 	_ = ctx.sw.WriteToolStepStartedWithPlan("step-validate-repair", "validate_workflow", alkaidModels.PhaseRepairing, repairValidatePlanStep.PlanStepID)
-	valResult2, valSummary2, valErr2 := ctx.registry.ExecuteTool("validate_workflow", fmt.Sprintf(`{"workflow":%s}`, repairedWorkflowJSON), ctx.req.SessionID)
+	valResult2, valSummary2, valErr2 := ctx.executeTool("validate_workflow", fmt.Sprintf(`{"workflow":%s}`, repairedWorkflowJSON))
 
 	var validRepair bool
 	if m, ok := valResult2.(map[string]interface{}); ok {
@@ -518,7 +614,8 @@ func runWorkflowTrialAndRepair(ctx *actPipelineContext, workflowJSON string, val
 	return repairedWorkflowJSON, false, nil
 }
 
-func proposeWorkflowResult(ctx *actPipelineContext, workflowJSON string) error {
+func proposeWorkflowResult(ctx *actPipelineContext, draft *alkaidModels.WorkflowDraft) error {
+	workflowJSON := draft.WorkflowJSON
 	_ = ctx.sw.WritePhaseChanged(alkaidModels.PhaseWaitingApproval)
 	proposePlanStep := ensureSyntheticPlanStep(
 		ctx.planSteps,
@@ -531,7 +628,8 @@ func proposeWorkflowResult(ctx *actPipelineContext, workflowJSON string) error {
 	)
 	ctx.callbacks.start(proposePlanStep)
 	_ = ctx.sw.WriteToolStepStartedWithPlan("step-propose", "propose_workflow", alkaidModels.PhaseWaitingApproval, proposePlanStep.PlanStepID)
-	_, propSummary, _ := ctx.registry.ExecuteTool("propose_workflow", fmt.Sprintf(`{"workflow":%s}`, workflowJSON), ctx.req.SessionID)
+	draftJSON, _ := json.Marshal(draft)
+	_, propSummary, _ := ctx.executeTool("propose_workflow", fmt.Sprintf(`{"draft":%s}`, string(draftJSON)))
 	_ = ctx.sw.WriteToolStepFinished("step-propose", alkaidModels.ToolStepSuccess, propSummary, "")
 
 	var nodeCount, edgeCount int
@@ -547,16 +645,90 @@ func proposeWorkflowResult(ctx *actPipelineContext, workflowJSON string) error {
 	}
 	_ = ctx.sw.WritePendingWorkflow(nodeCount, edgeCount)
 
-	if proposedNodes != nil && ctx.currentWorkflowForDiff != nil {
-		patch, patchErr := ComputeWorkflowDiff(ctx.currentWorkflowForDiff, proposedNodes, proposedEdges)
-		if patchErr == nil && len(patch) > 0 {
-			patchJSON, _ := json.Marshal(map[string]interface{}{"patch": patch})
-			_ = ctx.sw.WriteToolStepStartedWithPlan("step-patch", "propose_patch", alkaidModels.PhaseWaitingApproval, proposePlanStep.PlanStepID)
-			_, _, _ = ctx.registry.ExecuteTool("propose_patch", string(patchJSON), ctx.req.SessionID)
-			_ = ctx.sw.WriteToolStepFinished("step-patch", alkaidModels.ToolStepSuccess, fmt.Sprintf("已生成 %d 项补丁", len(patch)), "")
-			_ = ctx.sw.WritePendingPatch(len(patch))
-		}
-	}
 	ctx.callbacks.finish(proposePlanStep.PlanStepID, alkaidModels.PlanStepSuccess, "已生成待确认结果", "")
 	return nil
+}
+
+func buildRepairPatchArtifact(ctx *actPipelineContext, workflowJSON string) ([]map[string]interface{}, *alkaidModels.PendingPatchSummary, bool) {
+	if ctx.currentWorkflowForDiff == nil {
+		return nil, nil, false
+	}
+
+	var workflow map[string]interface{}
+	if err := json.Unmarshal([]byte(workflowJSON), &workflow); err != nil {
+		return nil, nil, false
+	}
+
+	proposedNodes, _ := workflow["nodes"].([]interface{})
+	proposedEdges, _ := workflow["edges"].([]interface{})
+	if proposedNodes == nil {
+		return nil, nil, false
+	}
+
+	patch, err := ComputeWorkflowDiff(ctx.currentWorkflowForDiff, proposedNodes, proposedEdges)
+	if err != nil || len(patch) == 0 {
+		return nil, nil, false
+	}
+
+	return patch, SummarizePatchItems(patch), true
+}
+
+func proposePatchResult(ctx *actPipelineContext, patch []map[string]interface{}, summary *alkaidModels.PendingPatchSummary) error {
+	_ = ctx.sw.WritePhaseChanged(alkaidModels.PhaseWaitingApproval)
+	proposePlanStep := ensureSyntheticPlanStep(
+		ctx.planSteps,
+		ctx.userMsg.ID,
+		ctx.req.Message,
+		"整理待确认结果",
+		"将最终补丁整理成可确认的交付结果，等待用户决定是否应用。",
+		alkaidModels.PhaseWaitingApproval,
+		[]string{"propose_patch"},
+	)
+	ctx.callbacks.start(proposePlanStep)
+	_ = ctx.sw.WriteToolStepStartedWithPlan("step-patch", "propose_patch", alkaidModels.PhaseWaitingApproval, proposePlanStep.PlanStepID)
+
+	patchBytes, _ := json.Marshal(patch)
+	patchDraft, _ := BuildPatchDraft(string(patchBytes), "已根据当前画布生成可应用补丁", ctx.workflowID())
+	patchPayload, _ := json.Marshal(map[string]interface{}{"draft": patchDraft, "patch": patch})
+	_, propSummary, propErr := ctx.executeTool("propose_patch", string(patchPayload))
+	if propErr != nil {
+		errMsg := propErr.Error()
+		_ = ctx.sw.WriteToolStepFinished("step-patch", alkaidModels.ToolStepError, propSummary, errMsg)
+		ctx.callbacks.finish(proposePlanStep.PlanStepID, alkaidModels.PlanStepError, propSummary, errMsg)
+		return propErr
+	}
+
+	_ = ctx.sw.WriteToolStepFinished("step-patch", alkaidModels.ToolStepSuccess, propSummary, "")
+	_ = ctx.sw.WritePendingPatch(len(patch), summary)
+	ctx.callbacks.finish(proposePlanStep.PlanStepID, alkaidModels.PlanStepSuccess, "已生成待确认补丁", "")
+	return nil
+}
+
+func (ctx *actPipelineContext) workflowID() uint {
+	if ctx == nil || ctx.session == nil || ctx.session.WorkflowID == nil {
+		return 0
+	}
+	return *ctx.session.WorkflowID
+}
+
+func interfaceErrorsToStrings(items []interface{}) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		switch v := item.(type) {
+		case string:
+			out = append(out, v)
+		case map[string]interface{}:
+			if msg, ok := v["message"].(string); ok && msg != "" {
+				out = append(out, msg)
+				continue
+			}
+			out = append(out, fmt.Sprintf("%v", v))
+		default:
+			out = append(out, fmt.Sprintf("%v", v))
+		}
+	}
+	return out
 }

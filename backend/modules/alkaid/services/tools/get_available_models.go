@@ -2,12 +2,15 @@ package tools
 
 // 当前系统支持的 AI 节点可用模型列表（静态配置，与前端/配置中心一致时可改为动态读取）
 var defaultAvailableModels = []map[string]interface{}{
+	{"provider": "gpt", "modelName": "openai/gpt-5.4"},
+	{"provider": "gpt", "modelName": "openai/gpt-5.2"},
+	{"provider": "gpt", "modelName": "openai/gpt-5.1"},
+	{"provider": "openai", "modelName": "openai/gpt-5.4"},
+	{"provider": "openai", "modelName": "openai/gpt-5.2"},
 	{"provider": "deepseek", "modelName": "deepseek-chat"},
 	{"provider": "deepseek", "modelName": "deepseek-reasoner"},
 	{"provider": "qwen", "modelName": "qwen-turbo"},
 	{"provider": "qwen", "modelName": "qwen-plus"},
-	{"provider": "openai", "modelName": "gpt-4o"},
-	{"provider": "openai", "modelName": "gpt-4o-mini"},
 	{"provider": "moonshot", "modelName": "moonshot-v1"},
 	{"provider": "zhipuai", "modelName": "glm-4-flash"},
 	{"provider": "spark", "modelName": "general"},

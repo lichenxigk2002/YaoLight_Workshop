@@ -17,6 +17,8 @@ export type Phase =
   | 'waiting_approval'
   | 'error';
 
+export type TaskMode = 'chat' | 'explain' | 'generate' | 'repair' | 'trial_debug';
+
 /**
  * 工具步状态
  */
@@ -56,6 +58,7 @@ export interface Session {
   title: string;
   workflowId?: number;
   status: string;
+  currentTaskMode?: TaskMode;
   currentPhase?: Phase;
   toolSteps?: AgentToolStep[];
   planSteps?: AgentPlanStep[];
@@ -74,6 +77,10 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   type: string;
+  rawData?: {
+    debugReport?: unknown;
+    explainReport?: unknown;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -102,4 +109,3 @@ export interface GetMessagesResponse {
   toolSteps: AgentToolStep[];
   planSteps: AgentPlanStep[];
 }
-

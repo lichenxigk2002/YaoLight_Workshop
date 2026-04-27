@@ -7,87 +7,177 @@ import (
 )
 
 type RouteDecision struct {
-	Mode         RouteMode
-	NeedWorkflow bool
-	NeedTools    bool
-	NeedApproval bool
-	ShowProgress bool
-	Reason       string
+	TaskMode       TaskMode
+	Mode           RouteMode
+	AllowMutating  bool
+	NeedWorkflow   bool
+	NeedTools      bool
+	NeedValidation bool
+	NeedTrial      bool
+	NeedApproval   bool
+	ShowProgress   bool
+	Reason         string
 }
 
 func DecideRoute(turnCtx TurnContext) RouteDecision {
 	message := strings.TrimSpace(turnCtx.Request.Message)
-	normalized := strings.ToLower(message)
-	if normalized == "" {
-		return RouteDecision{Mode: RouteChat, Reason: "empty_message"}
-	}
-
-	if isExplicitActRequest(normalized) {
-		return RouteDecision{
-			Mode:         RouteAct,
-			NeedWorkflow: true,
-			NeedTools:    true,
-			NeedApproval: true,
-			ShowProgress: true,
-			Reason:       "explicit_workflow_action",
-		}
-	}
-
-	if isExplicitAnalyzeRequest(normalized) {
-		return RouteDecision{
-			Mode:         RouteAnalyze,
-			NeedWorkflow: true,
-			NeedTools:    true,
-			ShowProgress: false,
-			Reason:       "explicit_workflow_analysis",
-		}
-	}
-
-	if isPlainChatRequest(normalized) {
-		return RouteDecision{Mode: RouteChat, Reason: "plain_chat"}
+	if message == "" {
+		return newRouteDecision(TaskChat, "empty_message")
 	}
 
 	analyzer := alkaidServices.NewIntentAnalyzer()
-	needsWorkflow, err := analyzer.AnalyzeIntent(message, turnCtx.ConversationHistory)
-	if err == nil && needsWorkflow {
-		return RouteDecision{
-			Mode:         RouteAnalyze,
-			NeedWorkflow: true,
-			NeedTools:    true,
-			ShowProgress: false,
-			Reason:       "intent_analyzer_requires_workflow",
+	intent, err := analyzer.AnalyzeTaskIntent(message, turnCtx.ConversationHistory)
+	if err == nil && intent != nil && intent.SuggestedMode != "" {
+		suggestedMode := TaskMode(intent.SuggestedMode)
+		decision := newRouteDecision(suggestedMode, "intent_analyzer:"+intent.Reason)
+		switch suggestedMode {
+		case TaskChat:
+			return decision
+		case TaskExplain:
+			decision.NeedWorkflow = true
+			decision.NeedTools = true
+		case TaskTrialDebug:
+			decision.NeedWorkflow = true
+			decision.NeedTools = true
+			decision.NeedValidation = true
+			decision.NeedTrial = true
+			decision.ShowProgress = true
+		case TaskGenerate:
+			decision.AllowMutating = true
+			decision.NeedTools = true
+			decision.NeedValidation = true
+			decision.NeedTrial = true
+			decision.NeedApproval = true
+			decision.ShowProgress = true
+		case TaskRepair:
+			decision.AllowMutating = true
+			decision.NeedWorkflow = true
+			decision.NeedTools = true
+			decision.NeedValidation = true
+			decision.NeedTrial = true
+			decision.NeedApproval = true
+			decision.ShowProgress = true
 		}
+		return decision
 	}
 
-	return RouteDecision{Mode: RouteChat, Reason: "default_chat"}
+	fallback := fallbackRouteDecision(strings.ToLower(message))
+	if fallback.Reason == "" {
+		fallback.Reason = "fallback_chat"
+	}
+	return fallback
 }
 
-func isExplicitActRequest(normalized string) bool {
-	explicitActPhrases := []string{
-		"生成工作流", "创建工作流", "新建工作流", "做一个工作流", "帮我生成", "帮我创建",
-		"修改工作流", "优化工作流", "修复工作流", "调整工作流", "新增节点", "删除节点",
-		"调整节点", "调整连线", "应用补丁", "运行工作流", "试跑工作流", "校验工作流",
-		"build a workflow", "create a workflow", "generate workflow",
-		"modify workflow", "optimize workflow", "fix workflow", "patch workflow",
-		"run workflow", "validate workflow",
+func fallbackRouteDecision(normalized string) RouteDecision {
+	if isExplicitTrialDebugRequest(normalized) {
+		decision := newRouteDecision(TaskTrialDebug, "fallback_rule_trial_debug")
+		decision.NeedWorkflow = true
+		decision.NeedTools = true
+		decision.NeedValidation = true
+		decision.NeedTrial = true
+		decision.ShowProgress = true
+		return decision
 	}
-	if routeContainsAny(normalized, explicitActPhrases) {
+
+	if isExplicitRepairRequest(normalized) {
+		decision := newRouteDecision(TaskRepair, "fallback_rule_repair")
+		decision.AllowMutating = true
+		decision.NeedWorkflow = true
+		decision.NeedTools = true
+		decision.NeedValidation = true
+		decision.NeedTrial = true
+		decision.NeedApproval = true
+		decision.ShowProgress = true
+		return decision
+	}
+
+	if isExplicitGenerateRequest(normalized) {
+		decision := newRouteDecision(TaskGenerate, "fallback_rule_generate")
+		decision.AllowMutating = true
+		decision.NeedTools = true
+		decision.NeedValidation = true
+		decision.NeedTrial = true
+		decision.NeedApproval = true
+		decision.ShowProgress = true
+		return decision
+	}
+
+	if isExplicitExplainRequest(normalized) {
+		decision := newRouteDecision(TaskExplain, "fallback_rule_explain")
+		decision.NeedWorkflow = true
+		decision.NeedTools = true
+		return decision
+	}
+
+	return newRouteDecision(TaskChat, "fallback_rule_chat")
+}
+
+func newRouteDecision(taskMode TaskMode, reason string) RouteDecision {
+	return RouteDecision{
+		TaskMode: taskMode,
+		Mode:     legacyRouteMode(taskMode),
+		Reason:   reason,
+	}
+}
+
+func legacyRouteMode(taskMode TaskMode) RouteMode {
+	switch taskMode {
+	case TaskExplain:
+		return RouteAnalyze
+	case TaskGenerate, TaskRepair, TaskTrialDebug:
+		return RouteAct
+	default:
+		return RouteChat
+	}
+}
+
+func isExplicitGenerateRequest(normalized string) bool {
+	explicitGeneratePhrases := []string{
+		"生成工作流", "创建工作流", "新建工作流", "做一个工作流", "帮我生成", "帮我创建",
+		"build a workflow", "create a workflow", "generate workflow",
+	}
+	if routeContainsAny(normalized, explicitGeneratePhrases) {
 		return true
 	}
 
 	workflowObjects := []string{"工作流", "workflow", "画布", "节点", "连线", "流程图", "node", "edge", "canvas"}
-	workflowActActions := []string{
-		"修改", "优化", "修复", "补全", "调整", "新增", "删除", "替换", "运行", "试跑", "校验", "验证", "合并", "拆分", "应用",
-		"modify", "optimize", "fix", "repair", "run", "validate", "patch", "apply",
-	}
-	return routeContainsAny(normalized, workflowObjects) && routeContainsAny(normalized, workflowActActions)
+	generateActions := []string{"生成", "创建", "新建", "搭", "制作", "generate", "create", "build"}
+	return routeContainsAny(normalized, workflowObjects) && routeContainsAny(normalized, generateActions)
 }
 
-func isExplicitAnalyzeRequest(normalized string) bool {
+func isExplicitRepairRequest(normalized string) bool {
+	explicitRepairPhrases := []string{
+		"修改工作流", "优化工作流", "修复工作流", "调整工作流", "新增节点", "删除节点",
+		"调整节点", "调整连线", "应用补丁", "modify workflow", "optimize workflow", "fix workflow", "patch workflow",
+	}
+	if routeContainsAny(normalized, explicitRepairPhrases) {
+		return true
+	}
+
+	workflowObjects := []string{"工作流", "workflow", "画布", "节点", "连线", "流程图", "node", "edge", "canvas"}
+	repairActions := []string{"修改", "优化", "修复", "补全", "调整", "新增", "删除", "替换", "合并", "拆分", "应用", "modify", "optimize", "fix", "repair", "patch", "apply"}
+	return routeContainsAny(normalized, workflowObjects) && routeContainsAny(normalized, repairActions)
+}
+
+func isExplicitTrialDebugRequest(normalized string) bool {
+	explicitTrialPhrases := []string{
+		"运行工作流", "试跑工作流", "校验工作流", "验证工作流", "跑一下", "试一下", "试跑一下",
+		"看看哪里报错", "哪里报错", "定位失败", "定位错误", "debug workflow", "run workflow", "validate workflow",
+	}
+	if routeContainsAny(normalized, explicitTrialPhrases) {
+		return true
+	}
+
+	workflowObjects := []string{"工作流", "workflow", "画布", "节点", "流程", "node", "canvas"}
+	trialActions := []string{"运行", "试跑", "校验", "验证", "报错", "失败", "debug", "run", "validate", "trial"}
+	return routeContainsAny(normalized, workflowObjects) && routeContainsAny(normalized, trialActions)
+}
+
+func isExplicitExplainRequest(normalized string) bool {
 	explicitAnalyzePhrases := []string{
-		"当前工作流", "当前画布", "这个工作流", "这条工作流", "帮我看看现在的流程", "分析当前工作流",
-		"查看工作流", "检查工作流", "查看节点", "看看工作流", "分析流程图", "看看当前画布",
-		"current workflow", "current canvas", "analyze workflow", "inspect workflow", "check workflow", "review workflow",
+		"解释当前工作流", "解释这条工作流", "说明当前工作流", "帮我看看现在的流程", "分析当前工作流",
+		"查看工作流", "查看节点", "看看工作流", "分析流程图", "看看当前画布", "当前工作流", "当前画布",
+		"current workflow", "current canvas", "analyze workflow", "inspect workflow", "review workflow", "explain workflow",
 	}
 	if routeContainsAny(normalized, explicitAnalyzePhrases) {
 		return true
@@ -95,7 +185,7 @@ func isExplicitAnalyzeRequest(normalized string) bool {
 
 	workflowObjects := []string{"工作流", "workflow", "画布", "节点", "连线", "流程图", "node", "edge", "canvas"}
 	workflowAnalyzeActions := []string{
-		"分析", "查看", "看看", "看下", "检查", "排查", "解释", "梳理", "review", "inspect", "analyze", "check", "explain",
+		"分析", "查看", "看看", "看下", "解释", "梳理", "review", "inspect", "analyze", "explain",
 	}
 	return routeContainsAny(normalized, workflowObjects) && routeContainsAny(normalized, workflowAnalyzeActions)
 }

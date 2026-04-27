@@ -538,6 +538,35 @@ func (c *AlkaidController) ApplyPatch(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已应用补丁", "data": nil})
 }
 
+// InterruptSession 停止当前正在运行的 Agentic 会话
+func (c *AlkaidController) InterruptSession(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+
+	var body struct {
+		SessionID uint `json:"sessionId"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误: " + err.Error(), "data": nil})
+		return
+	}
+	if body.SessionID == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "sessionId 必填", "data": nil})
+		return
+	}
+	if err := agentic.InterruptSession(agentic.InterruptSessionRequest{
+		SessionID: body.SessionID,
+		UserID:    userID.(uint),
+	}); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "已停止当前任务", "data": nil})
+}
+
 // GetCapabilities 获取瑶光星能力说明（供智能体/前端使用）
 func (c *AlkaidController) GetCapabilities(ctx *gin.Context) {
 	_, exists := ctx.Get("userID")
