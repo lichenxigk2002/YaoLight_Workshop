@@ -1,19 +1,29 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { CodeBlock } from '@/components/CodeBlock';
+import type { CodeBlockAppearance } from '@/components/CodeBlock';
 import { MermaidRenderer } from './MermaidRenderer';
 import styles from './MarkdownRenderer.module.scss';
 
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  codeBlockAppearance?: CodeBlockAppearance;
+  codeBlockShowHeader?: boolean;
+  codeBlockShowLineNumbers?: boolean;
 }
 
 /**
  * Markdown渲染组件
  * 用于渲染AI返回的Markdown格式文本
  */
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
+  content,
+  className,
+  codeBlockAppearance = 'default',
+  codeBlockShowHeader = true,
+  codeBlockShowLineNumbers = true,
+}) => {
   // 如果内容为空，返回空div
   if (!content || content.trim() === '') {
     return <div className={`${styles.markdownContainer} ${className || ''}`}></div>;
@@ -63,6 +73,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
               <CodeBlock
                 value={String(children ?? '').replace(/\n$/, '')}
                 language={language || 'text'}
+                appearance={codeBlockAppearance}
+                showHeader={codeBlockShowHeader}
+                showLineNumbers={codeBlockShowLineNumbers}
                 className={styles.markdownCodeBlock}
                 defaultExpanded
                 collapsedLines={999}

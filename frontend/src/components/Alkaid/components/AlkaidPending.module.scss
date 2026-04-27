@@ -67,20 +67,22 @@
 }
 
 .triggerButton {
-  font-size: 12px !important;
-  height: 24px !important;
-  padding: 0 8px !important;
-  border-radius: 12px !important;
-  background: var(--bg-secondary) !important;
-  border: 1px solid var(--border-secondary) !important;
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid var(--alkaid-stroke-0, var(--border-secondary)) !important;
   color: var(--text-primary) !important;
   display: flex !important;
   align-items: center !important;
   gap: 4px !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
 
   &:hover {
     color: var(--primary) !important;
     border-color: var(--primary) !important;
-    background: var(--bg-primary) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
   }
 }

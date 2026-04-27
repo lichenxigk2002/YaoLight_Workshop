@@ -33,6 +33,7 @@ export interface MCPAccessSettings {
   maxTokensPerUser: number;
   rateLimitPerMinute: number;
   defaultScopes: string[];
+  publicApiBaseUrl?: string;
 }
 
 export interface MCPCallLog {

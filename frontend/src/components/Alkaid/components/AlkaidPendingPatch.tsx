@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Popover, Space, Badge } from 'antd';
+import { Button, Popover, Space, Badge, Tooltip } from 'antd';
 import { EyeOutlined, DiffOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type { PendingPatchSummary } from '../types';
@@ -22,6 +22,14 @@ const AlkaidPendingPatch = ({
 }: AlkaidPendingPatchProps) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const handleDiscard = () => {
+    setOpen(false);
+    onDiscard();
+  };
+  const handleApply = () => {
+    setOpen(false);
+    onApply();
+  };
 
   const content = (
     <div className={styles.popoverContent}>
@@ -54,14 +62,14 @@ const AlkaidPendingPatch = ({
         </div>
       )}
       <Space size={8} style={{ width: '100%', justifyContent: 'flex-end' }}>
-        <Button size="small" onClick={onDiscard} disabled={loading}>
+        <Button size="small" onClick={handleDiscard} disabled={loading}>
           {t('workflowEditor.alkaid.discard', '放弃')}
         </Button>
         <Button
           type="primary"
           size="small"
           icon={<EyeOutlined />}
-          onClick={onApply}
+          onClick={handleApply}
           loading={loading}
         >
           {t('workflowEditor.alkaid.previewPatch', '预览修复')}
@@ -71,19 +79,23 @@ const AlkaidPendingPatch = ({
   );
 
   return (
-    <Popover
-      content={content}
-      trigger="click"
-      open={open}
-      onOpenChange={setOpen}
-      placement="topLeft"
-    >
-      <Badge dot offset={[-2, 2]} color="orange">
-        <Button className={styles.triggerButton} icon={<DiffOutlined />}>
-          {t('workflowEditor.alkaid.patch', '补丁')} ({patchCount})
-        </Button>
-      </Badge>
-    </Popover>
+    <Tooltip title={`${t('workflowEditor.alkaid.pendingPatch', '待确认补丁')} · ${patchCount} ${t('workflowEditor.changes', '项变更')}`}>
+      <Popover
+        content={content}
+        trigger="click"
+        open={open}
+        onOpenChange={setOpen}
+        placement="topLeft"
+      >
+        <Badge dot offset={[-1, 2]} color="orange">
+          <Button
+            className={styles.triggerButton}
+            icon={<DiffOutlined />}
+            aria-label={t('workflowEditor.alkaid.pendingPatch', '待确认补丁')}
+          />
+        </Badge>
+      </Popover>
+    </Tooltip>
   );
 };
 

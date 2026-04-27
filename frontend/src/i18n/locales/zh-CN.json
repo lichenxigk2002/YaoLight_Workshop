@@ -368,6 +368,7 @@
     "mcpCodexConfig": "Codex",
     "mcpJsonConfig": "Cursor / Claude Desktop",
     "mcpCopyCodexConfig": "复制 Codex 命令",
+    "mcpCopyJsonConfig": "复制 Cursor / Claude Desktop 配置",
     "mcpCopyConfigTemplate": "复制配置模板",
     "mcpCopyConfig": "复制完整配置",
     "mcpCopyToken": "复制 Token",

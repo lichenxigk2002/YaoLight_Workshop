@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/modules/mcp/services"
 )
 
@@ -20,6 +22,11 @@ type createTokenRequest struct {
 	Scopes    []string `json:"scopes"`
 	ExpiresAt *string  `json:"expires_at"`
 	ExpiresIn *int     `json:"expires_in_days"`
+}
+
+type accessSettingsResponse struct {
+	services.AccessSettings
+	PublicAPIBaseURL string `json:"publicApiBaseUrl"`
 }
 
 func NewTokenController(db *gorm.DB) *TokenController {
@@ -99,7 +106,14 @@ func (c *TokenController) List(ctx *gin.Context) {
 
 func (c *TokenController) Settings(ctx *gin.Context) {
 	settings := services.LoadAccessSettings(c.tokenService.DB())
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "获取成功", "data": settings})
+	ctx.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "获取成功",
+		"data": accessSettingsResponse{
+			AccessSettings:   settings,
+			PublicAPIBaseURL: buildPublicAPIBaseURL(ctx),
+		},
+	})
 }
 
 func (c *TokenController) Revoke(ctx *gin.Context) {
@@ -185,4 +199,47 @@ func parseExpiry(expiresAt *string, expiresInDays *int, defaultDays int, maxDays
 	}
 	defaultExpiry := time.Now().AddDate(0, 0, defaultDays)
 	return &defaultExpiry, nil
+}
+
+func buildPublicAPIBaseURL(ctx *gin.Context) string {
+	if explicit := strings.TrimSpace(config.PublicAPIBaseURL); explicit != "" {
+		return normalizeAPIBaseURL(explicit)
+	}
+	if frontendURL := strings.TrimSpace(config.FrontendURL); frontendURL != "" {
+		return normalizeAPIBaseURL(frontendURL)
+	}
+	return normalizeAPIBaseURL(buildExternalBaseURL(ctx))
+}
+
+func buildExternalBaseURL(ctx *gin.Context) string {
+	scheme := "http"
+	if ctx.Request.TLS != nil {
+		scheme = "https"
+	}
+	if forwardedProto := firstForwardedValue(ctx.GetHeader("X-Forwarded-Proto")); forwardedProto != "" {
+		scheme = forwardedProto
+	}
+
+	host := ctx.Request.Host
+	if forwardedHost := firstForwardedValue(ctx.GetHeader("X-Forwarded-Host")); forwardedHost != "" {
+		host = forwardedHost
+	}
+	return scheme + "://" + host
+}
+
+func normalizeAPIBaseURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	raw = strings.TrimRight(raw, "/")
+	if strings.HasSuffix(raw, "/api") {
+		return raw
+	}
+	return raw + "/api"
+}
+
+func firstForwardedValue(value string) string {
+	if value == "" {
+		return ""
+	}
+	parts := strings.Split(value, ",")
+	return strings.TrimSpace(parts[0])
 }

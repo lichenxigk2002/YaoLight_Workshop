@@ -173,6 +173,7 @@ export default function AlkaidPanel({
   const needsWorkflowRef = useRef<boolean | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<any>(null)
+  const sidebarRef = useRef<HTMLDivElement | null>(null)
   const isSendingFirstMessage = useRef(false)
   const accumulatedContentRef = useRef('')
   const isSendingMessage = useRef(false)
@@ -187,6 +188,7 @@ export default function AlkaidPanel({
   const [agenticReports, setAgenticReports] = useState<AgenticReportAttachment[]>([])
   const [applyLoading, setApplyLoading] = useState(false)
   const [applyPatchLoading, setApplyPatchLoading] = useState(false)
+  const [dismissedStreamedWorkflowJSON, setDismissedStreamedWorkflowJSON] = useState<string | null>(null)
   const [sessionStatus, setSessionStatus] = useState<string>('active')
 
   const [convQuery, setConvQuery] = useState('')
@@ -302,6 +304,21 @@ export default function AlkaidPanel({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
+
+  useEffect(() => {
+    if (variant !== 'floating' || !showSessionList) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target) return
+      if (target.closest('[data-sidebar-toggle="true"]')) return
+      if (sidebarRef.current?.contains(target)) return
+      setShowSessionList(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, true)
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true)
+  }, [showSessionList, variant])
 
   useEffect(() => {
     scrollToBottom()
@@ -880,16 +897,22 @@ export default function AlkaidPanel({
     return workflow ? summarizePendingWorkflow(workflow) : null
   }, [latestStreamedWorkflowJSON])
 
-  const effectivePendingSummary = agenticPendingSummary ?? streamedPendingSummary
+  const effectivePendingSummary = agenticPendingSummary ?? (
+    latestStreamedWorkflowJSON && latestStreamedWorkflowJSON !== dismissedStreamedWorkflowJSON
+      ? streamedPendingSummary
+      : null
+  )
 
   const handleDiscardWorkflow = async () => {
     if (!sessionId) {
       setAgenticPendingSummary(null)
+      setDismissedStreamedWorkflowJSON(latestStreamedWorkflowJSON)
       return
     }
     try {
       await alkaidApi.discardPending(sessionId, 'workflow')
       setAgenticPendingSummary(null)
+      setDismissedStreamedWorkflowJSON(latestStreamedWorkflowJSON)
       message.success(t('alkaid.pendingDiscarded', '已放弃待确认内容'))
     } catch (error: any) {
       message.error(error?.message || t('alkaid.importFailed') || '操作失败')
@@ -1001,6 +1024,7 @@ export default function AlkaidPanel({
         setAgenticPendingSummary(null)
         setAgenticPendingPatchCount(null)
         setAgenticPendingPatchSummary(null)
+        setDismissedStreamedWorkflowJSON(latestStreamedWorkflowJSON)
         previewHandled = true
       }
       if (!previewHandled) {
@@ -1009,6 +1033,7 @@ export default function AlkaidPanel({
         setAgenticPendingSummary(null)
         setAgenticPendingPatchCount(null)
         setAgenticPendingPatchSummary(null)
+        setDismissedStreamedWorkflowJSON(latestStreamedWorkflowJSON)
         onWorkflowApplied?.()
       }
     } catch (e: any) {
@@ -1123,6 +1148,7 @@ export default function AlkaidPanel({
           size="small"
           className={styles.iconBtn}
           icon={<PanelLeft size={16} />}
+          data-sidebar-toggle="true"
           onClick={() => {
             if (view !== 'chat') {
               setView('chat')
@@ -1184,7 +1210,7 @@ export default function AlkaidPanel({
   )
 
   const renderSidebar = () => (
-    <div className={styles.sidebar}>
+    <div ref={sidebarRef} className={styles.sidebar}>
       <div className={styles.sidebarHeader}>
         <div className={styles.sidebarTitle}>{t('alkaid.conversations', '会话')}</div>
         <Button type="text" size="small" className={styles.newBtn} onClick={handleNewChat}>
@@ -1421,7 +1447,13 @@ export default function AlkaidPanel({
           <div className={styles.bubble}>
             {parsed.text && (
               <div className={styles.markdownContent}>
-                <MarkdownRenderer content={parsed.text} className={styles.alkaidMarkdown} />
+                <MarkdownRenderer
+                  content={parsed.text}
+                  className={styles.alkaidMarkdown}
+                  codeBlockAppearance="minimal"
+                  codeBlockShowHeader={false}
+                  codeBlockShowLineNumbers={false}
+                />
               </div>
             )}
             {!parsed.text && msg.role === 'assistant' && (msg.id === currentLoadingMessageId || sessionStatus === 'running') && (
@@ -1478,7 +1510,7 @@ export default function AlkaidPanel({
                 }}
                 aria-label="copy"
               >
-                <Copy size={15} />
+                <Copy size={13} />
               </button>
             )}
           </div>
@@ -1835,6 +1867,7 @@ export default function AlkaidPanel({
           <button
             type="button"
             className={styles.iconBtn}
+            data-sidebar-toggle="true"
             onClick={() => {
               if (view !== 'chat') {
                 setView('chat')
