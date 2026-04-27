@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 	log "yaolight-workshop/backend/infrastructure/logx"
 	"yaolight-workshop/backend/modules/ai/services/providers"
 )
@@ -199,7 +200,171 @@ func (p *GPTProvider) Chat(config *providers.AIModelConfig, prompt string, conte
 }
 
 func (p *GPTProvider) ChatWithTools(ctx context.Context, config *providers.AIModelConfig, systemPrompt string, messages []providers.ChatMessage, tools []providers.ToolDef, providerConfig map[string]interface{}) (*providers.ChatResponseWithTools, error) {
-	return nil, fmt.Errorf("tool calling not implemented for GPT provider")
+	reqCtx := ctx
+	cancel := func() {}
+	if config.RequestTimeoutSeconds > 0 {
+		reqCtx, cancel = context.WithTimeout(ctx, time.Duration(config.RequestTimeoutSeconds)*time.Second)
+	}
+	defer cancel()
+
+	baseURL := config.BaseURL
+	if baseURL == "" {
+		baseURL = "https://openrouter.ai/api/v1"
+	}
+	url := fmt.Sprintf("%s/chat/completions", baseURL)
+
+	apiMessages := make([]map[string]interface{}, 0, 1+len(messages))
+	if systemPrompt != "" {
+		apiMessages = append(apiMessages, map[string]interface{}{
+			"role": "system", "content": systemPrompt,
+		})
+	}
+	for _, m := range messages {
+		msg := map[string]interface{}{"role": m.Role}
+		if m.Content != "" {
+			msg["content"] = m.Content
+		}
+		if m.Role == "tool" && m.ToolCallID != "" {
+			msg["tool_call_id"] = m.ToolCallID
+		}
+		if len(m.ToolCalls) > 0 {
+			tcList := make([]map[string]interface{}, 0, len(m.ToolCalls))
+			for _, tc := range m.ToolCalls {
+				tcList = append(tcList, map[string]interface{}{
+					"id":   tc.ID,
+					"type": "function",
+					"function": map[string]interface{}{
+						"name":      tc.Function.Name,
+						"arguments": tc.Function.Arguments,
+					},
+				})
+			}
+			msg["tool_calls"] = tcList
+		}
+		apiMessages = append(apiMessages, msg)
+	}
+
+	toolsPayload := make([]map[string]interface{}, 0, len(tools))
+	for _, t := range tools {
+		item := map[string]interface{}{"type": "function"}
+		if t.Function != nil {
+			item["function"] = map[string]interface{}{
+				"name":        t.Function.Name,
+				"description": t.Function.Description,
+				"parameters":  t.Function.Parameters,
+			}
+		}
+		toolsPayload = append(toolsPayload, item)
+	}
+
+	requestBody := map[string]interface{}{
+		"model":    config.ModelName,
+		"messages": apiMessages,
+		"stream":   false,
+	}
+	if len(toolsPayload) > 0 {
+		requestBody["tools"] = toolsPayload
+	}
+	if config.Temperature != nil {
+		requestBody["temperature"] = *config.Temperature
+	}
+	if config.MaxTokens != nil {
+		requestBody["max_tokens"] = *config.MaxTokens
+	}
+	if config.TopP != nil {
+		requestBody["top_p"] = *config.TopP
+	}
+	if len(config.StopSequences) > 0 {
+		requestBody["stop"] = config.StopSequences
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(reqCtx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.APIKey))
+	req.Header.Set("HTTP-Referer", "https://github.com/yaolight-workshop")
+	req.Header.Set("X-Title", "YaoLight Workshop")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var response struct {
+		Choices []struct {
+			Message struct {
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Type     string `json:"type"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+		Usage struct {
+			PromptTokens        int `json:"prompt_tokens"`
+			CompletionTokens    int `json:"completion_tokens"`
+			TotalTokens         int `json:"total_tokens"`
+			PromptTokensDetails struct {
+				CachedTokens int `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+	if len(response.Choices) == 0 {
+		return nil, fmt.Errorf("no choices in response")
+	}
+
+	usage := &providers.TokenUsage{
+		PromptTokens:     response.Usage.PromptTokens,
+		CompletionTokens: response.Usage.CompletionTokens,
+		TotalTokens:      response.Usage.TotalTokens,
+	}
+	if response.Usage.PromptTokensDetails.CachedTokens > 0 {
+		cached := response.Usage.PromptTokensDetails.CachedTokens
+		usage.CacheReadTokens = &cached
+	}
+
+	out := &providers.ChatResponseWithTools{
+		Content:    response.Choices[0].Message.Content,
+		TokensUsed: response.Usage.TotalTokens,
+		Usage:      usage,
+		Model:      config.ModelName,
+	}
+	for _, tc := range response.Choices[0].Message.ToolCalls {
+		toolType := tc.Type
+		if toolType == "" {
+			toolType = "function"
+		}
+		out.ToolCalls = append(out.ToolCalls, &providers.ToolCall{
+			ID:   tc.ID,
+			Type: toolType,
+			Function: struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			}{Name: tc.Function.Name, Arguments: tc.Function.Arguments},
+		})
+	}
+	return out, nil
 }
 
 func (p *GPTProvider) ChatStream(ctx context.Context, config *providers.AIModelConfig, prompt string, content string, providerConfig map[string]interface{}, callback providers.StreamCallback) error {

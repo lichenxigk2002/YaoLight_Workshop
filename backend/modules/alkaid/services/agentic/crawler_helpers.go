@@ -96,7 +96,7 @@ func validateWorkflowSourceURLs(registry *tools.Registry, urls []string, session
 	okCount := 0
 
 	for _, rawURL := range urls {
-		result, _, err := registry.ExecuteTool("check_url_accessibility", fmt.Sprintf(`{"url":%q}`, rawURL), sessionID)
+		result, _, err := registry.ExecuteToolForMode(string(TaskGenerate), "check_url_accessibility", fmt.Sprintf(`{"url":%q}`, rawURL), sessionID)
 		if err != nil {
 			return nil, "", err
 		}

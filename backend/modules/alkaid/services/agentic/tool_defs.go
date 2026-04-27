@@ -179,6 +179,90 @@ func GetToolDefsForLLM() []providers.ToolDef {
 				},
 			},
 		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
+				Name:        "validate_workflow",
+				Description: "Validate a workflow draft and return structured errors, warnings, and summary. Use before proposing or trial-running a workflow.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"workflow": map[string]interface{}{
+							"type":        "object",
+							"description": "Workflow JSON object with version, nodes, edges, and optional commentCards.",
+						},
+					},
+					"required": []string{"workflow"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
+				Name:        "run_workflow_trial",
+				Description: "Run a controlled workflow trial and return success, failed node information, summary, and cost estimate. Default to level=quick unless the user explicitly asks for deeper execution.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"workflow": map[string]interface{}{
+							"type":        "object",
+							"description": "Workflow JSON object to trial-run.",
+						},
+						"level": map[string]interface{}{
+							"type":        "string",
+							"description": "Trial level: quick, standard, or full. Default quick.",
+							"enum":        []string{"quick", "standard", "full"},
+						},
+					},
+					"required": []string{"workflow"},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
+				Name:        "propose_workflow",
+				Description: "Store a validated workflow draft as a pending workflow for user approval. Do not use in chat, explain, or trial_debug modes.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"workflow": map[string]interface{}{"type": "object"},
+						"draft":    map[string]interface{}{"type": "object"},
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: &providers.ToolDefFunc{
+				Name:        "propose_patch",
+				Description: "Store a patch draft as a pending patch for user approval. Do not use in chat, explain, or trial_debug modes.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"patch": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"op":           map[string]interface{}{"type": "string"},
+									"nodeId":       map[string]interface{}{"type": "string"},
+									"path":         map[string]interface{}{"type": "string"},
+									"value":        map[string]interface{}{},
+									"node":         map[string]interface{}{"type": "object"},
+									"source":       map[string]interface{}{"type": "string"},
+									"target":       map[string]interface{}{"type": "string"},
+									"sourceHandle": map[string]interface{}{"type": "string"},
+									"targetHandle": map[string]interface{}{"type": "string"},
+								},
+								"required": []string{"op"},
+							},
+						},
+						"draft": map[string]interface{}{"type": "object"},
+					},
+				},
+			},
+		},
 	}
 }
 

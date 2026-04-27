@@ -14,7 +14,7 @@ func TestSSEWriterEmitsEventsInExpectedOrder(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	writer := NewSSEWriter(ctx, 0, 42, "inspect my workflow")
+	writer := NewSSEWriter(ctx, 0, 42, "inspect my workflow", 0)
 
 	if err := writer.WritePhaseChanged(alkaidModels.PhasePlanning); err != nil {
 		t.Fatalf("WritePhaseChanged failed: %v", err)
@@ -31,7 +31,9 @@ func TestSSEWriterEmitsEventsInExpectedOrder(t *testing.T) {
 	if err := writer.WritePendingWorkflow(6, 5); err != nil {
 		t.Fatalf("WritePendingWorkflow failed: %v", err)
 	}
-	if err := writer.WritePendingPatch(2); err != nil {
+	if err := writer.WritePendingPatch(2, &alkaidModels.PendingPatchSummary{
+		UpdatedNodeIDs: []string{"node-1"},
+	}); err != nil {
 		t.Fatalf("WritePendingPatch failed: %v", err)
 	}
 	if err := writer.WriteDone(); err != nil {

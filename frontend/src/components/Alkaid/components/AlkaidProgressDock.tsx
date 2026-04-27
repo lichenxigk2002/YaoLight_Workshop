@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import ProcessLoader, { type ProcessStep } from '../ProcessLoader'
 import AlkaidProgress from './AlkaidProgress'
+import TaskModeBadge from './TaskModeBadge'
 import type { InteractionMode, Phase, AgentPlanStep, AgentToolStep } from '../types'
 import styles from '../AlkaidAssistant.module.scss'
 
@@ -21,6 +22,28 @@ interface AlkaidProgressDockProps {
 }
 
 const ACT_LIKE_PHASES: Phase[] = ['generating', 'validating', 'repairing', 'running_trial', 'waiting_approval', 'summarizing', 'error']
+const ACT_LIKE_MODES: InteractionMode[] = ['act', 'generate', 'repair', 'trial_debug']
+
+function getToolSummaryLabel(tool: AgentToolStep): string {
+  const labels: Record<string, string> = {
+    search_knowledge: '检索相关知识',
+    list_project_website_sources: '读取项目网站源',
+    get_capabilities: '读取平台能力说明',
+    get_workflow: '读取当前工作流',
+    get_node_spec: '读取节点规格',
+    list_workflows: '读取工作流列表',
+    get_available_models: '检查可用模型',
+    get_user_constraints: '读取用户约束',
+    validate_workflow: '校验工作流',
+    run_workflow_trial: '试跑工作流',
+    propose_workflow: '整理待确认工作流',
+    propose_patch: '整理待确认补丁',
+    check_url_accessibility: '检查网页可访问性',
+    draft_workflow: '组织回答内容',
+  }
+
+  return labels[tool.toolName] || tool.toolName.replaceAll('_', ' ')
+}
 
 const AlkaidProgressDock = ({
   useAgentic,
@@ -48,7 +71,8 @@ const AlkaidProgressDock = ({
       useAgentic &&
       loading &&
       !!currentLoadingMessageId &&
-      agenticMode === 'act' &&
+      !!agenticMode &&
+      ACT_LIKE_MODES.includes(agenticMode) &&
       (hasActLikePhase || hasActLikePlanStep || hasActLikeToolStep || hasPendingAgenticOutput)
     )
   }, [
@@ -96,8 +120,8 @@ const AlkaidProgressDock = ({
     agenticPhaseLabelMap[currentActivityPhase] || t('workflowEditor.alkaid.running', '处理中'),
     latestErrorPlanStep?.title
       || latestRunningPlanStep?.title
-      || latestErrorToolStep?.toolName
-      || latestRunningToolStep?.toolName
+      || (latestErrorToolStep ? getToolSummaryLabel(latestErrorToolStep) : '')
+      || (latestRunningToolStep ? getToolSummaryLabel(latestRunningToolStep) : '')
       || (agenticPendingPatchCount != null || agenticPendingSummary
         ? t('workflowEditor.alkaid.progressFinishing', '等待确认')
         : t('workflowEditor.alkaid.running', '处理中')),
@@ -110,8 +134,11 @@ const AlkaidProgressDock = ({
     <div className={[styles.progressDock, progressDockCollapsed ? styles.progressDockCollapsed : ''].join(' ')}>
       <div className={styles.progressDockHeader}>
         <div className={styles.progressDockMeta}>
-          <div className={styles.progressDockTitle}>
-            {showAgenticProgress ? '当前处理' : t('workflowEditor.alkaid.executionSteps', '执行过程')}
+          <div className={styles.progressDockTitleRow}>
+            <div className={styles.progressDockTitle}>
+              {showAgenticProgress ? '当前处理' : t('workflowEditor.alkaid.executionSteps', '执行过程')}
+            </div>
+            {showAgenticProgress && <TaskModeBadge mode={agenticMode} />}
           </div>
           <div className={styles.progressDockSummary}>
             {showAgenticProgress ? compactSummaryText : legacySummaryText}

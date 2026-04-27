@@ -1,5 +1,6 @@
 export type {
   Phase,
+  TaskMode,
   InteractionMode,
   ToolStepStatus,
   PlanStepStatus,
@@ -17,6 +18,8 @@ export type {
   SSEPendingWorkflow,
   SSEPendingPatch,
   PendingPatchSummary,
+  DebugReport,
+  ExplainReport,
   SSEDone,
   SSEError,
   AlkaidProgressState,

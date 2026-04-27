@@ -153,8 +153,16 @@ type SSEPendingWorkflow struct {
 	} `json:"summary"`
 }
 
+type PendingPatchSummary struct {
+	AddedNodeIDs   []string `json:"addedNodeIds,omitempty"`
+	RemovedNodeIDs []string `json:"removedNodeIds,omitempty"`
+	UpdatedNodeIDs []string `json:"updatedNodeIds,omitempty"`
+	EdgesChanged   bool     `json:"edgesChanged,omitempty"`
+}
+
 type SSEPendingPatch struct {
-	PatchCount int `json:"patchCount"`
+	PatchCount int                  `json:"patchCount"`
+	Summary    *PendingPatchSummary `json:"summary,omitempty"`
 }
 
 type SSEInterrupted struct {

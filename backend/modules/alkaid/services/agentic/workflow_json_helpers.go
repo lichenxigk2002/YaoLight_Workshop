@@ -136,6 +136,50 @@ func generateWorkflowJSONFallback(
 	return strings.TrimSpace(resp.Content), nil
 }
 
+func forceWorkflowDelivery(
+	ctx context.Context,
+	aiProvider providers.AIProvider,
+	config *providers.AIModelConfig,
+	systemPrompt string,
+	baseMessages []providers.ChatMessage,
+	assistantContent string,
+	taskMode TaskMode,
+) (string, error) {
+	forcedMessages := append([]providers.ChatMessage{}, baseMessages...)
+	if strings.TrimSpace(assistantContent) != "" {
+		forcedMessages = append(forcedMessages, providers.ChatMessage{
+			Role:    "assistant",
+			Content: assistantContent,
+		})
+	}
+
+	taskLabel := "新工作流"
+	if taskMode == TaskRepair {
+		taskLabel = "修复后的工作流"
+	}
+
+	forcedMessages = append(forcedMessages, providers.ChatMessage{
+		Role: "user",
+		Content: "不要继续解释，也不要只给节点清单。" +
+			"现在必须直接交付一个完整、可解析、可应用的" + taskLabel + " JSON。\n" +
+			"要求：\n" +
+			"1. 只输出 JSON 对象，不要 markdown，不要代码块，不要前后缀说明。\n" +
+			"2. JSON 必须包含 version、nodes、edges，可选 name、description。\n" +
+			"3. 如果是修复当前工作流，输出的是修复后的完整工作流，不是建议列表。\n" +
+			"4. 不允许再回答“我建议你这样搭建”“下面是节点清单”。\n" +
+			"5. 如果信息不足，也要基于当前假设产出一版可运行的最小可用工作流。",
+	})
+
+	resp, err := aiProvider.ChatWithTools(ctx, config, systemPrompt, forcedMessages, nil, map[string]interface{}{"thinking": false})
+	if err != nil {
+		return "", err
+	}
+	if resp == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(resp.Content), nil
+}
+
 func buildToolContentForLLM(toolName string, result interface{}, resultSummary string) string {
 	if result == nil {
 		return resultSummary

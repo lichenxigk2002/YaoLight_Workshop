@@ -3,6 +3,7 @@ package repositories
 import (
 	"gorm.io/gorm"
 	"yaolight-workshop/backend/infrastructure/database"
+	"yaolight-workshop/backend/infrastructure/shared"
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 )
 
@@ -63,6 +64,44 @@ func (r *AlkaidRepository) UpdateSession(session *alkaidModels.AlkaidSession) er
 	return r.db.Save(session).Error
 }
 
+func (r *AlkaidRepository) UpdateSessionStatus(sessionID uint, status string) error {
+	return r.db.Model(&alkaidModels.AlkaidSession{}).
+		Where("id = ?", sessionID).
+		Update("status", status).Error
+}
+
+func (r *AlkaidRepository) SavePendingWorkflow(sessionID uint, workflow interface{}) error {
+	session, err := r.GetSessionByID(sessionID)
+	if err != nil {
+		return err
+	}
+	session.PendingWorkflowJSON.Data = workflow
+	session.PendingPatchJSON.Data = nil
+	return r.UpdateSession(session)
+}
+
+func (r *AlkaidRepository) SavePendingPatch(sessionID uint, patch interface{}) error {
+	session, err := r.GetSessionByID(sessionID)
+	if err != nil {
+		return err
+	}
+	session.PendingPatchJSON.Data = patch
+	session.PendingWorkflowJSON.Data = nil
+	return r.UpdateSession(session)
+}
+
+func (r *AlkaidRepository) UpdateSessionPhase(sessionID uint, phase string) error {
+	return r.db.Model(&alkaidModels.AlkaidSession{}).
+		Where("id = ?", sessionID).
+		Update("current_phase", phase).Error
+}
+
+func (r *AlkaidRepository) UpdateTaskMode(sessionID uint, mode string) error {
+	return r.db.Model(&alkaidModels.AlkaidSession{}).
+		Where("id = ?", sessionID).
+		Update("current_task_mode", mode).Error
+}
+
 // DeleteSession 删除会话（软删除）
 func (r *AlkaidRepository) DeleteSession(sessionID uint) error {
 	return r.db.Delete(&alkaidModels.AlkaidSession{}, sessionID).Error
@@ -73,6 +112,28 @@ func (r *AlkaidRepository) DeleteSession(sessionID uint) error {
 // CreateMessage 创建消息
 func (r *AlkaidRepository) CreateMessage(message *alkaidModels.AlkaidMessage) error {
 	return r.db.Create(message).Error
+}
+
+func (r *AlkaidRepository) UpdateMessage(message *alkaidModels.AlkaidMessage) error {
+	return r.db.Save(message).Error
+}
+
+func (r *AlkaidRepository) UpdateMessageContent(messageID uint, content string, msgType string) error {
+	updates := map[string]interface{}{
+		"content": content,
+	}
+	if msgType != "" {
+		updates["type"] = msgType
+	}
+	return r.db.Model(&alkaidModels.AlkaidMessage{}).
+		Where("id = ?", messageID).
+		Updates(updates).Error
+}
+
+func (r *AlkaidRepository) UpdateMessageRawData(messageID uint, rawData interface{}) error {
+	return r.db.Model(&alkaidModels.AlkaidMessage{}).
+		Where("id = ?", messageID).
+		Update("raw_data", shared.JSONB{Data: rawData}).Error
 }
 
 // GetMessagesBySessionID 获取会话的所有消息

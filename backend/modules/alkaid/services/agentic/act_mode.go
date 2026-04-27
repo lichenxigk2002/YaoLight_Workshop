@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"yaolight-workshop/backend/modules/ai/services/providers"
-	"yaolight-workshop/backend/modules/ai/services/providers/deepseek"
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 	alkaidRepos "yaolight-workshop/backend/modules/alkaid/repositories"
 	alkaidServices "yaolight-workshop/backend/modules/alkaid/services"
@@ -44,6 +43,7 @@ func runActMode(
 
 	runtimeDeps := buildAgentRuntimeDeps(repo, req)
 	registry := runtimeDeps.Registry
+	taskMode := taskModeFromRequest(req, TaskGenerate)
 	forceCrawlerPreparation := shouldForceCrawlerPreparation(req.Message)
 	explicitSourceURLs := extractAbsoluteURLsFromText(req.Message)
 	var crawlerKnowledge interface{}
@@ -65,7 +65,8 @@ func runActMode(
 
 		knowledgeStepID := fmt.Sprintf("step-%d-crawler-knowledge-prefetch", time.Now().UnixNano())
 		_ = sw.WriteToolStepStarted(knowledgeStepID, "search_knowledge", alkaidModels.PhasePlanning)
-		knowledgeResult, resultSummary, toolErr := registry.ExecuteTool(
+		knowledgeResult, resultSummary, toolErr := registry.ExecuteToolForMode(
+			string(taskMode),
 			"search_knowledge",
 			`{"query":"crawler node configuration URL extract mode selector extractAttr","target":"crawler","maxResults":6,"includeGeneralFallback":true}`,
 			req.SessionID,
@@ -83,7 +84,7 @@ func runActMode(
 
 		specStepID := fmt.Sprintf("step-%d-crawler-spec-prefetch", time.Now().UnixNano())
 		_ = sw.WriteToolStepStarted(specStepID, "get_node_spec", alkaidModels.PhasePlanning)
-		specResult, specSummary, specErr := registry.ExecuteTool("get_node_spec", `{"nodeType":"crawler"}`, req.SessionID)
+		specResult, specSummary, specErr := registry.ExecuteToolForMode(string(taskMode), "get_node_spec", `{"nodeType":"crawler"}`, req.SessionID)
 		specStatus := alkaidModels.ToolStepSuccess
 		specErrMsg := ""
 		if specErr != nil {
@@ -98,7 +99,8 @@ func runActMode(
 		for i, rawURL := range explicitSourceURLs {
 			urlStepID := fmt.Sprintf("step-%d-crawler-url-prefetch-%d", time.Now().UnixNano(), i+1)
 			_ = sw.WriteToolStepStarted(urlStepID, "check_url_accessibility", alkaidModels.PhasePlanning)
-			result, resultSummary, toolErr := registry.ExecuteTool(
+			result, resultSummary, toolErr := registry.ExecuteToolForMode(
+				string(taskMode),
 				"check_url_accessibility",
 				fmt.Sprintf(`{"url":%q}`, rawURL),
 				req.SessionID,
@@ -179,8 +181,12 @@ func runActMode(
 		_ = sw.WriteError(err.Error())
 		return err
 	}
-	toolDefs := GetToolDefsForLLM()
-	aiProvider := deepseek.NewDeepSeekProvider()
+	toolDefs := FilterToolDefsForRequest(GetToolDefsForLLM(), req.Context)
+	aiProvider, err := buildAIProvider()
+	if err != nil {
+		_ = sw.WriteError(err.Error())
+		return err
+	}
 	streamer, canStreamWithTools := aiProvider.(toolStreamingProvider)
 
 	planSteps := generateAgentPlan(reqCtx, aiProvider, aiConfig, systemPrompt, contentForLLM, userMsg.ID, req.Message)
@@ -382,7 +388,7 @@ func runActMode(
 			if args == "" {
 				args = "{}"
 			}
-			result, resultSummary, toolErr := registry.ExecuteTool(tc.Function.Name, args, req.SessionID)
+			result, resultSummary, toolErr := registry.ExecuteToolForMode(string(taskMode), tc.Function.Name, args, req.SessionID)
 			status := alkaidModels.ToolStepSuccess
 			errMsg := ""
 			if toolErr != nil {
@@ -468,14 +474,6 @@ func runActMode(
 		}
 		streamText(textAfter)
 	}
-
-	assistantMsg := &alkaidModels.AlkaidMessage{
-		SessionID: req.SessionID,
-		Role:      "assistant",
-		Content:   assistantContent,
-		Type:      "text",
-	}
-	_ = repo.CreateMessage(assistantMsg)
 
 	if checkCancel() {
 		return nil

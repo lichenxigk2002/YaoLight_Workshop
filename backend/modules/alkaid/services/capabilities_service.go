@@ -391,8 +391,8 @@ func (s *CapabilitiesService) buildNodeCapabilities() []NodeCapability {
 			Stability:   "stable",
 			Config: map[string]interface{}{
 				"modelMode":       "system",
-				"provider":        "deepseek",
-				"modelName":       "deepseek-chat",
+				"provider":        "gpt",
+				"modelName":       "openai/gpt-5.4",
 				"contentVariable": "{{node-3.cleaned}}",
 				"prompt":          "请总结以下内容",
 				"temperature":     0.2,
@@ -402,13 +402,13 @@ func (s *CapabilitiesService) buildNodeCapabilities() []NodeCapability {
 				Required: []string{"prompt", "contentVariable"},
 				Enums: map[string][]string{
 					"modelMode": {"system", "custom"},
-					"provider":  {"deepseek", "qwen", "openai", "doubao", "spark", "grok"},
+					"provider":  {"gpt", "deepseek", "qwen", "openai", "doubao", "spark", "grok"},
 				},
 				AllowVars: []string{"contentVariable", "prompt"},
 				Defaults: map[string]interface{}{
 					"modelMode":   "system",
-					"provider":    "deepseek",
-					"modelName":   "deepseek-chat",
+					"provider":    "gpt",
+					"modelName":   "openai/gpt-5.4",
 					"temperature": 0.2,
 					"maxTokens":   2000,
 				},
@@ -568,8 +568,8 @@ func (s *CapabilitiesService) buildNodeExamples(nodeType string) []NodeExample {
 			Config: map[string]interface{}{
 				"contentVariable": "{{node-3.cleaned}}",
 				"prompt":          "请总结以下内容",
-				"provider":        "deepseek",
-				"modelName":       "deepseek-chat",
+				"provider":        "gpt",
+				"modelName":       "openai/gpt-5.4",
 				"temperature":     0.2,
 			},
 		})

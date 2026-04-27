@@ -9,7 +9,8 @@ export type Phase =
   | 'waiting_approval'
   | 'error';
 
-export type InteractionMode = 'chat' | 'analyze' | 'act';
+export type TaskMode = 'chat' | 'explain' | 'generate' | 'repair' | 'trial_debug';
+export type InteractionMode = TaskMode | 'analyze' | 'act';
 
 export type ToolStepStatus = 'pending' | 'running' | 'success' | 'error';
 export type PlanStepStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped';
@@ -135,6 +136,23 @@ export interface PendingPatchSummary {
 export interface SSEPendingPatch {
   patchCount: number;
   summary?: PendingPatchSummary;
+}
+
+export interface DebugReport {
+  success: boolean;
+  failedNodeId?: string;
+  failedNodeLabel?: string;
+  observations?: string[];
+  summary?: string;
+}
+
+export interface ExplainReport {
+  summary?: string;
+  nodeCount?: number;
+  edgeCount?: number;
+  risks?: string[];
+  suggestions?: string[];
+  variableFlow?: string[];
 }
 
 export interface SSEDone {}
