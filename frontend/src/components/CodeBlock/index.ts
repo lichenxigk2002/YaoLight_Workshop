@@ -1,3 +1,2 @@
 export { CodeBlock } from './CodeBlock';
-export type { CodeBlockProps, CodeBlockThemeMode } from './CodeBlock';
-
+export type { CodeBlockAppearance, CodeBlockProps, CodeBlockThemeMode } from './CodeBlock';

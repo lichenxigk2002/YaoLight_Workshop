@@ -6,11 +6,14 @@ import { useThemeStore } from '@/store/theme';
 import styles from './CodeBlock.module.scss';
 
 export type CodeBlockThemeMode = 'light' | 'dark' | 'auto';
+export type CodeBlockAppearance = 'default' | 'minimal';
 
 export interface CodeBlockProps {
   value: string | object;
   language?: string;
   themeMode?: CodeBlockThemeMode;
+  appearance?: CodeBlockAppearance;
+  showLineNumbers?: boolean;
   collapsedLines?: number;
   defaultExpanded?: boolean;
   className?: string;
@@ -24,6 +27,8 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   value,
   language = 'json',
   themeMode = 'auto',
+  appearance = 'default',
+  showLineNumbers = true,
   collapsedLines = 16,
   defaultExpanded = true,
   className,
@@ -73,25 +78,23 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
   const headerLanguage = language.toUpperCase();
   const syntaxTheme = useMemo(() => {
-    if (!isDark) return oneLight;
-
-    const darkStyle = oneDark as Record<string, any>;
+    const baseStyle = (isDark ? oneDark : oneLight) as Record<string, any>;
     return {
-      ...darkStyle,
+      ...baseStyle,
       'pre[class*="language-"]': {
-        ...darkStyle['pre[class*="language-"]'],
+        ...baseStyle['pre[class*="language-"]'],
         background: 'transparent',
       },
       'code[class*="language-"]': {
-        ...darkStyle['code[class*="language-"]'],
+        ...baseStyle['code[class*="language-"]'],
         background: 'transparent',
-        color: '#e7e7e7',
+        ...(isDark ? { color: '#e7e7e7' } : {}),
       },
     };
   }, [isDark]);
 
   return (
-    <div className={joinClassName(styles.wrapper, className)}>
+    <div className={joinClassName(styles.wrapper, appearance === 'minimal' && styles.minimal, className)}>
       {showHeader ? (
         <div className={styles.header}>
           <div className={styles.left}>
@@ -119,7 +122,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         <SyntaxHighlighter
           language={language}
           style={syntaxTheme}
-          showLineNumbers
+          showLineNumbers={showLineNumbers}
           wrapLongLines
           customStyle={{
             margin: 0,
