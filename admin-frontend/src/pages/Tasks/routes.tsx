@@ -1,27 +1,30 @@
+import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
-import FailedTasksPage from './FailedTasksPage';
-import OverviewPage from './OverviewPage';
-import RunningTasksPage from './RunningTasksPage';
-import TaskDetailLayout from './TaskDetailLayout';
-import TaskLogsPage from './TaskLogsPage';
-import TaskNodesPage from './TaskNodesPage';
-import TaskOverviewPage from './TaskOverviewPage';
-import TasksLayout from './TasksLayout';
+import { lazyElement } from '@/routes/lazyElement';
+
+const FailedTasksPage = lazy(() => import('./FailedTasksPage'));
+const OverviewPage = lazy(() => import('./OverviewPage'));
+const RunningTasksPage = lazy(() => import('./RunningTasksPage'));
+const TaskDetailLayout = lazy(() => import('./TaskDetailLayout'));
+const TaskLogsPage = lazy(() => import('./TaskLogsPage'));
+const TaskNodesPage = lazy(() => import('./TaskNodesPage'));
+const TaskOverviewPage = lazy(() => import('./TaskOverviewPage'));
+const TasksLayout = lazy(() => import('./TasksLayout'));
 
 const tasksRoutes = {
   path: 'tasks',
-  element: <TasksLayout />,
+  element: lazyElement(<TasksLayout />),
   children: [
-    { index: true, element: <OverviewPage /> },
-    { path: 'running', element: <RunningTasksPage /> },
-    { path: 'failures', element: <FailedTasksPage /> },
+    { index: true, element: lazyElement(<OverviewPage />) },
+    { path: 'running', element: lazyElement(<RunningTasksPage />) },
+    { path: 'failures', element: lazyElement(<FailedTasksPage />) },
     {
       path: ':id',
-      element: <TaskDetailLayout />,
+      element: lazyElement(<TaskDetailLayout />),
       children: [
-        { index: true, element: <TaskOverviewPage /> },
-        { path: 'nodes', element: <TaskNodesPage /> },
-        { path: 'logs', element: <TaskLogsPage /> },
+        { index: true, element: lazyElement(<TaskOverviewPage />) },
+        { path: 'nodes', element: lazyElement(<TaskNodesPage />) },
+        { path: 'logs', element: lazyElement(<TaskLogsPage />) },
       ],
     },
     { path: '*', element: <Navigate to="/tasks" replace /> },
