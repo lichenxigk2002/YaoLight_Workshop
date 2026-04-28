@@ -426,17 +426,19 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
     // 智能复制：如果 AI 或 Output 节点有内容文本，优先复制文本，否则复制 JSON
     let text = '';
     if (nodeResult.type === 'ai') {
-        text = nodeResult.data?.content || nodeResult.data?.result || '';
+      text = nodeResult.data?.content || nodeResult.data?.result || '';
+    } else if (nodeResult.type === 'code') {
+      text = JSON.stringify(nodeResult.data?.result ?? nodeResult.data, null, 2);
     } else if (nodeResult.type === 'output') {
-        if (nodeResult.data?.data?.content && typeof nodeResult.data.data.content === 'string') {
-            text = nodeResult.data.data.content;
-        } else if (nodeResult.data?.data?.result && typeof nodeResult.data.data.result === 'string') {
-            text = nodeResult.data.data.result;
-        }
+      if (nodeResult.data?.data?.content && typeof nodeResult.data.data.content === 'string') {
+        text = nodeResult.data.data.content;
+      } else if (nodeResult.data?.data?.result && typeof nodeResult.data.data.result === 'string') {
+        text = nodeResult.data.data.result;
+      }
     }
 
     if (!text) {
-        text = JSON.stringify(nodeResult.data, null, 2);
+      text = JSON.stringify(nodeResult.data, null, 2);
     }
 
     navigator.clipboard.writeText(text).then(() => {
@@ -462,18 +464,22 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
     let mime = 'application/json';
 
     if (nodeResult.type === 'ai') {
-        content = nodeResult.data?.content || nodeResult.data?.result;
-        if (content) {
-            ext = 'md';
-            mime = 'text/markdown';
-        }
+      content = nodeResult.data?.content || nodeResult.data?.result;
+      if (content) {
+        ext = 'md';
+        mime = 'text/markdown';
+      }
+    } else if (nodeResult.type === 'code') {
+      content = JSON.stringify(nodeResult.data?.result ?? nodeResult.data, null, 2);
+      ext = 'json';
+      mime = 'application/json';
     } else if (nodeResult.type === 'output') {
-        // 尝试获取文本内容
-        if (nodeResult.data?.data?.content && typeof nodeResult.data.data.content === 'string') {
-            content = nodeResult.data.data.content;
-            ext = 'md';
-            mime = 'text/markdown';
-        }
+      // 尝试获取文本内容
+      if (nodeResult.data?.data?.content && typeof nodeResult.data.data.content === 'string') {
+        content = nodeResult.data.data.content;
+        ext = 'md';
+        mime = 'text/markdown';
+      }
     }
 
     if (content) {
@@ -510,6 +516,41 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   const renderDataPreview = (data: any, nodeType: string, nodeId?: string) => {
     if (!data) {
       return <Empty description={t('node.execution.noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+    }
+
+    if (nodeType === 'code') {
+      const resultValue = data?.result;
+      const stdout = Array.isArray(data?.stdout) ? data.stdout : [];
+      const stderr = Array.isArray(data?.stderr) ? data.stderr : [];
+      const metrics = data?.metrics || {};
+      return (
+        <div className={styles.dataPreview}>
+          <div className={styles.dataStats}>
+            {metrics.language ? <Tag bordered={false} className={styles.semanticTag}>language: {metrics.language}</Tag> : null}
+            {metrics.durationMs != null ? <Tag bordered={false} className={styles.semanticTag}>duration: {metrics.durationMs}ms</Tag> : null}
+          </div>
+          <div className={styles.previewSection}>
+            <div className={styles.previewLabel}>{t('node.execution.codeResult')}</div>
+            <CodeBlock value={resultValue ?? null} language="json" defaultExpanded collapsedLines={999} />
+          </div>
+          <div className={styles.previewSection}>
+            <div className={styles.previewLabel}>{t('node.execution.codeStdout', { count: stdout.length })}</div>
+            {stdout.length ? (
+              <CodeBlock value={stdout.join('\n')} language="text" defaultExpanded collapsedLines={999} />
+            ) : (
+              <Empty description={t('node.execution.codeNoStdout')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+          </div>
+          <div className={styles.previewSection}>
+            <div className={styles.previewLabel}>{t('node.execution.codeStderr', { count: stderr.length })}</div>
+            {stderr.length ? (
+              <CodeBlock value={stderr.join('\n')} language="text" defaultExpanded collapsedLines={999} />
+            ) : (
+              <Empty description={t('node.execution.codeNoStderr')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+          </div>
+        </div>
+      );
     }
 
     // 输出节点：展示 artifacts（下载/预览）

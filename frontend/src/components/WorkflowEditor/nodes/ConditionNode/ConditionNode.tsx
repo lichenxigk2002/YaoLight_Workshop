@@ -3,27 +3,17 @@ import { NodeProps } from 'reactflow';
 import { BranchesOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import BaseNode from '../BaseNode/BaseNode';
-import styles from './ConditionNode.module.scss';
 
 const ConditionNode: React.FC<NodeProps> = ({ data, ...props }) => {
   const { t } = useTranslation();
-  const renderContent = () => {
-    if (data.config?.field) {
-      return (
-        <div className={styles.nodeInfo}>
-          <div className={styles.nodeInfoItem}>
-            {data.config.field} {data.config.operator} {data.config.value}
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
+  const metaLines = data.config?.field
+    ? [`${data.config.field} ${data.config.operator} ${data.config.value}`]
+    : [];
 
   return (
     <BaseNode
       {...props}
-      data={{ ...data, renderContent }}
+      data={{ ...data, metaLines }}
       icon={<BranchesOutlined style={{ fontSize: 20 }} />}
       color="#faad14"
       label={t('node.labels.condition')}
@@ -35,4 +25,3 @@ const ConditionNode: React.FC<NodeProps> = ({ data, ...props }) => {
 };
 
 export default ConditionNode;
-

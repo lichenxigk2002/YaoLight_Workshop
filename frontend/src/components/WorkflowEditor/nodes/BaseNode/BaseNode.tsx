@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Card } from 'antd';
+import { Card, Tooltip } from 'antd';
 import styles from './BaseNode.module.scss';
 
 export interface BaseNodeConfig {
@@ -34,6 +34,11 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
   inputHandlePrefix = 'input',
 }) => {
   const displayLabel = data.label || label;
+  const metaLines = Array.isArray((data as any).metaLines)
+    ? ((data as any).metaLines as Array<string | number | null | undefined>)
+        .filter((item) => item !== null && item !== undefined && String(item).trim())
+        .map((item) => String(item))
+    : [];
   const connectionDirection = data.connectionDirection || 'vertical';
   const diffMark = (data as any).diffMark; // 'add' | 'remove' | 'update' | undefined
   
@@ -151,14 +156,35 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
       >
         <div className={styles.nodeHeader}>
           <div className={styles.nodeIdentity}>
-            <span className={styles.nodeIcon}>{icon}</span>
-            <span className={styles.nodeTag}>{label}</span>
+            <span className={styles.nodeIconBubble}>{icon}</span>
+            <Tooltip title={label}>
+              <div className={styles.nodePill}>
+                <span className={styles.nodeTag}>{label}</span>
+              </div>
+            </Tooltip>
           </div>
         </div>
         <div className={styles.nodeContent}>
-          <div className={styles.nodeTitle}>{displayLabel}</div>
-          {/* 子组件可以在这里添加自定义内容 */}
-          {data.renderContent && data.renderContent()}
+          <div className={styles.nodeTitleRow}>
+            <Tooltip title={displayLabel}>
+              <div className={styles.nodeTitle}>{displayLabel}</div>
+            </Tooltip>
+            {metaLines.length ? (
+              <Tooltip
+                title={
+                  <div className={styles.metaTooltip}>
+                    {metaLines.map((line, index) => (
+                      <div key={`${line}-${index}`}>{line}</div>
+                    ))}
+                  </div>
+                }
+              >
+                <button type="button" className={styles.nodeInfoTrigger} aria-label="查看节点详情">
+                  !
+                </button>
+              </Tooltip>
+            ) : null}
+          </div>
         </div>
       </Card>
 
@@ -229,4 +255,3 @@ const BaseNode: React.FC<NodeProps & BaseNodeConfig> = ({
 };
 
 export default BaseNode;
-

@@ -66,6 +66,12 @@ export const nodeFormats: Record<string, NodeFormatDefinition> = {
     description: '转换节点输出转换后的数据',
   },
 
+  code: {
+    inputFormats: ['any', 'json', 'array', 'text'],
+    outputFormat: 'json',
+    description: '代码节点输出执行结果（JSON格式）',
+  },
+
   // 循环节点：接受数组或JSON，输出数组
   loop: {
     inputFormats: ['any', 'array', 'json'],
@@ -208,6 +214,7 @@ function getNodeTypeLabel(nodeType: string): string {
     ai: 'AI处理节点',
     condition: '条件判断节点',
     transform: '数据转换节点',
+    code: '代码节点',
     loop: '循环节点',
     merge: '合并节点',
     delay: '延迟节点',
@@ -234,4 +241,3 @@ function getFormatLabel(format: DataFormat): string {
   };
   return labels[format] || format;
 }
-

@@ -2,13 +2,14 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
+import { loadWorkflowEditor } from './lazyLoaders'
 
 const Login = lazy(() => import('../pages/Login'))
 const Dashboard = lazy(() => import('../pages/Dashboard'))
 const ProjectDetail = lazy(() => import('../pages/ProjectDetail'))
 const PublicWorkflowApiDocsPage = lazy(() => import('../pages/PublicWorkflowApiDocs'))
 const WorkflowApiPage = lazy(() => import('../pages/WorkflowApi'))
-const WorkflowEditor = lazy(() => import('../components/WorkflowEditor'))
+const WorkflowEditor = lazy(loadWorkflowEditor)
 const Settings = lazy(() => import('../pages/Settings'))
 const ProfileInfo = lazy(() => import('../pages/Settings/Profile'))
 const ModelProviders = lazy(() => import('../pages/Settings/Models'))

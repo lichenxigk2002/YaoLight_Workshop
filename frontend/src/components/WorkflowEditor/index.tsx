@@ -56,6 +56,7 @@ import { workflowApi } from '@/api/workflow';
 import { taskApi } from '@/api/task';
 import type { WorkflowTemplateLibraryItem } from '@/types/workflow';
 import { CommentPanel, LikeButton } from '@/components/Interactions';
+import { preloadWorkflowEditorAssets } from '@/routes/lazyLoaders';
 
 // 瀵煎叆鑷畾涔塇ooks
 import { useWorkflowNodes } from './hooks/useWorkflowNodes';
@@ -70,6 +71,7 @@ import DataCleanNode from './nodes/DataCleanNode/DataCleanNode';
 import AINode from './nodes/AINode/AINode';
 import ConditionNode from './nodes/ConditionNode/ConditionNode';
 import TransformNode from './nodes/TransformNode/TransformNode';
+import CodeNode from './nodes/CodeNode/CodeNode';
 import LoopNode from './nodes/LoopNode/LoopNode';
 import MergeNode from './nodes/MergeNode/MergeNode';
 import DelayNode from './nodes/DelayNode/DelayNode';
@@ -85,6 +87,7 @@ const nodeTypes: NodeTypes = {
   ai: AINode,
   condition: ConditionNode,
   transform: TransformNode,
+  code: CodeNode,
   loop: LoopNode,
   merge: MergeNode,
   delay: DelayNode,
@@ -96,6 +99,7 @@ const nodeTypes: NodeTypes = {
 // 鍒濆鑺傜偣鍜岃竟
 const initialNodes: Node[] = [];
 const initialEdges: Edge[] = [];
+const CODE_EDITOR_FOCUS_EVENT = 'workflow-code-editor-focus-change';
 
 const isTaskRunning = (status?: string) =>
   !!status && ['pending', 'queued', 'running', 'paused'].includes(status);
@@ -114,6 +118,24 @@ const buildExecutionResultFromTaskExecutions = (executions: TaskNodeExecution[])
   return {
     success: results.every((item) => item.success),
     results,
+  };
+};
+
+const scheduleWorkflowEditorAssetWarmup = () => {
+  const warmup = () => {
+    void preloadWorkflowEditorAssets();
+  };
+
+  if ('requestIdleCallback' in window) {
+    const idleId = window.requestIdleCallback(warmup, { timeout: 900 });
+    return () => {
+      window.cancelIdleCallback?.(idleId);
+    };
+  }
+
+  const timer = window.setTimeout(warmup, 180);
+  return () => {
+    window.clearTimeout(timer);
   };
 };
 
@@ -139,9 +161,12 @@ const WorkflowEditor: React.FC = () => {
   const { message } = App.useApp();
   const { workflowId } = useParams<{ workflowId: string }>();
   const [searchParams] = useSearchParams();
+
+  useEffect(() => scheduleWorkflowEditorAssetWarmup(), []);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [isCodeEditorFocused, setIsCodeEditorFocused] = useState(false);
   const [configPanelVisible, setConfigPanelVisible] = useState(false);
   const [resultPanelVisible, setResultPanelVisible] = useState(false);
   const [executionResult, setExecutionResult] = useState<any>(null);
@@ -203,6 +228,18 @@ const WorkflowEditor: React.FC = () => {
     setResultPanelVisible(false);
     setSelectedNode(null);
   }, [searchParams]);
+
+  useEffect(() => {
+    const handleCodeEditorFocusChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ focused?: boolean }>;
+      setIsCodeEditorFocused(customEvent.detail?.focused === true);
+    };
+
+    window.addEventListener(CODE_EDITOR_FOCUS_EVENT, handleCodeEditorFocusChange as EventListener);
+    return () => {
+      window.removeEventListener(CODE_EDITOR_FOCUS_EVENT, handleCodeEditorFocusChange as EventListener);
+    };
+  }, []);
 
   // 鑾峰彇鑺傜偣鏍囩锛堢敤浜庡伐鍏峰嚱鏁帮級
   const getNodeLabel = useCallback(
@@ -1023,13 +1060,15 @@ const WorkflowEditor: React.FC = () => {
         target.isContentEditable ||
         target.closest('input') ||
         target.closest('textarea') ||
-        target.closest('[contenteditable="true"]');
+        target.closest('[contenteditable="true"]') ||
+        target.closest('.monaco-editor') ||
+        target.closest('[data-script-editor-root="true"]');
 
       if (isEditableElement) {
         return;
       }
 
-      if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNode) {
+      if (!isCodeEditorFocused && event.key === 'Delete' && selectedNode) {
         event.preventDefault();
         deleteNode(selectedNode.id);
       }
@@ -1039,7 +1078,7 @@ const WorkflowEditor: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedNode, deleteNode, configPanelVisible]);
+  }, [selectedNode, deleteNode, configPanelVisible, isCodeEditorFocused]);
 
   return (
     <div className={styles.container}>
@@ -1078,7 +1117,7 @@ const WorkflowEditor: React.FC = () => {
             }}
             nodeTypes={nodeTypes}
             attributionPosition="bottom-left"
-            deleteKeyCode={configPanelVisible ? null : ['Delete', 'Backspace']}
+            deleteKeyCode={configPanelVisible || isCodeEditorFocused ? null : ['Delete']}
           >
             <Controls className={styles.flowControls} />
             <MiniMap

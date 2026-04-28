@@ -3,8 +3,6 @@ import { NodeProps, useReactFlow } from 'reactflow';
 import { CloudDownloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import BaseNode from '../BaseNode/BaseNode';
-import styles from './CrawlerNode.module.scss';
-import type { Node } from 'reactflow';
 
 const CrawlerNode: React.FC<NodeProps> = ({ data, id, ...props }) => {
   const { t } = useTranslation();
@@ -77,28 +75,16 @@ const CrawlerNode: React.FC<NodeProps> = ({ data, id, ...props }) => {
   }, [data.config?.urlVariable, getNodes, getEdges, id]);
 
   // 渲染爬虫节点的自定义内容
-  const renderContent = () => {
-    // 优先显示变量URL，否则显示输入的URL
-    const displayUrl = getVariableDisplayValue || data.config?.url;
-    const ruleName = data.config?.ruleName;
-    
-    if (displayUrl || ruleName) {
-      // 截断长URL
-      const truncatedUrl = displayUrl && displayUrl.length > 40 ? `${displayUrl.substring(0, 40)}...` : displayUrl;
-      return (
-        <div className={styles.nodeInfo}>
-          {ruleName ? <div className={styles.nodeInfoItem}>Rule: {ruleName}</div> : null}
-          {truncatedUrl ? <div className={styles.nodeInfoItem}>URL: {truncatedUrl}</div> : null}
-        </div>
-      );
-    }
-    return null;
-  };
+  const displayUrl = getVariableDisplayValue || data.config?.url;
+  const metaLines = [
+    data.config?.ruleName ? `Rule: ${data.config.ruleName}` : null,
+    displayUrl ? `URL: ${displayUrl}` : null,
+  ].filter(Boolean);
 
   return (
     <BaseNode
       {...props}
-      data={{ ...data, renderContent }}
+      data={{ ...data, metaLines }}
       icon={<CloudDownloadOutlined style={{ fontSize: 20 }} />}
       color="#000000"
       label={t('node.labels.crawler')}

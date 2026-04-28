@@ -5,6 +5,7 @@ import { Node, Edge } from 'reactflow';
 import { getNodeInputFormats, getNodeOutputFormat, nodeFormats } from '../utils/nodeFormats';
 import { useCrawlerTest } from '../hooks/useCrawlerTest';
 import { useAITest } from '../hooks/useAITest';
+import { useCodeTest } from '../hooks/useCodeTest';
 import { useTranslation } from 'react-i18next';
 import {
   StartNodeConfig,
@@ -13,6 +14,7 @@ import {
   CrawlerNodeConfig,
   AINodeConfig,
   TransformNodeConfig,
+  CodeNodeConfig,
   LoopNodeConfig,
   MergeNodeConfig,
   DelayNodeConfig,
@@ -22,6 +24,7 @@ import { useNodeConfigForm } from './hooks/useNodeConfigForm';
 import { AIPreviewModal } from './components/AIPreviewModal';
 import { providerRegistry } from '../providers';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
+import { CodePreviewModal } from './components/CodePreviewModal';
 import styles from './NodeConfigPanel.module.scss';
 
 interface NodeConfigPanelProps {
@@ -56,6 +59,7 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   const nodeType = node?.data?.type || node?.type;
   const isCrawlerNode = nodeType === 'crawler';
   const isAINode = nodeType === 'ai';
+  const isCodeNode = nodeType === 'code';
 
   // 表单管理 Hook（必须先定义，因为测试函数需要用到 buildNodeConfig）
   const { handleSave: handleSaveForm, buildNodeConfig } = useNodeConfigForm({
@@ -68,6 +72,7 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
   // 测试功能（使用 buildNodeConfig 和 handleSaveForm）
   const crawlerTest = useCrawlerTest(isCrawlerNode ? node : null, form, nodes, edges, buildNodeConfig, handleSaveForm, onSave);
   const aiTest = useAITest(isAINode ? node : null, form, nodes, edges, buildNodeConfig, handleSaveForm, onSave);
+  const codeTest = useCodeTest(isCodeNode ? node : null, form, nodes, edges, buildNodeConfig, handleSaveForm, onSave);
 
   const autoSaveTimerRef = useRef<number | null>(null);
   const autoSaveInFlightRef = useRef(false);
@@ -130,6 +135,8 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
         return <ConditionNodeConfig {...commonProps} />;
       case 'transform':
         return <TransformNodeConfig />;
+      case 'code':
+        return <CodeNodeConfig lastTestResult={codeTest.previewData?.code} />;
       case 'loop':
         return <LoopNodeConfig />;
       case 'delay':
@@ -246,6 +253,11 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
         {isAINode && (
           <Button onClick={aiTest.handleTestAI} className={styles.footerButton}>测试AI节点</Button>
         )}
+        {isCodeNode && (
+          <Button loading={codeTest.isTesting} onClick={codeTest.handleTestCode} className={styles.footerButton}>
+            {t('node.config.code.testRun')}
+          </Button>
+        )}
         <Button type="primary" onClick={handleSave} className={styles.footerPrimaryButton}>
           {t('workflowEditor.save')}
         </Button>
@@ -291,9 +303,16 @@ const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
           />
         );
       })()}
+
+      {isCodeNode && (
+        <CodePreviewModal
+          open={codeTest.previewOpen}
+          onClose={() => codeTest.setPreviewOpen(false)}
+          codeTest={codeTest}
+        />
+      )}
     </div>
   );
 };
 
 export default NodeConfigPanel;
-

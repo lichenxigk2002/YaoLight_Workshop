@@ -17,6 +17,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { projectApi } from '@/api/project';
 import { workflowApi } from '@/api/workflow';
+import { preloadWorkflowEditorExperience } from '@/routes/lazyLoaders';
 import { ProjectAssetsContent } from '@/pages/ProjectAssets';
 import { ProjectAutomationContent } from '@/pages/ProjectAutomation';
 import type { PageRequest } from '@/types/api';
@@ -104,6 +105,26 @@ export default function ProjectDetail() {
     void run();
   }, [activeTab, message, page, pageSize, projectId, t]);
 
+  useEffect(() => {
+    if (activeTab !== 'workflows') return;
+
+    const warmup = () => {
+      void preloadWorkflowEditorExperience();
+    };
+
+    if ('requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(warmup, { timeout: 1200 });
+      return () => {
+        window.cancelIdleCallback?.(idleId);
+      };
+    }
+
+    const timer = window.setTimeout(warmup, 280);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeTab]);
+
   const refreshWorkflows = async (nextPage = page, nextPageSize = pageSize) => {
     if (!projectId) return;
 
@@ -171,7 +192,12 @@ export default function ProjectDetail() {
   };
 
   const handleEditWorkflow = (workflow: Workflow) => {
+    void preloadWorkflowEditorExperience();
     navigate(`/projects/${projectId}/workflows/${workflow.id}/edit`);
+  };
+
+  const handleWarmWorkflowEditor = () => {
+    void preloadWorkflowEditorExperience();
   };
 
   const handleExecute = async (workflow: Workflow) => {
@@ -358,6 +384,8 @@ export default function ProjectDetail() {
               <article
                 key={workflow.id}
                 className={styles.workflowCard}
+                onMouseEnter={handleWarmWorkflowEditor}
+                onFocus={handleWarmWorkflowEditor}
                 onClick={() => handleEditWorkflow(workflow)}
               >
                 <div className={styles.cardTopRow}>
@@ -406,6 +434,8 @@ export default function ProjectDetail() {
                 <button
                   type="button"
                   className={styles.openLink}
+                  onMouseEnter={handleWarmWorkflowEditor}
+                  onFocus={handleWarmWorkflowEditor}
                   onClick={() => handleEditWorkflow(workflow)}
                 >
                   {isZh ? '进入编辑' : 'Open editor'}
