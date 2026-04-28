@@ -4,7 +4,6 @@ import { RobotOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import BaseNode from '../BaseNode/BaseNode';
 import { AIIcon } from '@/components/Icons';
-import styles from './AINode.module.scss';
 
 const AINode: React.FC<NodeProps> = ({ data, ...props }) => {
   const { t } = useTranslation();
@@ -27,21 +26,14 @@ const AINode: React.FC<NodeProps> = ({ data, ...props }) => {
     return <RobotOutlined style={{ fontSize: 20 }} />;
   };
 
-  const renderContent = () => {
-    if (data.config?.model) {
-      return (
-        <div className={styles.nodeInfo}>
-          <div className={styles.nodeInfoItem}>{t('node.labels.model')} {data.config.model}</div>
-        </div>
-      );
-    }
-    return null;
-  };
+  const metaLines = data.config?.model
+    ? [`${t('node.labels.model')} ${data.config.model}`]
+    : [];
 
   return (
     <BaseNode
       {...props}
-      data={{ ...data, renderContent }}
+      data={{ ...data, metaLines }}
       icon={renderIcon()}
       color="#722ed1"
       label={t('node.labels.ai')}

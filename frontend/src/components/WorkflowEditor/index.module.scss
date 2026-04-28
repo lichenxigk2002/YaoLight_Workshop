@@ -27,22 +27,22 @@
   overflow: hidden;
 
   [data-theme='dark'] & {
-    --editor-bg: #171717;
-    --editor-bg-overlay: rgba(255, 255, 255, 0.04);
-    --editor-surface: rgba(255, 255, 255, 0.04);
-    --editor-surface-strong: rgba(255, 255, 255, 0.06);
-    --editor-surface-soft: rgba(255, 255, 255, 0.03);
-    --editor-surface-muted: rgba(255, 255, 255, 0.025);
-    --editor-border-soft: rgba(255, 255, 255, 0.06);
-    --editor-border-strong: rgba(255, 255, 255, 0.1);
+    --editor-bg: #111111;
+    --editor-bg-overlay: rgba(255, 255, 255, 0.02);
+    --editor-surface: #1a1a1a;
+    --editor-surface-strong: #222222;
+    --editor-surface-soft: #161616;
+    --editor-surface-muted: #141414;
+    --editor-border-soft: #2f2f2f;
+    --editor-border-strong: #3a3a3a;
     --editor-text: #f2f2f2;
-    --editor-text-secondary: rgba(255, 255, 255, 0.72);
-    --editor-text-tertiary: rgba(255, 255, 255, 0.48);
-    --editor-shadow-soft: 0 14px 32px rgba(0, 0, 0, 0.24);
-    --editor-shadow-panel: 0 20px 48px rgba(0, 0, 0, 0.32);
+    --editor-text-secondary: rgba(255, 255, 255, 0.76);
+    --editor-text-tertiary: rgba(255, 255, 255, 0.52);
+    --editor-shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.28);
+    --editor-shadow-panel: 0 22px 52px rgba(0, 0, 0, 0.36);
     background:
-      radial-gradient(circle at top center, rgba(255, 255, 255, 0.05), transparent 22%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015)),
+      radial-gradient(circle at top center, rgba(255, 255, 255, 0.035), transparent 22%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.008)),
       var(--editor-bg);
   }
 }

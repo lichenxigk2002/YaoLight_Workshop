@@ -1,6 +1,6 @@
 .baseNode {
   position: relative;
-  width: 188px;
+  width: 176px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -18,9 +18,9 @@
 
 .nodeCard {
   position: relative;
-  width: 188px;
-  min-width: 188px;
-  max-width: 188px;
+  width: 176px;
+  min-width: 176px;
+  max-width: 176px;
   overflow: hidden !important;
   border: 1px solid var(--editor-border-soft, var(--border-secondary)) !important;
   border-radius: 21px !important;
@@ -42,7 +42,7 @@
   }
 
   :global(.ant-card-body) {
-    padding: 12px !important;
+    padding: 11px !important;
     background: transparent !important;
   }
 
@@ -67,18 +67,6 @@
       0 0 0 5px rgba(255, 255, 255, 0.05),
       0 16px 32px rgba(0, 0, 0, 0.24);
   }
-}
-
-.nodeCard::before {
-  content: '';
-  position: absolute;
-  top: 12px;
-  left: 0;
-  width: 2px;
-  height: 40px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--node-accent, #111111) 18%, transparent);
-  pointer-events: none;
 }
 
 .diffAdd {
@@ -107,8 +95,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .nodeIdentity {
@@ -116,14 +103,31 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
 }
 
-.nodeIcon {
+.nodePill {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 112px;
+  padding: 0 11px;
+  min-height: 30px;
+  border: 1px solid color-mix(in srgb, var(--node-accent, #111111) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--node-accent, #111111) 7%, rgba(255, 255, 255, 0.85));
+
+  [data-theme='dark'] & {
+    background: color-mix(in srgb, var(--node-accent, #f2f2f2) 10%, rgba(255, 255, 255, 0.04));
+  }
+}
+
+.nodeIconBubble {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--node-accent, #111111) 8%, rgba(255, 255, 255, 0.8));
   color: var(--node-accent, #111111);
@@ -138,12 +142,8 @@
 .nodeTag {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  max-width: 112px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--node-accent, #111111) 14%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--node-accent, #111111) 7%, rgba(255, 255, 255, 0.85));
+  min-width: 0;
+  max-width: 100%;
   color: color-mix(in srgb, var(--node-accent, #111111) 72%, #111111);
   font-size: 10px;
   font-weight: 600;
@@ -153,7 +153,6 @@
   text-overflow: ellipsis;
 
   [data-theme='dark'] & {
-    background: color-mix(in srgb, var(--node-accent, #f2f2f2) 10%, rgba(255, 255, 255, 0.04));
     color: rgba(255, 255, 255, 0.82);
   }
 }
@@ -161,19 +160,56 @@
 .nodeContent {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.nodeTitleRow {
+  display: flex;
+  align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 
 .nodeTitle {
+  flex: 1;
+  min-width: 0;
   color: var(--editor-text, var(--text-primary));
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   line-height: 1.4;
   letter-spacing: -0.01em;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.nodeInfoTrigger {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--editor-border-soft, var(--border-secondary));
+  border-radius: 999px;
+  background: var(--editor-surface-soft, var(--bg-secondary));
+  color: var(--editor-text-tertiary, var(--text-tertiary));
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  appearance: none;
+  box-shadow: none;
+}
+
+.metaTooltip {
+  display: grid;
+  gap: 4px;
+  max-width: 240px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .handle {

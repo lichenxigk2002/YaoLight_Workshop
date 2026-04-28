@@ -36,9 +36,6 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
         footer={null}
         width={700}
         centered
-        mask={false}
-        maskClosable={false}
-        getContainer={false}
         styles={{ body: { padding: '0 24px 24px' } }}
         className={styles.modal}
       >
@@ -380,4 +377,3 @@ export const CrawlerPreviewModal: React.FC<CrawlerPreviewModalProps> = ({
     </Modal>
   );
 };
-

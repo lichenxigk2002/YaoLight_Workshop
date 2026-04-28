@@ -429,6 +429,16 @@ var nodeIODefinitions = map[string]NodeIODefinition{
 			{Variable: "transformed", Label: "转换后数据", Type: "any", Description: "转换后的数据"},
 		},
 	},
+	"code": {
+		Inputs: []NodeVariable{
+			{Variable: "data", Label: "输入数据", Type: "any", Required: false, Description: "代码节点的输入数据"},
+		},
+		Outputs: []NodeVariable{
+			{Variable: "result", Label: "执行结果", Type: "any", Description: "代码执行返回值"},
+			{Variable: "stdout", Label: "标准输出", Type: "array", Description: "代码运行日志"},
+			{Variable: "stderr", Label: "错误输出", Type: "array", Description: "代码运行错误日志"},
+		},
+	},
 	"loop": {
 		Inputs: []NodeVariable{
 			{Variable: "items", Label: "循环项", Type: "array", Required: true, Description: "要循环的数据数组"},

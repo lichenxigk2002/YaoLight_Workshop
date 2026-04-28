@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 )
@@ -54,6 +55,81 @@ func TestTransformMap(t *testing.T) {
 	m := res.(map[string]interface{})
 	if m["title"].(string) != "t1" || m["url"].(string) != "u1" {
 		t.Fatalf("unexpected result: %#v", m)
+	}
+}
+
+func TestExecuteCodeNodeJavaScript(t *testing.T) {
+	df := NewDataFlow([]EdgeConfig{{Source: "start", Target: "code-1"}})
+	df.SetNodeOutput("start", NewNodeData(map[string]interface{}{
+		"items": []interface{}{1, 2, 3},
+	}))
+	vc := NewVariableContext()
+	vc.SetNodeType("start", "start")
+	vc.SetNodeOutput("start", NewNodeData(map[string]interface{}{
+		"data": map[string]interface{}{"message": "hello"},
+	}))
+
+	exec := &WorkflowExecutor{codeRuntimeRegistry: NewDefaultCodeRuntimeRegistry()}
+	res := exec.executeCodeNode(NodeConfig{
+		ID:   "code-1",
+		Type: "code",
+		Config: map[string]interface{}{
+			"language":       "javascript",
+			"source":         "console.log('running'); return { total: input.items.length, greeting: vars['start.data'].message };",
+			"timeoutMs":      3000,
+			"consoleEnabled": true,
+			"runtime": map[string]interface{}{
+				"javascript": map[string]interface{}{"strictMode": true},
+			},
+		},
+	}, df, vc)
+	if !res.Success {
+		t.Fatalf("expected success, got error: %s", res.Error)
+	}
+	data, ok := res.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map payload, got %#v", res.Data)
+	}
+	result, ok := data["result"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected result map, got %#v", data["result"])
+	}
+	switch total := result["total"].(type) {
+	case json.Number:
+		if total.String() != "3" {
+			t.Fatalf("expected total=3, got %#v", result["total"])
+		}
+	case float64:
+		if total != 3 {
+			t.Fatalf("expected total=3, got %#v", result["total"])
+		}
+	default:
+		t.Fatalf("expected numeric total, got %#v", result["total"])
+	}
+	if greeting, ok := result["greeting"].(string); !ok || greeting != "hello" {
+		t.Fatalf("expected greeting=hello, got %#v", result["greeting"])
+	}
+	stdout, ok := data["stdout"].([]string)
+	if !ok || len(stdout) != 1 || stdout[0] != "running" {
+		t.Fatalf("expected stdout to contain running, got %#v", data["stdout"])
+	}
+}
+
+func TestExecuteCodeNodePythonNotEnabled(t *testing.T) {
+	exec := &WorkflowExecutor{codeRuntimeRegistry: NewDefaultCodeRuntimeRegistry()}
+	res := exec.executeCodeNode(NodeConfig{
+		ID:   "code-2",
+		Type: "code",
+		Config: map[string]interface{}{
+			"language": "python",
+			"source":   "return {'ok': True}",
+		},
+	}, NewDataFlow(nil), NewVariableContext())
+	if res.Success {
+		t.Fatalf("expected python runtime to be disabled")
+	}
+	if res.Error != "代码执行失败: python runtime not enabled" {
+		t.Fatalf("unexpected error: %s", res.Error)
 	}
 }
 
