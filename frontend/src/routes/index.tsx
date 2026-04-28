@@ -1,39 +1,45 @@
+import { lazy, Suspense, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import Login from '../pages/Login'
-import Dashboard from '../pages/Dashboard'
-import ProjectDetail from '../pages/ProjectDetail'
-import PublicWorkflowApiDocsPage from '../pages/PublicWorkflowApiDocs'
-import WorkflowApiPage from '../pages/WorkflowApi'
-import WorkflowEditor from '../components/WorkflowEditor'
 import ProtectedRoute from '../components/ProtectedRoute'
 import Layout from '../components/Layout'
-import Settings from '../pages/Settings'
-import ProfileInfo from '../pages/Settings/Profile'
-import ModelProviders from '../pages/Settings/Models'
-import Billing from '../pages/Settings/Billing'
-import OrdersPage from '../pages/Settings/Orders'
-import Invite from '../pages/Settings/Invite'
-import SettingsNotifications from '../pages/Settings/Notifications'
-import Payment from '../pages/Payment'
-import PaymentCallback from '../pages/Payment/Callback'
-import Help from '../pages/Help'
-import AssistantWorkspace from '../pages/AssistantWorkspace'
-import ConversationsPage from '../pages/Conversations'
-import AssistantSettings from '../pages/Settings/Assistant'
-import TokenTransactions from '../pages/Settings/TokenTransactions'
-import MCPAccessPage from '../pages/Settings/MCPAccess'
+
+const Login = lazy(() => import('../pages/Login'))
+const Dashboard = lazy(() => import('../pages/Dashboard'))
+const ProjectDetail = lazy(() => import('../pages/ProjectDetail'))
+const PublicWorkflowApiDocsPage = lazy(() => import('../pages/PublicWorkflowApiDocs'))
+const WorkflowApiPage = lazy(() => import('../pages/WorkflowApi'))
+const WorkflowEditor = lazy(() => import('../components/WorkflowEditor'))
+const Settings = lazy(() => import('../pages/Settings'))
+const ProfileInfo = lazy(() => import('../pages/Settings/Profile'))
+const ModelProviders = lazy(() => import('../pages/Settings/Models'))
+const Billing = lazy(() => import('../pages/Settings/Billing'))
+const OrdersPage = lazy(() => import('../pages/Settings/Orders'))
+const Invite = lazy(() => import('../pages/Settings/Invite'))
+const SettingsNotifications = lazy(() => import('../pages/Settings/Notifications'))
+const Payment = lazy(() => import('../pages/Payment'))
+const PaymentCallback = lazy(() => import('../pages/Payment/Callback'))
+const Help = lazy(() => import('../pages/Help'))
+const AssistantWorkspace = lazy(() => import('../pages/AssistantWorkspace'))
+const ConversationsPage = lazy(() => import('../pages/Conversations'))
+const AssistantSettings = lazy(() => import('../pages/Settings/Assistant'))
+const TokenTransactions = lazy(() => import('../pages/Settings/TokenTransactions'))
+const MCPAccessPage = lazy(() => import('../pages/Settings/MCPAccess'))
+
+function routeElement(children: ReactNode) {
+  return <Suspense fallback={<div />}>{children}</Suspense>
+}
 
 const router = createBrowserRouter([
   {
     path: '/login',
-    element: <Login />,
+    element: routeElement(<Login />),
   },
   {
     path: '/',
     element: (
       <ProtectedRoute>
         <Layout>
-          <Dashboard />
+          {routeElement(<Dashboard />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -43,7 +49,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <ProjectDetail />
+          {routeElement(<ProjectDetail />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -53,7 +59,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <ProjectDetail />
+          {routeElement(<ProjectDetail />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -63,7 +69,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <ProjectDetail />
+          {routeElement(<ProjectDetail />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -73,7 +79,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <WorkflowEditor />
+          {routeElement(<WorkflowEditor />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -83,7 +89,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <WorkflowApiPage />
+          {routeElement(<WorkflowApiPage />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -92,7 +98,7 @@ const router = createBrowserRouter([
     path: '/open-api-docs/:slug',
     element: (
       <Layout>
-        <PublicWorkflowApiDocsPage />
+        {routeElement(<PublicWorkflowApiDocsPage />)}
       </Layout>
     ),
   },
@@ -101,7 +107,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <Settings />
+          {routeElement(<Settings />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -112,43 +118,43 @@ const router = createBrowserRouter([
       },
       {
         path: 'profile',
-        element: <ProfileInfo />,
+        element: routeElement(<ProfileInfo />),
       },
       {
         path: 'models',
-        element: <ModelProviders />,
+        element: routeElement(<ModelProviders />),
       },
       {
         path: 'orders',
-        element: <OrdersPage />,
+        element: routeElement(<OrdersPage />),
       },
       {
         path: 'recharge',
-        element: <Payment />,
+        element: routeElement(<Payment />),
       },
       {
         path: 'billing',
-        element: <Billing />,
+        element: routeElement(<Billing />),
       },
       {
         path: 'token-transactions',
-        element: <TokenTransactions />,
+        element: routeElement(<TokenTransactions />),
       },
       {
         path: 'invite',
-        element: <Invite />,
+        element: routeElement(<Invite />),
       },
       {
         path: 'notifications',
-        element: <SettingsNotifications />,
+        element: routeElement(<SettingsNotifications />),
       },
       {
         path: 'assistant',
-        element: <AssistantSettings />,
+        element: routeElement(<AssistantSettings />),
       },
       {
         path: 'ai-tools',
-        element: <MCPAccessPage />,
+        element: routeElement(<MCPAccessPage />),
       },
     ],
   },
@@ -157,7 +163,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <AssistantWorkspace />
+          {routeElement(<AssistantWorkspace />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -167,7 +173,7 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <ConversationsPage />
+          {routeElement(<ConversationsPage />)}
         </Layout>
       </ProtectedRoute>
     ),
@@ -177,21 +183,21 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <Layout>
-          <Payment />
+          {routeElement(<Payment />)}
         </Layout>
       </ProtectedRoute>
     ),
   },
   {
     path: '/payment/callback',
-    element: <PaymentCallback />,
+    element: routeElement(<PaymentCallback />),
   },
   {
     path: '/help',
     element: (
       <ProtectedRoute>
         <Layout>
-          <Help />
+          {routeElement(<Help />)}
         </Layout>
       </ProtectedRoute>
     ),

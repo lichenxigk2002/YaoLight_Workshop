@@ -1,17 +1,20 @@
+import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
-import PermissionsLayout from './PermissionsLayout';
-import RolesPage from './RolesPage';
-import AdminsPage from './AdminsPage';
-import MatrixPage from './MatrixPage';
+import { lazyElement } from '@/routes/lazyElement';
+
+const PermissionsLayout = lazy(() => import('./PermissionsLayout'));
+const RolesPage = lazy(() => import('./RolesPage'));
+const AdminsPage = lazy(() => import('./AdminsPage'));
+const MatrixPage = lazy(() => import('./MatrixPage'));
 
 const permissionsRoutes = {
   path: 'permissions',
-  element: <PermissionsLayout />,
+  element: lazyElement(<PermissionsLayout />),
   children: [
     { index: true, element: <Navigate to="/permissions/roles" replace /> },
-    { path: 'roles', element: <RolesPage /> },
-    { path: 'admins', element: <AdminsPage /> },
-    { path: 'matrix', element: <MatrixPage /> },
+    { path: 'roles', element: lazyElement(<RolesPage />) },
+    { path: 'admins', element: lazyElement(<AdminsPage />) },
+    { path: 'matrix', element: lazyElement(<MatrixPage />) },
     { path: '*', element: <Navigate to="/permissions/roles" replace /> },
   ],
 };
