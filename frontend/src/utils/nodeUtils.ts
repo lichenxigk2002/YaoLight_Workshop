@@ -45,6 +45,22 @@ export function getDefaultConfig(type: string): any {
         transformType: 'passthrough', // passthrough, map, filter, sort, group
         script: '',
       };
+    case 'code':
+      return {
+        language: 'javascript',
+        source: 'return input;',
+        timeoutMs: 3000,
+        inputMode: 'merged',
+        consoleEnabled: true,
+        runtime: {
+          javascript: {
+            strictMode: true,
+          },
+          python: {
+            entry: 'main',
+          },
+        },
+      };
     case 'loop':
       return {
         loopType: 'foreach', // foreach

@@ -338,6 +338,7 @@ func main() {
 			auth.GET("/ai/model-capabilities", aiController.GetModelCapability)
 			auth.GET("/ai/models", aiController.GetModels)
 			auth.POST("/ai/models", aiController.CreateModel)
+			auth.POST("/ai/code-repair", aiController.RepairCode)
 			auth.PUT("/ai/models/:id", aiController.UpdateModel)
 			auth.DELETE("/ai/models/:id", aiController.DeleteModel)
 			adminAIController := aiControllers.NewAdminAIController(aiMonitoringService)

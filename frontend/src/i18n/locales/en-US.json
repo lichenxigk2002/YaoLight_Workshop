@@ -703,6 +703,20 @@
     "edit": "Edit",
     "format": "Format"
   },
+  "scriptCodeEditor": {
+    "productName": "YaoLight Script",
+    "javascript": "JavaScript",
+    "python": "Python",
+    "placeholder": "Enter code...",
+    "preview": "Preview",
+    "edit": "Edit",
+    "copy": "Copy",
+    "format": "Format",
+    "aiRepair": "AI Repair",
+    "aiRepairing": "Repairing",
+    "copySuccess": "Code copied",
+    "formatLimited": "Formatting support is limited for the current language"
+  },
   "projectDetail": {
     "workflowsTab": "Workflows",
     "assetsTab": "Assets",
@@ -962,6 +976,7 @@
       "ai": "AI Processing Node",
       "condition": "Condition Node",
       "transform": "Transform Node",
+      "code": "Code Node",
       "loop": "Loop Node",
       "merge": "Merge Node",
       "delay": "Delay Node",
@@ -975,6 +990,7 @@
       "ai": "AI",
       "condition": "Condition",
       "transform": "Transform",
+      "code": "Code",
       "loop": "Loop",
       "merge": "Merge",
       "delay": "Delay",
@@ -1062,6 +1078,29 @@
         "group": "Group",
         "script": "Transform Script",
         "scriptTooltip": "Use JSON config depending on transform type (see placeholder examples)"
+      },
+      "code": {
+        "language": "Execution Language",
+        "pythonPlaceholder": "Python runtime is reserved but not enabled in the current release.",
+        "inputMode": "Input Mode",
+        "inputModeMerged": "Merge upstream inputs",
+        "inputModePrimary": "Primary upstream input only",
+        "timeoutMs": "Timeout (ms)",
+        "timeoutTooltip": "Maximum 10000ms. Used to limit code node execution time.",
+        "consoleEnabled": "Capture console.log",
+        "source": "Source Code",
+        "sourceRequired": "Please enter source code",
+        "sourceTooltip": "The runtime exposes input, vars, node, and console.",
+        "sourcePlaceholder": "console.log('running');\nreturn { ok: true, input };",
+        "templates": "Templates",
+        "templatePassthrough": "Passthrough",
+        "templateStats": "Array Stats",
+        "templateVars": "Read Vars",
+        "testRun": "Test Code Node",
+        "runtimeContextTitle": "Runtime Context",
+        "runtimeContextDesc": "Monaco completion is available for these runtime variables. AI repair also analyzes the latest test result when available.",
+        "aiRepairApplied": "AI repair applied to the editor",
+        "aiRepairFailed": "AI repair failed"
       },
       "loop": {
         "loopType": "Loop Type",
@@ -1327,7 +1366,12 @@
       "imageList": "Image List ({{count}} images)",
       "moreItems": "... {{count}} more items",
       "moreLinks": "... {{count}} more links",
-      "moreImages": "... {{count}} more images"
+      "moreImages": "... {{count}} more images",
+      "codeResult": "Return Result",
+      "codeStdout": "Stdout ({{count}})",
+      "codeStderr": "Stderr ({{count}})",
+      "codeNoStdout": "No stdout output",
+      "codeNoStderr": "No stderr output"
     },
     "messages": {
       "nodeAdded": "Added {{label}} node",
@@ -1359,6 +1403,7 @@
       "ai": "AI Processing Node",
       "condition": "Condition",
       "transform": "Transform",
+      "code": "Code Node",
       "loop": "Loop Node",
       "merge": "Merge Node",
       "delay": "Delay Node",

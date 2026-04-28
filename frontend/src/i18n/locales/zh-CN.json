@@ -678,6 +678,20 @@
     "edit": "编辑",
     "format": "格式化"
   },
+  "scriptCodeEditor": {
+    "productName": "瑶光脚本",
+    "javascript": "JavaScript",
+    "python": "Python",
+    "placeholder": "输入代码...",
+    "preview": "预览",
+    "edit": "编辑",
+    "copy": "复制",
+    "format": "格式化",
+    "aiRepair": "AI修复",
+    "aiRepairing": "修复中",
+    "copySuccess": "代码已复制",
+    "formatLimited": "当前语言仅提供基础编辑与补全，格式化能力有限"
+  },
   "projectDetail": {
     "workflowsTab": "工作流",
     "assetsTab": "资产中心",
@@ -937,6 +951,7 @@
       "ai": "AI处理节点",
       "condition": "条件判断节点",
       "transform": "数据转换节点",
+      "code": "代码节点",
       "loop": "循环节点",
       "merge": "合并节点",
       "delay": "延迟节点",
@@ -950,6 +965,7 @@
       "ai": "AI处理",
       "condition": "条件判断",
       "transform": "数据转换",
+      "code": "代码",
       "loop": "循环",
       "merge": "合并",
       "delay": "延迟",
@@ -1037,6 +1053,29 @@
         "group": "分组",
         "script": "转换脚本",
         "scriptTooltip": "不同转换类型使用不同 JSON 配置（示例见占位符）"
+      },
+      "code": {
+        "language": "执行语言",
+        "pythonPlaceholder": "Python runtime 已预留，当前版本暂不支持执行。",
+        "inputMode": "输入模式",
+        "inputModeMerged": "合并上游输入",
+        "inputModePrimary": "仅首个上游输入",
+        "timeoutMs": "超时时间（毫秒）",
+        "timeoutTooltip": "最大 10000ms，用于限制代码节点运行时间。",
+        "consoleEnabled": "采集 console.log",
+        "source": "代码内容",
+        "sourceRequired": "请输入代码内容",
+        "sourceTooltip": "可使用 input、vars、node、console 四个上下文变量。",
+        "sourcePlaceholder": "console.log('running');\nreturn { ok: true, input };",
+        "templates": "快速模板",
+        "templatePassthrough": "透传输入",
+        "templateStats": "数组统计",
+        "templateVars": "变量读取",
+        "testRun": "测试代码节点",
+        "runtimeContextTitle": "运行时上下文",
+        "runtimeContextDesc": "Monaco 已接入补全，输入这些变量时会有提示。AI 修复会结合最近一次测试结果一起分析。",
+        "aiRepairApplied": "AI 修复已应用到编辑器",
+        "aiRepairFailed": "AI 修复失败"
       },
       "loop": {
         "loopType": "循环类型",
@@ -1301,7 +1340,12 @@
       "imageList": "图片列表（{{count}} 张）",
       "moreItems": "还有 {{count}} 项",
       "moreLinks": "还有 {{count}} 个链接",
-      "moreImages": "还有 {{count}} 张图片"
+      "moreImages": "还有 {{count}} 张图片",
+      "codeResult": "返回结果",
+      "codeStdout": "日志输出（{{count}}）",
+      "codeStderr": "错误输出（{{count}}）",
+      "codeNoStdout": "无日志输出",
+      "codeNoStderr": "无错误输出"
     },
     "messages": {
       "nodeAdded": "已添加{{label}}节点",
@@ -1333,6 +1377,7 @@
       "ai": "AI处理节点",
       "condition": "条件判断",
       "transform": "数据转换",
+      "code": "代码节点",
       "loop": "循环节点",
       "merge": "合并节点",
       "delay": "延迟节点",

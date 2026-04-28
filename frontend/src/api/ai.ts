@@ -8,6 +8,33 @@ import type {
   UpdateModelRequest,
 } from '@/types/ai';
 
+export interface CodeRepairRequest {
+  language: 'javascript' | 'python';
+  source: string;
+  error?: string;
+  stdout?: string[];
+  stderr?: string[];
+  inputSample?: any;
+  outputSample?: any;
+  modelMode?: 'system' | 'saved' | 'custom';
+  modelId?: number;
+  provider?: string;
+  modelName?: string;
+  baseUrl?: string;
+  apiKey?: string;
+}
+
+export interface CodeRepairResponse {
+  fixedSource: string;
+  explanation?: string;
+  model?: string;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+}
+
 const adaptAIModel = (raw: any): AIModel => ({
   id: raw?.id,
   name: raw?.name,
@@ -66,4 +93,9 @@ export const aiApi = {
   // 删除模型配置
   deleteModel: (id: number): Promise<void> =>
     http.delete(`/ai/models/${id}`),
+
+  repairCode: (data: CodeRepairRequest): Promise<CodeRepairResponse> =>
+    http.post<CodeRepairResponse>('/ai/code-repair', data, {
+      timeout: 120000,
+    }),
 };

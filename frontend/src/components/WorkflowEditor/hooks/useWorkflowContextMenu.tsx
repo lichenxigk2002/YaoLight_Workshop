@@ -23,6 +23,7 @@ import {
   ClockCircleOutlined,
   ExportOutlined,
   StopOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import { generateRandomPosition } from '@/utils/nodeUtils';
 
@@ -288,6 +289,11 @@ export function useWorkflowContextMenu(
             icon: <SwapOutlined />,
           },
           {
+            key: 'code',
+            label: t('node.labels.code'),
+            icon: <CodeOutlined />,
+          },
+          {
             key: 'loop',
             label: t('node.labels.loop'),
             icon: <ReloadOutlined />,
@@ -343,4 +349,3 @@ export function useWorkflowContextMenu(
     getContextMenuItems,
   };
 }
-

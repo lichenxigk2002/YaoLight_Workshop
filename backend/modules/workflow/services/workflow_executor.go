@@ -15,11 +15,12 @@ import (
 
 // WorkflowExecutor executes workflow nodes.
 type WorkflowExecutor struct {
-	crawlerService   *crawlerService.CrawlerService
-	datacleanService *datacleanService.DataCleanService
-	aiService        *aiService.AIService
-	userRepo         repository.UserRepository
-	pricingService   *aiService.PricingService
+	crawlerService      *crawlerService.CrawlerService
+	datacleanService    *datacleanService.DataCleanService
+	aiService           *aiService.AIService
+	userRepo            repository.UserRepository
+	pricingService      *aiService.PricingService
+	codeRuntimeRegistry *CodeRuntimeRegistry
 }
 
 // NodeConfig describes a workflow node.
@@ -73,11 +74,12 @@ func NewWorkflowExecutor() *WorkflowExecutor {
 	pricingRepo := aiRepos.NewPricingConfigRepository(database.DB)
 	capabilityRepo := aiRepos.NewCapabilityConfigRepository(database.DB)
 	return &WorkflowExecutor{
-		crawlerService:   crawlerService.NewCrawlerService(),
-		datacleanService: datacleanService.NewDataCleanService(),
-		aiService:        aiService.NewAIService(modelRepo, templateRepo, pricingRepo, capabilityRepo),
-		userRepo:         userRepo,
-		pricingService:   aiService.NewPricingService(pricingRepo),
+		crawlerService:      crawlerService.NewCrawlerService(),
+		datacleanService:    datacleanService.NewDataCleanService(),
+		aiService:           aiService.NewAIService(modelRepo, templateRepo, pricingRepo, capabilityRepo),
+		userRepo:            userRepo,
+		pricingService:      aiService.NewPricingService(pricingRepo),
+		codeRuntimeRegistry: NewDefaultCodeRuntimeRegistry(),
 	}
 }
 
@@ -147,6 +149,8 @@ func (e *WorkflowExecutor) executeNode(node NodeConfig, dataFlow *DataFlow, vari
 		return e.executeConditionNode(node, dataFlow, variableContext)
 	case "transform":
 		return e.executeTransformNode(node, dataFlow, variableContext)
+	case "code":
+		return e.executeCodeNode(node, dataFlow, variableContext)
 	case "loop":
 		return e.executeLoopNode(node, dataFlow, variableContext)
 	case "merge":
