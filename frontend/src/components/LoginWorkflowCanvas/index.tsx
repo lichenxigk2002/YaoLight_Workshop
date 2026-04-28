@@ -248,7 +248,29 @@ const LoginWorkflowCanvas: React.FC = () => {
   }, [fitPreview, i18n.language]);
 
   return (
-    <div ref={containerRef} className={styles.canvasContainer} data-theme="dark">
+    <div ref={containerRef} className={styles.canvasContainer} data-theme="dark" data-login-workflow-canvas>
+      <style>
+        {`
+          [data-login-workflow-canvas] .react-flow__node.react-flow__node-output {
+            width: 188px !important;
+            min-width: 188px !important;
+            max-width: 188px !important;
+            padding: 0 !important;
+            border: 0 !important;
+            background: transparent !important;
+            color: inherit !important;
+            text-align: inherit !important;
+            box-shadow: none !important;
+          }
+
+          [data-login-workflow-canvas] .react-flow__node.react-flow__node-output.selectable:hover,
+          [data-login-workflow-canvas] .react-flow__node.react-flow__node-output.selectable.selected,
+          [data-login-workflow-canvas] .react-flow__node.react-flow__node-output.selectable:focus,
+          [data-login-workflow-canvas] .react-flow__node.react-flow__node-output.selectable:focus-visible {
+            box-shadow: none !important;
+          }
+        `}
+      </style>
       <ReactFlow
         nodes={nodes}
         edges={edges}

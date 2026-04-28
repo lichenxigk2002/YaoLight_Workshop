@@ -623,17 +623,26 @@
   width: 24px;
   height: 24px;
   border-radius: 8px;
-  border: 1px solid var(--alkaid-stroke-0);
-  background: var(--alkaid-surface-0);
+  border: none;
+  background: transparent;
   color: var(--alkaid-text-1);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition:
+    background var(--alkaid-dur-2) var(--alkaid-ease-out),
+    color var(--alkaid-dur-2) var(--alkaid-ease-out);
 
-  &:hover {
-    background: var(--alkaid-surface-1);
+  &:hover,
+  &:focus-visible {
+    background: rgba(0, 0, 0, 0.06);
     color: var(--alkaid-text-0);
+  }
+
+  [data-theme='dark'] &:hover,
+  [data-theme='dark'] &:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
   }
 }
 

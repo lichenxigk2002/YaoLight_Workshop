@@ -84,18 +84,15 @@ func main() {
 
 	// 配置 CORS（允许跨域请求：本地开发 + 生产环境 FRONTEND_URL）
 	allowOrigins := []string{
-		"http://localhost:3000",
-		"http://127.0.0.1:3000",
-		"http://localhost:3200",
-		"http://127.0.0.1:3200",
-		"http://localhost:5173",
-		"http://127.0.0.1:5173",
+		"http://localhost:*",
+		"http://127.0.0.1:*",
 	}
 	if config.FrontendURL != "" {
 		allowOrigins = append(allowOrigins, config.FrontendURL)
 	}
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     allowOrigins,
+		AllowWildcard:    true,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization", "Cache-Control", "X-API-Key"},
 		ExposeHeaders:    []string{"Content-Length", "Content-Type"},
