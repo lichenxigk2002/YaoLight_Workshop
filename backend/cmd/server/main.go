@@ -555,6 +555,7 @@ func main() {
 			auth.POST("/notifications/:id/consent", notificationController.RespondConsent)
 			auth.PUT("/notifications/:id/read", notificationController.MarkRead)
 			auth.PUT("/notifications/read-all", notificationController.MarkAllRead)
+			auth.DELETE("/notifications/:id", notificationController.Delete)
 		}
 
 		mcpToolController := mcpControllers.NewToolController(database.DB)

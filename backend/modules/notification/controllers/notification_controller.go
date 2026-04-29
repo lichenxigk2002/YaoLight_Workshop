@@ -83,6 +83,26 @@ func (c *NotificationController) MarkRead(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": nil})
 }
 
+// Delete 删除单条通知
+func (c *NotificationController) Delete(ctx *gin.Context) {
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权", "data": nil})
+		return
+	}
+	idStr := ctx.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的 id", "data": nil})
+		return
+	}
+	if err := c.service.Delete(uint(id), userID.(uint)); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": err.Error(), "data": nil})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": nil})
+}
+
 func (c *NotificationController) RespondConsent(ctx *gin.Context) {
 	userID, exists := ctx.Get("userID")
 	if !exists {
