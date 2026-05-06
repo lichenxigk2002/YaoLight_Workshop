@@ -90,12 +90,14 @@
   // 代码
   .inlineCode {
     background: var(--bg-secondary, #f5f5f5);
-    padding: 2px 6px;
-    border-radius: 3px;
+    padding: 1px 4px;
+    border-radius: 4px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    font-size: 13px;
-    color: #e83e8c;
+    font-size: 0.92em;
+    line-height: 1.35;
+    color: var(--text-primary, rgba(0, 0, 0, 0.88));
     border: 1px solid var(--border-secondary, #e8e8e8);
+    white-space: break-spaces;
   }
 
   .codeBlock {
@@ -138,23 +140,28 @@
   // 引用
   .blockquote {
     margin: 12px 0;
-    padding: 8px 16px;
-    border-left: 4px solid var(--primary, #1677ff);
+    padding: 10px 14px 10px 16px;
+    border: 1px solid var(--border-secondary, #e8e8e8);
+    border-radius: 10px;
     background: var(--bg-secondary, #f5f5f5);
-    border-radius: 4px;
+    box-shadow: inset 3px 0 0 rgba(0, 0, 0, 0.18);
     color: var(--text-secondary, rgba(0, 0, 0, 0.65));
-    font-style: italic;
+    font-style: normal;
+
+    [data-theme='dark'] & {
+      box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.24);
+    }
   }
 
   // 链接
   .link {
-    color: var(--primary, #1677ff);
+    color: var(--primary, #000000);
     text-decoration: none;
     border-bottom: 1px solid transparent;
     transition: all 0.2s;
 
     &:hover {
-      border-bottom-color: var(--primary, #1677ff);
+      border-bottom-color: var(--primary, #000000);
     }
   }
 

@@ -27,20 +27,24 @@ func (e *WorkflowExecutor) ExecuteWorkflowStream(
 	if len(req.Nodes) == 0 {
 		return fmt.Errorf("workflow has no nodes")
 	}
+	if err := e.ValidateExecutionRequest(req); err != nil {
+		return err
+	}
 
 	now := time.Now()
 	task := &taskModels.Task{
-		WorkflowID: req.WorkflowID,
-		UserID:     req.UserID,
-		Status:     "running",
-		Priority:   5,
-		Progress:   0,
-		RetryCount: 0,
-		MaxRetries: 3,
-		Tags:       shared.JSONB{Data: []interface{}{}},
-		StartedAt:  &now,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		WorkflowID:       req.WorkflowID,
+		UserID:           req.UserID,
+		Status:           "running",
+		Priority:         5,
+		Progress:         0,
+		RetryCount:       0,
+		MaxRetries:       3,
+		Tags:             shared.JSONB{Data: []interface{}{}},
+		StartedAt:        &now,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		ExecutionContext: jsonbFromPayload(buildWorkflowSnapshot(req)),
 	}
 
 	taskRepo := taskRepos.NewTaskRepository(database.DB)

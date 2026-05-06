@@ -46,7 +46,27 @@ type ExecutionRequest struct {
 	WorkflowID    uint                   `json:"workflowId,omitempty"`
 	RuntimeInput  interface{}            `json:"runtimeInput,omitempty"`
 	RuntimeMeta   map[string]interface{} `json:"runtimeMeta,omitempty"`
+	ResumeState   *ResumeExecutionState  `json:"resumeState,omitempty"`
 	OnTaskCreated func(taskID uint)      `json:"-"`
+}
+
+type ResumeNodeState struct {
+	OutputData    interface{} `json:"outputData,omitempty"`
+	HasOutputData bool        `json:"hasOutputData"`
+}
+
+type ResumeExecutionState struct {
+	Mode         string                     `json:"mode,omitempty"`
+	SourceTaskID uint                       `json:"sourceTaskId,omitempty"`
+	ReusedNodes  map[string]ResumeNodeState `json:"reusedNodes,omitempty"`
+}
+
+func (r *ResumeExecutionState) IsReused(nodeID string) bool {
+	if r == nil {
+		return false
+	}
+	_, ok := r.ReusedNodes[nodeID]
+	return ok
 }
 
 // NodeExecutionResult is the result of one node execution.
@@ -85,6 +105,9 @@ func NewWorkflowExecutor() *WorkflowExecutor {
 
 // Execute runs a workflow in non-stream mode.
 func (e *WorkflowExecutor) Execute(req ExecutionRequest) (*ExecutionResult, error) {
+	if err := e.ValidateExecutionRequest(req); err != nil {
+		return &ExecutionResult{Success: false, Error: err.Error()}, err
+	}
 	return e.executeConcurrentWorkflow(req, concurrentRunOptions{ctx: context.Background()})
 }
 

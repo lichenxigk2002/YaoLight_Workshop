@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	aiModels "yaolight-workshop/backend/modules/ai/models"
 	"yaolight-workshop/backend/modules/task/models"
 	"yaolight-workshop/backend/modules/task/repositories"
+	workflowServices "yaolight-workshop/backend/modules/workflow/services"
 )
 
 var (
@@ -37,6 +39,12 @@ type TaskService struct {
 	taskRepo          repositories.TaskRepository
 	nodeExecutionRepo repositories.TaskNodeExecutionRepository
 	logRepo           repositories.TaskLogRepository
+	workflowService   workflowServiceAdapter
+	executor          *workflowServices.WorkflowExecutor
+}
+
+type workflowServiceAdapter interface {
+	GetWorkflowNodes(workflowID uint) (*workflowServices.SaveWorkflowNodesRequest, error)
 }
 
 // NewTaskService 创建任务服务实例
@@ -50,6 +58,11 @@ func NewTaskService(
 		nodeExecutionRepo: nodeExecutionRepo,
 		logRepo:           logRepo,
 	}
+}
+
+func (s *TaskService) SetWorkflowExecutionServices(workflowService workflowServiceAdapter, executor *workflowServices.WorkflowExecutor) {
+	s.workflowService = workflowService
+	s.executor = executor
 }
 
 // TaskListResponse 任务列表响应
@@ -316,6 +329,127 @@ func (s *TaskService) CancelTask(taskID, userID uint) (*TaskActionResponse, erro
 		Status:  task.Status,
 		Message: "task cancelled",
 	}, nil
+}
+
+func (s *TaskService) RetryFailedTask(taskID, userID uint) (*TaskActionResponse, error) {
+	task, err := s.taskRepo.GetTaskByID(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("获取任务详情失败: %w", err)
+	}
+	if task.UserID != userID {
+		return nil, ErrTaskNotOwned
+	}
+	switch task.Status {
+	case "failed", "cancelled", "timeout":
+	default:
+		return nil, ErrTaskActionNotAllow
+	}
+	if s.workflowService == nil || s.executor == nil {
+		return nil, fmt.Errorf("任务重试服务未初始化")
+	}
+
+	executions, err := s.nodeExecutionRepo.GetByTaskID(taskID)
+	if err != nil {
+		return nil, fmt.Errorf("加载节点执行记录失败: %w", err)
+	}
+
+	req, err := s.buildRetryExecutionRequest(task)
+	if err != nil {
+		return nil, err
+	}
+	req.RuntimeMeta = mergeRetryRuntimeMeta(req.RuntimeMeta, task.ID)
+
+	resumeState, err := buildResumeExecutionState(task.ID, req.Nodes, req.Edges, executions)
+	if err != nil {
+		if errors.Is(err, ErrNoResumableFailedNodes) {
+			return nil, ErrTaskActionNotAllow
+		}
+		return nil, err
+	}
+	req.ResumeState = resumeState
+	if err := s.executor.ValidateExecutionRequest(req); err != nil {
+		return nil, err
+	}
+
+	taskIDCh := make(chan uint, 1)
+	req.OnTaskCreated = func(newTaskID uint) {
+		select {
+		case taskIDCh <- newTaskID:
+		default:
+		}
+	}
+
+	go func() {
+		_ = s.executor.ExecuteWorkflowStreamConcurrent(context.Background(), req, func(string, string, bool, string, error) {})
+	}()
+
+	var newTaskID uint
+	select {
+	case newTaskID = <-taskIDCh:
+	case <-time.After(2 * time.Second):
+	}
+
+	return &TaskActionResponse{
+		TaskID:  newTaskID,
+		Status:  "retry_started",
+		Message: "task retry started",
+	}, nil
+}
+
+func (s *TaskService) buildRetryExecutionRequest(task *models.Task) (workflowServices.ExecutionRequest, error) {
+	if task.ExecutionContext != nil {
+		if req, ok := retryExecutionRequestFromSnapshot(task); ok {
+			return req, nil
+		}
+	}
+	if s.workflowService == nil {
+		return workflowServices.ExecutionRequest{}, fmt.Errorf("任务重试服务未初始化")
+	}
+	workflowNodes, err := s.workflowService.GetWorkflowNodes(task.WorkflowID)
+	if err != nil {
+		return workflowServices.ExecutionRequest{}, fmt.Errorf("加载工作流配置失败: %w", err)
+	}
+
+	req := workflowServices.ExecutionRequest{
+		UserID:     task.UserID,
+		WorkflowID: task.WorkflowID,
+		Nodes:      make([]workflowServices.NodeConfig, len(workflowNodes.Nodes)),
+		Edges:      make([]workflowServices.EdgeConfig, len(workflowNodes.Edges)),
+	}
+
+	for i, node := range workflowNodes.Nodes {
+		config := map[string]interface{}{}
+		if node.Data != nil {
+			if rawConfig, ok := node.Data["config"].(map[string]interface{}); ok {
+				config = rawConfig
+			}
+		}
+		req.Nodes[i] = workflowServices.NodeConfig{
+			ID:     node.ID,
+			Type:   node.Type,
+			Config: config,
+		}
+	}
+	for i, edge := range workflowNodes.Edges {
+		req.Edges[i] = workflowServices.EdgeConfig{
+			Source:       edge.Source,
+			Target:       edge.Target,
+			SourceHandle: edge.SourceHandle,
+			TargetHandle: edge.TargetHandle,
+		}
+	}
+	return req, nil
+}
+
+func mergeRetryRuntimeMeta(runtimeMeta map[string]interface{}, sourceTaskID uint) map[string]interface{} {
+	merged := make(map[string]interface{}, len(runtimeMeta)+3)
+	for key, value := range runtimeMeta {
+		merged[key] = value
+	}
+	merged["retry_source"] = "task_retry"
+	merged["retry_mode"] = "resume_failed"
+	merged["source_task_id"] = sourceTaskID
+	return merged
 }
 
 // TaskNodeExecutionListResponse 节点执行列表响应

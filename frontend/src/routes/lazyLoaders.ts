@@ -11,9 +11,9 @@ export const loadWorkflowEditor = () => {
 
 export const preloadWorkflowEditorAssets = () => {
   if (!workflowEditorAssetsPromise) {
-    workflowEditorAssetsPromise = Promise.allSettled([
-      import('@monaco-editor/react'),
-    ]);
+    workflowEditorAssetsPromise = import('@monaco-editor/react')
+      .then((mod) => mod.loader.init())
+      .catch(() => undefined);
   }
   return workflowEditorAssetsPromise;
 };

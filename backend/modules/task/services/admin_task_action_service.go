@@ -146,6 +146,9 @@ func (s *AdminTaskService) RetryTask(taskID uint) (*AdminTaskActionResponse, err
 			TargetHandle: edge.TargetHandle,
 		}
 	}
+	if err := s.executor.ValidateExecutionRequest(req); err != nil {
+		return nil, err
+	}
 
 	go func() {
 		_ = s.executor.ExecuteWorkflowStreamConcurrent(context.Background(), req, func(string, string, bool, string, error) {})

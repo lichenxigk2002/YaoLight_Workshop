@@ -396,6 +396,10 @@ func (c *ToolController) RunWorkflow(ctx *gin.Context) {
 		c.failTool(ctx, "run_workflow", "workflow", fmt.Sprint(workflow.ID), start, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if err := c.executor.ValidateExecutionRequest(req); err != nil {
+		c.failTool(ctx, "run_workflow", "workflow", fmt.Sprint(workflow.ID), start, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	taskIDCh := make(chan uint, 1)
 	req.OnTaskCreated = func(taskID uint) {
@@ -486,6 +490,10 @@ func (c *ToolController) RetryTask(ctx *gin.Context) {
 	req, err := c.buildExecutionRequest(userID, task.WorkflowID, nil)
 	if err != nil {
 		c.failTool(ctx, "retry_task", "task", fmt.Sprint(task.ID), start, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := c.executor.ValidateExecutionRequest(req); err != nil {
+		c.failTool(ctx, "retry_task", "task", fmt.Sprint(task.ID), start, http.StatusBadRequest, err.Error())
 		return
 	}
 	taskIDCh := make(chan uint, 1)

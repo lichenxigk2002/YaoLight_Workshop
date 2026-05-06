@@ -179,6 +179,10 @@ func (e *WorkflowExecutor) ExecuteAINodeStream(
 		modelMode = "system"
 	}
 	modelID := getUint(node.Config, "modelId", 0)
+	if err := e.ensureSystemAINodeBalance(userID, node); err != nil {
+		callback(nodeID, "", true, "", err)
+		return
+	}
 
 	// 获取模型配置
 	modelRepo := aiRepos.NewAIModelRepository(database.DB)

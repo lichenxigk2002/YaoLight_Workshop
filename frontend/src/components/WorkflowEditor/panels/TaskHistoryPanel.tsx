@@ -154,6 +154,21 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
     }
   };
 
+  const handleRetryFailedTask = async (task: Task) => {
+    try {
+      const response = await taskApi.retryFailedTask(task.id);
+      message.success('已开始续跑失败节点');
+      await fetchTasks();
+      await checkRunningTasks();
+      if (response.task_id) {
+        const latestTask = await taskApi.getTaskDetail(response.task_id);
+        onResumeExecution?.(latestTask);
+      }
+    } catch (error: any) {
+      message.error(error.message || '续跑失败节点失败');
+    }
+  };
+
   useEffect(() => {
     if (visible && workflowId) {
       void fetchTasks();
@@ -310,6 +325,17 @@ const TaskHistoryPanel: React.FC<TaskHistoryPanelProps> = ({
                                 className={styles.linkButton}
                               >
                                 {cancellingTaskIds.includes(task.id) ? '终止中' : '中止'}
+                              </Button>
+                            ) : null}
+                            {['failed', 'cancelled', 'timeout'].includes(task.status) ? (
+                              <Button
+                                type="link"
+                                size="small"
+                                icon={<ReloadOutlined />}
+                                onClick={() => void handleRetryFailedTask(task)}
+                                className={styles.linkButton}
+                              >
+                                重试失败节点
                               </Button>
                             ) : null}
                           </div>

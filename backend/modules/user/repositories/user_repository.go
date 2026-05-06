@@ -176,3 +176,12 @@ func (r *userRepository) DeductTokens(userID uint, amount int64) error {
 func (r *userRepository) DeductTokensWithDB(db *gorm.DB, userID uint, amount int64) error {
 	return db.Model(&models.User{}).Where("id = ?", userID).Update("token_balance", gorm.Expr("token_balance - ?", amount)).Error
 }
+
+// GetTokenBalance 获取用户当前 Token 余额
+func (r *userRepository) GetTokenBalance(userID uint) (int64, error) {
+	var balance int64
+	if err := r.db.Model(&models.User{}).Where("id = ?", userID).Select("token_balance").Scan(&balance).Error; err != nil {
+		return 0, err
+	}
+	return balance, nil
+}
