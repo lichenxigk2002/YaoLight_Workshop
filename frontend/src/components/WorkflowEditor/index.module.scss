@@ -632,7 +632,12 @@
   color: var(--editor-text-secondary) !important;
 }
 
-:global(.ant-notification-notice-btn .ant-btn) {
+:global(.ant-notification-notice-actions) {
+  margin-top: 12px !important;
+}
+
+:global(.ant-notification-notice-btn .ant-btn),
+:global(.ant-notification-notice-actions .ant-btn) {
   border-radius: 999px !important;
 }
 

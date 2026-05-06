@@ -109,9 +109,11 @@ const buildExecutionResultFromTaskExecutions = (executions: TaskNodeExecution[])
     .filter((execution) => ['completed', 'skipped', 'failed', 'timeout', 'cancelled'].includes(execution.status))
     .map((execution) => ({
       node_id: execution.nodeId,
+      executionId: execution.id,
       type: execution.nodeType,
       success: execution.status === 'completed' || execution.status === 'skipped',
-      data: execution.outputData || {},
+      data: execution.outputData,
+      hasOutputData: execution.hasOutputData,
       error: execution.errorMessage,
     }));
 
@@ -188,6 +190,7 @@ const WorkflowEditor: React.FC = () => {
   const activeTaskPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bindRunningTaskTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const executionLaunchAtRef = useRef<number>(0);
+  const openedTaskFromQueryRef = useRef<number | null>(null);
 
   // 鎸夐挳缁勫睍寮€/鏀惰捣鐘舵€?
   const [buttonsExpanded, setButtonsExpanded] = useState(true);
@@ -367,6 +370,19 @@ const WorkflowEditor: React.FC = () => {
     }
   }, [detailVisible, handleSetResultPanelVisible, selectedTask?.id, syncTaskState]);
 
+  useEffect(() => {
+    if (searchParams.get('panel') !== 'result') return;
+    const taskId = Number(searchParams.get('taskId'));
+    if (!taskId || openedTaskFromQueryRef.current === taskId) return;
+
+    openedTaskFromQueryRef.current = taskId;
+    taskApi.getTaskDetail(taskId)
+      .then((task) => resumeTaskExecution(task, { openResultPanel: true, openHistory: false }))
+      .catch((error: any) => {
+        message.error(error.message || '打开任务结果失败');
+      });
+  }, [message, resumeTaskExecution, searchParams]);
+
   const handleCancelExecution = useCallback(async (task?: Task | null) => {
     const runningTask = task || activeTask;
     if (runningTask && isTaskRunning(runningTask.status)) {
@@ -512,8 +528,8 @@ const WorkflowEditor: React.FC = () => {
   const updateGraphWithPreview = useCallback((result: PatchPreviewResult) => {
       const styledNodes = result.nodes.map(n => {
           const mark = result.nodeMark[n.id];
-          let style = { ...n.style };
-          let data = { ...n.data, diffMark: mark }; // Inject diffMark into data for custom nodes
+          const style = { ...n.style };
+          const data = { ...n.data, diffMark: mark }; // Inject diffMark into data for custom nodes
 
           if (mark === 'remove') {
               style.opacity = 0.7;
@@ -523,7 +539,7 @@ const WorkflowEditor: React.FC = () => {
 
       const styledEdges = result.edges.map(e => {
           const mark = result.edgeMark[e.id];
-          let style = { ...e.style };
+          const style = { ...e.style };
           let animated = e.animated;
           // Inject diffMark into data if needed, but edges use style directly usually
           
@@ -1392,6 +1408,7 @@ const WorkflowEditor: React.FC = () => {
                 onClose={() => setResultPanelVisible(false)}
                 result={executionResult}
                 nodes={nodes}
+                taskId={activeTask?.id}
                 onCancel={() => {
                   void handleCancelExecution();
                 }}

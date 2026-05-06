@@ -174,7 +174,8 @@ export function useWorkflowExecute(
                       placement: 'bottomRight',
                       icon: null,
                       onClick: showResultPanel,
-                      actions: [viewButton],
+                      actions: viewButton,
+                      btn: viewButton,
                       duration: 5, // 5秒后自动关闭
                       key: 'workflow-stream-start', // 添加key，避免重复显示
                     });
@@ -239,7 +240,8 @@ export function useWorkflowExecute(
                   placement: 'bottomRight',
                   icon: null,
                   onClick: showResultPanel,
-                  actions: [viewButton],
+                  actions: viewButton,
+                  btn: viewButton,
                   duration: 0, // 不自动关闭
                   key: 'workflow-stream-start', // 添加key，避免重复显示
                 });
@@ -376,7 +378,8 @@ export function useWorkflowExecute(
             placement: 'bottomRight',
             icon: null,
             onClick: showResultPanel,
-            actions: [resultButton],
+            actions: resultButton,
+            btn: resultButton,
             duration: 0,
             key: 'workflow-exec-success',
           });
@@ -387,7 +390,8 @@ export function useWorkflowExecute(
             placement: 'bottomRight',
             icon: null,
             onClick: showResultPanel,
-            actions: [resultButton],
+            actions: resultButton,
+            btn: resultButton,
             duration: 0,
             key: 'workflow-exec-success',
           });
@@ -443,7 +447,8 @@ export function useWorkflowExecute(
             placement: 'bottomRight',
             icon: null,
             onClick: showResultPanel,
-            actions: [resultButton],
+            actions: resultButton,
+            btn: resultButton,
           });
         } else {
           notification.warning({
@@ -452,7 +457,8 @@ export function useWorkflowExecute(
             placement: 'bottomRight',
             icon: null,
             onClick: showResultPanel,
-            actions: [resultButton],
+            actions: resultButton,
+            btn: resultButton,
           });
         }
       }

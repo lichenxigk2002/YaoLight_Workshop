@@ -49,9 +49,12 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           // 强调
           strong: (props) => <strong className={styles.strong} {...props} />,
           em: (props) => <em className={styles.em} {...props} />,
-          // 代码：支持 ```mermaid 渲染为图表并可保存 PNG
-          code: ({ inline, className, children, ...props }: any) => {
-            if (inline) {
+          // 代码：单反引号走行内样式，三反引号代码块才走 CodeBlock。
+          code: ({ className, children, ...props }: any) => {
+            const rawText = String(children ?? '');
+            const hasLanguage = typeof className === 'string' && className.startsWith('language-');
+            const isBlockCode = hasLanguage || rawText.includes('\n');
+            if (!isBlockCode) {
               return <code className={styles.inlineCode} {...props}>{children}</code>;
             }
             const isMermaid = typeof className === 'string' && className.includes('language-mermaid');
@@ -59,7 +62,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               return (
                 <div className={styles.mermaidWrap}>
                   <MermaidRenderer
-                    content={String(children ?? '').replace(/\n$/, '')}
+                    content={rawText.replace(/\n$/, '')}
                     showSavePng={true}
                     downloadName="mermaid-diagram"
                   />
@@ -71,7 +74,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
               : 'text';
             return (
               <CodeBlock
-                value={String(children ?? '').replace(/\n$/, '')}
+                value={rawText.replace(/\n$/, '')}
                 language={language || 'text'}
                 appearance={codeBlockAppearance}
                 showHeader={codeBlockShowHeader}

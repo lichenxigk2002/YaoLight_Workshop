@@ -43,21 +43,25 @@ func (e *WorkflowExecutor) ExecuteWorkflowStreamConcurrent(
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if err := e.ValidateExecutionRequest(req); err != nil {
+		return err
+	}
 
 	now := time.Now()
 	task := &taskModels.Task{
-		WorkflowID: req.WorkflowID,
-		UserID:     req.UserID,
-		Status:     "running",
-		Priority:   5,
-		Progress:   0,
-		RetryCount: 0,
-		MaxRetries: 3,
-		Tags:       shared.JSONB{Data: []interface{}{}},
-		StartedAt:  &now,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-		Metadata:   jsonbFromPayload(map[string]interface{}{"scheduler_mode": "concurrent"}),
+		WorkflowID:       req.WorkflowID,
+		UserID:           req.UserID,
+		Status:           "running",
+		Priority:         5,
+		Progress:         0,
+		RetryCount:       0,
+		MaxRetries:       3,
+		Tags:             shared.JSONB{Data: []interface{}{}},
+		StartedAt:        &now,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		Metadata:         jsonbFromPayload(buildTaskMetadata(req)),
+		ExecutionContext: jsonbFromPayload(buildWorkflowSnapshot(req)),
 	}
 
 	taskRepo := taskRepos.NewTaskRepository(database.DB)
@@ -286,6 +290,44 @@ func (e *WorkflowExecutor) executeConcurrentWorkflow(
 		phase[node.ID] = nodePending
 	}
 
+	applyResumeState := func() {
+		if req.ResumeState == nil {
+			return
+		}
+		for _, node := range req.Nodes {
+			state, ok := req.ResumeState.ReusedNodes[node.ID]
+			if !ok {
+				continue
+			}
+
+			result := NodeExecutionResult{
+				NodeID:  node.ID,
+				Type:    node.Type,
+				Success: true,
+				Data:    state.OutputData,
+			}
+			phase[node.ID] = nodeDone
+			executed[node.ID] = true
+			nodeStatus[node.ID] = "completed"
+			nodeResults[node.ID] = result
+
+			if state.HasOutputData {
+				nodeData := NewNodeData(state.OutputData)
+				dataFlow.SetNodeOutput(node.ID, nodeData)
+				variableContext.SetNodeOutput(node.ID, nodeData)
+			}
+			if node.Type == "condition" {
+				if boolRes, ok := conditionResultFromOutput(state.OutputData); ok {
+					conditionResults[node.ID] = boolRes
+				}
+			}
+
+			saveNodeExecution(node.ID, node.Type, result, 0, "completed")
+			emit(node.ID, nodeResultPayload(result, "completed"), false, "node_result", nil)
+		}
+		updateTaskProgress(len(nodeResults))
+	}
+
 	findNodeConfig := func(nodeID string) *NodeConfig {
 		node, ok := nodeConfigs[nodeID]
 		if !ok {
@@ -351,8 +393,34 @@ func (e *WorkflowExecutor) executeConcurrentWorkflow(
 		}
 	}
 
+	applyResumeState()
+
 	for _, node := range startNodes {
 		enqueueReady(node.ID)
+	}
+	if req.ResumeState != nil {
+		for _, node := range req.Nodes {
+			if !req.ResumeState.IsReused(node.ID) {
+				continue
+			}
+			for _, edge := range outgoingEdges[node.ID] {
+				if node.Type == "condition" {
+					shouldExecute := false
+					conditionResult := conditionResults[node.ID]
+					if edge.SourceHandle == "true" && conditionResult {
+						shouldExecute = true
+					} else if edge.SourceHandle == "false" && !conditionResult {
+						shouldExecute = true
+					} else if edge.SourceHandle == "" {
+						shouldExecute = true
+					}
+					if !shouldExecute {
+						continue
+					}
+				}
+				enqueueReady(edge.Target)
+			}
+		}
 	}
 
 	doneCh := make(chan nodeExecutionOutcome, len(req.Nodes))
@@ -631,6 +699,17 @@ func (e *WorkflowExecutor) executeConcurrentWorkflow(
 		Success: !workflowFailed && !workflowCancelled,
 		Results: orderedResults,
 	}, nil
+}
+
+func buildTaskMetadata(req ExecutionRequest) map[string]interface{} {
+	metadata := map[string]interface{}{
+		"scheduler_mode": "concurrent",
+	}
+	if req.ResumeState != nil {
+		metadata["retry_mode"] = req.ResumeState.Mode
+		metadata["source_task_id"] = req.ResumeState.SourceTaskID
+	}
+	return metadata
 }
 
 func (e *WorkflowExecutor) shouldUseAINodeStream(userID uint, node NodeConfig) bool {

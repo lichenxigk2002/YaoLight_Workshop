@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Collapse, Empty, Tag, Typography, Button, Space, Modal, App } from 'antd';
 import {
   CheckCircleOutlined,
@@ -18,6 +18,7 @@ import { AIPreviewModal } from './components/AIPreviewModal';
 import { CrawlerPreviewModal } from './components/CrawlerPreviewModal';
 import styles from './ExecutionResultPanel.module.scss';
 import http from '@/http';
+import { taskApi } from '@/api/task';
 
 const { Text, Paragraph } = Typography;
 
@@ -284,9 +285,11 @@ const OutputArtifactsView: React.FC<{ data: any }> = ({ data }) => {
 
 interface NodeExecutionResult {
   node_id: string;
+  executionId?: number;
   type: string;
   success: boolean;
-  data: any;
+  data?: any;
+  hasOutputData?: boolean;
   error?: string;
 }
 
@@ -301,6 +304,7 @@ interface ExecutionResultPanelProps {
   onClose: () => void;
   result: ExecutionResult | null;
   nodes: any[];
+  taskId?: number;
   onCancel?: () => void; // 取消执行的回调函数
   isExecuting?: boolean; // 是否正在执行中
   isCancelling?: boolean;
@@ -310,6 +314,7 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   onClose,
   result,
   nodes,
+  taskId,
   onCancel,
   isExecuting = false,
   isCancelling = false,
@@ -320,6 +325,73 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   const [expandedSections, setExpandedSections] = useState<Record<string, { reasoning: boolean; content: boolean }>>({});
   const [previewTarget, setPreviewTarget] = useState<NodeExecutionResult | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [loadedResults, setLoadedResults] = useState<Record<number, any>>({});
+  const [loadingResultIds, setLoadingResultIds] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    setLoadedResults({});
+    setLoadingResultIds({});
+  }, [taskId]);
+
+  const getHydratedNodeResult = useCallback((nodeResult: NodeExecutionResult): NodeExecutionResult => {
+    if (!nodeResult.executionId || !(nodeResult.executionId in loadedResults)) {
+      return nodeResult;
+    }
+
+    return {
+      ...nodeResult,
+      data: loadedResults[nodeResult.executionId],
+    };
+  }, [loadedResults]);
+
+  const fetchNodeResultData = useCallback(async (nodeResult: NodeExecutionResult) => {
+    const hydrated = getHydratedNodeResult(nodeResult);
+    if (
+      hydrated.data ||
+      (nodeResult.executionId && nodeResult.executionId in loadedResults) ||
+      !taskId ||
+      !nodeResult.executionId ||
+      !nodeResult.hasOutputData
+    ) {
+      return hydrated;
+    }
+    if (loadingResultIds[nodeResult.executionId]) {
+      return hydrated;
+    }
+
+    setLoadingResultIds((current) => ({ ...current, [nodeResult.executionId!]: true }));
+    try {
+      const response = await taskApi.getTaskNodeExecutionDetail(taskId, nodeResult.executionId);
+      const outputData = response.execution?.outputData;
+      setLoadedResults((current) => ({
+        ...current,
+        [nodeResult.executionId!]: outputData,
+      }));
+      return {
+        ...nodeResult,
+        data: outputData,
+      };
+    } catch (error: any) {
+      message.error(error.message || '加载节点结果失败');
+      return hydrated;
+    } finally {
+      setLoadingResultIds((current) => {
+        const next = { ...current };
+        delete next[nodeResult.executionId!];
+        return next;
+      });
+    }
+  }, [getHydratedNodeResult, loadedResults, loadingResultIds, message, taskId]);
+
+  useEffect(() => {
+    if (!result) return;
+    activeKeys.forEach((key) => {
+      const nodeResult = result.results.find((item) => item.node_id === key);
+      if (nodeResult) {
+        void fetchNodeResultData(nodeResult);
+      }
+    });
+  }, [activeKeys, fetchNodeResultData, result]);
 
   // 当结果更新时，自动展开AI节点（如果正在流式输出）
   useEffect(() => {
@@ -422,7 +494,8 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   };
 
   // 复制数据到剪贴板
-  const copyToClipboard = (nodeResult: NodeExecutionResult) => {
+  const copyToClipboard = async (nodeResult: NodeExecutionResult) => {
+    nodeResult = await fetchNodeResultData(nodeResult);
     // 智能复制：如果 AI 或 Output 节点有内容文本，优先复制文本，否则复制 JSON
     let text = '';
     if (nodeResult.type === 'ai') {
@@ -447,7 +520,8 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
   };
 
   // 下载数据
-  const handleDownload = (nodeResult: NodeExecutionResult) => {
+  const handleDownload = async (nodeResult: NodeExecutionResult) => {
+    nodeResult = await fetchNodeResultData(nodeResult);
     // 智能下载：如果是 output 节点且有 artifacts，优先下载第一个 artifact
     if (nodeResult.type === 'output' && nodeResult.data?.artifacts?.length > 0) {
         const artifact = nodeResult.data.artifacts[0];
@@ -851,6 +925,17 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
     return null;
   }
 
+  const handleActiveKeysChange = (keys: string | string[]) => {
+    const nextKeys = Array.isArray(keys) ? keys : [keys];
+    setActiveKeys(nextKeys);
+    nextKeys.forEach((key) => {
+      const nodeResult = result.results.find((item) => item.node_id === key);
+      if (nodeResult) {
+        void fetchNodeResultData(nodeResult);
+      }
+    });
+  };
+
   return (
     <div
       className={styles.panelContainer}
@@ -917,9 +1002,11 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
         ) : (
           <Collapse
             activeKey={activeKeys}
-            onChange={(keys) => setActiveKeys(keys as string[])}
+            onChange={(keys) => handleActiveKeysChange(keys as string | string[])}
             className={styles.resultCollapse}
             items={result.results.map((nodeResult) => {
+              const hydratedNodeResult = getHydratedNodeResult(nodeResult);
+              const isResultLoading = !!(nodeResult.executionId && loadingResultIds[nodeResult.executionId]);
               const nodeLabel = getNodeLabel(nodeResult.node_id);
               const header = (
                 <div className={styles.panelHeader}>
@@ -936,9 +1023,9 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                       {nodeResult.type === 'ai'
                         ? (() => {
                           const node = nodes.find((n) => n.id === nodeResult.node_id);
-                          const provider = nodeResult.data?.provider?.toLowerCase() || node?.data?.config?.provider?.toLowerCase();
+                          const provider = hydratedNodeResult.data?.provider?.toLowerCase() || node?.data?.config?.provider?.toLowerCase();
                           return provider ? (
-                            <AIIcon iconKey={nodeResult.data?.modelIcon || nodeResult.data?.providerIcon} fallbackProvider={provider} size={14} />
+                            <AIIcon iconKey={hydratedNodeResult.data?.modelIcon || hydratedNodeResult.data?.providerIcon} fallbackProvider={provider} size={14} />
                           ) : (
                             <Tag color={nodeResult.success ? 'success' : 'error'}>
                               {getNodeTypeLabel(nodeResult.type)}
@@ -961,8 +1048,10 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                     type="text"
                     size="small"
                     icon={<EyeOutlined />}
-                    onClick={() => {
-                      setPreviewTarget(nodeResult);
+                    loading={isResultLoading}
+                    onClick={async () => {
+                      const nextNodeResult = await fetchNodeResultData(nodeResult);
+                      setPreviewTarget(nextNodeResult);
                       setPreviewOpen(true);
                     }}
                   />
@@ -970,22 +1059,26 @@ const ExecutionResultPanel: React.FC<ExecutionResultPanelProps> = ({
                     type="text"
                     size="small"
                     icon={<CopyOutlined />}
-                    onClick={() => copyToClipboard(nodeResult)}
+                    loading={isResultLoading}
+                    onClick={() => void copyToClipboard(nodeResult)}
                   />
                   <Button
                     type="text"
                     size="small"
                     icon={<DownloadOutlined />}
-                    onClick={() => handleDownload(nodeResult)}
+                    loading={isResultLoading}
+                    onClick={() => void handleDownload(nodeResult)}
                   />
                 </Space>
               );
 
-              const children = nodeResult.success ? (
-                renderDataPreview(nodeResult.data, nodeResult.type, nodeResult.node_id)
+              const children = isResultLoading ? (
+                <Empty description="正在加载节点结果..." image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              ) : hydratedNodeResult.success ? (
+                renderDataPreview(hydratedNodeResult.data, hydratedNodeResult.type, hydratedNodeResult.node_id)
               ) : (
                 <div className={styles.errorMessage}>
-                  <Text type="danger">{nodeResult.error || t('node.execution.execFailed')}</Text>
+                  <Text type="danger">{hydratedNodeResult.error || t('node.execution.execFailed')}</Text>
                 </div>
               );
 

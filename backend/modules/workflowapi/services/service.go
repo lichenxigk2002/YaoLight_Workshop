@@ -510,6 +510,10 @@ func (s *WorkflowAPIService) PublicInvoke(ctx context.Context, slug string, rawK
 		_ = s.failInvocation(invocation, err.Error())
 		return nil, err
 	}
+	if err := s.executor.ValidateExecutionRequest(execReq); err != nil {
+		_ = s.failInvocation(invocation, err.Error())
+		return nil, err
+	}
 
 	var taskID uint
 	execReq.OnTaskCreated = func(id uint) {

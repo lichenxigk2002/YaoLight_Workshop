@@ -39,6 +39,9 @@ export const taskApi = {
   cancelTask: (taskId: number) =>
     http.post<{ task_id: number; status: string; message: string }>(`/tasks/${taskId}/cancel`, {}),
 
+  retryFailedTask: (taskId: number) =>
+    http.post<{ task_id: number; status: string; message: string }>(`/tasks/${taskId}/retry-failed`, {}),
+
   /**
    * 获取任务的节点执行记录
    * @param taskId 任务ID

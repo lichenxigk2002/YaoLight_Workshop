@@ -544,7 +544,7 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
                     <div key={tool.stepId} className={styles.subStepItem}>
                       <div className={styles.subStepIcon}>
                         {tool.status === 'running' ? (
-                          <LoadingOutlined spin style={{ color: '#1677ff' }} />
+                          <LoadingOutlined spin style={{ color: 'var(--alkaid-accent-0)' }} />
                         ) : tool.status === 'success' ? (
                           <CheckOutlined style={{ color: '#52c41a' }} />
                         ) : tool.status === 'error' ? (
@@ -641,7 +641,7 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
                         <div key={tool.stepId} className={styles.subStepItem}>
                           <div className={styles.subStepIcon}>
                             {tool.status === 'running' ? (
-                              <LoadingOutlined spin style={{ color: '#1677ff' }} />
+                              <LoadingOutlined spin style={{ color: 'var(--alkaid-accent-0)' }} />
                             ) : tool.status === 'success' ? (
                               <CheckOutlined style={{ color: '#52c41a' }} />
                             ) : tool.status === 'error' ? (
@@ -800,7 +800,7 @@ const renderPlanStatusTag = (status: DisplayPlanStep['status']) => {
                             <div key={tool.stepId} className={styles.subStepItem}>
                               <div className={styles.subStepIcon}>
                                 {tool.status === 'running' ? (
-                                  <LoadingOutlined spin style={{ color: '#1677ff' }} />
+                                  <LoadingOutlined spin style={{ color: 'var(--alkaid-accent-0)' }} />
                                 ) : tool.status === 'success' ? (
                                   <CheckOutlined style={{ color: '#52c41a' }} />
                                 ) : tool.status === 'error' ? (
