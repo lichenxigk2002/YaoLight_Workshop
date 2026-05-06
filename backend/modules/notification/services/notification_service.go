@@ -79,6 +79,10 @@ func (s *NotificationService) MarkAllRead(userID uint) error {
 	return s.repo.MarkAllRead(userID)
 }
 
+func (s *NotificationService) Delete(id, userID uint) error {
+	return s.repo.Delete(id, userID)
+}
+
 func (s *NotificationService) UnreadCount(userID uint) (int64, error) {
 	return s.repo.CountUnread(userID)
 }

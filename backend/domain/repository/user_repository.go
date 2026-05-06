@@ -46,4 +46,7 @@ type UserRepository interface {
 
 	// DeductTokensWithDB 在指定 DB（如事务 tx）中扣除用户 Token，用于事务内扣费+写流水
 	DeductTokensWithDB(db *gorm.DB, userID uint, amount int64) error
+
+	// GetTokenBalance 获取用户当前 Token 余额
+	GetTokenBalance(userID uint) (int64, error)
 }

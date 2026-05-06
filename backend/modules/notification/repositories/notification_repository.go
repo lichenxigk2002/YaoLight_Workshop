@@ -40,6 +40,7 @@ type NotificationRepository interface {
 	GetByID(id, userID uint) (*models.Notification, error)
 	MarkRead(id, userID uint) error
 	MarkAllRead(userID uint) error
+	Delete(id, userID uint) error
 	CountUnread(userID uint) (int64, error)
 	ListUsersByIDs(ids []uint) ([]userModels.User, error)
 	AdminList(query AdminNotificationQuery) ([]AdminNotificationRecord, int64, error)
@@ -99,6 +100,10 @@ func (r *notificationRepository) MarkAllRead(userID uint) error {
 	return r.db.Model(&models.Notification{}).
 		Where("user_id = ? AND is_read = ?", userID, false).
 		Updates(map[string]interface{}{"is_read": true, "read_at": now}).Error
+}
+
+func (r *notificationRepository) Delete(id, userID uint) error {
+	return r.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Notification{}).Error
 }
 
 func (r *notificationRepository) CountUnread(userID uint) (int64, error) {

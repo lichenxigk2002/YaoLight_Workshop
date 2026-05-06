@@ -8,6 +8,8 @@ import (
 	"yaolight-workshop/backend/infrastructure/database"
 	"yaolight-workshop/backend/modules/task/repositories"
 	"yaolight-workshop/backend/modules/task/services"
+	workflowRepos "yaolight-workshop/backend/modules/workflow/repositories"
+	workflowServices "yaolight-workshop/backend/modules/workflow/services"
 )
 
 // TaskController 任务控制器
@@ -21,6 +23,13 @@ func NewTaskController() *TaskController {
 	nodeExecutionRepo := repositories.NewTaskNodeExecutionRepository(database.DB)
 	logRepo := repositories.NewTaskLogRepository(database.DB)
 	taskService := services.NewTaskService(taskRepo, nodeExecutionRepo, logRepo)
+	workflowRepo := workflowRepos.NewWorkflowRepository(database.DB)
+	workflowNodeRepo := workflowRepos.NewWorkflowNodeRepository(database.DB)
+	commentCardRepo := workflowRepos.NewWorkflowCommentCardRepository(database.DB)
+	taskService.SetWorkflowExecutionServices(
+		workflowServices.NewWorkflowService(workflowRepo, workflowNodeRepo, commentCardRepo),
+		workflowServices.NewWorkflowExecutor(),
+	)
 
 	return &TaskController{
 		taskService: taskService,
@@ -124,6 +133,43 @@ func (c *TaskController) CancelTask(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
+}
+
+func (c *TaskController) RetryFailedTask(ctx *gin.Context) {
+	userIDAny, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "未授权",
+		})
+		return
+	}
+
+	taskID, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的任务ID",
+		})
+		return
+	}
+
+	result, err := c.taskService.RetryFailedTask(uint(taskID), userIDAny.(uint))
+	if err != nil {
+		switch err {
+		case services.ErrTaskNotOwned:
+			ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		case services.ErrTaskActionNotAllow:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			if workflowServices.IsInsufficientTokenBalanceError(err) {
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			} else {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 		}
 		return
 	}

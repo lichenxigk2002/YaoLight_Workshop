@@ -1,6 +1,5 @@
 import http from '@/http';
 import type {
-  Notification,
   NotificationConsentResult,
   NotificationListResponse,
   NotificationUnreadCountResponse,
@@ -17,6 +16,9 @@ export const notificationApi = {
 
   markRead: (id: number) =>
     http.put<void>(`${BASE}/${id}/read`),
+
+  delete: (id: number) =>
+    http.delete<void>(`${BASE}/${id}`),
 
   respondConsent: (id: number, action: 'agree' | 'reject') =>
     http.post<NotificationConsentResult>(`${BASE}/${id}/consent`, { action }),

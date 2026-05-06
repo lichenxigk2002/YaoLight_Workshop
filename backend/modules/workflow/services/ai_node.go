@@ -76,6 +76,15 @@ func (e *WorkflowExecutor) executeAINode(node NodeConfig, dataFlow *DataFlow, va
 	if modelMode == "" {
 		modelMode = "system"
 	}
+	if err := e.ensureSystemAINodeBalance(userID, node); err != nil {
+		return NodeExecutionResult{
+			NodeID:  node.ID,
+			Type:    "ai",
+			Success: false,
+			Error:   err.Error(),
+			Data:    ExtractPayload(inputData),
+		}
+	}
 
 	// 获取模型配置
 	modelRepo := aiRepos.NewAIModelRepository(database.DB)

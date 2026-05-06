@@ -1,5 +1,8 @@
-import { AlertTriangle, Bug, FileText, Lightbulb, Network } from 'lucide-react'
+import { useState } from 'react'
+import { Button, Modal, Tooltip } from 'antd'
+import { AlertTriangle, Bug, Eye, FileText, Lightbulb, Network } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { MarkdownRenderer } from '@/components/WorkflowEditor/utils/MarkdownRenderer'
 import type { DebugReport, ExplainReport } from '../types'
 import styles from './AlkaidReportCards.module.scss'
 
@@ -14,6 +17,11 @@ interface ExplainReportCardProps {
 const compactList = (items?: string[], limit = 4) => {
   if (!items || items.length === 0) return []
   return items.filter(Boolean).slice(0, limit)
+}
+
+const fullList = (items?: string[]) => {
+  if (!items || items.length === 0) return []
+  return items.filter(Boolean)
 }
 
 export const DebugReportCard = ({ report }: DebugReportCardProps) => {
@@ -37,7 +45,15 @@ export const DebugReportCard = ({ report }: DebugReportCardProps) => {
         </div>
       </div>
 
-      {report.summary && <p className={styles.reportSummary}>{report.summary}</p>}
+      {report.summary && (
+        <MarkdownRenderer
+          content={report.summary}
+          className={styles.reportSummaryMarkdown}
+          codeBlockAppearance="minimal"
+          codeBlockShowHeader={false}
+          codeBlockShowLineNumbers={false}
+        />
+      )}
 
       {hasFailure && (
         <div className={styles.reportMetaGrid}>
@@ -69,9 +85,18 @@ export const DebugReportCard = ({ report }: DebugReportCardProps) => {
 
 export const ExplainReportCard = ({ report }: ExplainReportCardProps) => {
   const { t } = useTranslation()
+  const [detailOpen, setDetailOpen] = useState(false)
   const risks = compactList(report.risks)
   const suggestions = compactList(report.suggestions)
   const variableFlow = compactList(report.variableFlow, 3)
+  const fullVariableFlow = fullList(report.variableFlow)
+  const fullRisks = fullList(report.risks)
+  const fullSuggestions = fullList(report.suggestions)
+  const hasDetail =
+    !!report.summary ||
+    fullVariableFlow.length > 0 ||
+    fullRisks.length > 0 ||
+    fullSuggestions.length > 0
 
   return (
     <section className={styles.reportCard}>
@@ -87,9 +112,29 @@ export const ExplainReportCard = ({ report }: ExplainReportCardProps) => {
               : t('workflowEditor.alkaid.workflowExplained', '已完成工作流梳理')}
           </div>
         </div>
+        {hasDetail && (
+          <Tooltip title={t('workflowEditor.alkaid.viewExplainReportDetail', '查看完整解释报告')}>
+            <Button
+              className={styles.reportAction}
+              type="text"
+              size="small"
+              icon={<Eye size={15} />}
+              aria-label={t('workflowEditor.alkaid.viewExplainReportDetail', '查看完整解释报告')}
+              onClick={() => setDetailOpen(true)}
+            />
+          </Tooltip>
+        )}
       </div>
 
-      {report.summary && <p className={styles.reportSummary}>{report.summary}</p>}
+      {report.summary && (
+        <MarkdownRenderer
+          content={report.summary}
+          className={styles.reportSummaryMarkdown}
+          codeBlockAppearance="minimal"
+          codeBlockShowHeader={false}
+          codeBlockShowLineNumbers={false}
+        />
+      )}
 
       {variableFlow.length > 0 && (
         <div className={styles.reportSection}>
@@ -132,6 +177,101 @@ export const ExplainReportCard = ({ report }: ExplainReportCardProps) => {
           </ul>
         </div>
       )}
+
+      <Modal
+        title={t('workflowEditor.alkaid.explainReportDetail', '完整解释报告')}
+        open={detailOpen}
+        onCancel={() => setDetailOpen(false)}
+        footer={null}
+        width={680}
+      >
+        <div className={styles.reportDetail}>
+          <div className={styles.reportDetailMeta}>
+            {typeof report.nodeCount === 'number' || typeof report.edgeCount === 'number'
+              ? `${report.nodeCount ?? 0} ${t('workflowEditor.nodes', '节点')} · ${report.edgeCount ?? 0} ${t('workflowEditor.edges', '边')}`
+              : t('workflowEditor.alkaid.workflowExplained', '已完成工作流梳理')}
+          </div>
+
+          {report.summary && (
+            <section className={styles.reportDetailSection}>
+              <div className={styles.reportDetailTitle}>{t('workflowEditor.alkaid.summary', '整体说明')}</div>
+              <MarkdownRenderer
+                content={report.summary}
+                className={styles.reportDetailMarkdown}
+                codeBlockAppearance="minimal"
+                codeBlockShowHeader={false}
+                codeBlockShowLineNumbers={false}
+              />
+            </section>
+          )}
+
+          {fullVariableFlow.length > 0 && (
+            <section className={styles.reportDetailSection}>
+              <div className={styles.reportDetailTitle}>
+                <Network size={14} />
+                {t('workflowEditor.alkaid.variableFlow', '变量流转')}
+              </div>
+              <ul className={styles.reportDetailList}>
+                {fullVariableFlow.map((item, index) => (
+                  <li key={`${item}-${index}`}>
+                    <MarkdownRenderer
+                      content={item}
+                      className={styles.reportDetailMarkdown}
+                      codeBlockAppearance="minimal"
+                      codeBlockShowHeader={false}
+                      codeBlockShowLineNumbers={false}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {fullRisks.length > 0 && (
+            <section className={styles.reportDetailSection}>
+              <div className={styles.reportDetailTitle}>
+                <AlertTriangle size={14} />
+                {t('workflowEditor.alkaid.risks', '潜在风险')}
+              </div>
+              <ul className={styles.reportDetailList}>
+                {fullRisks.map((item, index) => (
+                  <li key={`${item}-${index}`}>
+                    <MarkdownRenderer
+                      content={item}
+                      className={styles.reportDetailMarkdown}
+                      codeBlockAppearance="minimal"
+                      codeBlockShowHeader={false}
+                      codeBlockShowLineNumbers={false}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {fullSuggestions.length > 0 && (
+            <section className={styles.reportDetailSection}>
+              <div className={styles.reportDetailTitle}>
+                <Lightbulb size={14} />
+                {t('workflowEditor.alkaid.suggestions', '建议')}
+              </div>
+              <ul className={styles.reportDetailList}>
+                {fullSuggestions.map((item, index) => (
+                  <li key={`${item}-${index}`}>
+                    <MarkdownRenderer
+                      content={item}
+                      className={styles.reportDetailMarkdown}
+                      codeBlockAppearance="minimal"
+                      codeBlockShowHeader={false}
+                      codeBlockShowLineNumbers={false}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      </Modal>
     </section>
   )
 }

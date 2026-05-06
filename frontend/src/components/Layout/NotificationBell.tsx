@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { App, Badge, Button, Dropdown, Empty, Modal, Spin, Tooltip } from 'antd';
-import { MessageOutlined, SettingOutlined } from '@ant-design/icons';
+import { App, Badge, Button, Dropdown, Empty, Modal, Popconfirm, Spin, Tooltip } from 'antd';
+import { DeleteOutlined, MessageOutlined, SettingOutlined } from '@ant-design/icons';
 import { NotificationBellIcon, SweepIcon } from '@/components/Icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -8,18 +8,9 @@ import { useAuthStore } from '@/store/auth';
 import { useNotificationStore } from '@/store/notification';
 import { useNotificationWS } from '@/hooks/useNotificationWS';
 import type { Notification } from '@/types/notification';
+import { taskApi } from '@/api/task';
+import { workflowApi } from '@/api/workflow';
 import styles from './index.module.scss';
-
-function formatTime(createdAt: string) {
-  const d = new Date(createdAt);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
-  return d.toLocaleDateString();
-}
 
 function formatDateShort(createdAt: string) {
   const d = new Date(createdAt);
@@ -57,6 +48,11 @@ function canRespondToConsent(notification?: Notification | null) {
   return isTemplateConsentNotification(notification) && getConsentStatus(notification) === 'pending';
 }
 
+function getTaskIdFromActionURL(actionURL?: string) {
+  const match = actionURL?.match(/^\/tasks\/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
 export default function NotificationBell() {
   const { t, i18n } = useTranslation();
   const { message } = App.useApp();
@@ -75,6 +71,7 @@ export default function NotificationBell() {
     fetchList,
     fetchUnreadCount,
     markRead,
+    deleteNotification,
     respondConsent,
     markAllRead,
   } = useNotificationStore();
@@ -82,21 +79,49 @@ export default function NotificationBell() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchList(1, 10);
+      fetchList(1, 100);
       fetchUnreadCount();
     }
   }, [isAuthenticated, fetchList, fetchUnreadCount]);
 
-  const filteredList = tab === 'unread' ? list.filter((n) => !n.is_read) : list.slice(0, 10);
+  const filteredList = tab === 'unread' ? list.filter((n) => !n.is_read) : list;
+
+  const openNotificationAction = async (n: Notification) => {
+    if (!n.action_url) {
+      return false;
+    }
+
+    if (n.action_url.startsWith('/projects/')) {
+      setDetailOpen(false);
+      navigate(n.action_url);
+      return true;
+    }
+
+    const taskId = getTaskIdFromActionURL(n.action_url);
+    if (taskId) {
+      try {
+        const task = await taskApi.getTaskDetail(taskId);
+        const workflow = await workflowApi.getWorkflowById(task.workflowId);
+        if (workflow.projectId && task.workflowId) {
+          setDetailOpen(false);
+          navigate(`/projects/${workflow.projectId}/workflows/${task.workflowId}/edit?panel=result&taskId=${task.id}`);
+          return true;
+        }
+      } catch (error: any) {
+        message.error(error.message || (isEnglish ? 'Failed to open task result.' : '打开任务结果失败'));
+        return true;
+      }
+    }
+
+    return false;
+  };
 
   const handleCardClick = async (n: Notification) => {
     if (!n.is_read) {
       await markRead(n.id);
     }
 
-    if (isWorkflowCompletionNotification(n) && n.action_url?.startsWith('/projects/')) {
-      setDetailOpen(false);
-      navigate(n.action_url);
+    if (isWorkflowCompletionNotification(n) && await openNotificationAction(n)) {
       return;
     }
 
@@ -122,6 +147,19 @@ export default function NotificationBell() {
       // handled by the shared HTTP client
     } finally {
       setConsentSubmittingId(null);
+    }
+  };
+
+  const handleDeleteNotification = async (notification: Notification) => {
+    try {
+      await deleteNotification(notification.id);
+      if (selectedNotification?.id === notification.id) {
+        setDetailOpen(false);
+        setSelectedNotification(null);
+      }
+      message.success(isEnglish ? 'Notification deleted.' : '通知已删除');
+    } catch (error: any) {
+      message.error(error.message || (isEnglish ? 'Failed to delete notification.' : '删除通知失败'));
     }
   };
 
@@ -229,6 +267,23 @@ export default function NotificationBell() {
                 >
                   {t('layout.notificationView')}
                 </Button>
+                <Popconfirm
+                  title={isEnglish ? 'Delete this notification?' : '删除这条通知？'}
+                  okText={isEnglish ? 'Delete' : '删除'}
+                  cancelText={t('common.cancel')}
+                  onConfirm={(e) => {
+                    e?.stopPropagation();
+                    void handleDeleteNotification(n);
+                  }}
+                  onCancel={(e) => e?.stopPropagation()}
+                >
+                  <Button
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Popconfirm>
               </div>
             </div>
           ))
@@ -289,11 +344,65 @@ export default function NotificationBell() {
               <Button onClick={() => setDetailOpen(false)}>
                 {t('common.cancel')}
               </Button>
+              {selectedNotification ? (
+                <Popconfirm
+                  title={isEnglish ? 'Delete this notification?' : '删除这条通知？'}
+                  okText={isEnglish ? 'Delete' : '删除'}
+                  cancelText={t('common.cancel')}
+                  onConfirm={() => {
+                    void handleDeleteNotification(selectedNotification);
+                  }}
+                >
+                  <Button danger icon={<DeleteOutlined />} />
+                </Popconfirm>
+              ) : null}
+            </>
+          ) : selectedNotification?.action_url ? (
+            <>
+              <Button
+                type="primary"
+                onClick={() => {
+                  if (selectedNotification) {
+                    void openNotificationAction(selectedNotification);
+                  }
+                }}
+              >
+                {isWorkflowCompletionNotification(selectedNotification)
+                  ? t('workflowEditor.viewResult')
+                  : t('layout.notificationView')}
+              </Button>
+              <Button onClick={() => setDetailOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Popconfirm
+                title={isEnglish ? 'Delete this notification?' : '删除这条通知？'}
+                okText={isEnglish ? 'Delete' : '删除'}
+                cancelText={t('common.cancel')}
+                onConfirm={() => {
+                  void handleDeleteNotification(selectedNotification);
+                }}
+              >
+                <Button danger icon={<DeleteOutlined />} />
+              </Popconfirm>
             </>
           ) : (
-            <Button onClick={() => setDetailOpen(false)}>
-              {t('common.cancel')}
-            </Button>
+            <>
+              <Button onClick={() => setDetailOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              {selectedNotification ? (
+                <Popconfirm
+                  title={isEnglish ? 'Delete this notification?' : '删除这条通知？'}
+                  okText={isEnglish ? 'Delete' : '删除'}
+                  cancelText={t('common.cancel')}
+                  onConfirm={() => {
+                    void handleDeleteNotification(selectedNotification);
+                  }}
+                >
+                  <Button danger icon={<DeleteOutlined />} />
+                </Popconfirm>
+              ) : null}
+            </>
           )
         }
         width={560}

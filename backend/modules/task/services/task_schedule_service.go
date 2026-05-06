@@ -623,6 +623,9 @@ func (s *TaskScheduleService) executeRun(ctx context.Context, runID uint) error 
 			lastErr = err.Error()
 			break
 		}
+		if err := s.executor.ValidateExecutionRequest(execReq); err != nil {
+			return s.finalizeRun(&run, &schedule, optionalUintPtr(lastTaskID), "failed", err.Error())
+		}
 
 		taskID := uint(0)
 		execReq.OnTaskCreated = func(id uint) {
@@ -637,8 +640,9 @@ func (s *TaskScheduleService) executeRun(ctx context.Context, runID uint) error 
 			s.attachTaskScheduleMetadata(id, &schedule, &run, attempt)
 		}
 
-		_ = s.executor.ExecuteWorkflowStreamConcurrent(ctx, execReq, func(string, string, bool, string, error) {})
-
+		if err := s.executor.ExecuteWorkflowStreamConcurrent(ctx, execReq, func(string, string, bool, string, error) {}); err != nil {
+			return s.finalizeRun(&run, &schedule, optionalUintPtr(taskID), "failed", err.Error())
+		}
 		status, errMessage := s.resolveRunFinalStatus(taskID)
 		lastErr = errMessage
 		if status == "completed" {
