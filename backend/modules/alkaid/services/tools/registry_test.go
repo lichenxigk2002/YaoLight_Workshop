@@ -38,3 +38,28 @@ func TestRegistryModeGateAllowsReadOnlyChatTools(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistryFallbackToolsReportUnavailableInsteadOfPlaceholder(t *testing.T) {
+	registry := NewRegistry(nil)
+
+	for _, toolName := range []string{"search_knowledge", "get_capabilities", "get_node_spec", "run_workflow_trial"} {
+		params := `{}`
+		if toolName == "search_knowledge" {
+			params = `{"query":"workflow"}`
+		}
+		result, summary, err := registry.ExecuteTool(toolName, params, 1)
+		if err != nil {
+			t.Fatalf("expected %s fallback not to fail registry execution: %v", toolName, err)
+		}
+		resultMap, ok := result.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected %s result map, got %T", toolName, result)
+		}
+		if unavailable, _ := resultMap["unavailable"].(bool); !unavailable {
+			t.Fatalf("expected %s to report unavailable, got %#v", toolName, resultMap)
+		}
+		if summary == "" || summary == "试跑占位" || summary == "节点规格占位" || summary == "knowledge search placeholder" {
+			t.Fatalf("expected explicit unavailable summary for %s, got %q", toolName, summary)
+		}
+	}
+}

@@ -9,7 +9,8 @@ import (
 
 // toolSearchKnowledge is used when no runner is attached.
 func toolSearchKnowledge(params map[string]interface{}, sessionID uint) (result interface{}, resultSummary string, err error) {
-	return map[string]interface{}{"placeholder": true}, "knowledge search placeholder", nil
+	summary := "知识检索不可用：未初始化工具运行环境"
+	return map[string]interface{}{"unavailable": true, "summary": summary, "results": []interface{}{}}, summary, nil
 }
 
 // runSearchKnowledge retrieves knowledge snippets for the current session/user.

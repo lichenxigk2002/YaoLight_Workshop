@@ -72,3 +72,23 @@ func TestInspectWorkflowExecutionShapeReportsBrokenEdges(t *testing.T) {
 		t.Fatalf("expected missing target issue, got %#v", issues)
 	}
 }
+
+func TestToolRunWorkflowTrialWithoutRunnerDoesNotReportSuccess(t *testing.T) {
+	result, summary, err := toolRunWorkflowTrial(map[string]interface{}{"level": "standard"}, 1)
+	if err != nil {
+		t.Fatalf("expected no tool error, got %v", err)
+	}
+	if !strings.Contains(summary, "未初始化工作流执行器") {
+		t.Fatalf("unexpected summary: %s", summary)
+	}
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map result, got %T", result)
+	}
+	if success, _ := resultMap["success"].(bool); success {
+		t.Fatalf("placeholder trial must not report success: %#v", resultMap)
+	}
+	if unavailable, _ := resultMap["unavailable"].(bool); !unavailable {
+		t.Fatalf("expected unavailable marker: %#v", resultMap)
+	}
+}

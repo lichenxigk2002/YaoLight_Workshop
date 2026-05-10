@@ -44,7 +44,8 @@ var supportedNodeTypes = []string{
 
 // toolGetNodeSpec 占位（无 Runner 时使用）
 func toolGetNodeSpec(params map[string]interface{}, sessionID uint) (result interface{}, resultSummary string, err error) {
-	return map[string]interface{}{"placeholder": true}, "节点规格占位", nil
+	summary := "节点规格不可用：未初始化工具运行环境"
+	return map[string]interface{}{"unavailable": true, "summary": summary}, summary, nil
 }
 
 // runGetNodeSpec 从 Capabilities 的 nodeTypes 中按 nodeType 返回 spec。

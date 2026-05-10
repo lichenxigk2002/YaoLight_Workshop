@@ -9,7 +9,14 @@ import (
 
 // toolRunWorkflowTrial 占位（无 Runner 时使用）
 func toolRunWorkflowTrial(params map[string]interface{}, sessionID uint) (result interface{}, resultSummary string, err error) {
-	return map[string]interface{}{"success": true, "level": "quick", "placeholder": true, "summary": "试跑占位"}, "试跑占位", nil
+	summary := "试跑不可用：未初始化工作流执行器"
+	return map[string]interface{}{
+		"success":     false,
+		"level":       trialLevel(params),
+		"unavailable": true,
+		"error":       summary,
+		"summary":     summary,
+	}, summary, nil
 }
 
 // runRunWorkflowTrial 将 workflow 转为 ExecutionRequest 并调用执行器试跑
