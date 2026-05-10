@@ -136,11 +136,16 @@ func extractWorkflowJSONWithFallback(ctx *actPipelineContext) (string, bool, err
 		forcedContent, forcedErr := forceWorkflowDelivery(
 			ctx.reqCtx,
 			ctx.aiProvider,
+			ctx.streamer,
+			ctx.canStreamWithTools,
 			buildWorkflowFallbackConfig(ctx.aiConfig),
 			ctx.systemPrompt,
 			ctx.messages,
 			ctx.assistantContent,
 			ctx.reqMode(),
+			func(content string) {
+				_ = ctx.sw.WriteContent(content)
+			},
 		)
 		if ctx.reqCtx.Err() != nil {
 			_ = ctx.sw.WriteInterrupted()

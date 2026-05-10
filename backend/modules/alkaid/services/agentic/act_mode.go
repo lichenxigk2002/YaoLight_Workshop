@@ -248,6 +248,22 @@ func runActMode(
 		}
 	}
 
+	nextPendingPlanStepByPhase := func(phase string) *alkaidModels.AgentPlanStep {
+		for i := range planSteps {
+			if planSteps[i].Status == alkaidModels.PlanStepSuccess || planSteps[i].Status == alkaidModels.PlanStepError {
+				continue
+			}
+			if planSteps[i].Phase == phase {
+				return &planSteps[i]
+			}
+		}
+		return nil
+	}
+
+	if len(planSteps) > 0 {
+		startPlanStep(&planSteps[0])
+	}
+
 	messages := []providers.ChatMessage{{Role: "user", Content: contentForLLM}}
 	const maxTurns = 15
 	var assistantContent string
@@ -259,15 +275,18 @@ func runActMode(
 		if draftingStepID != "" {
 			return
 		}
-		step := ensureSyntheticPlanStep(
-			&planSteps,
-			userMsg.ID,
-			req.Message,
-			"Draft final workflow response",
-			"Enough context has been collected. Draft the final workflow response for the user.",
-			alkaidModels.PhaseGenerating,
-			nil,
-		)
+		step := nextPendingPlanStepByPhase(alkaidModels.PhaseGenerating)
+		if step == nil {
+			step = ensureSyntheticPlanStep(
+				&planSteps,
+				userMsg.ID,
+				req.Message,
+				"Draft final workflow response",
+				"Enough context has been collected. Draft the final workflow response for the user.",
+				alkaidModels.PhaseGenerating,
+				nil,
+			)
+		}
 		startPlanStep(step)
 		draftingStepID = fmt.Sprintf("step-%d-draft_workflow", time.Now().UnixNano())
 		_ = sw.WritePhaseChanged(alkaidModels.PhaseGenerating)
@@ -295,7 +314,29 @@ func runActMode(
 		}
 		var resp *providers.ChatResponseWithTools
 		var err error
-		if turn > 0 {
+		if streamer != nil && taskMode == TaskGenerate {
+			if turn > 0 {
+				startDraftingStep()
+			}
+			resp, err = streamer.ChatWithToolsStream(
+				reqCtx,
+				aiConfig,
+				systemPrompt,
+				messages,
+				toolDefs,
+				map[string]interface{}{"thinking": false},
+				func(content string, done bool, streamErr error, usage *providers.TokenUsage) {
+					if streamErr != nil {
+						return
+					}
+					if content != "" {
+						startDraftingStep()
+						assistantContentStreamed = true
+						_ = sw.WriteContent(content)
+					}
+				},
+			)
+		} else if turn > 0 {
 			type chatWithToolsResult struct {
 				resp *providers.ChatResponseWithTools
 				err  error

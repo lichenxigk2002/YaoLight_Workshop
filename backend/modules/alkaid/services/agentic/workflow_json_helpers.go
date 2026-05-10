@@ -139,11 +139,14 @@ func generateWorkflowJSONFallback(
 func forceWorkflowDelivery(
 	ctx context.Context,
 	aiProvider providers.AIProvider,
+	streamer toolStreamingProvider,
+	canStreamWithTools bool,
 	config *providers.AIModelConfig,
 	systemPrompt string,
 	baseMessages []providers.ChatMessage,
 	assistantContent string,
 	taskMode TaskMode,
+	onContent func(string),
 ) (string, error) {
 	forcedMessages := append([]providers.ChatMessage{}, baseMessages...)
 	if strings.TrimSpace(assistantContent) != "" {
@@ -169,6 +172,29 @@ func forceWorkflowDelivery(
 			"4. 不允许再回答“我建议你这样搭建”“下面是节点清单”。\n" +
 			"5. 如果信息不足，也要基于当前假设产出一版可运行的最小可用工作流。",
 	})
+
+	if canStreamWithTools && streamer != nil {
+		var streamed strings.Builder
+		resp, err := streamer.ChatWithToolsStream(ctx, config, systemPrompt, forcedMessages, nil, map[string]interface{}{"thinking": false}, func(content string, done bool, err error, usage *providers.TokenUsage) {
+			if err != nil || content == "" {
+				return
+			}
+			streamed.WriteString(content)
+			if onContent != nil {
+				onContent(content)
+			}
+		})
+		if err != nil {
+			return "", err
+		}
+		if streamed.Len() > 0 {
+			return strings.TrimSpace(streamed.String()), nil
+		}
+		if resp != nil {
+			return strings.TrimSpace(resp.Content), nil
+		}
+		return "", nil
+	}
 
 	resp, err := aiProvider.ChatWithTools(ctx, config, systemPrompt, forcedMessages, nil, map[string]interface{}{"thinking": false})
 	if err != nil {

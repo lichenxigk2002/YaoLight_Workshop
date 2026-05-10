@@ -47,3 +47,20 @@ func TestBuildExplainReportFromWorkflowSummary(t *testing.T) {
 		t.Fatalf("expected variable flow summary")
 	}
 }
+
+func TestBuildExplainReportKeepsFullSummary(t *testing.T) {
+	longSummary := "### 结构总览\n" +
+		"start -> crawler-1 -> dataclean-1 -> ai-1 -> merge-1\n" +
+		"start -> crawler-2 -> dataclean-2 -> ai-2 -> merge-1\n" +
+		"start -> crawler-3 -> dataclean-3 -> ai-3 -> merge-1\n" +
+		"merge-1 -> ai-4 -> output-1 -> end-1\n" +
+		"这段内容需要在完整解释报告中完整保留，不能被后端截断成省略号。"
+
+	report := buildExplainReportFromToolResult(longSummary, map[string]interface{}{
+		"summary": map[string]interface{}{"nodeCount": 14, "edgeCount": 15},
+	})
+
+	if report.Summary != longSummary {
+		t.Fatalf("expected full summary to be preserved, got %q", report.Summary)
+	}
+}

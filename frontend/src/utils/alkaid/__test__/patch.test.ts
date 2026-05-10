@@ -5,6 +5,7 @@ import { applyPatchForPreview, getFinalGraphFromPreview, type PatchItemExt } fro
 const baseNodes: Node[] = [
   { id: 'start-1', type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start', type: 'start', config: {} } },
   { id: 'ai-1', type: 'ai', position: { x: 200, y: 0 }, data: { label: 'AI', type: 'ai', config: { prompt: 'old' } } },
+  { id: 'merge-1', type: 'merge', position: { x: 400, y: 0 }, data: { label: 'Merge', type: 'merge', config: {} } },
 ];
 
 const baseEdges: Edge[] = [
@@ -43,7 +44,7 @@ describe('Alkaid patch preview', () => {
     expect(preview.edgeMark['start-1-ai-1']).toBe('remove');
 
     const finalGraph = getFinalGraphFromPreview(preview);
-    expect(finalGraph.nodes.map((node) => node.id)).toEqual(['start-1']);
+    expect(finalGraph.nodes.map((node) => node.id)).toEqual(['start-1', 'merge-1']);
     expect(finalGraph.edges).toEqual([]);
   });
 
@@ -78,12 +79,91 @@ describe('Alkaid patch preview', () => {
     expect(finalGraph.edges[0].animated).toBe(false);
   });
 
+  it('replaces reused edge ids when endpoints change', () => {
+    const preview = applyPatchForPreview(baseNodes, baseEdges, [
+      patch({
+        op: 'set_edges',
+        targetType: 'graph',
+        value: [{ id: 'start-1-ai-1', source: 'ai-1', target: 'start-1' }],
+      }),
+    ]);
+
+    expect(preview.edgeMark['start-1-ai-1']).toBe('update');
+
+    const finalGraph = getFinalGraphFromPreview(preview);
+    expect(finalGraph.edges).toMatchObject([
+      { id: 'start-1-ai-1', source: 'ai-1', target: 'start-1' },
+    ]);
+  });
+
   it('ignores unselected patches', () => {
     const preview = applyPatchForPreview(baseNodes, baseEdges, [
       patch({ op: 'remove', nodeId: 'ai-1', selected: false }),
     ]);
 
     expect(preview.nodeMark).toEqual({});
-    expect(getFinalGraphFromPreview(preview).nodes.map((node) => node.id)).toEqual(['start-1', 'ai-1']);
+    expect(getFinalGraphFromPreview(preview).nodes.map((node) => node.id)).toEqual(['start-1', 'ai-1', 'merge-1']);
+  });
+
+  it('clears every edge when set_edges is empty', () => {
+    const preview = applyPatchForPreview(baseNodes, baseEdges, [
+      patch({ op: 'set_edges', targetType: 'graph', value: [] }),
+    ]);
+
+    expect(preview.edgeMark['start-1-ai-1']).toBe('remove');
+    expect(getFinalGraphFromPreview(preview).edges).toEqual([]);
+  });
+
+  it('keeps parallel handled edges distinct when ids are omitted', () => {
+    const preview = applyPatchForPreview(baseNodes, baseEdges, [
+      patch({
+        op: 'set_edges',
+        targetType: 'graph',
+        value: [
+          { source: 'start-1', target: 'merge-1', sourceHandle: 'true', targetHandle: 'input-0' },
+          { source: 'start-1', target: 'merge-1', sourceHandle: 'false', targetHandle: 'input-1' },
+        ],
+      }),
+    ]);
+
+    const finalGraph = getFinalGraphFromPreview(preview);
+    expect(finalGraph.edges).toMatchObject([
+      { id: 'start-1-merge-1-true-input-0', source: 'start-1', target: 'merge-1', sourceHandle: 'true', targetHandle: 'input-0' },
+      { id: 'start-1-merge-1-false-input-1', source: 'start-1', target: 'merge-1', sourceHandle: 'false', targetHandle: 'input-1' },
+    ]);
+  });
+
+  it('drops target edges pointing at missing nodes before saving', () => {
+    const preview = applyPatchForPreview(baseNodes, baseEdges, [
+      patch({
+        op: 'set_edges',
+        targetType: 'graph',
+        value: [
+          { id: 'start-1-missing-1', source: 'start-1', target: 'missing-1' },
+          { id: 'start-1-ai-1', source: 'start-1', target: 'ai-1' },
+        ],
+      }),
+    ]);
+
+    expect(getFinalGraphFromPreview(preview).edges).toEqual([
+      { id: 'start-1-ai-1', source: 'start-1', target: 'ai-1', style: {}, animated: false },
+    ]);
+  });
+
+  it('removes set_edges entries that point at nodes removed by the same patch', () => {
+    const preview = applyPatchForPreview(baseNodes, baseEdges, [
+      patch({ op: 'remove', nodeId: 'ai-1' }),
+      patch({
+        op: 'set_edges',
+        targetType: 'graph',
+        value: [
+          { id: 'start-1-ai-1', source: 'start-1', target: 'ai-1' },
+          { id: 'start-1-merge-1', source: 'start-1', target: 'merge-1' },
+        ],
+      }),
+    ]);
+
+    expect(preview.edgeMark['start-1-ai-1']).toBe('remove');
+    expect(getFinalGraphFromPreview(preview).edges.map((edge) => edge.id)).toEqual(['start-1-merge-1']);
   });
 });

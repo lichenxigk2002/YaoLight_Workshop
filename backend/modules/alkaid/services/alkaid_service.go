@@ -35,7 +35,7 @@ func NewAlkaidService() *AlkaidService {
 }
 
 func mustDefaultAlkaidAIProvider() providers.AIProvider {
-	provider, err := aiServices.NewProviderFactory().GetProvider("gpt")
+	provider, err := aiServices.NewProviderFactory().GetProvider("deepseek")
 	if err != nil {
 		panic(err)
 	}
@@ -416,22 +416,15 @@ func (s *AlkaidService) GetCapabilities() (*WorkflowCapabilities, error) {
 	return s.capabilitiesService.GetCapabilities()
 }
 
-// buildAIConfig 构建AI配置（默认使用 OpenRouter GPT 系统预设）
+// buildAIConfig 构建AI配置（默认使用 DeepSeek 官方 API，避免 OpenRouter 区域限制）
 func (s *AlkaidService) buildAIConfig(userID uint) (*providers.AIModelConfig, error) {
-	apiKey := strings.TrimSpace(config.OpenRouterAPIKey)
+	apiKey := strings.TrimSpace(config.DeepSeekAPIKey)
 	if apiKey == "" {
-		apiKey = strings.TrimSpace(config.OpenAIAPIKey)
+		return nil, fmt.Errorf("系统未配置 DeepSeek API Key，请在.env中配置 DEEPSEEK_API_KEY")
 	}
-	if apiKey == "" {
-		return nil, fmt.Errorf("系统未配置 OpenRouter API Key，请在.env中配置 OPENROUTER_API_KEY")
-	}
-	baseURL := strings.TrimSpace(config.OpenAIBaseURL)
-	if baseURL == "" {
-		baseURL = "https://openrouter.ai/api/v1"
-	}
-	modelName := strings.TrimSpace(config.OpenAIChatModel)
+	modelName := strings.TrimSpace(config.DeepSeekChatModel)
 	if modelName == "" {
-		modelName = "openai/gpt-5.4"
+		modelName = "deepseek-v4-pro"
 	}
 	maxTokens := config.OpenAIMaxOutputTokens
 	if maxTokens <= 0 {
@@ -439,10 +432,10 @@ func (s *AlkaidService) buildAIConfig(userID uint) (*providers.AIModelConfig, er
 	}
 
 	return &providers.AIModelConfig{
-		Provider:              "gpt",
+		Provider:              "deepseek",
 		ModelName:             modelName,
 		APIKey:                apiKey,
-		BaseURL:               baseURL,
+		BaseURL:               "https://api.deepseek.com",
 		Temperature:           floatPtr(0.7),
 		MaxTokens:             intPtr(maxTokens), // 增大maxTokens以支持长上下文
 		SystemPrompt:          "",                // SystemPrompt在调用时传入
