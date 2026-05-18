@@ -92,9 +92,15 @@ func validateArtifact(ctx *actPipelineContext, draft *alkaidModels.WorkflowDraft
 }
 
 func trialArtifact(ctx *actPipelineContext, draft *alkaidModels.WorkflowDraft, validationErrors []interface{}) (*alkaidModels.WorkflowDraft, *alkaidModels.TrialReport, bool, error) {
+	trialRequired := workflowJSONHasNodeType(draft.WorkflowJSON, "crawler")
 	workflowJSON, finalized, err := runWorkflowTrialAndRepair(ctx, draft.WorkflowJSON, validationErrors)
 	if err != nil || finalized {
 		return draft, nil, finalized, err
+	}
+	if !trialRequired {
+		draft.TrialPass = false
+		report := BuildTrialReport(true, "", []string{"当前草稿未包含需要浏览器/网页抓取的节点，已跳过运行时试跑。"}, "已完成结构校验；未执行运行时试跑")
+		return draft, &report, false, nil
 	}
 	draft.TrialPass = workflowJSON == draft.WorkflowJSON
 	if workflowJSON != draft.WorkflowJSON {
@@ -102,8 +108,16 @@ func trialArtifact(ctx *actPipelineContext, draft *alkaidModels.WorkflowDraft, v
 		draft.TrialPass = true
 		draft.Summary = "工作流试跑后已自动修复并通过校验"
 	}
-	report := BuildTrialReport(draft.TrialPass, "", nil, "工作流试跑阶段已完成")
+	report := BuildTrialReport(draft.TrialPass, "", nil, "工作流快速结构检查阶段已完成")
 	return draft, &report, false, nil
+}
+
+func workflowJSONHasNodeType(workflowJSON string, nodeType string) bool {
+	var workflowMap map[string]interface{}
+	if err := json.Unmarshal([]byte(workflowJSON), &workflowMap); err != nil {
+		return false
+	}
+	return workflowHasNodeType(workflowMap, nodeType)
 }
 
 func proposeArtifact(ctx *actPipelineContext, draft *alkaidModels.WorkflowDraft) error {
@@ -136,11 +150,16 @@ func extractWorkflowJSONWithFallback(ctx *actPipelineContext) (string, bool, err
 		forcedContent, forcedErr := forceWorkflowDelivery(
 			ctx.reqCtx,
 			ctx.aiProvider,
+			ctx.streamer,
+			ctx.canStreamWithTools,
 			buildWorkflowFallbackConfig(ctx.aiConfig),
 			ctx.systemPrompt,
 			ctx.messages,
 			ctx.assistantContent,
 			ctx.reqMode(),
+			func(content string) {
+				_ = ctx.sw.WriteContent(content)
+			},
 		)
 		if ctx.reqCtx.Err() != nil {
 			_ = ctx.sw.WriteInterrupted()
@@ -471,8 +490,8 @@ func runWorkflowTrialAndRepair(ctx *actPipelineContext, workflowJSON string, val
 		ctx.planSteps,
 		ctx.userMsg.ID,
 		ctx.req.Message,
-		"试跑工作流",
-		"在正式交付前做一次快速试跑，尽早发现不可执行问题。",
+		"检查工作流",
+		"在正式交付前做一次快速结构检查，尽早发现不可执行问题。",
 		alkaidModels.PhaseRunningTrial,
 		[]string{"run_workflow_trial"},
 	)

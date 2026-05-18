@@ -255,7 +255,7 @@ func (s *AIService) GetSystemPresetModels() []map[string]interface{} {
 
 	// 检查是否有DeepSeek预设配置
 	if config.DeepSeekAPIKey != "" {
-		appendSystemModel("system_deepseek", "deepseek", "deepseek-chat", "https://api.deepseek.com", "DeepSeek", "系统预设的DeepSeek模型，所有用户可用")
+		appendSystemModel("system_deepseek", "deepseek", config.DeepSeekChatModel, "https://api.deepseek.com", "DeepSeek", "系统预设的DeepSeek模型，所有用户可用")
 	}
 
 	// 检查是否有豆包预设配置

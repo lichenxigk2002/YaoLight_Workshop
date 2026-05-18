@@ -39,6 +39,7 @@ var (
 
 	// AI预设模型配置（从.env读取，系统级别的共享配置）
 	DeepSeekAPIKey          string // DeepSeek预设API Key
+	DeepSeekChatModel       string // DeepSeek provider 默认聊天模型
 	OpenRouterAPIKey        string // OpenRouter 预设 API Key
 	OpenAIAPIKey            string // OpenAI/OpenRouter 兼容 API Key
 	OpenAIChatModel         string // GPT/OpenAI provider 默认聊天模型
@@ -177,6 +178,7 @@ func LoadConfig() error {
 
 	// AI预设模型配置（可选，如果未配置则用户需要自己配置）
 	DeepSeekAPIKey = getEnv("DEEPSEEK_API_KEY", "")
+	DeepSeekChatModel = strings.TrimSpace(getEnv("DEEPSEEK_CHAT_MODEL", "deepseek-v4-pro"))
 	OpenRouterAPIKey = strings.TrimSpace(getEnv("OPENROUTER_API_KEY", ""))
 	OpenAIAPIKey = strings.TrimSpace(getEnv("OPENAI_API_KEY", ""))
 	OpenAIChatModel = strings.TrimSpace(getEnv("OPENAI_CHAT_MODEL", "openai/gpt-5.4"))

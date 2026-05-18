@@ -12,7 +12,15 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /server ./cmd/server
 
 # 运行阶段（如需爬虫/Chromium 可改用带 Chrome 的 Dockerfile.chromium）
 FROM alpine:3.19
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+  && ln -sf /usr/bin/chromium-browser /usr/bin/google-chrome
 ENV TZ=Asia/Shanghai
 
 WORKDIR /app

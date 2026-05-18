@@ -24,6 +24,15 @@ export interface PatchPreviewResult {
   edgeMark: Record<string, 'add' | 'remove' | 'update' | 'none'>;
 }
 
+function edgeStructEqual(a: Edge, b: Edge): boolean {
+  return (
+    a.source === b.source &&
+    a.target === b.target &&
+    a.sourceHandle === b.sourceHandle &&
+    a.targetHandle === b.targetHandle
+  );
+}
+
 /**
  * Apply patches to current graph for preview purpose.
  * Generates a "visual graph" that includes removed nodes (marked as 'remove')
@@ -107,9 +116,11 @@ export function applyPatchForPreview(
   }
 
   if (edgesReplaced) {
-      // Diff logic
+      // set_edges replaces the whole edge list. Use the target edge objects as
+      // source of truth, even when an edge id is reused with different endpoints.
       const targetEdgeIds = new Set(targetEdges.map(e => e.id));
-      const currentEdgeIds = new Set(edges.map(e => e.id));
+      const currentEdgeById = new Map(edges.map(e => [e.id, e]));
+      const targetEdgeById = new Map(targetEdges.map(e => [e.id, e]));
 
       // Mark removed: Edges in current but not in target
       for (const edge of edges) {
@@ -118,13 +129,31 @@ export function applyPatchForPreview(
           }
       }
 
-      // Mark added: Edges in target but not in current
-      for (const edge of targetEdges) {
-          if (!currentEdgeIds.has(edge.id)) {
-              edges.push(edge);
-              edgeMark[edge.id] = 'add';
+      for (const targetEdge of targetEdges) {
+          const currentEdge = currentEdgeById.get(targetEdge.id);
+          if (!currentEdge) {
+              edges.push(targetEdge);
+              edgeMark[targetEdge.id] = 'add';
+              continue;
           }
-          // Edges in both are kept implicitly (already in edges array)
+
+          if (!edgeStructEqual(currentEdge, targetEdge)) {
+              const idx = edges.findIndex(edge => edge.id === targetEdge.id);
+              if (idx !== -1) {
+                  edges[idx] = {
+                      ...targetEdge,
+                      style: currentEdge.style,
+                      animated: currentEdge.animated,
+                  };
+              }
+              edgeMark[targetEdge.id] = 'update';
+          }
+      }
+
+      for (const edge of edges) {
+          if (targetEdgeById.has(edge.id) && edgeMark[edge.id] === 'remove') {
+              delete edgeMark[edge.id];
+          }
       }
   }
 

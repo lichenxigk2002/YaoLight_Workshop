@@ -10,30 +10,23 @@ import (
 )
 
 func buildAIConfig(userID uint) (*providers.AIModelConfig, error) {
-	apiKey := strings.TrimSpace(config.OpenRouterAPIKey)
+	apiKey := strings.TrimSpace(config.DeepSeekAPIKey)
 	if apiKey == "" {
-		apiKey = strings.TrimSpace(config.OpenAIAPIKey)
+		return nil, fmt.Errorf("未配置 DEEPSEEK_API_KEY")
 	}
-	if apiKey == "" {
-		return nil, fmt.Errorf("未配置 OPENROUTER_API_KEY")
-	}
-	baseURL := strings.TrimSpace(config.OpenAIBaseURL)
-	if baseURL == "" {
-		baseURL = "https://openrouter.ai/api/v1"
-	}
-	modelName := strings.TrimSpace(config.OpenAIChatModel)
+	modelName := strings.TrimSpace(config.DeepSeekChatModel)
 	if modelName == "" {
-		modelName = "openai/gpt-5.4"
+		modelName = "deepseek-v4-pro"
 	}
 	maxTokens := config.OpenAIMaxOutputTokens
 	if maxTokens <= 0 {
 		maxTokens = 8192
 	}
 	return &providers.AIModelConfig{
-		Provider:              "gpt",
+		Provider:              "deepseek",
 		ModelName:             modelName,
 		APIKey:                apiKey,
-		BaseURL:               baseURL,
+		BaseURL:               "https://api.deepseek.com",
 		Temperature:           floatPtr(0.7),
 		MaxTokens:             intPtr(maxTokens),
 		RequestTimeoutSeconds: config.AIRequestTimeoutSeconds,
@@ -41,7 +34,7 @@ func buildAIConfig(userID uint) (*providers.AIModelConfig, error) {
 }
 
 func buildAIProvider() (providers.AIProvider, error) {
-	return aiServices.NewProviderFactory().GetProvider("gpt")
+	return aiServices.NewProviderFactory().GetProvider("deepseek")
 }
 
 func floatPtr(f float64) *float64 { return &f }

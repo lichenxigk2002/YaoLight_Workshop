@@ -43,23 +43,16 @@ func (a *IntentAnalyzer) AnalyzeIntent(userMessage string, conversationHistory s
 	}
 
 	// 构建AI配置
-	apiKey := strings.TrimSpace(config.OpenRouterAPIKey)
-	if apiKey == "" {
-		apiKey = strings.TrimSpace(config.OpenAIAPIKey)
-	}
-	modelName := strings.TrimSpace(config.OpenAIChatModel)
+	apiKey := strings.TrimSpace(config.DeepSeekAPIKey)
+	modelName := strings.TrimSpace(config.DeepSeekChatModel)
 	if modelName == "" {
-		modelName = "openai/gpt-5.4"
-	}
-	baseURL := strings.TrimSpace(config.OpenAIBaseURL)
-	if baseURL == "" {
-		baseURL = "https://openrouter.ai/api/v1"
+		modelName = "deepseek-v4-pro"
 	}
 	aiConfig := &providers.AIModelConfig{
-		Provider:     "gpt",
+		Provider:     "deepseek",
 		ModelName:    modelName,
 		APIKey:       apiKey,
-		BaseURL:      baseURL,
+		BaseURL:      "https://api.deepseek.com",
 		Temperature:  floatPtr(0.3), // 使用较低温度以获得更稳定的判断
 		MaxTokens:    intPtr(10),    // 只需要返回 true/false，10个token足够
 		SystemPrompt: systemPrompt,
@@ -116,23 +109,16 @@ func (a *IntentAnalyzer) analyzeTaskIntentWithAI(userMessage string, conversatio
 		userPrompt = fmt.Sprintf("历史对话：\n%s\n\n用户最新消息：%s", conversationHistory, userMessage)
 	}
 
-	apiKey := strings.TrimSpace(config.OpenRouterAPIKey)
-	if apiKey == "" {
-		apiKey = strings.TrimSpace(config.OpenAIAPIKey)
-	}
-	modelName := strings.TrimSpace(config.OpenAIChatModel)
+	apiKey := strings.TrimSpace(config.DeepSeekAPIKey)
+	modelName := strings.TrimSpace(config.DeepSeekChatModel)
 	if modelName == "" {
-		modelName = "openai/gpt-5.4"
-	}
-	baseURL := strings.TrimSpace(config.OpenAIBaseURL)
-	if baseURL == "" {
-		baseURL = "https://openrouter.ai/api/v1"
+		modelName = "deepseek-v4-pro"
 	}
 	aiConfig := &providers.AIModelConfig{
-		Provider:     "gpt",
+		Provider:     "deepseek",
 		ModelName:    modelName,
 		APIKey:       apiKey,
-		BaseURL:      baseURL,
+		BaseURL:      "https://api.deepseek.com",
 		Temperature:  floatPtr(0.1),
 		MaxTokens:    intPtr(220),
 		SystemPrompt: systemPrompt,

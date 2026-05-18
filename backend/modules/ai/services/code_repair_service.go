@@ -129,7 +129,7 @@ func defaultCodeRepairProvider() string {
 func defaultCodeRepairModelName(provider string) string {
 	switch normalizeProvider(strings.TrimSpace(provider)) {
 	case "gpt":
-		return "openai/gpt-5.5"
+		return "openai/gpt-5.4"
 	case "claude":
 		return "anthropic/claude-sonnet-4.5"
 	case "gemini":
@@ -139,11 +139,11 @@ func defaultCodeRepairModelName(provider string) string {
 	case "moonshot":
 		return "moonshot-v1-8k"
 	case "deepseek":
-		return "deepseek-chat"
+		return "deepseek-v4-pro"
 	case "qwen":
 		return "qwen-plus"
 	default:
-		return "deepseek-chat"
+		return "deepseek-v4-pro"
 	}
 }
 

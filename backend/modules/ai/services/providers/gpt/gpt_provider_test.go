@@ -88,3 +88,52 @@ func TestChatWithToolsSendsToolsAndParsesToolCalls(t *testing.T) {
 		t.Fatalf("expected system + user messages, got %#v", received["messages"])
 	}
 }
+
+func TestChatWithToolsStreamEmitsContentDeltas(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body: io.NopCloser(bytes.NewBufferString(
+				"data: {\"choices\":[{\"delta\":{\"content\":\"你\"}}]}\n\n" +
+					"data: {\"choices\":[{\"delta\":{\"content\":\"好\"}}]}\n\n" +
+					"data: {\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":2,\"total_tokens\":3}}\n\n" +
+					"data: [DONE]\n\n",
+			)),
+		}, nil
+	})}
+
+	provider := &GPTProvider{client: client}
+	var streamed string
+	resp, err := provider.ChatWithToolsStream(
+		context.Background(),
+		&providers.AIModelConfig{
+			Provider:  "gpt",
+			ModelName: "openai/gpt-5.2-pro",
+			APIKey:    "test-key",
+			BaseURL:   "https://openrouter.test/v1",
+		},
+		"system",
+		[]providers.ChatMessage{{Role: "user", Content: "打招呼"}},
+		nil,
+		nil,
+		func(content string, done bool, err error, usage *providers.TokenUsage) {
+			if err != nil {
+				t.Fatalf("stream callback error: %v", err)
+			}
+			streamed += content
+		},
+	)
+	if err != nil {
+		t.Fatalf("ChatWithToolsStream returned error: %v", err)
+	}
+	if streamed != "你好" {
+		t.Fatalf("expected streamed content, got %q", streamed)
+	}
+	if resp.Content != "你好" {
+		t.Fatalf("expected full response content, got %q", resp.Content)
+	}
+	if resp.TokensUsed != 3 {
+		t.Fatalf("unexpected token usage: %d", resp.TokensUsed)
+	}
+}

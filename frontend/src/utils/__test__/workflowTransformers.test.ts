@@ -70,6 +70,16 @@ describe('workflowTransformers', () => {
     ]);
   });
 
+  it('creates distinct fallback ids for parallel handled edges', () => {
+    expect(transformEdgesFromLoadFormat([
+      { source: 'condition-1', target: 'merge-1', sourceHandle: 'true', targetHandle: 'input-0' },
+      { source: 'condition-1', target: 'merge-1', sourceHandle: 'false', targetHandle: 'input-1' },
+    ])).toMatchObject([
+      { id: 'condition-1-merge-1-true-input-0', sourceHandle: 'true', targetHandle: 'input-0' },
+      { id: 'condition-1-merge-1-false-input-1', sourceHandle: 'false', targetHandle: 'input-1' },
+    ]);
+  });
+
   it('converts React Flow graph into save and execution payloads without comments', () => {
     const nodes: Node[] = [
       {

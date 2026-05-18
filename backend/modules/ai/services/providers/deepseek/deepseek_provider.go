@@ -419,6 +419,9 @@ func (p *DeepSeekProvider) ChatWithToolsStream(ctx context.Context, config *prov
 		"model":    config.ModelName,
 		"messages": apiMessages,
 		"stream":   true,
+		"stream_options": map[string]interface{}{
+			"include_usage": true,
+		},
 	}
 	if len(toolsPayload) > 0 {
 		requestBody["tools"] = toolsPayload
@@ -453,14 +456,14 @@ func (p *DeepSeekProvider) ChatWithToolsStream(ctx context.Context, config *prov
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 1024), 1024*1024)
 	var fullContent strings.Builder
 	toolCallMap := map[int]*providers.ToolCall{}
 	maxIndex := -1
 	var usage *providers.TokenUsage
-	// DSML tool-call markup may arrive mid-stream even when the final response
-	// can be sanitized successfully. Buffer first and emit only the cleaned
-	// final content to avoid leaking protocol text to the UI.
-	streamUserContent := false
+	// DSML tool-call markup may arrive mid-stream when tools are enabled. In
+	// pure text/JSON generation there are no tools, so content can be streamed.
+	streamUserContent := len(toolsPayload) == 0
 
 	type streamToolCall struct {
 		Index    *int   `json:"index"`

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"strings"
 	"yaolight-workshop/backend/domain/repository"
 	"yaolight-workshop/backend/infrastructure/config"
 	"yaolight-workshop/backend/modules/ai/services/providers"
@@ -79,22 +80,6 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 		if apiKey == "" {
 			return nil, fmt.Errorf("系统未配置OpenRouter API Key，请在.env中配置OPENROUTER_API_KEY")
 		}
-		// Claude 系统预设使用 anthropic/claude-sonnet-4.5
-		if provider == "claude" && getString(customConfig, "modelName", "") == "deepseek-chat" {
-			customConfig["modelName"] = "anthropic/claude-sonnet-4.5"
-		}
-		// Gemini 系统预设使用 google/gemini-3-pro-preview
-		if provider == "gemini" && getString(customConfig, "modelName", "") == "deepseek-chat" {
-			// 如果没有指定模型名称，或者使用了默认值，强制使用 Gemini 的默认模型
-			customConfig["modelName"] = "google/gemini-3-pro-preview"
-		}
-		if provider == "gpt" && getString(customConfig, "modelName", "") == "deepseek-chat" {
-			customConfig["modelName"] = "openai/gpt-oss-20b"
-		}
-		// Grok 系统预设使用 x-ai/grok-4.1-fast
-		if provider == "grok" && getString(customConfig, "modelName", "") == "deepseek-chat" {
-			customConfig["modelName"] = "x-ai/grok-4.1-fast"
-		}
 	default:
 		return nil, fmt.Errorf("不支持的预设提供商: %s", provider)
 	}
@@ -102,7 +87,7 @@ func getSystemPresetConfig(customConfig map[string]interface{}) (*providers.AIMo
 	// 构建配置
 	config := &providers.AIModelConfig{
 		Provider:     provider,
-		ModelName:    getString(customConfig, "modelName", "deepseek-chat"),
+		ModelName:    getString(customConfig, "modelName", getDefaultModelName(provider)),
 		APIKey:       apiKey,
 		BaseURL:      getString(customConfig, "baseUrl", getDefaultBaseURL(provider)),
 		Temperature:  getFloat64Ptr(customConfig, "temperature"),
@@ -252,6 +237,39 @@ func getDefaultBaseURL(provider string) string {
 		return "https://openrouter.ai/api/v1"
 	case "claude", "grok":
 		return "https://openrouter.ai/api/v1"
+	default:
+		return ""
+	}
+}
+
+func getDefaultModelName(provider string) string {
+	switch provider {
+	case "deepseek":
+		modelName := strings.TrimSpace(config.DeepSeekChatModel)
+		if modelName != "" {
+			return modelName
+		}
+		return "deepseek-v4-pro"
+	case "doubao":
+		return "doubao-seed-1-6-251015"
+	case "qwen":
+		return "qwen-plus"
+	case "moonshot":
+		return "moonshot-v1"
+	case "spark":
+		return "spark-x"
+	case "zhipuai":
+		return "glm-4.7"
+	case "hunyuan":
+		return "hunyuan-2.0-thinking-20251109"
+	case "claude":
+		return "anthropic/claude-sonnet-4.5"
+	case "gemini":
+		return "google/gemini-3-pro-preview"
+	case "gpt":
+		return "openai/gpt-oss-20b"
+	case "grok":
+		return "x-ai/grok-4.1-fast"
 	default:
 		return ""
 	}

@@ -12,9 +12,6 @@ func buildExplainReportFromToolResult(assistantContent string, workflowToolResul
 	report := alkaidModels.ExplainReport{
 		Summary: strings.TrimSpace(assistantContent),
 	}
-	if len([]rune(report.Summary)) > 180 {
-		report.Summary = string([]rune(report.Summary)[:180]) + "..."
-	}
 
 	root := toStringMap(workflowToolResult)
 	summary := toStringMap(root["summary"])

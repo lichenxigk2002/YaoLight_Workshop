@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	alkaidModels "yaolight-workshop/backend/modules/alkaid/models"
 	workflowSvc "yaolight-workshop/backend/modules/workflow/services"
@@ -101,7 +102,7 @@ func ComputeWorkflowDiff(current *workflowSvc.SaveWorkflowNodesRequest, proposed
 	// 边：若提议边与当前边不同，则整体替换
 	proposedEdgesMaps := edgesToMaps(proposedEdges)
 	currentEdgesMaps := edgesToMapsFromData(current.Edges)
-	if !edgesEqual(proposedEdgesMaps, currentEdgesMaps) && len(proposedEdges) > 0 {
+	if !edgesEqual(proposedEdgesMaps, currentEdgesMaps) {
 		patch = append(patch, map[string]interface{}{"op": PatchOpSetEdges, "value": proposedEdges})
 	}
 
@@ -179,20 +180,22 @@ func edgesToMaps(edges []interface{}) []map[string]interface{} {
 	out := make([]map[string]interface{}, 0, len(edges))
 	for _, e := range edges {
 		if m, ok := e.(map[string]interface{}); ok {
-			out = append(out, m)
+			out = append(out, normalizeEdgeMap(m))
 		}
 	}
+	sortEdgeMaps(out)
 	return out
 }
 
 func edgesToMapsFromData(edges []workflowSvc.EdgeData) []map[string]interface{} {
 	out := make([]map[string]interface{}, 0, len(edges))
 	for _, e := range edges {
-		out = append(out, map[string]interface{}{
+		out = append(out, normalizeEdgeMap(map[string]interface{}{
 			"id": e.ID, "source": e.Source, "target": e.Target,
 			"sourceHandle": e.SourceHandle, "targetHandle": e.TargetHandle,
-		})
+		}))
 	}
+	sortEdgeMaps(out)
 	return out
 }
 
@@ -203,6 +206,51 @@ func edgesEqual(a, b []map[string]interface{}) bool {
 	aj, _ := json.Marshal(a)
 	bj, _ := json.Marshal(b)
 	return string(aj) == string(bj)
+}
+
+func normalizeEdgeMap(edge map[string]interface{}) map[string]interface{} {
+	id, _ := edge["id"].(string)
+	src, _ := edge["source"].(string)
+	tgt, _ := edge["target"].(string)
+	sh, _ := edge["sourceHandle"].(string)
+	th, _ := edge["targetHandle"].(string)
+	if id == "" {
+		id = buildWorkflowEdgeID(src, tgt, sh, th)
+	}
+	return map[string]interface{}{
+		"id": id, "source": src, "target": tgt,
+		"sourceHandle": sh, "targetHandle": th,
+	}
+}
+
+func sortEdgeMaps(edges []map[string]interface{}) {
+	sort.Slice(edges, func(i, j int) bool {
+		return fmt.Sprint(edges[i]["id"], edges[i]["source"], edges[i]["target"], edges[i]["sourceHandle"], edges[i]["targetHandle"]) <
+			fmt.Sprint(edges[j]["id"], edges[j]["source"], edges[j]["target"], edges[j]["sourceHandle"], edges[j]["targetHandle"])
+	})
+}
+
+func buildWorkflowEdgeID(src, tgt, sourceHandle, targetHandle string) string {
+	parts := []string{edgeIDPart(src), edgeIDPart(tgt)}
+	if sourceHandle != "" {
+		parts = append(parts, edgeIDPart(sourceHandle))
+	}
+	if targetHandle != "" {
+		parts = append(parts, edgeIDPart(targetHandle))
+	}
+	return strings.Join(parts, "-")
+}
+
+func edgeIDPart(value string) string {
+	var b strings.Builder
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
 }
 
 // ApplyPatchToWorkflow 将补丁应用到当前节点/边，得到新的 SaveWorkflowNodesRequest（不写库）
@@ -300,6 +348,7 @@ func ApplyPatchToWorkflow(current *workflowSvc.SaveWorkflowNodesRequest, patchRa
 				continue
 			}
 			edges = edges[:0]
+			seenEdgeIDs := make(map[string]int)
 			for _, e := range slice {
 				em, ok := e.(map[string]interface{})
 				if !ok {
@@ -310,8 +359,21 @@ func ApplyPatchToWorkflow(current *workflowSvc.SaveWorkflowNodesRequest, patchRa
 				tgt, _ := em["target"].(string)
 				sh, _ := em["sourceHandle"].(string)
 				th, _ := em["targetHandle"].(string)
-				if id == "" && src != "" && tgt != "" {
-					id = src + "-" + tgt
+				if src == "" || tgt == "" {
+					continue
+				}
+				if _, ok := nodesByID[src]; !ok {
+					continue
+				}
+				if _, ok := nodesByID[tgt]; !ok {
+					continue
+				}
+				if id == "" {
+					id = buildWorkflowEdgeID(src, tgt, sh, th)
+				}
+				seenEdgeIDs[id]++
+				if seenEdgeIDs[id] > 1 {
+					id = fmt.Sprintf("%s-%d", id, seenEdgeIDs[id])
 				}
 				edges = append(edges, workflowSvc.EdgeData{ID: id, Source: src, Target: tgt, SourceHandle: sh, TargetHandle: th})
 			}

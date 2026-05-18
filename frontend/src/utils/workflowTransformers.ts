@@ -26,6 +26,8 @@ export interface EdgeData {
   id?: string;
   source: string;
   target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
 }
 
 /**
@@ -103,12 +105,27 @@ export function transformEdgesFromLoadFormat(edgesData: EdgeData[]): Edge[] {
   if (!edgesData || edgesData.length === 0) return [];
 
   return edgesData.map((edgeData) => ({
-    id: edgeData.id || `${edgeData.source}-${edgeData.target}`,
+    id: edgeData.id || buildWorkflowEdgeId(edgeData),
     source: edgeData.source,
     target: edgeData.target,
     sourceHandle: edgeData.sourceHandle || undefined, // 加载 sourceHandle（条件节点的 true/false 分支）
     targetHandle: edgeData.targetHandle || undefined, // 加载 targetHandle（合并节点的 input-0/input-1/input-2）
   }));
+}
+
+function edgeIdPart(value?: string): string {
+  return (value || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+export function buildWorkflowEdgeId(edgeData: Pick<EdgeData, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>): string {
+  const source = edgeIdPart(edgeData.source);
+  const target = edgeIdPart(edgeData.target);
+  const handleSuffix = [edgeData.sourceHandle, edgeData.targetHandle]
+    .map(edgeIdPart)
+    .filter(Boolean)
+    .join('-');
+
+  return handleSuffix ? `${source}-${target}-${handleSuffix}` : `${source}-${target}`;
 }
 
 /**
@@ -186,4 +203,3 @@ export function prepareExecutionData(nodes: Node[], edges: Edge[]) {
     edges: transformEdgesToSaveFormat(edges, nodes),
   };
 }
-

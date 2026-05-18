@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { CodeBlock } from '@/components/CodeBlock';
 import type { CodeBlockAppearance } from '@/components/CodeBlock';
 import { MermaidRenderer } from './MermaidRenderer';
@@ -32,6 +33,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   return (
     <div className={`${styles.markdownContainer} ${className || ''}`}>
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           // 自定义标题样式
           h1: (props) => <h1 className={styles.heading1} {...props} />,
@@ -92,6 +94,19 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           a: (props) => <a className={styles.link} target="_blank" rel="noopener noreferrer" {...props} />,
           // 水平线
           hr: (props) => <hr className={styles.hr} {...props} />,
+          // 表格
+          table: ({ children, ...props }) => (
+            <div className={styles.tableWrapper}>
+              <table className={styles.table} {...props}>
+                {children}
+              </table>
+            </div>
+          ),
+          thead: (props) => <thead className={styles.tableHead} {...props} />,
+          tbody: (props) => <tbody className={styles.tableBody} {...props} />,
+          tr: (props) => <tr className={styles.tableRow} {...props} />,
+          th: (props) => <th className={styles.tableHeaderCell} {...props} />,
+          td: (props) => <td className={styles.tableCell} {...props} />,
         }}
       >
         {content}

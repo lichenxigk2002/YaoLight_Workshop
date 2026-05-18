@@ -267,6 +267,21 @@ function edgeStructEqual(a: any, b: any): boolean {
   );
 }
 
+function edgeIdPart(value?: string): string {
+  return (value || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function buildWorkflowEdgeId(src: string, tgt: string, sourceHandle?: string, targetHandle?: string): string {
+  const handleSuffix = [sourceHandle, targetHandle]
+    .map(edgeIdPart)
+    .filter(Boolean)
+    .join('-');
+
+  return handleSuffix
+    ? `${edgeIdPart(src)}-${edgeIdPart(tgt)}-${handleSuffix}`
+    : `${edgeIdPart(src)}-${edgeIdPart(tgt)}`;
+}
+
 export function applyPatchForPreview(
   current: WorkflowExportData,
   patchList: PatchItemWithSelection[],
@@ -369,7 +384,7 @@ export function applyPatchForPreview(
         if (!nodesById.has(src) || !nodesById.has(tgt)) continue;
         let id = (rawEdge as any).id as string | undefined;
         if (!id) {
-          id = `${src}-${tgt}`;
+          id = buildWorkflowEdgeId(src, tgt, sourceHandle, targetHandle);
         }
         newEdges.push({
           id,
@@ -421,4 +436,3 @@ export function applyPatchForPreview(
 
   return { graph, nodeMark, edgeMark };
 }
-

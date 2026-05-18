@@ -279,12 +279,15 @@ func (s *AdminKnowledgeService) SearchTest(query string, userID *uint, limit int
 		limit = 10
 	}
 
-	retriever := NewKnowledgeRetriever()
 	var scopedUserID uint
 	if userID != nil {
 		scopedUserID = *userID
 	}
-	items, err := retriever.RetrieveRelevantKnowledge(text, scopedUserID, limit)
+	items, err := (&KnowledgeService{}).SearchKnowledgeScoped(KnowledgeSearchOptions{
+		Query:  text,
+		UserID: scopedUserID,
+		Limit:  limit,
+	})
 	if err != nil {
 		return nil, err
 	}
