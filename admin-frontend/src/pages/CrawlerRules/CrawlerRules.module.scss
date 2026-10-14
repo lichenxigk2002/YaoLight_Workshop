@@ -1,0 +1,179 @@
+.page {
+  display: grid;
+  gap: 20px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  box-shadow: var(--admin-shadow);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.toolbarTitle {
+  margin-bottom: 4px !important;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  margin: 0 !important;
+}
+
+.muted {
+  color: var(--admin-ink-soft);
+}
+
+.filterBar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.form {
+  margin-top: 8px;
+}
+
+.tabBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.codeArea {
+  font-family: 'Consolas', 'SFMono-Regular', 'Liberation Mono', monospace;
+}
+
+.ruleNameButton {
+  display: block;
+  height: auto;
+  padding: 0 !important;
+  text-align: left;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.nowrapCell {
+  white-space: nowrap;
+}
+
+.urlPatternCell {
+  min-width: 0;
+}
+
+.urlPatternValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultPanel {
+  margin-top: 16px;
+}
+
+.resultCode {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tutorialBlock {
+  display: grid;
+  gap: 6px;
+}
+
+.tutorialPanel {
+  max-width: 1120px;
+}
+
+.tutorialSummary {
+  max-width: 860px;
+  margin-bottom: 18px !important;
+  color: var(--admin-ink);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.tutorialGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.tutorialSection {
+  padding: 16px 18px;
+  border: 1px solid var(--admin-line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--admin-panel-alt) 72%, white 28%);
+}
+
+.tutorialSectionTitle {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.tutorialLine {
+  margin-bottom: 0 !important;
+  white-space: pre-wrap;
+  color: var(--admin-ink-soft);
+  line-height: 1.7;
+}
+
+.inlineLink {
+  padding-inline: 0 !important;
+}
+
+@media (max-width: 1280px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .filterBar {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .tutorialGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,355 @@
+@use '../theme' as settingsTheme;
+
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0;
+
+  .searchRow {
+    margin-bottom: 16px;
+  }
+
+  .searchBox {
+    width: 280px;
+
+    :global(.ant-input-affix-wrapper) {
+      min-height: 38px;
+      border-radius: 999px;
+      border-color: var(--settings-card-border);
+      background: var(--settings-input-bg);
+      box-shadow: none;
+    }
+
+    :global(.ant-input) {
+      background: transparent;
+    }
+  }
+
+  .section {
+    margin-bottom: 28px;
+
+    .sectionHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+
+      h3 {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+
+      :global(.ant-btn) {
+        height: 32px;
+        padding: 0 12px;
+        font-size: 12px;
+        border-radius: 999px;
+      }
+    }
+
+    .cardGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+  }
+
+  .quotaCard {
+    @include settingsTheme.panel();
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+
+    .quotaInfo {
+      .quotaLabel {
+        color: var(--text-secondary);
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+
+      .quotaValue {
+        color: var(--text-primary);
+        font-size: clamp(24px, 3.2vw, 34px);
+        font-weight: 500;
+        letter-spacing: -0.04em;
+        line-height: 1;
+      }
+    }
+  }
+
+  .providerCard {
+    @include settingsTheme.panel();
+    @include settingsTheme.hover-card();
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    .cardMain {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 18px;
+      flex: 1;
+
+      .providerInfo {
+        display: flex;
+        gap: 12px;
+        min-width: 0;
+
+        .iconWrapper {
+          @include settingsTheme.subcard(14px);
+          width: 40px;
+          height: 40px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .nameAndTags {
+          min-width: 0;
+
+          .nameRow {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-bottom: 8px;
+
+            .name {
+              color: var(--text-primary);
+              font-size: 16px;
+              font-weight: 500;
+              letter-spacing: -0.02em;
+            }
+          }
+
+          .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+
+            :global(.ant-tag) {
+              margin: 0;
+              border: 1px solid var(--settings-card-border);
+              border-radius: 999px;
+              background: var(--settings-pill-bg);
+              color: var(--text-secondary);
+              font-size: 10px;
+              line-height: 18px;
+              padding-inline: 8px;
+            }
+          }
+        }
+      }
+
+      .statusAndActions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+
+        .status {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-height: 24px;
+          padding: 0 10px;
+          border-radius: 999px;
+          background: var(--settings-pill-bg);
+          color: var(--text-secondary);
+          font-size: 11px;
+          font-weight: 500;
+
+          .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.2);
+
+            &.active {
+              background: var(--settings-success-text);
+            }
+
+            &.error {
+              background: var(--settings-danger-text);
+            }
+          }
+        }
+
+        :global(.ant-btn) {
+          height: 32px;
+          padding: 0 12px;
+          font-size: 12px;
+          border-radius: 999px;
+        }
+      }
+    }
+
+    .cardFooter {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      border-top: 1px solid var(--settings-card-border);
+
+      .expandLink,
+      .addLink {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+
+        &:hover {
+          color: var(--text-primary);
+        }
+      }
+    }
+
+    &.toBeConfigured {
+      border-style: dashed;
+
+      .providerInfo {
+        opacity: 0.72;
+      }
+    }
+  }
+
+  .iconWrapperSmall {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--settings-pill-bg);
+    color: var(--text-primary);
+  }
+
+  .modelsListContent {
+    padding: 4px 0;
+
+    .listSection {
+      .listHeader {
+        margin-bottom: 10px;
+        color: var(--text-tertiary);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .modelItem {
+        @include settingsTheme.subcard();
+        padding: 12px 14px;
+        margin-bottom: 8px;
+
+        .modelInfo {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+
+          .modelName {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+          }
+
+          .tags {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+          }
+        }
+      }
+    }
+  }
+}
+
+.configModal {
+  :global(.ant-modal-content) {
+    border: 1px solid var(--settings-card-border);
+    border-radius: 24px;
+    padding: 24px;
+    background: var(--settings-overlay-bg) !important;
+  }
+
+  :global(.ant-modal-header) {
+    padding-right: 96px;
+    background: transparent !important;
+  }
+
+  :global(.ant-input),
+  :global(.ant-input-number),
+  :global(.ant-select-selector) {
+    min-height: 36px;
+    border-radius: 16px !important;
+    border-color: var(--settings-card-border) !important;
+    background: var(--settings-input-bg) !important;
+  }
+
+  :global(.ant-form-item) {
+    margin-bottom: 14px;
+  }
+
+  :global(.ant-btn-primary) {
+    height: 36px;
+    padding: 0 16px;
+    border-radius: 999px;
+  }
+
+  :global(.ant-btn) {
+    border-radius: 999px;
+  }
+
+  :global(.ant-modal-close) {
+    top: 18px;
+    right: 18px;
+  }
+
+  .removeConfigurationBtn {
+    position: absolute;
+    top: 0;
+    right: 56px;
+    z-index: 4;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .container {
+    .searchBox {
+      width: 100%;
+    }
+
+    .section .cardGrid {
+      grid-template-columns: 1fr;
+    }
+
+    .quotaCard,
+    .providerCard .cardMain,
+    .providerCard .cardFooter {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .providerCard .cardMain .statusAndActions {
+      align-items: flex-start;
+    }
+  }
+}

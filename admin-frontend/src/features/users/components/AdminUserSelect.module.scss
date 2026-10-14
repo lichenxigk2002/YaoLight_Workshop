@@ -1,0 +1,57 @@
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.body {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.name {
+  font-weight: 600;
+  color: var(--admin-ink);
+}
+
+.role {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--admin-surface-2);
+  color: var(--admin-ink-soft);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.meta {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  color: var(--admin-ink-soft);
+  font-size: 12px;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .meta {
+    flex-direction: column;
+    gap: 2px;
+  }
+}

@@ -1,0 +1,88 @@
+@use '../theme' as settingsTheme;
+
+.wrap {
+  max-width: 720px;
+}
+
+.section {
+  margin-top: 0;
+}
+
+.loading {
+  @include settingsTheme.panel(24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  @include settingsTheme.panel(24px);
+  @include settingsTheme.hover-card();
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+.itemIcon {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: var(--settings-pill-bg);
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.itemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemLabel {
+  display: block;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.itemDesc {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.itemAction {
+  flex-shrink: 0;
+}
+
+.switch {
+  :global(.ant-switch) {
+    min-width: 46px;
+    height: 26px;
+    background: var(--settings-pill-bg-hover) !important;
+  }
+
+  :global(.ant-switch.ant-switch-checked) {
+    background: var(--primary) !important;
+  }
+
+  :global(.ant-switch.ant-switch-checked .ant-switch-handle::before) {
+    background: var(--settings-switch-handle);
+  }
+}

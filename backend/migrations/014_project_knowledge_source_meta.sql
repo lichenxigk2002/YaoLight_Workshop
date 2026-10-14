@@ -1,0 +1,4 @@
+ALTER TABLE alkaid_knowledge
+    ADD COLUMN IF NOT EXISTS source_name VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS source_mime VARCHAR(120),
+    ADD COLUMN IF NOT EXISTS source_size BIGINT;

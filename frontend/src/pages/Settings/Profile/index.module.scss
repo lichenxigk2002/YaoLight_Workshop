@@ -1,0 +1,551 @@
+@use '../theme' as settingsTheme;
+
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.summaryCard,
+.surfaceCard,
+.infoCard,
+.actionCard {
+  @include settingsTheme.panel();
+}
+
+.summaryCard {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  border-color: var(--settings-card-border-strong);
+}
+
+.avatarWrapper {
+  position: relative;
+  flex-shrink: 0;
+
+  .avatar {
+    width: 68px !important;
+    height: 68px !important;
+    background: var(--settings-card-bg-strong);
+    border: 1px solid var(--settings-card-border);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 0.9;
+    }
+  }
+
+  .avatarUploadBtn {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1.5px solid var(--settings-card-border-strong);
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--settings-card-bg);
+    color: var(--text-primary);
+    box-shadow: none;
+    cursor: pointer;
+    transition: opacity 0.2s;
+
+    .avatarUploadIcon {
+      font-size: 12px;
+      line-height: 0;
+    }
+
+    .avatarUploadSpinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--border-secondary);
+      border-top-color: var(--text-primary);
+      border-radius: 50%;
+      animation: avatarUploadSpin 0.6s linear infinite;
+    }
+
+    &:hover:not(:disabled) {
+      opacity: 0.85;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+  }
+}
+
+@keyframes avatarUploadSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.summaryInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.userName {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.userEmail {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.summaryTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.summaryTag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--settings-card-border);
+  border-radius: 999px;
+  background: var(--settings-pill-bg);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.summaryActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  align-self: stretch;
+}
+
+.modifyBtn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  border-radius: 999px;
+  border-color: var(--settings-card-border);
+  background: var(--settings-pill-bg) !important;
+  color: var(--text-primary) !important;
+  box-shadow: none !important;
+}
+
+.surfaceCard {
+  margin-bottom: 20px;
+  padding: 0 18px;
+  background-color: var(--settings-card-bg-soft);
+}
+
+.avatarHistoryCollapse {
+  background: transparent !important;
+  border: none !important;
+
+  :global(.ant-collapse),
+  :global(.ant-collapse-item),
+  :global(.ant-collapse-item)::before,
+  :global(.ant-collapse-item)::after {
+    border: none !important;
+  }
+
+  :global(.ant-collapse-header) {
+    align-items: center;
+    padding: 14px 0 !important;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  :global(.ant-collapse-content),
+  :global(.ant-collapse-content-box) {
+    border: none !important;
+    padding: 0 0 16px 0 !important;
+  }
+}
+
+.collapseArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.collapseLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.collapseCount {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.avatarHistoryEmpty {
+  padding: 8px 0 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.avatarHistoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.avatarHistoryItem {
+  @include settingsTheme.subcard();
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px;
+}
+
+.avatarHistoryActions {
+  display: flex;
+  gap: 8px;
+
+  :global(.ant-btn) {
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 999px;
+    box-shadow: none !important;
+  }
+}
+
+.section {
+  margin-bottom: 28px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  h3 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+  }
+}
+
+.infoGrid,
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.infoCard {
+  padding: 16px 18px;
+  background-color: var(--settings-card-bg-soft);
+}
+
+.infoCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.iconWrapperSmall {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--settings-card-bg-strong);
+  border: 1px solid var(--settings-card-border);
+  color: var(--text-primary);
+}
+
+.infoLabel {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.infoValue {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.infoMeta {
+  margin-top: 10px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.actionCard {
+  @include settingsTheme.hover-card();
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cardMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  flex: 1;
+}
+
+.providerInfo {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.iconWrapper {
+  @include settingsTheme.subcard(14px);
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+}
+
+.nameAndTags {
+  min-width: 0;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.name {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.cardDescription {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.statusAndActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+
+  :global(.ant-btn) {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+    border-radius: 999px;
+    box-shadow: none !important;
+  }
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--settings-card-border);
+  background: var(--settings-card-bg-soft);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.statusDanger {
+  color: var(--settings-danger-text);
+  background: var(--settings-danger-bg);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(24, 24, 24, 0.16);
+}
+
+.active {
+  background: var(--settings-success-text);
+}
+
+.error {
+  background: var(--settings-danger-text);
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--settings-card-border);
+}
+
+.expandLink,
+.addLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.addLink {
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+.dangerLink,
+.dangerText {
+  color: var(--settings-danger-text);
+}
+
+.dangerCard {
+  border-color: rgba(180, 35, 24, 0.18);
+
+  .iconWrapper {
+    color: var(--settings-danger-text);
+    background: var(--settings-danger-bg);
+    border-color: rgba(180, 35, 24, 0.16);
+  }
+}
+
+.centeredModal {
+  :global(.ant-modal-body) {
+    display: flex;
+    justify-content: center;
+    padding: 16px 24px;
+  }
+}
+
+.modalFormWrap {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+  text-align: left;
+
+  :global(.ant-form-item) {
+    margin-bottom: 12px;
+    text-align: left;
+  }
+
+  :global(.ant-form-item:last-child) {
+    margin-bottom: 0;
+    text-align: center;
+  }
+
+  :global(.ant-input),
+  :global(.ant-input-password) {
+    min-height: 36px;
+    font-size: 13px;
+    border-radius: 16px;
+    border-color: var(--settings-card-border) !important;
+    background: var(--settings-input-bg) !important;
+  }
+
+  :global(.ant-btn) {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+    border-radius: 999px;
+  }
+}
+
+@media (max-width: 900px) {
+  .container {
+    max-width: 100%;
+  }
+
+  .infoGrid,
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryCard,
+  .cardMain,
+  .cardFooter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .summaryActions,
+  .statusAndActions {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .summaryCard,
+  .surfaceCard {
+    border-radius: 20px;
+  }
+
+  .summaryCard {
+    padding: 16px;
+  }
+
+  .surfaceCard {
+    padding: 0 14px;
+  }
+
+  .userName {
+    font-size: 20px;
+  }
+
+  .infoCard,
+  .cardMain,
+  .cardFooter {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}

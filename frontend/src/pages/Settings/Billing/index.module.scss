@@ -1,0 +1,264 @@
+@use '../theme' as settingsTheme;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.heroSection {
+  padding: 16px 18px;
+}
+
+.heroSection,
+.surfaceCard,
+.statisticsSection {
+  @include settingsTheme.panel();
+  position: relative;
+  overflow: hidden;
+}
+
+.heroHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.heroFootnote {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--settings-card-border);
+  border-radius: 999px;
+  background: var(--settings-pill-bg);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.balanceChip {
+  @include settingsTheme.pill-strong();
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.balanceChipLabel {
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.balanceChipValue {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.surfaceCard,
+.statisticsSection {
+  padding: 16px 18px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--settings-card-border);
+  border-radius: 999px;
+  background: var(--settings-pill-bg);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionTitle {
+  margin: 8px 0 0;
+  color: var(--text-primary);
+  font-size: clamp(18px, 2.2vw, 22px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.sectionDesc {
+  max-width: 480px;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.toolbarGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.datePicker {
+  min-width: 120px;
+}
+
+.primaryButton,
+.secondaryButton {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+}
+
+.primaryButton {
+  border-color: var(--primary) !important;
+  background: var(--primary) !important;
+  color: var(--settings-primary-contrast) !important;
+}
+
+.secondaryButton {
+  border-color: var(--settings-card-border) !important;
+  background: var(--settings-pill-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+.summaryCard {
+  @include settingsTheme.subcard();
+  margin-top: 10px;
+  padding: 12px;
+}
+
+.summaryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.summaryTitle {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.summaryRange {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.metricCard {
+  @include settingsTheme.subcard(14px);
+  padding: 10px 11px;
+}
+
+.metricLabel {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.metricValue {
+  margin-top: 6px;
+  color: var(--text-primary);
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.metricPositive {
+  color: var(--settings-success-text);
+}
+
+.metricNegative {
+  color: var(--settings-danger-text);
+}
+
+.summaryPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px dashed var(--settings-card-border-strong);
+  border-radius: 18px;
+  color: var(--text-secondary);
+  background: var(--settings-pill-bg);
+  text-align: center;
+}
+
+.summaryPlaceholderLabel {
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.page {
+  :global(.ant-segmented) {
+    padding: 4px !important;
+    border-radius: 999px !important;
+    background: var(--settings-pill-bg) !important;
+    border: 1px solid var(--settings-card-border) !important;
+  }
+
+  :global(.ant-segmented-item) {
+    min-height: 26px;
+    border-radius: 999px !important;
+    color: var(--text-secondary) !important;
+    font-weight: 600;
+    font-size: 12px !important;
+  }
+
+  :global(.ant-segmented-item-selected) {
+    background: var(--settings-pill-bg-strong) !important;
+    color: var(--text-primary) !important;
+    box-shadow: none !important;
+  }
+
+  :global(.ant-picker) {
+    height: 34px;
+    border-color: var(--settings-card-border) !important;
+    border-radius: 12px !important;
+    background: var(--settings-input-bg) !important;
+    box-shadow: none !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .heroSection,
+  .surfaceCard,
+  .statisticsSection {
+    padding: 14px;
+  }
+}

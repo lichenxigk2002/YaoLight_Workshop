@@ -43,8 +43,8 @@ jobs:
       - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
-          context: ./Low_code_Backend
-          file: ./Low_code_Backend/Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile
           push: true
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
@@ -79,11 +79,11 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/deploy' }}
 
-      - name: Build and push frontend
+      - name: Build and push frontend (user + admin at /admin)
         uses: docker/build-push-action@v5
         with:
-          context: ./Low_code_Frontend
-          file: ./Low_code_Frontend/Dockerfile
+          context: .
+          file: ./Dockerfile.frontend
           push: true
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
@@ -96,7 +96,8 @@ jobs:
   #   DEPLOY_HOST: 服务器 IP 或域名
   #   DEPLOY_USER: SSH 用户名（如 root）
   #   GHCR_PAT: GitHub PAT，权限勾选 read:packages（用于服务器从 GHCR 拉取镜像）
-  # 可选：DEPLOY_PORT（默认 22）。工作目录固定为 /yaolight（与服务器上实际目录一致）
+  # 可选：DEPLOY_PORT（默认 22）
+  # 可选：DEPLOY_WORKDIR（服务器上的 docker-compose.prod.yml 所在目录，默认 /yaolight）
   deploy:
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
@@ -109,13 +110,15 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || '22' }}
+          envs: DEPLOY_WORKDIR
           command_timeout: 10m
           script: |
             set -e
-            cd /yaolight
+            cd "$DEPLOY_WORKDIR"
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d postgres redis
+            docker compose -f docker-compose.prod.yml pull backend frontend
             docker compose -f docker-compose.prod.yml run --rm backend migrate
-            docker compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml up -d backend frontend
             docker image prune -f
+        env:
+          DEPLOY_WORKDIR: ${{ secrets.DEPLOY_WORKDIR || '/yaolight' }}

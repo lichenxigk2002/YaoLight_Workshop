@@ -1,0 +1,261 @@
+.baseNode {
+  position: relative;
+  width: 176px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: transparent !important;
+  color: var(--editor-text, var(--text-primary));
+
+  &.selected {
+    z-index: 10;
+  }
+
+  & > * {
+    background: transparent !important;
+  }
+}
+
+.nodeCard {
+  position: relative;
+  width: 176px;
+  min-width: 176px;
+  max-width: 176px;
+  overflow: hidden !important;
+  border: 1px solid var(--editor-border-soft, var(--border-secondary)) !important;
+  border-radius: 21px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.78)),
+    var(--editor-surface, var(--bg-primary)) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.028);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+
+  [data-theme='dark'] & {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03)),
+      var(--editor-surface, var(--bg-primary)) !important;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+  }
+
+  :global(.ant-card-body) {
+    padding: 11px !important;
+    background: transparent !important;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: var(--editor-border-strong, var(--border-primary)) !important;
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.04);
+  }
+}
+
+.selected .nodeCard {
+  border-color: rgba(17, 17, 17, 0.16) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.88),
+    0 0 0 5px rgba(17, 17, 17, 0.07),
+    0 12px 28px rgba(0, 0, 0, 0.07);
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.16) !important;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 0 0 5px rgba(255, 255, 255, 0.05),
+      0 16px 32px rgba(0, 0, 0, 0.24);
+  }
+}
+
+.diffAdd {
+  background:
+    linear-gradient(180deg, rgba(237, 247, 238, 0.96), rgba(255, 255, 255, 0.82)),
+    var(--editor-surface, var(--bg-primary)) !important;
+  border-color: rgba(82, 196, 26, 0.22) !important;
+}
+
+.diffRemove {
+  background:
+    linear-gradient(180deg, rgba(255, 241, 240, 0.98), rgba(255, 255, 255, 0.82)),
+    var(--editor-surface, var(--bg-primary)) !important;
+  border-color: rgba(255, 77, 79, 0.2) !important;
+  opacity: 0.78;
+}
+
+.diffUpdate {
+  background:
+    linear-gradient(180deg, rgba(255, 251, 230, 0.96), rgba(255, 255, 255, 0.82)),
+    var(--editor-surface, var(--bg-primary)) !important;
+  border-color: rgba(250, 173, 20, 0.22) !important;
+}
+
+.nodeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 8px;
+}
+
+.nodeIdentity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.nodePill {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 112px;
+  padding: 0 11px;
+  min-height: 30px;
+  border: 1px solid color-mix(in srgb, var(--node-accent, #111111) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--node-accent, #111111) 7%, rgba(255, 255, 255, 0.85));
+
+  [data-theme='dark'] & {
+    background: color-mix(in srgb, var(--node-accent, #f2f2f2) 10%, rgba(255, 255, 255, 0.04));
+  }
+}
+
+.nodeIconBubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--node-accent, #111111) 8%, rgba(255, 255, 255, 0.8));
+  color: var(--node-accent, #111111);
+  font-size: 14px;
+  flex-shrink: 0;
+
+  [data-theme='dark'] & {
+    background: color-mix(in srgb, var(--node-accent, #f2f2f2) 18%, rgba(255, 255, 255, 0.06));
+  }
+}
+
+.nodeTag {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  color: color-mix(in srgb, var(--node-accent, #111111) 72%, #111111);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  [data-theme='dark'] & {
+    color: rgba(255, 255, 255, 0.82);
+  }
+}
+
+.nodeContent {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nodeTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nodeTitle {
+  flex: 1;
+  min-width: 0;
+  color: var(--editor-text, var(--text-primary));
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.nodeInfoTrigger {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--editor-border-soft, var(--border-secondary));
+  border-radius: 999px;
+  background: var(--editor-surface-soft, var(--bg-secondary));
+  color: var(--editor-text-tertiary, var(--text-tertiary));
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  appearance: none;
+  box-shadow: none;
+}
+
+.metaTooltip {
+  display: grid;
+  gap: 4px;
+  max-width: 240px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.handle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--editor-surface-strong, var(--bg-primary));
+  background: rgba(17, 17, 17, 0.24);
+}
+
+.nodeInfo {
+  margin-top: 0;
+  font-size: 11px;
+  color: var(--editor-text-tertiary, var(--text-tertiary));
+}
+
+.nodeInfoItem {
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.statusBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--editor-surface-strong, #ffffff);
+  border: 1px solid var(--editor-border-soft, var(--border-secondary));
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+}
+
+.status_success {
+  border-color: rgba(82, 196, 26, 0.22);
+}
+
+.status_failed {
+  border-color: rgba(245, 34, 45, 0.24);
+}
+
+.status_pending {
+  border-color: rgba(140, 140, 140, 0.24);
+}

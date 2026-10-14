@@ -1,0 +1,289 @@
+.page {
+  display: grid;
+  gap: 16px;
+  min-height: calc(100vh - 180px);
+}
+
+.headerBar,
+.metaStrip {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border: 1px solid var(--admin-line);
+  border-radius: 20px;
+  background: var(--admin-panel);
+  box-shadow: none;
+}
+
+.headerLead {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.headerTitle {
+  margin: 0 !important;
+}
+
+.headerMeta {
+  margin: 4px 0 0 !important;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--admin-ink-soft);
+}
+
+.metaStrip {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+}
+
+.metaField,
+.metaSwitch {
+  display: grid;
+  gap: 8px;
+}
+
+.metaSwitch {
+  align-items: center;
+}
+
+.editorShell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 360px;
+  gap: 16px;
+  min-height: calc(100vh - 330px);
+}
+
+.palettePanel,
+.inspectorPanel,
+.canvasPanel {
+  border-radius: 20px;
+}
+
+.palettePanel :global(.ant-card-body),
+.inspectorPanel :global(.ant-card-body) {
+  display: grid;
+  gap: 12px;
+}
+
+.paletteList {
+  display: grid;
+  gap: 10px;
+}
+
+.paletteItem {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--admin-line);
+  border-radius: 14px;
+  background: var(--admin-panel);
+  cursor: grab;
+  text-align: left;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.paletteItem:hover {
+  border-color: color-mix(in srgb, var(--admin-brand) 35%, var(--admin-line));
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+.paletteIcon {
+  font-size: 18px;
+}
+
+.paletteCopy {
+  display: grid;
+  gap: 2px;
+}
+
+.paletteCopy span {
+  font-size: 12px;
+  color: var(--admin-ink-soft);
+}
+
+.canvasPanel {
+  overflow: hidden;
+  min-height: 0;
+  border: 1px solid var(--admin-line);
+  background: linear-gradient(180deg, var(--admin-panel) 0%, var(--admin-panel-alt) 100%);
+}
+
+.canvasPanel :global(.react-flow) {
+  width: 100%;
+  height: 100%;
+}
+
+.canvasPanel :global(.react-flow__node) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.canvasPanel :global(.react-flow__node.selected),
+.canvasPanel :global(.react-flow__node:focus),
+.canvasPanel :global(.react-flow__node:focus-visible) {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.miniMap {
+  background: color-mix(in srgb, var(--admin-panel) 92%, transparent) !important;
+  border: 1px solid var(--admin-line) !important;
+}
+
+.flowNode {
+  position: relative;
+  width: 220px;
+}
+
+.flowNodeSelected {
+  z-index: 10;
+}
+
+.flowNodeCard {
+  width: 220px;
+  border: 1px solid color-mix(in srgb, var(--admin-line) 100%, transparent);
+  border-radius: 16px !important;
+  background: var(--admin-panel) !important;
+}
+
+.flowNodeHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.flowNodeLabel {
+  font-weight: 700;
+  color: var(--admin-ink);
+  margin-bottom: 6px;
+}
+
+.flowNodeDesc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--admin-ink-soft);
+  word-break: break-word;
+}
+
+/* AI 节点提示词：仅占节点内固定高度，超出部分省略，悬浮看全文 */
+.flowNodeDescAi {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.commentNode {
+  width: 220px;
+  min-height: 120px;
+  padding: 14px;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.commentNodeSelected {
+  border-color: #1677ff;
+}
+
+.commentTitle {
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.handle {
+  width: 12px !important;
+  height: 12px !important;
+  border: 2px solid var(--admin-panel) !important;
+  background: var(--admin-brand) !important;
+}
+
+.inspectorHint {
+  margin-bottom: 0 !important;
+  color: var(--admin-ink-soft);
+}
+
+.colorRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.colorChip {
+  width: 28px;
+  height: 28px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.colorChipActive {
+  border-color: var(--admin-ink);
+}
+
+.summaryBlock {
+  display: grid;
+  gap: 8px;
+}
+
+.summaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nodeList {
+  min-height: 0;
+}
+
+.nodeListItem,
+.nodeListItemActive {
+  cursor: pointer;
+  border-radius: 12px;
+  padding-inline: 12px !important;
+}
+
+.nodeListItem:hover,
+.nodeListItemActive {
+  background: color-mix(in srgb, var(--admin-brand) 10%, transparent);
+}
+
+.nodeListTitle {
+  font-weight: 600;
+  color: var(--admin-ink);
+}
+
+.nodeListMeta {
+  font-size: 12px;
+  color: var(--admin-ink-soft);
+}
+
+@media (max-width: 1400px) {
+  .editorShell {
+    grid-template-columns: 220px minmax(0, 1fr) 320px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .metaStrip,
+  .editorShell {
+    grid-template-columns: 1fr;
+  }
+
+  .headerBar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

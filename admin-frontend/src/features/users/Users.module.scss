@@ -1,0 +1,101 @@
+.page {
+  display: grid;
+  gap: 20px;
+}
+
+.page :global(.ant-card) {
+  box-shadow: none;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(140px, 180px)) minmax(260px, 320px) auto auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userMeta {
+  display: grid;
+  gap: 2px;
+}
+
+.loginMeta {
+  display: grid;
+  gap: 2px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.listHint {
+  margin: 0;
+  color: var(--admin-ink-soft);
+}
+
+.muted {
+  color: var(--admin-ink-soft);
+}
+
+.detailPanel {
+  display: grid;
+  gap: 20px;
+}
+
+.detailHeader {
+  display: grid;
+  gap: 16px;
+}
+
+.detailIdentity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.detailTitle {
+  margin: 0 !important;
+}
+
+.detailStats {
+  margin-bottom: 4px;
+}
+
+.detailDescriptions :global(.ant-descriptions-item-label) {
+  width: 140px;
+}
+
+.locationBlock {
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 1280px) {
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .detailIdentity {
+    align-items: flex-start;
+  }
+}

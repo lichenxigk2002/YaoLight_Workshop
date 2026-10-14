@@ -1,0 +1,29 @@
+# 用户端 + 管理端同镜像，同域名：/ 用户端，/admin 管理端
+# 构建上下文为仓库根目录
+
+# ---------- 用户端 ----------
+FROM node:20-alpine AS user-builder
+WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=4096
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci
+COPY frontend .
+ENV VITE_BASE_URL=/api
+RUN npm run build
+
+# ---------- 管理端（base /admin/） ----------
+FROM node:20-alpine AS admin-builder
+WORKDIR /app
+ENV NODE_OPTIONS=--max-old-space-size=4096
+COPY admin-frontend/package.json admin-frontend/package-lock.json ./
+RUN npm ci
+COPY admin-frontend .
+RUN npm run build
+
+# ---------- 合并到 Nginx ----------
+FROM nginx:alpine
+COPY --from=user-builder /app/dist /usr/share/nginx/html
+COPY --from=admin-builder /app/dist /usr/share/nginx/html/admin
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

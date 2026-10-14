@@ -1,0 +1,148 @@
+# 测试环境：沿用生产部署结构，但由 test 分支和测试服务器独立使用
+# 在服务器目录创建 .env，设置 GITHUB_OWNER=你的 GitHub 用户名（小写）
+# 镜像地址：ghcr.io/<GITHUB_OWNER>/yaolight-backend:test-latest 等
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-workflow_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-workflow_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  migrate:
+    image: ghcr.io/${GITHUB_OWNER}/yaolight-backend:${IMAGE_TAG:-test-latest}
+    command: ["migrate"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-workflow_db}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      SERVER_MODE: ${SERVER_MODE:-release}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      UPLOAD_PATH: /app/uploads
+      AI_HTTP_PROXY_URL: ${AI_HTTP_PROXY_URL:-}
+      OPENROUTER_PROXY_URL: ${OPENROUTER_PROXY_URL:-}
+      GPT_PROXY_URL: ${GPT_PROXY_URL:-}
+      CLAUDE_PROXY_URL: ${CLAUDE_PROXY_URL:-}
+      GEMINI_PROXY_URL: ${GEMINI_PROXY_URL:-}
+      GROK_PROXY_URL: ${GROK_PROXY_URL:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  backend:
+    image: ghcr.io/${GITHUB_OWNER}/yaolight-backend:${IMAGE_TAG:-test-latest}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-workflow_db}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: ${REDIS_DB:-0}
+      SERVER_PORT: 8080
+      SERVER_MODE: ${SERVER_MODE:-release}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-24}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      UPLOAD_PATH: /app/uploads
+      TENCENT_CLOUD_MAIL_HOST: ${TENCENT_CLOUD_MAIL_HOST:-gz-smtp.qcloudmail.com}
+      TENCENT_CLOUD_MAIL_PORT: ${TENCENT_CLOUD_MAIL_PORT:-465}
+      TENCENT_CLOUD_MAIL_USERNAME: ${TENCENT_CLOUD_MAIL_USERNAME:-}
+      TENCENT_CLOUD_MAIL_PASSWORD: ${TENCENT_CLOUD_MAIL_PASSWORD:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GEMINI_MAX_TOKENS: ${GEMINI_MAX_TOKENS:-65536}
+      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-}
+      GEMINI_STORYBOARD_MAX_TOKENS: ${GEMINI_STORYBOARD_MAX_TOKENS:-65536}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-}
+      OPENAI_MAX_CONTEXT_CHARS: ${OPENAI_MAX_CONTEXT_CHARS:-400000}
+      OPENAI_MAX_OUTPUT_TOKENS: ${OPENAI_MAX_OUTPUT_TOKENS:-128000}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DOUBAO_API_KEY: ${DOUBAO_API_KEY:-}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
+      ZHIPUAI_API_KEY: ${ZHIPUAI_API_KEY:-}
+      TOKENHUB_API_KEY: ${TOKENHUB_API_KEY:-}
+      SPARK_API_PASSWORD: ${SPARK_API_PASSWORD:-}
+      AI_HTTP_PROXY_URL: ${AI_HTTP_PROXY_URL:-}
+      OPENROUTER_PROXY_URL: ${OPENROUTER_PROXY_URL:-}
+      GPT_PROXY_URL: ${GPT_PROXY_URL:-}
+      CLAUDE_PROXY_URL: ${CLAUDE_PROXY_URL:-}
+      GEMINI_PROXY_URL: ${GEMINI_PROXY_URL:-}
+      GROK_PROXY_URL: ${GROK_PROXY_URL:-}
+      ALIPAY_APP_ID: ${ALIPAY_APP_ID:-}
+      ALIPAY_PID: ${ALIPAY_PID:-}
+      ALIPAY_GATEWAY: ${ALIPAY_GATEWAY:-}
+      ALIPAY_SIGN_TYPE: ${ALIPAY_SIGN_TYPE:-RSA2}
+      ALIPAY_CHARSET: ${ALIPAY_CHARSET:-utf-8}
+      ALIPAY_FORMAT: ${ALIPAY_FORMAT:-JSON}
+      ALIPAY_PRIVATE_KEY: ${ALIPAY_PRIVATE_KEY:-}
+      ALIPAY_PUBLIC_KEY: ${ALIPAY_PUBLIC_KEY:-}
+      ALIPAY_NOTIFY_URL: ${ALIPAY_NOTIFY_URL:-}
+      ALIPAY_RETURN_URL: ${ALIPAY_RETURN_URL:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      COS_ENABLED: ${COS_ENABLED:-false}
+      COS_BUCKET: ${COS_BUCKET:-}
+      COS_REGION: ${COS_REGION:-}
+      COS_SECRET_ID: ${COS_SECRET_ID:-}
+      COS_SECRET_KEY: ${COS_SECRET_KEY:-}
+      COS_PUBLIC_BASE_URL: ${COS_PUBLIC_BASE_URL:-}
+    volumes:
+      - backend_uploads:/app/uploads
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  frontend:
+    image: ghcr.io/${GITHUB_OWNER}/yaolight-frontend:${IMAGE_TAG:-test-latest}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:

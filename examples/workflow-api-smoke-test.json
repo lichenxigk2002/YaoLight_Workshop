@@ -1,0 +1,127 @@
+{
+  "version": "1.0.0",
+  "name": "Apifox 外部 API 冒烟测试工作流",
+  "description": "最小 Workflow API 示例：外部请求进入 api_input start 节点，直接从 api_output output 节点返回。",
+  "exportedAt": "2026-04-21T00:00:00.000Z",
+  "nodes": [
+    {
+      "id": "start-api",
+      "type": "start",
+      "position": {
+        "x": 80,
+        "y": 120
+      },
+      "data": {
+        "label": "API 输入",
+        "config": {
+          "inputMode": "api_input",
+          "inputDataType": "json",
+          "inputData": "{\"message\":\"hello from default input\"}"
+        },
+        "type": "start",
+        "connectionDirection": "vertical"
+      }
+    },
+    {
+      "id": "output-api",
+      "type": "output",
+      "position": {
+        "x": 420,
+        "y": 120
+      },
+      "data": {
+        "label": "API 响应",
+        "config": {
+          "outputMode": "api_output",
+          "format": "json",
+          "destination": "file",
+          "responsePath": "",
+          "fileName": "workflow-api-smoke-test.json"
+        },
+        "type": "output",
+        "connectionDirection": "vertical"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-start-api-output-api",
+      "source": "start-api",
+      "target": "output-api"
+    }
+  ],
+  "commentCards": [],
+  "apiPublishGuide": {
+    "publishEndpoint": {
+      "name": "Apifox Smoke Test",
+      "slug": "apifox-smoke-test",
+      "description": "Apifox 外部调用测试接口",
+      "status": "published",
+      "responseMode": "wait",
+      "resultMode": "json",
+      "exposeArtifacts": "none",
+      "waitTimeoutSeconds": 15,
+      "requestSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "requestExample": {
+        "input": {
+          "message": "hello from apifox",
+          "name": "YaoLight"
+        },
+        "responseMode": "wait"
+      },
+      "responseExample": {
+        "requestId": "example-request-id",
+        "status": "completed",
+        "result": {
+          "message": "hello from apifox",
+          "name": "YaoLight"
+        }
+      }
+    },
+    "createKey": {
+      "name": "Apifox Test Key"
+    },
+    "apifoxInvoke": {
+      "method": "POST",
+      "url": "http://localhost:8080/open-api/v1/workflows/apifox-smoke-test/invoke",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-API-Key": "<createKey 返回的 key，只显示一次>"
+      },
+      "body": {
+        "input": {
+          "message": "hello from apifox",
+          "name": "YaoLight"
+        },
+        "responseMode": "wait"
+      }
+    }
+  }
+}

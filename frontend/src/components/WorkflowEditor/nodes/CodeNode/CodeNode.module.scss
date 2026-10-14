@@ -1,0 +1,10 @@
+.nodeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nodeInfoItem {
+  font-size: 12px;
+  color: var(--text-secondary);
+}

@@ -1,0 +1,162 @@
+// 主题变量定义
+@use 'sass:map';
+@use 'sass:string';
+
+// 亮色主题
+$light-theme: (
+  // 背景色
+  'bg-primary': #ffffff,
+  'bg-secondary': #f5f5f5,
+  'bg-tertiary': #f0f2f5,
+
+  // 文字颜色
+  'text-primary': #000000,
+  'text-secondary': #333333,
+  'text-tertiary': #666666,
+  'text-disabled': #999999,
+
+  // 边框颜色
+  'border-primary': #d9d9d9,
+  'border-secondary': #e8e8e8,
+
+  // 阴影
+  'shadow-sm': rgba(0, 0, 0, 0.1),
+  'shadow-md': rgba(0, 0, 0, 0.15),
+  'shadow-lg': rgba(0, 0, 0, 0.2),
+
+  // 主色调（黑白风格）
+  'primary': #000000,
+  'primary-hover': #333333,
+  'primary-active': #000000,
+
+  // 成功/警告/错误
+  'success': #52c41a,
+  'warning': #faad14,
+  'error': #ff4d4f,
+
+  // 节点颜色
+  'node-bg': #ffffff,
+  'node-border': #d9d9d9,
+  'node-selected': #000000,
+
+  'alkaid-bg-0': #f7f5f1,
+  'alkaid-bg-1': #ffffff,
+  'alkaid-bg-2': #f3f0ea,
+  'alkaid-surface-0': rgba(0, 0, 0, 0.03),
+  'alkaid-surface-1': rgba(0, 0, 0, 0.06),
+  'alkaid-stroke-0': rgba(0, 0, 0, 0.08),
+  'alkaid-stroke-1': rgba(0, 0, 0, 0.14),
+  'alkaid-text-0': rgba(0, 0, 0, 0.9),
+  'alkaid-text-1': rgba(0, 0, 0, 0.66),
+  'alkaid-text-2': rgba(0, 0, 0, 0.48),
+  'alkaid-text-inv': rgba(255, 255, 255, 0.95),
+  'alkaid-accent-0': #111111,
+  'alkaid-accent-1': #000000,
+  'alkaid-accent-2': rgba(0, 0, 0, 0.06),
+  'alkaid-glow-0': string.unquote('0 0 0 1px rgba(0, 0, 0, 0.08), 0 12px 28px rgba(0, 0, 0, 0.08)'),
+  'alkaid-danger-0': #ff4d6d,
+  'alkaid-warn-0': #ffb020,
+  'alkaid-ok-0': #2ee59d,
+  'alkaid-r-8': 8px,
+  'alkaid-r-12': 12px,
+  'alkaid-r-16': 16px,
+  'alkaid-shadow-0': string.unquote('0 1px 0 rgba(0, 0, 0, 0.03), 0 18px 40px rgba(0, 0, 0, 0.12)'),
+  'alkaid-shadow-1': string.unquote('0 1px 0 rgba(0, 0, 0, 0.04), 0 28px 60px rgba(0, 0, 0, 0.16)'),
+  'alkaid-ease-out': cubic-bezier(0.16, 1, 0.3, 1),
+  'alkaid-dur-1': 120ms,
+  'alkaid-dur-2': 180ms,
+  'alkaid-dur-3': 240ms,
+);
+
+// 暗色主题
+$dark-theme: (
+  // 背景色
+  'bg-primary': #141414,
+  'bg-secondary': #1f1f1f,
+  'bg-tertiary': #262626,
+
+  // 文字颜色
+  'text-primary': #ffffff,
+  'text-secondary': #d9d9d9,
+  'text-tertiary': #bfbfbf,
+  'text-disabled': #8c8c8c,
+
+  // 边框颜色
+  'border-primary': #434343,
+  'border-secondary': #303030,
+
+  // 阴影
+  'shadow-sm': rgba(0, 0, 0, 0.3),
+  'shadow-md': rgba(0, 0, 0, 0.4),
+  'shadow-lg': rgba(0, 0, 0, 0.5),
+
+  // 主色调（黑白风格）
+  'primary': #ffffff,
+  'primary-hover': #e0e0e0,
+  'primary-active': #ffffff,
+
+  // 成功/警告/错误
+  'success': #52c41a,
+  'warning': #faad14,
+  'error': #ff4d4f,
+
+  // 节点颜色
+  'node-bg': #1f1f1f,
+  'node-border': #434343,
+  'node-selected': #ffffff,
+
+  'alkaid-bg-0': #171717,
+  'alkaid-bg-1': #1c1c1c,
+  'alkaid-bg-2': #242424,
+  'alkaid-surface-0': rgba(255, 255, 255, 0.04),
+  'alkaid-surface-1': rgba(255, 255, 255, 0.07),
+  'alkaid-stroke-0': rgba(255, 255, 255, 0.08),
+  'alkaid-stroke-1': rgba(255, 255, 255, 0.14),
+  'alkaid-text-0': rgba(255, 255, 255, 0.92),
+  'alkaid-text-1': rgba(255, 255, 255, 0.7),
+  'alkaid-text-2': rgba(255, 255, 255, 0.5),
+  'alkaid-text-inv': rgba(0, 0, 0, 0.9),
+  'alkaid-accent-0': #f2f2f2,
+  'alkaid-accent-1': #ffffff,
+  'alkaid-accent-2': rgba(255, 255, 255, 0.08),
+  'alkaid-glow-0': string.unquote('0 0 0 1px rgba(255, 255, 255, 0.12), 0 14px 30px rgba(0, 0, 0, 0.45)'),
+  'alkaid-danger-0': #ff4d6d,
+  'alkaid-warn-0': #ffb020,
+  'alkaid-ok-0': #2ee59d,
+  'alkaid-r-8': 8px,
+  'alkaid-r-12': 12px,
+  'alkaid-r-16': 16px,
+  'alkaid-shadow-0': string.unquote('0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 40px rgba(0, 0, 0, 0.55)'),
+  'alkaid-shadow-1': string.unquote('0 1px 0 rgba(255, 255, 255, 0.05), 0 28px 60px rgba(0, 0, 0, 0.65)'),
+  'alkaid-ease-out': cubic-bezier(0.16, 1, 0.3, 1),
+  'alkaid-dur-1': 120ms,
+  'alkaid-dur-2': 180ms,
+  'alkaid-dur-3': 240ms,
+);
+
+// 主题映射
+$themes: (
+  'light': $light-theme,
+  'dark': $dark-theme,
+);
+
+// 获取主题颜色函数
+@function theme-color($key) {
+  $theme-map: map.get($themes, 'light');
+
+  @if (string.index($key, 'dark-') == 1) {
+    $theme-map: map.get($themes, 'dark');
+    $key: string.slice($key, 6);
+  }
+
+  @return map.get($theme-map, $key);
+}
+
+// Mixin: 应用主题
+@mixin theme($theme-name: 'light') {
+  $theme-map: map.get($themes, $theme-name);
+
+  @each $key, $value in $theme-map {
+    --#{$key}: #{$value};
+  }
+}
